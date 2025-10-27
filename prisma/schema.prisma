@@ -1,0 +1,520 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// ===== ADMIN USERS =====
+model AdminUser {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  name      String
+  password  String    // Hashed password
+  role      AdminRole @default(ADMIN)
+  isActive  Boolean   @default(true)
+  lastLogin DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("admin_users")
+}
+
+// ===== PRODUCTS =====
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  image       String?
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  
+  products    Product[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("categories")
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  slug        String   @unique
+  
+  // Pricing
+  price       Float
+  compareAtPrice Float?
+  
+  // Categorization
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  
+  // Media
+  images      String   // JSON array of image URLs
+  
+  // Product details
+  materials   String?
+  careGuide   String?
+  
+  // Limited Edition Drop
+  isLimitedEdition Boolean @default(false)
+  releaseDate      DateTime?
+  dropEndDate      DateTime?
+  maxQuantity      Int?
+  
+  // Status
+  isActive    Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  
+  // Relationships
+  variants       ProductVariant[]
+  orderItems     OrderItem[]
+  cartItems      CartItem[]
+  collections    CollectionProduct[]
+  dropNotifications DropNotification[]
+  cartReservations  CartReservation[]
+  reviews        Review[]
+  wishlistItems  WishlistItem[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("products")
+}
+
+model Collection {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  image       String?
+  
+  // Status
+  isActive    Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  
+  // Relationships
+  products    CollectionProduct[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("collections")
+}
+
+model CollectionProduct {
+  id           String     @id @default(cuid())
+  collectionId String
+  productId    String
+  sortOrder    Int        @default(0)
+  
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([collectionId, productId])
+  @@map("collection_products")
+}
+
+model ProductVariant {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  // Variant details
+  sku       String  @unique
+  size      String?
+  color     String?
+  colorHex  String? // Hex color code for visual swatch (e.g., "#FF5733")
+  images    String? // JSON array of image URLs specific to this variant
+  
+  // Pricing (can override product price)
+  price     Float?
+  
+  // Inventory
+  inventory Int     @default(0)
+  
+  // Status
+  isActive  Boolean @default(true)
+  
+  // Relationships
+  orderItems OrderItem[]
+  cartItems  CartItem[]
+  cartReservations CartReservation[]
+  wishlistItems WishlistItem[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("product_variants")
+}
+
+// ===== CUSTOMERS =====
+model Customer {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String?   // Hashed password for authentication
+  name          String?
+  phone         String?
+  isAdmin       Boolean   @default(false) // Admin access flag
+  
+  // Profile
+  birthday      DateTime?
+  
+  // Marketing preferences
+  newsletter    Boolean   @default(false)
+  smsOptIn      Boolean   @default(false)
+  
+  // CRM Tracking (auto-calculated)
+  totalSpent    Float     @default(0)      // Lifetime value
+  totalOrders   Int       @default(0)      // Order count
+  lastOrderDate DateTime?                  // Last purchase date
+  avgOrderValue Float     @default(0)      // Average order value
+  
+  // Relationships
+  orders        Order[]
+  addresses     Address[]
+  cartItems     CartItem[]
+  reviews       Review[]
+  wishlistItems WishlistItem[]
+  notes         CustomerNote[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("customers")
+}
+
+model CustomerNote {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // Note content
+  content    String   // Markdown supported
+  
+  // Author
+  authorId   String   // AdminUser ID
+  authorName String   // Snapshot of admin name
+  
+  // Metadata
+  isImportant Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([customerId])
+  @@map("customer_notes")
+}
+
+model Address {
+  id         String      @id @default(cuid())
+  customerId String
+  customer   Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // Address details
+  firstName  String
+  lastName   String
+  company    String?
+  address1   String
+  address2   String?
+  city       String
+  state      String
+  postalCode String
+  country    String      @default("US")
+  
+  // Metadata
+  isDefault  Boolean     @default(false)
+  type       AddressType @default(SHIPPING)
+  
+  // Relationships
+  shippingOrders Order[] @relation("ShippingAddress")
+  billingOrders  Order[] @relation("BillingAddress")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("addresses")
+}
+
+// ===== ORDERS =====
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber String      @unique
+  
+  // Customer
+  customerId  String?
+  customer    Customer?   @relation(fields: [customerId], references: [id])
+  
+  // Status
+  status      OrderStatus @default(PENDING)
+  
+  // Pricing
+  subtotal    Float
+  shipping    Float
+  tax         Float
+  total       Float
+  
+  // Customer info (for guest checkout)
+  customerEmail String
+  customerPhone String?
+  
+  // Addresses
+  shippingAddressId String
+  shippingAddress   Address @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
+  billingAddressId  String
+  billingAddress    Address @relation("BillingAddress", fields: [billingAddressId], references: [id])
+  
+  // Payment
+  paymentMethod String?
+  paymentStatus PaymentStatus @default(PENDING)
+  
+  // Fulfillment
+  shippingMethod    String?
+  trackingNumber    String?
+  trackingUrl       String? // URL to carrier's tracking page
+  carrier           String? // USPS, FedEx, UPS, DHL
+  shippedAt         DateTime?
+  estimatedDelivery DateTime?
+  deliveredAt       DateTime?
+  
+  // Items
+  items OrderItem[]
+  
+  // Reviews
+  reviews Review[]
+  
+  // Notes
+  notes         String?
+  internalNotes String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  // Product reference
+  productId        String
+  product          Product        @relation(fields: [productId], references: [id])
+  productVariantId String?
+  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id])
+  
+  // Order details
+  quantity  Int
+  price     Float // Price at time of purchase
+  
+  // Product snapshot
+  productName    String
+  productImage   String?
+  variantDetails String? // JSON for size, color, etc
+  
+  @@map("order_items")
+}
+
+// ===== SHOPPING CART =====
+model CartItem {
+  id        String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  productId        String
+  product          Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productVariantId String?
+  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  
+  quantity  Int
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([customerId, productId, productVariantId])
+  @@map("cart_items")
+}
+
+// ===== WISHLIST =====
+model WishlistItem {
+  id        String   @id @default(cuid())
+  
+  // Customer reference (optional for guest wishlists via session)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // Session ID for guest users
+  sessionId String?
+  
+  // Product reference
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  // Optional variant (e.g., specific size/color preference)
+  productVariantId String?
+  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  
+  // Notes (optional - "for anniversary", etc.)
+  notes String?
+  
+  // Priority (for sorting within wishlist)
+  priority Int @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([customerId, productId, productVariantId])
+  @@unique([sessionId, productId, productVariantId])
+  @@index([customerId])
+  @@index([sessionId])
+  @@map("wishlist_items")
+}
+
+// ===== LIMITED DROP FEATURES =====
+model DropNotification {
+  id        String   @id @default(cuid())
+  email     String
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  // Notification status
+  notified  Boolean  @default(false)
+  notifiedAt DateTime?
+  
+  // Metadata
+  source    String?  // "homepage", "product_page", etc.
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([email, productId])
+  @@index([productId, notified])
+  @@map("drop_notifications")
+}
+
+model CartReservation {
+  id        String   @id @default(cuid())
+  
+  // Session tracking
+  sessionId String   // Anonymous or user session
+  
+  // Product details
+  productId        String
+  product          Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productVariantId String?
+  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  
+  // Reservation details
+  quantity  Int
+  expiresAt DateTime // Typically 10-15 minutes from creation
+  
+  // Status
+  isActive  Boolean  @default(true) // False when completed or expired
+  
+  createdAt DateTime @default(now())
+  
+  @@index([productVariantId, isActive, expiresAt])
+  @@index([sessionId])
+  @@map("cart_reservations")
+}
+
+// ===== REVIEWS =====
+model Review {
+  id        String   @id @default(cuid())
+  
+  // Product reference
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  // Customer reference (optional for guest reviews)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  
+  // Order reference (for verified purchases)
+  orderId    String?
+  order      Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  
+  // Review content
+  rating     Int      // 1-5 stars
+  title      String?
+  comment    String
+  images     String?  // JSON array of image URLs
+  
+  // Customer info (for guest reviews)
+  customerName  String
+  customerEmail String
+  
+  // Status
+  status        ReviewStatus @default(PENDING)
+  isVerified    Boolean      @default(false) // Verified purchase
+  
+  // Moderation
+  moderatedBy   String?      // Admin user ID
+  moderatedAt   DateTime?
+  rejectionReason String?
+  
+  // Admin reply
+  adminReply    String?
+  adminReplyBy  String?      // Admin user ID who replied
+  adminReplyAt  DateTime?
+  
+  // Helpful votes
+  helpfulCount     Int @default(0)
+  notHelpfulCount  Int @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([productId, status])
+  @@index([customerId])
+  @@map("reviews")
+}
+
+// ===== ENUMS =====
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FLAGGED
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum AddressType {
+  SHIPPING
+  BILLING
+  BOTH
+}
