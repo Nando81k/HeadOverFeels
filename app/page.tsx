@@ -11,6 +11,9 @@ import { prisma } from '@/lib/prisma'
 import { getActiveDrop, getDropStatus } from '@/lib/drops'
 import { Package, Truck, Shield, Heart } from 'lucide-react'
 
+// Force dynamic rendering (no prerendering during build)
+export const dynamic = 'force-dynamic';
+
 // Helper function to get best sellers
 async function getBestSellers(limit: number = 6) {
   // Get products with most order items (completed orders only)

@@ -17,6 +17,9 @@ import { SegmentBadge } from '@/components/admin/SegmentBadge';
 import { CustomerStatsCard } from '@/components/admin/CustomerStatsCard';
 import { CustomerNotes } from '@/components/admin/CustomerNotes';
 
+// Force dynamic rendering (no prerendering during build)
+export const dynamic = 'force-dynamic';
+
 interface PageProps {
   params: Promise<{
     id: string;
