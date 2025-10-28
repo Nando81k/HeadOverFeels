@@ -7,6 +7,9 @@ import ExportHistory from "@/components/admin/ExportHistory";
 import RefreshButton from "@/components/admin/RefreshButton";
 import AnalyticsPreview from "@/components/admin/AnalyticsPreview";
 
+// Force dynamic rendering (no prerendering during build)
+export const dynamic = 'force-dynamic';
+
 // Helper function to format currency
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', {
