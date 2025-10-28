@@ -10,10 +10,10 @@ import { calculateCustomerSegment } from '@/lib/customer-segments';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     
     // Fetch customer with orders and notes
     const customer = await prisma.customer.findUnique({

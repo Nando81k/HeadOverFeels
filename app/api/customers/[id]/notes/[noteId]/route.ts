@@ -10,10 +10,10 @@ import { prisma } from '@/lib/prisma';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string; noteId: string } }
+  { params }: { params: Promise<{ id: string; noteId: string }> }
 ) {
   try {
-    const { id: customerId, noteId } = params;
+    const { id: customerId, noteId } = await params;
     const body = await request.json();
     const { content, isImportant } = body;
     
@@ -49,10 +49,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; noteId: string } }
+  { params }: { params: Promise<{ id: string; noteId: string }> }
 ) {
   try {
-    const { id: customerId, noteId } = params;
+    const { id: customerId, noteId } = await params;
     
     // Delete note
     await prisma.customerNote.delete({

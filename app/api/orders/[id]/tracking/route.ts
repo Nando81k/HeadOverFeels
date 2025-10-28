@@ -7,11 +7,12 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 // GET /api/orders/[id]/tracking - Get tracking information
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         id: true,
         orderNumber: true,
@@ -65,9 +66,10 @@ export async function GET(
 // PATCH /api/orders/[id]/tracking - Update tracking information
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json()
     const { trackingNumber, carrier, estimatedDelivery, sendEmail } = body
 
@@ -81,7 +83,7 @@ export async function PATCH(
 
     // Get current order to check if tracking is being added for first time
     const currentOrder = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         trackingNumber: true,
         customerEmail: true,
@@ -101,7 +103,7 @@ export async function PATCH(
 
     // Update order with tracking information
     const updatedOrder = await prisma.order.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         trackingNumber,
         carrier,

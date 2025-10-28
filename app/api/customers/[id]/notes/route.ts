@@ -21,10 +21,10 @@ async function getCurrentAdmin() {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: customerId } = params;
+    const { id: customerId } = await params;
     const body = await request.json();
     const { content, isImportant = false } = body;
     
@@ -65,10 +65,10 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: customerId } = params;
+    const { id: customerId } = await params;
     
     const notes = await prisma.customerNote.findMany({
       where: { customerId },
