@@ -206,7 +206,7 @@ export async function PATCH(
                         ${updatedOrder.shippingAddress.firstName} ${updatedOrder.shippingAddress.lastName}<br>
                         ${updatedOrder.shippingAddress.address1}<br>
                         ${updatedOrder.shippingAddress.address2 ? `${updatedOrder.shippingAddress.address2}<br>` : ''}
-                        ${updatedOrder.shippingAddress.city}, ${updatedOrder.shippingAddress.state} ${updatedOrder.shippingAddress.zipCode}
+                        ${updatedOrder.shippingAddress.city}, ${updatedOrder.shippingAddress.state} ${updatedOrder.shippingAddress.postalCode}
                       </p>
                     </div>
 
