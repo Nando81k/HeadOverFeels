@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Resend } from 'resend'
+import type { Order, OrderItem, Product, Address } from '@prisma/client'
+
+type OrderWithDetails = Order & {
+  items: (OrderItem & { product: Pick<Product, 'name'> })[]
+  shippingAddress: Address
+}
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -123,7 +129,7 @@ export async function PATCH(
         },
         shippingAddress: true,
       },
-    })
+    }) as OrderWithDetails // Type assertion to work around Prisma include type inference issue
 
     // Send tracking email if requested
     if (sendEmail && isFirstTimeTracking) {
