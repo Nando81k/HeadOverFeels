@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -10,7 +10,7 @@ import { ProductCard } from '@/components/products/ProductCard'
 import { ProductFilters, FilterState } from '@/components/products/ProductFilters'
 import { Loader2, SlidersHorizontal, ArrowRight } from 'lucide-react'
 
-export default function ProductsPage() {
+function ProductsContent() {
   const searchParams = useSearchParams()
   const searchQuery = searchParams.get('search') || ''
   const categorySlug = searchParams.get('category') || ''
@@ -300,5 +300,17 @@ export default function ProductsPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#FF3131]" />
+      </div>
+    }>
+      <ProductsContent />
+    </Suspense>
   )
 }
