@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { Heart } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import Image from 'next/image'
+import { useWishlistStore } from '@/lib/store/wishlist'
 
 interface WishlistButtonProps {
   productId: string
@@ -17,11 +18,20 @@ export function WishlistButton({
   productVariantId,
   size = 'md',
   customerId,
-  initialIsInWishlist = false,
   onToggle
 }: WishlistButtonProps) {
-  const [isInWishlist, setIsInWishlist] = useState(initialIsInWishlist)
   const [isLoading, setIsLoading] = useState(false)
+  const { isInWishlist, addToWishlist, removeFromWishlist, loadWishlist, isLoaded } = useWishlistStore()
+  
+  // Check if item is in wishlist
+  const inWishlist = isInWishlist(productId, productVariantId)
+
+  // Load wishlist on mount if not already loaded
+  useEffect(() => {
+    if (!isLoaded) {
+      loadWishlist()
+    }
+  }, [isLoaded, loadWishlist])
 
   const sizes = {
     sm: 'h-8 w-8',
@@ -30,53 +40,25 @@ export function WishlistButton({
   }
 
   const iconSizes = {
-    sm: 16,
-    md: 20,
-    lg: 24
+    sm: 32,
+    md: 40,
+    lg: 48
   }
 
   const handleToggle = async () => {
     setIsLoading(true)
 
     try {
-      if (isInWishlist) {
-        // Remove from wishlist - need to find the wishlist item ID first
-        const response = await fetch(`/api/wishlist?customerId=${customerId || ''}`)
-        const { data } = await response.json()
-        
-        const item = data?.find((item: { productId: string; productVariantId?: string | null }) => 
-          item.productId === productId && 
-          (productVariantId ? item.productVariantId === productVariantId : !item.productVariantId)
-        )
-
-        if (item) {
-          await fetch(`/api/wishlist/${item.id}`, {
-            method: 'DELETE'
-          })
+      if (inWishlist) {
+        // Remove from wishlist
+        const success = await removeFromWishlist(productId, productVariantId)
+        if (success) {
+          onToggle?.(false)
         }
-
-        setIsInWishlist(false)
-        onToggle?.(false)
       } else {
         // Add to wishlist
-        const response = await fetch('/api/wishlist', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            productId,
-            productVariantId,
-            customerId
-          })
-        })
-
-        if (response.ok) {
-          setIsInWishlist(true)
-          onToggle?.(true)
-        } else if (response.status === 409) {
-          // Already in wishlist
-          setIsInWishlist(true)
+        const success = await addToWishlist(productId, productVariantId, customerId)
+        if (success) {
           onToggle?.(true)
         }
       }
@@ -98,19 +80,44 @@ export function WishlistButton({
         border-2
         transition-all
         disabled:opacity-50
-        ${isInWishlist 
-          ? 'bg-red-500 border-red-500 text-white hover:bg-red-600' 
-          : 'bg-white border-gray-300 text-gray-600 hover:border-red-500 hover:text-red-500'
+        group
+        relative
+        ${inWishlist 
+          ? 'bg-red-500 border-red-500 hover:bg-red-600' 
+          : 'bg-white border-gray-300 hover:border-red-500'
         }
       `}
-      aria-label={isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
-      title={isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+      aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+      title={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
     >
-      <Heart
-        size={iconSizes[size]}
-        fill={isInWishlist ? 'currentColor' : 'none'}
-        strokeWidth={2}
-      />
+      <div className="relative flex items-center justify-center w-full h-full">
+        <Image
+          src="/assets/wishlist-icon.png"
+          alt="Wishlist"
+          width={iconSizes[size]}
+          height={iconSizes[size]}
+          className={`object-contain transition-opacity duration-300 ${
+            inWishlist 
+              ? 'brightness-0 invert' 
+              : 'brightness-0 group-hover:opacity-0'
+          }`}
+          style={{ maxWidth: '100%', maxHeight: '100%' }}
+        />
+        {!inWishlist && (
+          <Image
+            src="/assets/wishlist-icon.png"
+            alt="Wishlist"
+            width={iconSizes[size]}
+            height={iconSizes[size]}
+            className="object-contain absolute opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+            style={{
+              filter: 'brightness(0) saturate(100%) invert(27%) sepia(98%) saturate(7471%) hue-rotate(357deg) brightness(95%) contrast(118%)',
+              maxWidth: '100%',
+              maxHeight: '100%'
+            }}
+          />
+        )}
+      </div>
     </button>
   )
 }

@@ -1,0 +1,27 @@
+name: Birthday Points Automation
+
+# Runs daily at midnight UTC
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  
+  # Allow manual triggering from GitHub Actions tab
+  workflow_dispatch:
+
+jobs:
+  award-birthday-points:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Award Birthday Points
+        run: |
+          curl -X POST ${{ secrets.SITE_URL }}/api/cron/birthday-points \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -w "\nHTTP Status: %{http_code}\n"
+        
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "Birthday points cron job failed!"
+          # Add notification logic here (Slack, email, etc.)

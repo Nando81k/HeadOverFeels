@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
-import { ChevronDown, ChevronUp } from 'lucide-react'
-import { ProductCard } from '@/components/products/ProductCard'
+import Link from 'next/link'
+import { ChevronDown, ChevronUp, ArrowRight } from 'lucide-react'
+import { CollectionCarousel } from '@/components/collections/CollectionCarousel'
 import { Button } from '@/components/ui/button'
 import { Product } from '@/lib/api/products'
 
@@ -18,62 +18,59 @@ interface CollectionPreviewProps {
 export function CollectionPreview({
   name,
   description,
-  imageUrl,
   products,
   defaultExpanded = false
 }: CollectionPreviewProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   
-  // Show 3 products in preview, all when expanded
-  const previewProducts = products.slice(0, 3)
-  const additionalProducts = products.slice(3)
+  // Show carousel for first 6 products, grid for remaining
+  const carouselProducts = products.slice(0, 6)
+  const additionalProducts = products.slice(6)
   const hasMore = additionalProducts.length > 0
 
   return (
-    <div className="mb-16 last:mb-0">
+    <section className="mb-20 last:mb-0">
       {/* Collection Header */}
       <div className="mb-8">
-        <div className="flex items-start justify-between gap-6 mb-6">
-          <div className="flex-1">
-            <h2 className="text-3xl lg:text-4xl font-bold mb-3 text-[#1A1A1A] tracking-tight uppercase">
+        <div className="flex items-end justify-between mb-4">
+          <div>
+            <h2 className="text-3xl lg:text-5xl font-bold mb-3 text-black tracking-tight uppercase">
               {name}
             </h2>
-            <p className="text-lg text-[#6B6B6B] leading-relaxed max-w-2xl">
+            <p className="text-base lg:text-lg text-gray-600 max-w-3xl">
               {description}
             </p>
-            <div className="mt-4 text-sm text-[#6B6B6B]">
-              {products.length} {products.length === 1 ? 'product' : 'products'}
-            </div>
           </div>
-          
-          {/* Collection Image */}
-          {imageUrl && (
-            <div className="hidden md:block w-48 h-48 rounded-2xl overflow-hidden bg-[#F5F1EB] relative">
-              <Image
-                src={imageUrl}
-                alt={name}
-                fill
-                className="object-cover"
-              />
-            </div>
-          )}
+          <Link
+            href={`/collections/${name.toLowerCase().replace(/\s+/g, '-')}`}
+            className="hidden lg:inline-flex items-center gap-2 text-black hover:text-[#FF3131] transition-colors text-sm font-semibold uppercase tracking-wider"
+          >
+            View All
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+        <div className="flex items-center gap-6">
+          <span className="text-gray-500 text-sm uppercase tracking-wider">
+            {products.length} {products.length === 1 ? 'Product' : 'Products'}
+          </span>
         </div>
       </div>
 
-      {/* Products Grid - Preview */}
+      {/* Products Carousel */}
       {products.length > 0 ? (
         <>
-          <div className="grid md:grid-cols-3 gap-8 mb-8">
-            {previewProducts.map(product => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+          {/* Main Carousel - Shows 2 products at a time */}
+          <div className="mb-12">
+            <CollectionCarousel products={carouselProducts} itemsPerView={2} />
           </div>
 
-          {/* Expanded Products */}
+          {/* Expanded Products Grid */}
           {isExpanded && hasMore && (
-            <div className="grid md:grid-cols-3 gap-8 mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mb-12 animate-in fade-in slide-in-from-top-4 duration-500">
               {additionalProducts.map(product => (
-                <ProductCard key={product.id} product={product} />
+                <div key={product.id}>
+                  <CollectionCarousel products={[product]} itemsPerView={1} />
+                </div>
               ))}
             </div>
           )}
@@ -85,7 +82,7 @@ export function CollectionPreview({
                 variant="outline"
                 size="lg"
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="min-w-[200px]"
+                className="min-w-[240px] border-2 hover:bg-black hover:text-white hover:border-black transition-all duration-300"
               >
                 {isExpanded ? (
                   <>
@@ -95,7 +92,7 @@ export function CollectionPreview({
                 ) : (
                   <>
                     <ChevronDown className="w-5 h-5 mr-2" />
-                    View {additionalProducts.length} More
+                    View {additionalProducts.length} More Products
                   </>
                 )}
               </Button>
@@ -103,14 +100,14 @@ export function CollectionPreview({
           )}
         </>
       ) : (
-        <div className="text-center py-12 bg-[#F5F1EB] rounded-2xl">
-          <p className="text-[#6B6B6B] text-lg">No products in this collection yet</p>
-          <p className="text-[#6B6B6B] text-sm mt-2">Check back soon for new drops!</p>
+        <div className="text-center py-16 bg-gray-50 rounded-3xl">
+          <p className="text-gray-600 text-xl font-medium mb-2">No products in this collection yet</p>
+          <p className="text-gray-500 text-sm">Check back soon for new drops!</p>
         </div>
       )}
 
       {/* Divider */}
-      <div className="mt-12 border-t border-[#E5DDD5]" />
-    </div>
+      <div className="mt-16 border-t border-gray-200" />
+    </section>
   )
 }

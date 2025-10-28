@@ -91,7 +91,8 @@ export async function POST(request: NextRequest) {
             },
           })
 
-          const variant = item.productVariantId
+          // Only fetch variant if productVariantId is provided and not empty
+          const variant = item.productVariantId && item.productVariantId.trim() !== ''
             ? await tx.productVariant.findUnique({
                 where: { id: item.productVariantId },
                 select: {
@@ -106,10 +107,26 @@ export async function POST(request: NextRequest) {
             throw new Error(`Product ${item.productId} not found`)
           }
 
+          // Parse images and extract URL from the first image object
+          let imageUrl: string | null = null
+          if (product.images) {
+            try {
+              const parsedImages = JSON.parse(product.images as string)
+              if (Array.isArray(parsedImages) && parsedImages.length > 0) {
+                imageUrl = parsedImages[0]?.url || null
+              }
+            } catch (error) {
+              console.error('Error parsing product images:', error)
+            }
+          }
+
           return {
             ...item,
+            productVariantId: item.productVariantId && item.productVariantId.trim() !== '' 
+              ? item.productVariantId 
+              : undefined,
             productName: product.name,
-            productImage: product.images ? JSON.parse(product.images as string)[0] : null,
+            productImage: imageUrl,
             variantDetails: variant
               ? JSON.stringify({
                   size: variant.size,
@@ -120,6 +137,33 @@ export async function POST(request: NextRequest) {
           }
         })
       )
+
+      // Log enriched items for debugging
+      console.log('Enriched items before order creation:', JSON.stringify(enrichedItems, null, 2))
+      console.log('Customer ID:', customer.id)
+      console.log('Shipping Address ID:', shippingAddress.id)
+      console.log('Billing Address ID:', billingAddress.id)
+
+      // Validate that all productIds exist
+      for (const item of enrichedItems) {
+        const productExists = await tx.product.findUnique({
+          where: { id: item.productId },
+          select: { id: true, name: true }
+        })
+        if (!productExists) {
+          throw new Error(`Product ${item.productId} does not exist. Please refresh your cart and try again.`)
+        }
+        
+        if (item.productVariantId) {
+          const variantExists = await tx.productVariant.findUnique({
+            where: { id: item.productVariantId },
+            select: { id: true, size: true, color: true }
+          })
+          if (!variantExists) {
+            throw new Error(`The selected variant for "${productExists.name}" is no longer available. Please remove it from your cart and add it again with an available size/color.`)
+          }
+        }
+      }
 
       // 6. Create order
       const order = await tx.order.create({
@@ -140,7 +184,7 @@ export async function POST(request: NextRequest) {
           items: {
             create: enrichedItems.map((item) => ({
               productId: item.productId,
-              productVariantId: item.productVariantId,
+              productVariantId: item.productVariantId || null,
               quantity: item.quantity,
               price: item.price,
               productName: item.productName,

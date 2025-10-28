@@ -40,6 +40,7 @@ interface Product {
   images: string
   isActive: boolean
   isFeatured: boolean
+  isFeaturedNewArrival?: boolean
   isLimitedEdition?: boolean
   releaseDate?: string | null
   dropEndDate?: string | null
@@ -57,6 +58,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [error, setError] = useState('')
   const [product, setProduct] = useState<Product | null>(null)
   const [collections, setCollections] = useState<Collection[]>([])
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
   const [selectedCollections, setSelectedCollections] = useState<string[]>([])
   
   // Collection creation modal state
@@ -76,8 +78,11 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     price: '',
     compareAtPrice: '',
     category: '',
+    materials: '',
+    careGuide: '',
     isActive: true,
     isFeatured: false,
+    isFeaturedNewArrival: false,
     isLimitedEdition: false,
     releaseDate: '',
     dropEndDate: '',
@@ -108,9 +113,12 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           description: data.description,
           price: data.price.toString(),
           compareAtPrice: data.compareAtPrice?.toString() || '',
-          category: data.category,
+          category: data.categoryId || '',
+          materials: data.materials || '',
+          careGuide: data.careGuide || '',
           isActive: data.isActive,
           isFeatured: data.isFeatured,
+          isFeaturedNewArrival: data.isFeaturedNewArrival || false,
           isLimitedEdition: data.isLimitedEdition || false,
           releaseDate: data.releaseDate ? new Date(data.releaseDate).toISOString().slice(0, 16) : '',
           dropEndDate: data.dropEndDate ? new Date(data.dropEndDate).toISOString().slice(0, 16) : '',
@@ -161,22 +169,30 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     loadProduct()
   }, [id])
 
-  // Load available collections
+  // Load available collections and categories
   useEffect(() => {
-    async function loadCollections() {
+    async function loadData() {
       try {
-        const response = await fetch('/api/collections')
-        if (response.ok) {
-          const data = await response.json()
-          // API returns array directly, not wrapped in data property
-          setCollections(Array.isArray(data) ? data : [])
+        const [collectionsRes, categoriesRes] = await Promise.all([
+          fetch('/api/collections'),
+          fetch('/api/categories')
+        ])
+        
+        if (collectionsRes.ok) {
+          const collectionsData = await collectionsRes.json()
+          setCollections(Array.isArray(collectionsData) ? collectionsData : [])
+        }
+        
+        if (categoriesRes.ok) {
+          const categoriesData = await categoriesRes.json()
+          setCategories(Array.isArray(categoriesData) ? categoriesData : [])
         }
       } catch (error) {
-        console.error('Failed to load collections:', error)
+        console.error('Failed to load collections/categories:', error)
       }
     }
 
-    loadCollections()
+    loadData()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -186,16 +202,32 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
     try {
       const payload = {
-        ...formData,
+        name: formData.name,
+        slug: formData.slug,
+        description: formData.description,
+        materials: formData.materials,
+        careGuide: formData.careGuide,
+        isActive: formData.isActive,
+        isFeatured: formData.isFeatured,
+        isFeaturedNewArrival: formData.isFeaturedNewArrival,
+        isLimitedEdition: formData.isLimitedEdition,
+        categoryId: formData.category || null,
         price: parseFloat(formData.price),
         compareAtPrice: formData.compareAtPrice
           ? parseFloat(formData.compareAtPrice)
           : null,
+        releaseDate: formData.releaseDate || null,
+        dropEndDate: formData.dropEndDate || null,
+        maxQuantity: formData.maxQuantity ? parseInt(formData.maxQuantity) : null,
         images: JSON.stringify(images),
         variants: variants.map((v) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const variant: any = {
-            ...v,
+            sku: v.sku,
+            size: v.size || undefined,
+            color: v.color || undefined,
+            colorHex: v.colorHex || '',
+            images: v.images || undefined,
             inventory: parseInt(v.inventory?.toString() || '0') || 0,
           }
           // Only include price if it has a value
@@ -208,6 +240,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       }
       
       console.log('Sending payload:', payload)
+      console.log('Payload JSON:', JSON.stringify(payload, null, 2))
       console.log('Variants being sent:', payload.variants)
       
       const response = await fetch(`/api/products/${id}`, {
@@ -219,9 +252,13 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       const result = await response.json()
 
       if (!response.ok) {
-        setError(result.error || 'Failed to update product')
+        const errorMsg = result.details 
+          ? `${result.error}: ${typeof result.details === 'string' ? result.details : JSON.stringify(result.details)}`
+          : result.error || 'Failed to update product'
+        setError(errorMsg)
         if (result.details) {
           console.error('Validation errors:', result.details)
+          console.error('Full validation error details:', JSON.stringify(result.details, null, 2))
         }
         return
       }
@@ -429,11 +466,11 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                 className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-black"
               >
                 <option value="">Select a category</option>
-                <option value="tshirts">T-Shirts</option>
-                <option value="hoodies">Hoodies</option>
-                <option value="pants">Pants</option>
-                <option value="accessories">Accessories</option>
-                <option value="outerwear">Outerwear</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -751,6 +788,38 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                 </div>
               </>
             )}
+          </div>
+        </Card>
+
+        {/* Featured Sections */}
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold mb-4">Featured Sections</h2>
+          <p className="text-sm text-gray-600 mb-4">Feature this product in special sections on the home page</p>
+          <div className="space-y-4">
+            <label className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={formData.isFeatured}
+                onChange={(e) =>
+                  setFormData({ ...formData, isFeatured: e.target.checked })
+                }
+                className="w-4 h-4"
+              />
+              <span className="text-sm font-medium">Featured Product (Best Sellers section)</span>
+            </label>
+
+            <label className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={formData.isFeaturedNewArrival}
+                onChange={(e) =>
+                  setFormData({ ...formData, isFeaturedNewArrival: e.target.checked })
+                }
+                className="w-4 h-4"
+              />
+              <span className="text-sm font-medium">New Arrivals Carousel (Hero section)</span>
+            </label>
+            <p className="text-xs text-gray-500">Maximum 10 products will display in the New Arrivals carousel</p>
           </div>
         </Card>
 

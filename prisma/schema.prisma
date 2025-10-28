@@ -74,6 +74,7 @@ model Product {
   // Status
   isActive    Boolean  @default(true)
   isFeatured  Boolean  @default(false)
+  isFeaturedNewArrival Boolean @default(false)
   
   // Relationships
   variants       ProductVariant[]
@@ -182,6 +183,15 @@ model Customer {
   lastOrderDate DateTime?                  // Last purchase date
   avgOrderValue Float     @default(0)      // Average order value
   
+  // Loyalty System
+  loyaltyTierId String?
+  loyaltyTier   LoyaltyTier? @relation(fields: [loyaltyTierId], references: [id])
+  currentPoints Int       @default(0)      // Available "Care Points"
+  lifetimePoints Int      @default(0)      // Total earned ever
+  annualSpend   Float     @default(0)      // Spending this year for tier calc
+  tierStartDate DateTime  @default(now())  // When they joined current tier
+  referredBy    String?                    // Customer ID who referred them
+  
   // Relationships
   orders        Order[]
   addresses     Address[]
@@ -189,6 +199,9 @@ model Customer {
   reviews       Review[]
   wishlistItems WishlistItem[]
   notes         CustomerNote[]
+  pointsTransactions PointsTransaction[]
+  redemptions   RewardRedemption[]
+  referralCode  ReferralCode?
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -294,6 +307,9 @@ model Order {
   
   // Reviews
   reviews Review[]
+  
+  // Loyalty points earned
+  pointsTransactions PointsTransaction[]
   
   // Notes
   notes         String?
@@ -474,6 +490,9 @@ model Review {
   helpfulCount     Int @default(0)
   notHelpfulCount  Int @default(0)
   
+  // Loyalty points
+  pointsTransactions PointsTransaction[]
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
@@ -482,7 +501,188 @@ model Review {
   @@map("reviews")
 }
 
+// ===== LOYALTY & REWARDS SYSTEM =====
+model LoyaltyTier {
+  id          String   @id @default(cuid())
+  name        String   @unique // Head, Heart, Mind, Overdrive
+  slug        String   @unique
+  description String?
+  
+  // Requirements
+  minAnnualSpend Float   @default(0)   // Minimum spending per year
+  isInviteOnly   Boolean @default(false) // For Overdrive tier
+  
+  // Benefits
+  pointMultiplier Float  @default(1.0) // 1x, 1.25x, 1.5x, 2x
+  freeShipping    Boolean @default(false)
+  earlyDropAccess Boolean @default(false)
+  
+  // Special perks (JSON object)
+  perks       String? // JSON: {careBox: true, engravedItem: true, customItem: true}
+  
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
+  
+  customers   Customer[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("loyalty_tiers")
+}
+
+model PointsTransaction {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // Transaction details
+  points      Int      // Can be negative for redemptions
+  type        PointsTransactionType
+  description String
+  
+  // Reference (what triggered this transaction)
+  orderId     String?
+  order       Order?   @relation(fields: [orderId], references: [id])
+  reviewId    String?
+  review      Review?  @relation(fields: [reviewId], references: [id])
+  redemptionId String?
+  redemption  RewardRedemption? @relation(fields: [redemptionId], references: [id])
+  referralId  String?  // ID of referred customer
+  
+  // Expiration (optional for time-limited bonus points)
+  expiresAt   DateTime?
+  isExpired   Boolean   @default(false)
+  
+  // Metadata
+  metadata    String?  // JSON for additional data
+  
+  createdAt DateTime @default(now())
+  
+  @@index([customerId])
+  @@index([orderId])
+  @@index([type])
+  @@map("points_transactions")
+}
+
+model Reward {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  
+  // Cost & Type
+  pointsCost  Int
+  rewardType  RewardType
+  value       Float?   // Dollar value for discounts, null for perks
+  
+  // Availability
+  isActive    Boolean @default(true)
+  maxRedemptionsPerCustomer Int? // Limit redemptions per user
+  totalAvailable Int?             // Limited quantity rewards
+  totalRedeemed  Int @default(0)
+  
+  // Requirements
+  minTierRequired String? // Tier slug (e.g., "heart")
+  
+  // Metadata (for special perks)
+  metadata    String? // JSON: {charityName: "...", productId: "...", dropId: "..."}
+  
+  // Display
+  image       String?
+  sortOrder   Int     @default(0)
+  
+  redemptions RewardRedemption[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("rewards")
+}
+
+model RewardRedemption {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  rewardId    String
+  reward      Reward   @relation(fields: [rewardId], references: [id])
+  
+  // Redemption details
+  pointsSpent Int
+  status      RedemptionStatus @default(PENDING)
+  
+  // For discount/coupon codes
+  couponCode  String?  @unique
+  usedAt      DateTime?
+  orderId     String?  // If used in an order
+  
+  // Fulfillment (for physical perks)
+  trackingNumber String?
+  shippedAt      DateTime?
+  
+  // Metadata
+  metadata    String? // JSON for additional data
+  
+  pointsTransactions PointsTransaction[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([customerId])
+  @@index([rewardId])
+  @@index([couponCode])
+  @@map("reward_redemptions")
+}
+
+model ReferralCode {
+  id          String   @id @default(cuid())
+  customerId  String   @unique
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  code        String   @unique // Unique referral code
+  timesUsed   Int      @default(0)
+  
+  createdAt DateTime @default(now())
+  
+  @@map("referral_codes")
+}
+
 // ===== ENUMS =====
+enum PointsTransactionType {
+  PURCHASE              // 1 point per $1
+  ACCOUNT_CREATION      // +50
+  FIRST_PURCHASE        // +100
+  REVIEW                // +25
+  SOCIAL_FOLLOW         // +50
+  SOCIAL_SHARE          // +50
+  UGC_UPLOAD            // +100-200
+  BIRTHDAY              // +50
+  REFERRAL_GIVE         // +250 to referrer
+  REFERRAL_RECEIVE      // Bonus to referee
+  ADMIN_ADJUSTMENT      // Manual adjustment
+  TIER_BONUS            // Tier upgrade bonus
+  REDEMPTION            // Negative points
+  EXPIRATION            // Points expired
+}
+
+enum RewardType {
+  DISCOUNT              // $ off
+  FREE_SHIPPING         // Waive shipping
+  EARLY_ACCESS          // Drop early access
+  EXCLUSIVE_PRODUCT     // Locked products
+  CHARITY_DONATION      // Donate to mental health charity
+  DIGITAL_CONTENT       // Journal templates, audio, wallpapers
+  PHYSICAL_PERK         // Care box, engraved item, custom embroidery
+}
+
+enum RedemptionStatus {
+  PENDING
+  ACTIVE                // Coupon is active
+  USED                  // Coupon has been used
+  EXPIRED
+  CANCELLED
+  FULFILLED             // For physical perks
+}
 enum ReviewStatus {
   PENDING
   APPROVED

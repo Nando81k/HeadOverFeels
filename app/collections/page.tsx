@@ -62,26 +62,35 @@ export default function CollectionsPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5]">
+    <div className="min-h-screen bg-white">
       <Navigation />
 
-      {/* Hero Section */}
-      <section className="relative py-20 lg:py-28 bg-[#2B2B2B] text-white overflow-hidden">
-        <div className="absolute inset-0 opacity-20">
-          <div className="w-full h-full bg-linear-to-br from-[#8B7355] to-transparent" />
+      {/* Hero Section - Modern */}
+      <section className="relative h-[70vh] min-h-[600px] overflow-hidden">
+        <div className="absolute inset-0 bg-black">
+          <div className="w-full h-full bg-linear-to-br from-[#FF3131]/30 to-[#CDA09B]/20" />
         </div>
-        <div className="relative max-w-7xl mx-auto px-6">
-          <div className="text-center">
-            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full mb-6">
-              <Sparkles className="w-4 h-4" />
-              <span className="text-sm font-medium uppercase tracking-wide">Curated Collections</span>
+        <div className="relative h-full max-w-7xl mx-auto px-6 lg:px-12 flex flex-col justify-center z-10">
+          <div className="max-w-4xl">
+            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-5 py-2 rounded-full mb-8">
+              <Sparkles className="w-5 h-5 text-white" />
+              <span className="text-sm font-semibold uppercase tracking-wider text-white">Curated Collections</span>
             </div>
-            <h1 className="text-5xl lg:text-7xl font-bold mb-6 tracking-tight">
+            <h1 className="text-6xl lg:text-8xl font-bold mb-8 tracking-tight text-white">
               Our Collections
             </h1>
-            <p className="text-xl lg:text-2xl text-white/90 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl lg:text-2xl text-white/90 leading-relaxed mb-8 max-w-3xl">
               Discover our carefully curated streetwear collections, from everyday essentials to exclusive limited drops
             </p>
+            {!loading && collections.length > 0 && (
+              <div className="flex items-center gap-4 text-white/70">
+                <span className="text-sm uppercase tracking-wider">{collections.length} Collections</span>
+                <span className="text-sm">•</span>
+                <span className="text-sm uppercase tracking-wider">
+                  {collections.reduce((sum, c) => sum + c._count.products, 0)} Products
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </section>

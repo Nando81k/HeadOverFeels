@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import ProductRating from '@/components/products/ProductRating'
 import { ReviewList } from '@/components/products/ReviewList'
 import ReviewForm from '@/components/products/ReviewForm'
+import { RelatedProducts } from '@/components/products/RelatedProducts'
 import { ArrowLeft, ShoppingCart, Share2, Loader2, Check } from 'lucide-react'
 
 interface ProductPageProps {
@@ -152,7 +153,7 @@ export default function ProductPage({ params }: ProductPageProps) {
       <Navigation />
       
       {/* Breadcrumb */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-6">
         <Link 
           href="/products"
           className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
@@ -165,9 +166,19 @@ export default function ProductPage({ params }: ProductPageProps) {
       {/* Product Details */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Image Gallery */}
-          <div>
-            <ImageGallery images={images} productName={product.name} />
+          {/* Image Gallery - Sticky on desktop */}
+          <div className="relative">
+            <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)]">
+              <ImageGallery images={images} productName={product.name} />
+              {/* Wishlist Button - Positioned on Image */}
+              <div className="absolute top-4 right-4 z-10">
+                <WishlistButton
+                  productId={product.id}
+                  productVariantId={selectedVariant?.id}
+                  size="lg"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Product Info */}
@@ -258,7 +269,7 @@ export default function ProductPage({ params }: ProductPageProps) {
                   type="number"
                   value={quantity}
                   onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-20 h-10 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                  className="w-12 h-10 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   min="1"
                 />
                 <button
@@ -301,20 +312,13 @@ export default function ProductPage({ params }: ProductPageProps) {
                 Buy Now
               </Button>
 
-              <div className="flex gap-2">
-                <WishlistButton
-                  productId={product.id}
-                  productVariantId={selectedVariant?.id}
-                  size="lg"
-                />
-                <Button
-                  variant="outline"
-                  className="flex-1 flex items-center justify-center gap-2"
-                >
-                  <Share2 className="w-4 h-4" />
-                  Share
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                className="w-full flex items-center justify-center gap-2"
+              >
+                <Share2 className="w-4 h-4" />
+                Share
+              </Button>
             </div>
 
             {/* Additional Info */}
@@ -335,6 +339,14 @@ export default function ProductPage({ params }: ProductPageProps) {
             </div>
           </div>
         </div>
+
+        {/* Related Products Section */}
+        {product && (
+          <RelatedProducts 
+            currentProductId={product.id}
+            limit={4}
+          />
+        )}
 
         {/* Reviews Section */}
         {product && (

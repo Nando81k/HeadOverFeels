@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { awardReviewPoints } from '@/lib/loyalty/service'
 
 // GET /api/reviews/[id] - Get a specific review
 export async function GET(
@@ -118,9 +119,26 @@ export async function PATCH(
             name: true,
             slug: true
           }
+        },
+        customer: {
+          select: {
+            id: true,
+            email: true
+          }
         }
       }
     })
+
+    // Award review points if status changed to APPROVED
+    if (status === 'APPROVED' && existingReview.status !== 'APPROVED' && review.customerId) {
+      try {
+        await awardReviewPoints(review.customerId, review.id)
+        console.log(`Awarded review points for review ${review.id}`)
+      } catch (loyaltyError) {
+        // Log error but don't fail the update
+        console.error(`Failed to award review points for review ${review.id}:`, loyaltyError)
+      }
+    }
 
     return NextResponse.json({
       data: review,

@@ -36,22 +36,32 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Custom scrollbar styling */
+/* Hide scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 0px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--quaternary);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--tertiary);
-  border-radius: 5px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
+  background: transparent;
+}
+
+/* Hide scrollbar for Firefox */
+* {
+  scrollbar-width: none;
+}
+
+/* Hide scrollbar for IE and Edge */
+* {
+  -ms-overflow-style: none;
 }
 
 /* Focus states */
@@ -225,3 +235,27 @@ html {
   opacity: 1;
 }
 
+/* Custom scrollbar for search dropdown */
+.scrollbar-thin::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Firefox scrollbar */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}

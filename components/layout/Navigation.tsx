@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useCartStore } from '@/lib/store/cart'
 import { useAuth } from '@/lib/auth/context'
-import { SearchBar } from '@/components/products/SearchBar'
+import { ModernSearchBar } from '@/components/products/ModernSearchBar'
 import { WishlistIcon } from '@/components/wishlist/WishlistIcon'
 import { ShoppingCart, Search, User, Menu, X, ChevronDown } from 'lucide-react'
 
@@ -16,41 +16,12 @@ export function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
-  const [isVisible, setIsVisible] = useState(true)
-  const lastScrollY = useRef(0)
-  const getTotalItems = useCartStore(state => state.getTotalItems)
+  // Subscribe to cart store updates dynamically
+  const cartItemCount = useCartStore(state => mounted ? state.getTotalItems() : 0)
   const { user, loading: authLoading } = useAuth()
-  
-  const cartItemCount = mounted ? getTotalItems() : 0
 
   useEffect(() => {
     setMounted(true)
-  }, [])
-
-  // Smart scroll behavior
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY
-      
-      // Don't hide if at top of page
-      if (currentScrollY < 10) {
-        setIsVisible(true)
-        lastScrollY.current = currentScrollY
-        return
-      }
-
-      // Hide on scroll down, show on scroll up
-      if (currentScrollY > lastScrollY.current && currentScrollY > 80) {
-        setIsVisible(false)
-      } else if (currentScrollY < lastScrollY.current) {
-        setIsVisible(true)
-      }
-
-      lastScrollY.current = currentScrollY
-    }
-
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
   const navLinks = [
@@ -70,9 +41,7 @@ export function Navigation() {
 
   return (
     <nav 
-      className={`border-b border-[#E5DDD5] bg-[#FAF8F5] fixed top-0 left-0 right-0 z-50 shadow-sm transition-transform duration-300 ${
-        isVisible ? 'translate-y-0' : '-translate-y-full'
-      }`}
+      className="border-b border-[#E5DDD5] bg-[#FAF8F5] fixed top-0 left-0 right-0 z-50 shadow-sm"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative flex items-center justify-between h-24">
@@ -82,10 +51,10 @@ export function Navigation() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`text-xs font-medium tracking-wider transition-all uppercase ${
+                className={`text-xs font-bold tracking-wider transition-all duration-200 uppercase ${
                   isActive(link.href)
-                    ? 'text-[#1A1A1A] font-semibold'
-                    : 'text-[#6B6B6B] hover:text-[#1A1A1A]'
+                    ? 'text-[#1A1A1A] border-b-2 border-[#1A1A1A]'
+                    : 'text-[#6B6B6B] hover:text-[#1A1A1A] hover:border-b-2 hover:border-[#1A1A1A]'
                 }`}
               >
                 {link.label}
@@ -99,7 +68,7 @@ export function Navigation() {
               onMouseLeave={() => setCategoriesOpen(false)}
             >
               <button
-                className="text-xs font-medium tracking-wider transition-all uppercase text-[#6B6B6B] hover:text-[#1A1A1A] flex items-center gap-1"
+                className="text-xs font-bold tracking-wider transition-all duration-200 uppercase text-[#6B6B6B] hover:text-[#1A1A1A] hover:border-b-2 hover:border-[#1A1A1A] flex items-center gap-1"
               >
                 Categories
                 <ChevronDown className="w-3 h-3" />
@@ -112,7 +81,7 @@ export function Navigation() {
                       <Link
                         key={category.href}
                         href={category.href}
-                        className="block px-4 py-2.5 text-sm text-[#1A1A1A] hover:bg-[#F5F1EB] transition-colors"
+                        className="block px-4 py-2.5 text-sm font-semibold text-[#1A1A1A] hover:bg-[#E5DDD5] hover:pl-6 transition-all duration-200"
                         onClick={() => setCategoriesOpen(false)}
                       >
                         {category.name}
@@ -125,22 +94,29 @@ export function Navigation() {
           </div>
 
           {/* Center Logo - Chanel Style */}
-          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity absolute left-1/2 transform -translate-x-1/2">
+          <Link href="/" className="flex items-center gap-3 transition-all duration-300 hover:scale-105 hover:opacity-80 absolute left-1/2 transform -translate-x-1/2">
             <Image
               src="/assets/head-over-feels-logo.png"
               alt="Head Over Feels Logo"
-              width={60}
-              height={60}
+              width={120}
+              height={120}
               className="object-contain"
             />
-            <span className="text-2xl md:text-3xl text-[#1A1A1A]" style={{ fontFamily: "'Harlow Solid Italic', 'Harlow', sans-serif" }}>
+            <span 
+              className="text-3xl md:text-4xl text-[#1A1A1A]" 
+              style={{ 
+                fontFamily: "'Harlow Solid Italic', 'Harlow', sans-serif",
+                WebkitTextStroke: '2px #1A1A1A',
+                WebkitTextFillColor: 'transparent'
+              }}
+            >
               Head Over Feels
             </span>
             <Image
               src="/assets/head-over-feels-logo.png"
               alt="Head Over Feels Logo"
-              width={60}
-              height={60}
+              width={120}
+              height={120}
               className="object-contain"
             />
           </Link>
@@ -153,34 +129,34 @@ export function Navigation() {
           <div className="flex items-center space-x-6 z-10">
             <button 
               onClick={() => setSearchOpen(!searchOpen)}
-              className="text-[#1A1A1A] hover:opacity-70 transition-opacity"
+              className="text-[#1A1A1A] hover:text-[#4A90E2] hover:scale-110 transition-all duration-200"
               aria-label="Search"
             >
-              <Search className="w-5 h-5" />
+              <Search className="w-6 h-6" />
             </button>
             
             {/* Sign In / Profile Link */}
             {!authLoading && (
               <Link
                 href={user ? "/profile" : "/signin"}
-                className="text-[#1A1A1A] hover:opacity-70 transition-opacity hidden md:block"
+                className="text-[#1A1A1A] hover:text-[#4A90E2] hover:scale-110 transition-all duration-200 hidden md:block"
                 aria-label={user ? "Profile" : "Sign In"}
               >
-                <User className="w-5 h-5" />
+                <User className="w-6 h-6" />
               </Link>
             )}
 
             {/* Wishlist Icon */}
-            <WishlistIcon />
+            <WishlistIcon size={48} />
             
             <Link
               href="/cart"
-              className="text-[#1A1A1A] hover:opacity-70 transition-opacity relative"
+              className="text-[#1A1A1A] hover:text-[#4A90E2] hover:scale-110 transition-all duration-200 relative group"
               aria-label="Shopping cart"
             >
-              <ShoppingCart className="w-5 h-5" />
+              <ShoppingCart className="w-6 h-6" />
               {cartItemCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-[#2B2B2B] text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                <span className="absolute -top-2 -right-2 bg-[#2B2B2B] text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center group-hover:bg-[#4A90E2] transition-colors duration-200">
                   {cartItemCount > 99 ? '99+' : cartItemCount}
                 </span>
               )}
@@ -189,7 +165,7 @@ export function Navigation() {
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden text-[#1A1A1A] hover:opacity-70 transition-opacity"
+              className="md:hidden text-[#1A1A1A] hover:scale-110 hover:opacity-70 transition-all duration-200"
               aria-label="Toggle menu"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -206,10 +182,10 @@ export function Navigation() {
                   key={link.href}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`text-base font-medium tracking-wide transition-all uppercase ${
+                  className={`text-base font-bold tracking-wide transition-all duration-200 uppercase ${
                     isActive(link.href)
-                      ? 'text-[#1A1A1A] font-semibold'
-                      : 'text-[#6B6B6B] hover:text-[#1A1A1A]'
+                      ? 'text-[#1A1A1A] border-l-4 border-[#1A1A1A] pl-4'
+                      : 'text-[#6B6B6B] hover:text-[#1A1A1A] hover:border-l-4 hover:border-[#1A1A1A] hover:pl-4'
                   }`}
                 >
                   {link.label}
@@ -219,7 +195,7 @@ export function Navigation() {
                 <Link
                   href={user ? "/profile" : "/signin"}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="text-base font-medium tracking-wide text-[#6B6B6B] hover:text-[#1A1A1A] transition-all uppercase"
+                  className="text-base font-bold tracking-wide text-[#6B6B6B] hover:text-[#1A1A1A] hover:border-l-4 hover:border-[#1A1A1A] hover:pl-4 transition-all duration-200 uppercase"
                 >
                   {user ? 'Profile' : 'Sign In'}
                 </Link>
@@ -230,13 +206,21 @@ export function Navigation() {
 
         {/* Search Bar Overlay */}
         {searchOpen && (
-          <div className="py-6 border-t border-[#E5DDD5] bg-[#F5F1EB]">
-            <SearchBar
-              placeholder="Search for products..."
-              onSearch={() => setSearchOpen(false)}
-              autoFocus
+          <>
+            {/* Backdrop to close search when clicking outside */}
+            <div 
+              className="fixed inset-0 bg-black/20 z-40"
+              onClick={() => setSearchOpen(false)}
             />
-          </div>
+            <div className="relative py-6 border-t border-[#E5DDD5] bg-white z-50">
+              <ModernSearchBar
+                placeholder="Search for products..."
+                onSearch={() => setSearchOpen(false)}
+                onClose={() => setSearchOpen(false)}
+                autoFocus
+              />
+            </div>
+          </>
         )}
       </div>
     </nav>

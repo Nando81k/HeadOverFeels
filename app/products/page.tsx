@@ -3,11 +3,12 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Navigation } from '@/components/layout/Navigation'
 import { productApi, Product } from '@/lib/api/products'
 import { ProductCard } from '@/components/products/ProductCard'
 import { ProductFilters, FilterState } from '@/components/products/ProductFilters'
-import { Loader2, SlidersHorizontal } from 'lucide-react'
+import { Loader2, SlidersHorizontal, ArrowRight } from 'lucide-react'
 
 export default function ProductsPage() {
   const searchParams = useSearchParams()
@@ -136,66 +137,95 @@ export default function ProductsPage() {
     return categoryNames[slug] || 'Products'
   }
 
+  const getCategoryDescription = (slug: string) => {
+    const descriptions: { [key: string]: string } = {
+      'hoodies': 'Stay warm in style with our premium hoodies and sweatshirts. Crafted for comfort and designed to make a statement.',
+      'tees': 'Essential everyday pieces for your streetwear collection. Quality basics that never go out of style.',
+      'accessories': 'Complete your look with our curated accessories. The perfect finishing touches for any outfit.'
+    }
+    return descriptions[slug] || 'Discover our latest collection of premium streetwear pieces designed for authentic expression.'
+  }
+
+  const getCategoryImage = (slug: string) => {
+    const images: { [key: string]: string } = {
+      'hoodies': '/assets/Sweatshirt_hoodie_collection.png',
+      'tees': '/assets/Sweatshirt_hoodie_collection.png', // Update with actual tees image
+      'accessories': '/assets/Sweatshirt_hoodie_collection.png' // Update with actual accessories image
+    }
+    return images[slug] || '/assets/Sweatshirt_hoodie_collection.png'
+  }
+
   const pageTitle = categorySlug 
     ? getCategoryName(categorySlug)
     : 'All Products'
 
+  const pageDescription = getCategoryDescription(categorySlug)
+  const heroImage = getCategoryImage(categorySlug)
+
   return (
-    <div className="min-h-screen bg-[#FAF8F5]">
+    <div className="min-h-screen bg-white">
       <Navigation />
       
-      {/* Simple Header - Comfrt Style */}
-      <div className="bg-[#FAF8F5] border-b border-[#E5DDD5] pt-28">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Hero Section - Full Width */}
+      <section className="relative h-[60vh] lg:h-[70vh] min-h-[500px] overflow-hidden">
+        <div className="absolute inset-0">
+          <Image
+            src={heroImage}
+            alt={pageTitle}
+            fill
+            className="object-cover object-center"
+            priority
+            quality={90}
+          />
+          <div className="absolute inset-0 bg-linear-to-r from-black/80 via-black/60 to-black/40" />
+        </div>
+        
+        <div className="relative h-full max-w-7xl mx-auto px-6 lg:px-12 flex flex-col justify-center z-10">
           {/* Breadcrumb */}
           {categorySlug && (
-            <div className="mb-3">
-              <Link 
-                href="/products" 
-                className="text-sm text-[#6B6B6B] hover:text-[#FF3131] transition-colors"
-              >
-                ← All Products
-              </Link>
-            </div>
+            <Link 
+              href="/products" 
+              className="inline-flex items-center gap-2 text-sm text-white/70 hover:text-white transition-colors mb-6 w-fit"
+            >
+              <span>←</span>
+              <span>All Products</span>
+            </Link>
           )}
           
-          <h1 className="text-3xl md:text-4xl font-bold text-[#2B2B2B] tracking-tight">
+          <h1 className="text-5xl lg:text-7xl font-bold text-white mb-6 tracking-tight max-w-3xl">
             {pageTitle}
           </h1>
           
-          {/* Category description */}
-          {categorySlug && (
-            <p className="mt-2 text-[#6B6B6B]">
-              {categorySlug === 'hoodies' && 'Stay warm in style with our premium hoodies and sweatshirts'}
-              {categorySlug === 'tees' && 'Essential everyday pieces for your streetwear collection'}
-              {categorySlug === 'accessories' && 'Complete your look with our curated accessories'}
-            </p>
-          )}
+          <p className="text-xl lg:text-2xl text-white/90 max-w-2xl leading-relaxed mb-8">
+            {pageDescription}
+          </p>
+
+          <div className="flex items-center gap-4">
+            <span className="text-white/70 text-sm uppercase tracking-wider">
+              {loading ? 'Loading...' : `${filteredProducts.length} ${filteredProducts.length === 1 ? 'Product' : 'Products'}`}
+            </span>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Top Bar: Filters Button + Sort + Results Count */}
-        <div className="flex items-center justify-between mb-8 pb-4 border-b border-[#E5DDD5]">
+      <div className="max-w-7xl mx-auto px-6 lg:px-12 py-12 lg:py-16">
+        {/* Top Bar: Filters Button + Sort */}
+        <div className="flex items-center justify-between mb-10 pb-6 border-b border-gray-200">
           {/* Left: Filters Button */}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#2B2B2B] hover:bg-[#F5F1EB] rounded-lg transition-colors"
+            className="flex items-center gap-3 px-6 py-3 text-sm font-semibold text-white bg-black hover:bg-[#FF3131] rounded-lg transition-all duration-300 transform hover:scale-105"
           >
-            <SlidersHorizontal className="w-4 h-4" />
-            <span>Filters</span>
+            <SlidersHorizontal className="w-5 h-5" />
+            <span>Filter & Sort</span>
           </button>
 
-          {/* Right: Results Count + Sort */}
-          <div className="flex items-center gap-6">
-            <p className="text-sm text-[#6B6B6B]">
-              {loading ? (
-                'Loading...'
-              ) : (
-                `${filteredProducts.length} ${filteredProducts.length === 1 ? 'Product' : 'Products'}`
-              )}
-            </p>
+          {/* Right: View Toggle or Additional Actions */}
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600 font-medium">
+              Showing {loading ? '...' : filteredProducts.length} items
+            </span>
           </div>
         </div>
 
@@ -227,22 +257,41 @@ export default function ProductsPage() {
         <div>
           {/* Loading State */}
           {loading && (
-            <div className="flex justify-center items-center py-32">
-              <Loader2 className="w-10 h-10 animate-spin text-[#6B6B6B]" />
+            <div className="flex flex-col justify-center items-center py-32">
+              <Loader2 className="w-12 h-12 animate-spin text-[#FF3131] mb-4" />
+              <p className="text-gray-600">Loading products...</p>
             </div>
           )}
 
           {/* Empty State */}
           {!loading && filteredProducts.length === 0 && (
-            <div className="text-center py-32">
-              <p className="text-[#2B2B2B] text-xl font-medium mb-2">No products found</p>
-              <p className="text-[#6B6B6B]">Try adjusting your filters or search criteria</p>
+            <div className="text-center py-32 px-6">
+              <div className="max-w-md mx-auto">
+                <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gray-100 flex items-center justify-center">
+                  <SlidersHorizontal className="w-10 h-10 text-gray-400" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">No products found</h3>
+                <p className="text-gray-600 mb-6">Try adjusting your filters or search criteria to find what you&apos;re looking for.</p>
+                <button
+                  onClick={() => setFilters({
+                    search: '',
+                    priceRange: [0, 500],
+                    sizes: [],
+                    inStockOnly: false,
+                    sortBy: 'newest',
+                  })}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white rounded-lg hover:bg-[#FF3131] transition-all duration-300"
+                >
+                  Clear all filters
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
 
-          {/* Products Grid - Comfrt Style: 4 columns full width */}
+          {/* Products Grid - Modern Layout with Larger Cards */}
           {!loading && filteredProducts.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
               {filteredProducts.map(product => (
                 <ProductCard key={product.id} product={product} />
               ))}

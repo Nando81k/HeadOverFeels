@@ -22,8 +22,10 @@ export function ProductCard({ product }: ProductCardProps) {
       images = product.images
     }
     
-    if (images && images.length > 0 && images[0].url) {
-      imageUrl = images[0].url
+    // Images are stored as a flat array of URLs, not objects with url property
+    if (images && images.length > 0) {
+      // Handle both string URLs and objects with url property
+      imageUrl = typeof images[0] === 'string' ? images[0] : images[0].url
     }
   } catch {
     // Use placeholder if parsing fails

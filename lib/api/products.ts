@@ -28,6 +28,7 @@ export interface Product {
   careGuide?: string
   isActive: boolean
   isFeatured: boolean
+  isFeaturedNewArrival?: boolean
   categoryId?: string
   isLimitedEdition?: boolean
   releaseDate?: Date | string | null
@@ -65,6 +66,7 @@ export interface CreateProductData {
   careGuide?: string
   isActive?: boolean
   isFeatured?: boolean
+  isFeaturedNewArrival?: boolean
   categoryId?: string
   isLimitedEdition?: boolean
   releaseDate?: string
@@ -88,6 +90,7 @@ export const productApi = {
     limit?: number
     isActive?: boolean
     isFeatured?: boolean
+    search?: string
   }): Promise<ApiResponse<PaginatedResponse<Product>>> {
     try {
       const searchParams = new URLSearchParams()
@@ -95,6 +98,7 @@ export const productApi = {
       if (params?.limit) searchParams.set('limit', params.limit.toString())
       if (params?.isActive) searchParams.set('isActive', 'true')
       if (params?.isFeatured) searchParams.set('isFeatured', 'true')
+      if (params?.search) searchParams.set('search', params.search)
 
       const response = await fetch(`/api/products?${searchParams}`)
       const data = await response.json()

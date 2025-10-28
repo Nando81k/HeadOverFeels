@@ -29,6 +29,7 @@ export default function NewProductPage() {
     careGuide: '',
     isActive: true,
     isFeatured: false,
+    isFeaturedNewArrival: false,
     variants: [],
     isLimitedEdition: false,
     releaseDate: undefined,
@@ -551,6 +552,44 @@ export default function NewProductPage() {
                     </div>
                   </>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Featured Sections */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Featured Sections</CardTitle>
+                <CardDescription>
+                  Feature this product in special sections on the home page
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="featured"
+                    checked={formData.isFeatured || false}
+                    onChange={(e) => handleInputChange('isFeatured', e.target.checked)}
+                    className="rounded border-gray-300 text-black focus:ring-black"
+                  />
+                  <label htmlFor="featured" className="ml-2 text-sm font-medium">
+                    Featured Product (Best Sellers section)
+                  </label>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="featuredNewArrival"
+                    checked={formData.isFeaturedNewArrival || false}
+                    onChange={(e) => handleInputChange('isFeaturedNewArrival', e.target.checked)}
+                    className="rounded border-gray-300 text-black focus:ring-black"
+                  />
+                  <label htmlFor="featuredNewArrival" className="ml-2 text-sm font-medium">
+                    New Arrivals Carousel (Hero section)
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500">Maximum 10 products will display in the New Arrivals carousel</p>
               </CardContent>
             </Card>
 

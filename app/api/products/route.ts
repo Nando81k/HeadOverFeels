@@ -30,6 +30,7 @@ const createProductSchema = z.object({
   careGuide: z.string().optional(),
   isActive: z.boolean().default(true),
   isFeatured: z.boolean().default(false),
+  isFeaturedNewArrival: z.boolean().default(false),
   categoryId: z.string().nullish().transform(val => val || undefined),
   isLimitedEdition: z.boolean().default(false),
   releaseDate: z.string().nullish().transform(val => val ? new Date(val) : undefined),
@@ -55,12 +56,32 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const isActive = searchParams.get('isActive') === 'true'
     const isFeatured = searchParams.get('isFeatured') === 'true'
+    const search = searchParams.get('search')
 
     const skip = (page - 1) * limit
 
-    const where: { isActive?: boolean; isFeatured?: boolean } = {}
+    const where: {
+      isActive?: boolean
+      isFeatured?: boolean
+      OR?: Array<{
+        name?: { contains: string; mode?: 'insensitive' }
+        description?: { contains: string; mode?: 'insensitive' }
+        slug?: { contains: string; mode?: 'insensitive' }
+      }>
+    } = {}
+    
     if (isActive) where.isActive = true
     if (isFeatured) where.isFeatured = true
+    
+    // Add search filter - SQLite doesn't fully support mode: 'insensitive', 
+    // so we'll use LIKE which is case-insensitive by default in SQLite
+    if (search && search.trim()) {
+      where.OR = [
+        { name: { contains: search.trim() } },
+        { description: { contains: search.trim() } },
+        { slug: { contains: search.trim() } }
+      ]
+    }
 
     const [products, total] = await Promise.all([
       prisma.product.findMany({

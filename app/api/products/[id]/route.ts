@@ -13,8 +13,13 @@ const updateProductSchema = z.object({
   careGuide: z.string().optional(),
   isActive: z.boolean().optional(),
   isFeatured: z.boolean().optional(),
-  categoryId: z.string().optional(),
+  isFeaturedNewArrival: z.boolean().optional(),
+  categoryId: z.string().nullable().optional(),
   collectionIds: z.array(z.string()).optional(),
+  isLimitedEdition: z.boolean().optional(),
+  releaseDate: z.string().nullable().optional().transform(val => val ? new Date(val) : null),
+  dropEndDate: z.string().nullable().optional().transform(val => val ? new Date(val) : null),
+  maxQuantity: z.number().int().positive().nullable().optional().or(z.string().transform(val => val ? parseInt(val) : null)),
   variants: z.array(z.object({
     sku: z.string().min(1, 'SKU is required'),
     size: z.string().optional(),
@@ -97,6 +102,27 @@ export async function PUT(
 
     // Update slug if name is being changed
     const updateData: typeof productData & { slug?: string } = { ...productData }
+    
+    // Validate categoryId if provided
+    if (updateData.categoryId && updateData.categoryId !== null) {
+      const categoryExists = await prisma.category.findUnique({
+        where: { id: updateData.categoryId }
+      })
+      if (!categoryExists) {
+        return NextResponse.json(
+          { error: 'Invalid category ID', details: `Category ${updateData.categoryId} does not exist` },
+          { status: 400 }
+        )
+      }
+    }
+    
+    // Remove categoryId if it's undefined (but keep null to unset the category)
+    if (updateData.categoryId === undefined) {
+      delete updateData.categoryId
+    }
+    
+    console.log('Update data before transaction:', JSON.stringify(updateData, null, 2))
+    
     if (productData.name && productData.name !== existingProduct.name) {
       const baseSlug = productData.name
         .toLowerCase()
@@ -139,11 +165,15 @@ export async function PUT(
         if (variants.length > 0) {
           await tx.productVariant.createMany({
             data: variants.map(v => ({
-              ...v,
               productId: id,
-              // Convert empty string to null for optional fields
+              sku: v.sku,
+              size: v.size || null,
+              color: v.color || null,
               colorHex: v.colorHex || null,
               images: v.images || null,
+              price: v.price || null,
+              inventory: v.inventory ?? 0,
+              isActive: true,
             }))
           })
         }
@@ -193,8 +223,9 @@ export async function PUT(
     }
 
     console.error('Error updating product:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { error: 'Failed to update product' },
+      { error: 'Failed to update product', details: errorMessage },
       { status: 500 }
     )
   }

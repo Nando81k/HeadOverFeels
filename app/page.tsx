@@ -4,7 +4,9 @@ import { Navigation } from '@/components/layout/Navigation'
 import { ProductCard } from '@/components/products/ProductCard'
 import { Button } from '@/components/ui/button'
 import { ScrollFadeIn } from '@/components/ui/ScrollFadeIn'
+import { ScrollArrow } from '@/components/ui/ScrollArrow'
 import DropHeroSection from '@/components/drops/DropHeroSection'
+import { NewArrivalsCarousel } from '@/components/home/NewArrivalsCarousel'
 import { prisma } from '@/lib/prisma'
 import { getActiveDrop, getDropStatus } from '@/lib/drops'
 import { Package, Truck, Shield, Heart } from 'lucide-react'
@@ -88,12 +90,31 @@ async function getFeaturedProducts(limit: number = 6) {
   })
 }
 
+// Helper function to get featured new arrivals for carousel
+async function getNewArrivals(limit: number = 10) {
+  return prisma.product.findMany({
+    where: {
+      isActive: true,
+      isFeaturedNewArrival: true
+    },
+    include: {
+      variants: true,
+      category: true
+    },
+    take: limit,
+    orderBy: {
+      createdAt: 'desc'
+    }
+  })
+}
+
 export default async function Home() {
   // Fetch data in parallel
-  const [activeDrop, bestSellers, featuredProducts] = await Promise.all([
+  const [activeDrop, bestSellers, featuredProducts, newArrivals] = await Promise.all([
     getActiveDrop(),
     getBestSellers(6),
-    getFeaturedProducts(6)
+    getFeaturedProducts(6),
+    getNewArrivals(10)
   ])
 
   // Check if drop has stock available
@@ -121,6 +142,7 @@ export default async function Home() {
   const convertedDrop = activeDrop ? convertProduct(activeDrop) : null
   const convertedBestSellers = bestSellers.map(convertProduct)
   const convertedFeatured = featuredProducts.map(convertProduct)
+  const convertedNewArrivals = newArrivals.map(convertProduct)
 
   return (
     <div className="min-h-screen bg-[#F6F1EE]">
@@ -128,7 +150,7 @@ export default async function Home() {
 
       {/* Hero Section - Large Image with Overlay */}
       <ScrollFadeIn>
-        <section className="relative h-[600px] lg:h-[700px] overflow-hidden">
+        <section className="relative h-screen min-h-[800px] overflow-hidden">
           <div className="absolute inset-0 bg-[#000000]">
             {/* Gradient overlay */}
             <div className="w-full h-full bg-linear-to-br from-[#FF3131]/20 to-[#CDA09B]/30" />
@@ -141,7 +163,7 @@ export default async function Home() {
             <p className="text-xl lg:text-2xl text-white/90 mb-10 max-w-2xl leading-relaxed animate-fade-in animate-delay-300">
               Premium streetwear designed for authentic expression
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 animate-slide-up animate-delay-400">
+            <div className="flex flex-col sm:flex-row gap-4 animate-slide-up animate-delay-400 justify-center items-center">
               <Button asChild size="lg" className="bg-[#FF3131] hover:bg-[#FF3131]/90 text-white border-0 hover-scale">
                 <Link href="/collections">Shop Collection</Link>
               </Button>
@@ -150,8 +172,20 @@ export default async function Home() {
               </Button>
             </div>
           </div>
+          
+          {/* Animated Scroll Arrow */}
+          <ScrollArrow targetId="new-arrivals-section" />
         </section>
       </ScrollFadeIn>
+
+      {/* New Arrivals Carousel */}
+      {convertedNewArrivals.length > 0 && (
+        <ScrollFadeIn delay={50}>
+          <div id="new-arrivals-section">
+            <NewArrivalsCarousel products={convertedNewArrivals} />
+          </div>
+        </ScrollFadeIn>
+      )}
 
       {/* Brand Values / USPs Section */}
       <ScrollFadeIn delay={100}>

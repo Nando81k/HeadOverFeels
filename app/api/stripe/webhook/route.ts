@@ -3,6 +3,12 @@ import { headers } from 'next/headers'
 import { stripe } from '@/lib/stripe/config'
 import { prisma } from '@/lib/prisma'
 import { sendOrderConfirmation } from '@/lib/email/resend'
+import { 
+  awardPurchasePoints, 
+  awardFirstPurchasePoints,
+  awardReferralPoints,
+  updateCustomerTier 
+} from '@/lib/loyalty/service'
 import Stripe from 'stripe'
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
@@ -124,6 +130,59 @@ export async function POST(request: NextRequest) {
               console.log(`Inventory reduced for order ${orderId}`)
             } catch (inventoryError) {
               console.error(`Failed to reduce inventory for order ${orderId}:`, inventoryError)
+            }
+
+            // Award loyalty points for purchase
+            if (order.customerId) {
+              try {
+                // Check if this is the customer's first purchase
+                const previousOrders = await prisma.order.count({
+                  where: {
+                    customerId: order.customerId,
+                    status: 'CONFIRMED',
+                    id: { not: orderId }, // Exclude current order
+                  },
+                })
+                const isFirstPurchase = previousOrders === 0
+
+                // Award purchase points (1 point per dollar)
+                await awardPurchasePoints(order.customerId, orderId, order.total)
+                console.log(`Awarded purchase points for order ${orderId}`)
+
+                // Award first purchase bonus if applicable
+                if (isFirstPurchase) {
+                  await awardFirstPurchasePoints(order.customerId, orderId)
+                  console.log(`Awarded first purchase bonus for order ${orderId}`)
+                  
+                  // Award referral points to the referrer if this customer was referred
+                  const customer = await prisma.customer.findUnique({
+                    where: { id: order.customerId },
+                    select: { referredBy: true },
+                  })
+                  
+                  if (customer?.referredBy) {
+                    await awardReferralPoints(customer.referredBy, order.customerId)
+                    console.log(`Awarded referral points to customer ${customer.referredBy}`)
+                  }
+                }
+
+                // Update customer's annual spend and check for tier upgrade
+                await prisma.customer.update({
+                  where: { id: order.customerId },
+                  data: {
+                    annualSpend: { increment: order.total },
+                  },
+                })
+
+                // Check for tier upgrade
+                await updateCustomerTier(order.customerId)
+                console.log(`Checked tier upgrade for customer ${order.customerId}`)
+              } catch (loyaltyError) {
+                // Log error but don't fail the webhook
+                console.error(`Failed to award loyalty points for order ${orderId}:`, loyaltyError)
+              }
+            } else {
+              console.log(`Order ${orderId} has no customerId - skipping loyalty points`)
             }
           } catch (error) {
             console.error(`Failed to update order ${orderId}:`, error)
