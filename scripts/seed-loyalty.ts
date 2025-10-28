@@ -1,8 +1,11 @@
 import { config } from 'dotenv'
 import { PrismaClient } from '@prisma/client'
 
-// Load environment variables from .env.local
-config({ path: '.env.local' })
+// Load environment variables from .env.local if it exists (local dev only)
+// In production, environment variables are already set
+if (process.env.NODE_ENV !== 'production') {
+  config({ path: '.env.local' })
+}
 
 const prisma = new PrismaClient()
 
