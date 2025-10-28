@@ -9,8 +9,12 @@ const globalForPrisma = globalThis as unknown as {
 
 let prisma: PrismaClient
 
-// Use Neon serverless adapter in production/preview on Vercel
-if (process.env.VERCEL_ENV === 'production' || process.env.VERCEL_ENV === 'preview') {
+// Use Neon serverless adapter when deployed on Vercel
+// Check for VERCEL environment variable (always set on Vercel) or NODE_ENV production
+const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV
+
+if (isVercel) {
+  console.log('[Prisma] Using Neon serverless adapter for Vercel')
   neonConfig.webSocketConstructor = ws
   const connectionString = process.env.POSTGRES_PRISMA_URL
   
@@ -25,6 +29,7 @@ if (process.env.VERCEL_ENV === 'production' || process.env.VERCEL_ENV === 'previ
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter: adapter as any })
 } else {
+  console.log('[Prisma] Using standard Prisma Client for local development')
   // Local development - use standard Prisma Client
   prisma = globalForPrisma.prisma ?? new PrismaClient()
 }
