@@ -68,6 +68,15 @@ export async function GET(request: NextRequest) {
         description?: { contains: string; mode?: 'insensitive' }
         slug?: { contains: string; mode?: 'insensitive' }
       }>
+      AND?: Array<{
+        OR?: Array<{
+          isLimitedEdition?: boolean
+          AND?: Array<{
+            isLimitedEdition?: boolean
+            releaseDate?: { lte: Date }
+          }>
+        }>
+      }>
     } = {}
     
     if (isActive) where.isActive = true
@@ -82,6 +91,21 @@ export async function GET(request: NextRequest) {
         { slug: { contains: search.trim() } }
       ]
     }
+
+    // Exclude upcoming limited drops (drops that haven't started yet)
+    where.AND = [
+      {
+        OR: [
+          { isLimitedEdition: false },
+          {
+            AND: [
+              { isLimitedEdition: true },
+              { releaseDate: { lte: new Date() } }
+            ]
+          }
+        ]
+      }
+    ]
 
     const [products, total] = await Promise.all([
       prisma.product.findMany({

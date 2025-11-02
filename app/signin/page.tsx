@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth/context'
 import { LogIn, UserPlus } from 'lucide-react'
+import { PasswordStrength } from '@/components/auth/PasswordStrength'
 
 function SignInContent() {
   const router = useRouter()
@@ -51,8 +52,24 @@ function SignInContent() {
       return
     }
 
-    if (signupPassword.length < 8) {
-      setError('Password must be at least 8 characters')
+    // Check password requirements
+    const passwordChecks = {
+      length: signupPassword.length >= 8,
+      uppercase: /[A-Z]/.test(signupPassword),
+      lowercase: /[a-z]/.test(signupPassword),
+      number: /[0-9]/.test(signupPassword),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(signupPassword),
+    }
+
+    const unmetRequirements = []
+    if (!passwordChecks.length) unmetRequirements.push('at least 8 characters')
+    if (!passwordChecks.uppercase) unmetRequirements.push('an uppercase letter')
+    if (!passwordChecks.lowercase) unmetRequirements.push('a lowercase letter')
+    if (!passwordChecks.number) unmetRequirements.push('a number')
+    if (!passwordChecks.special) unmetRequirements.push('a special character')
+
+    if (unmetRequirements.length > 0) {
+      setError(`Password must contain ${unmetRequirements.join(', ')}`)
       return
     }
 
@@ -208,9 +225,13 @@ function SignInContent() {
                 className="w-full px-4 py-3 border border-[#E5DDD5] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A1A1A] bg-white"
                 placeholder="••••••••"
               />
-              <p className="text-xs text-[#6B6B6B] mt-1">
-                Must be at least 8 characters
-              </p>
+              
+              {/* Password Strength Indicator */}
+              {signupPassword && (
+                <div className="mt-3">
+                  <PasswordStrength password={signupPassword} showRequirements={true} />
+                </div>
+              )}
             </div>
 
             <div>

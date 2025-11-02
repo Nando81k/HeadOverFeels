@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendShippingNotification } from '@/lib/email/resend'
+import { updateCustomerStatsOnOrderCompletion } from '@/lib/crm/service'
 import { Prisma } from '@prisma/client'
 
 // GET /api/orders/[id] - Get order by ID
@@ -184,6 +185,26 @@ export async function PATCH(
       } catch (emailError) {
         // Log error but don't fail the API request
         console.error(`Failed to send shipping notification for order ${order.id}:`, emailError)
+      }
+    }
+
+    // Update CRM stats and award points if order is being marked as CONFIRMED
+    // This handles cases where admin manually confirms orders (not via Stripe webhook)
+    if (
+      currentOrder.status !== 'CONFIRMED' &&
+      body.status === 'CONFIRMED' &&
+      order.customerId
+    ) {
+      try {
+        const crmResult = await updateCustomerStatsOnOrderCompletion(
+          order.customerId,
+          order.id,
+          order.total
+        )
+        console.log(`✅ CRM integration completed for manually confirmed order ${order.id}:`, crmResult)
+      } catch (crmError) {
+        // Log error but don't fail the API request
+        console.error(`Failed to process CRM/loyalty for order ${order.id}:`, crmError)
       }
     }
 

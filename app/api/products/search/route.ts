@@ -64,6 +64,26 @@ export async function GET(request: NextRequest) {
     // Limited edition filter
     if (isLimitedEdition) {
       where.isLimitedEdition = true
+      // Only show limited drops that have started (releaseDate <= now)
+      where.releaseDate = {
+        lte: new Date()
+      }
+    } else {
+      // For regular product listings, exclude upcoming limited drops
+      // Add an AND condition to ensure upcoming drops are filtered out
+      where.AND = [
+        {
+          OR: [
+            { isLimitedEdition: false },
+            {
+              AND: [
+                { isLimitedEdition: true },
+                { releaseDate: { lte: new Date() } }
+              ]
+            }
+          ]
+        }
+      ]
     }
 
     // Determine sort order

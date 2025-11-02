@@ -44,20 +44,21 @@ export default function ProductPage({ params }: ProductPageProps) {
     const loadProduct = async () => {
       setLoading(true)
       try {
-        // Since we don't have a getBySlug method, we'll fetch all and filter
-        const response = await productApi.getAll({ isActive: true })
+        // Fetch product by slug
+        const response = await fetch(`/api/products/slug/${slug}`)
         
-        if (response.data) {
-          const foundProduct = response.data.data.find(p => p.slug === slug)
-          if (foundProduct) {
-            setProduct(foundProduct)
-            // Set default variant
-            const defaultVariant = foundProduct.variants.find(v => v.inventory > 0) || foundProduct.variants[0]
-            setSelectedVariant(defaultVariant || null)
-            
-            // Fetch reviews for this product
-            loadReviews(foundProduct.id)
-          }
+        if (response.ok) {
+          const foundProduct = await response.json()
+          setProduct(foundProduct)
+          // Set default variant
+          const defaultVariant = foundProduct.variants.find((v: ProductVariant) => v.inventory > 0) || foundProduct.variants[0]
+          setSelectedVariant(defaultVariant || null)
+          
+          // Fetch reviews for this product
+          loadReviews(foundProduct.id)
+        } else {
+          // Product not found or not yet available
+          console.error('Product not found')
         }
       } catch (error) {
         console.error('Failed to load product:', error)
