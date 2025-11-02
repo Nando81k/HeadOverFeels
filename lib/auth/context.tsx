@@ -12,6 +12,22 @@ export interface User {
   smsOptIn: boolean
   isAdmin: boolean
   createdAt: Date
+  // Loyalty fields
+  currentPoints: number
+  lifetimePoints: number
+  totalSpent: number
+  totalOrders: number
+  loyaltyTier: {
+    id: string
+    name: string
+    slug: string
+    description: string | null
+    minAnnualSpend: number
+    pointMultiplier: number
+    freeShipping: boolean
+    earlyDropAccess: boolean
+    perks: string | null
+  } | null
 }
 
 interface AuthContextType {

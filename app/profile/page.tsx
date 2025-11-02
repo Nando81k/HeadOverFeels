@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth/context'
-import { User, Package, LogOut, Loader2, ArrowLeft } from 'lucide-react'
+import { User, Package, LogOut, Loader2, ArrowLeft, Award, Sparkles, Gift } from 'lucide-react'
 import Link from 'next/link'
 
 interface Order {
@@ -177,6 +177,96 @@ export default function ProfilePage() {
                 Sign Out
               </button>
             </div>
+
+            {/* Loyalty Card */}
+            {user.loyaltyTier && (
+              <div className="bg-linear-to-br from-[#1A1A1A] to-[#2B2B2B] rounded-xl p-6 text-white mt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Award className="w-5 h-5" />
+                  <h3 className="text-sm font-medium uppercase tracking-wide opacity-90">
+                    Loyalty Tier
+                  </h3>
+                </div>
+                
+                <div className="mb-6">
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <h2 className="text-3xl font-bold">{user.loyaltyTier.name}</h2>
+                    <span className="text-sm opacity-75">
+                      {user.loyaltyTier.pointMultiplier}x Points
+                    </span>
+                  </div>
+                  {user.loyaltyTier.description && (
+                    <p className="text-sm opacity-75">
+                      {user.loyaltyTier.description}
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="bg-white/10 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Sparkles className="w-4 h-4" />
+                      <p className="text-xs opacity-75 uppercase tracking-wide">
+                        Care Points
+                      </p>
+                    </div>
+                    <p className="text-2xl font-bold">
+                      {user.currentPoints.toLocaleString()}
+                    </p>
+                    <p className="text-xs opacity-60 mt-1">
+                      {user.lifetimePoints.toLocaleString()} lifetime
+                    </p>
+                  </div>
+                  
+                  <div className="bg-white/10 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Gift className="w-4 h-4" />
+                      <p className="text-xs opacity-75 uppercase tracking-wide">
+                        Total Spent
+                      </p>
+                    </div>
+                    <p className="text-2xl font-bold">
+                      ${user.totalSpent.toFixed(0)}
+                    </p>
+                    <p className="text-xs opacity-60 mt-1">
+                      {user.totalOrders} {user.totalOrders === 1 ? 'order' : 'orders'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tier Benefits */}
+                <div className="border-t border-white/20 pt-4">
+                  <p className="text-xs uppercase tracking-wide opacity-75 mb-3">
+                    Your Benefits
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
+                      <span>{user.loyaltyTier.pointMultiplier}x points on every purchase</span>
+                    </div>
+                    {user.loyaltyTier.freeShipping && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
+                        <span>Free shipping on all orders</span>
+                      </div>
+                    )}
+                    {user.loyaltyTier.earlyDropAccess && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
+                        <span>Early access to limited drops</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <Link
+                  href="/loyalty/rewards"
+                  className="mt-4 block w-full bg-white text-[#1A1A1A] py-2.5 rounded-lg font-medium hover:bg-opacity-90 transition-colors text-center text-sm"
+                >
+                  View Available Rewards
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Orders */}

@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Find the customer
+    // Find the customer with loyalty data
     const customer = await prisma.customer.findUnique({
       where: { id: sessionId },
       select: {
@@ -26,6 +26,24 @@ export async function GET(request: NextRequest) {
         smsOptIn: true,
         isAdmin: true,
         createdAt: true,
+        // Loyalty fields
+        currentPoints: true,
+        lifetimePoints: true,
+        totalSpent: true,
+        totalOrders: true,
+        loyaltyTier: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            description: true,
+            minAnnualSpend: true,
+            pointMultiplier: true,
+            freeShipping: true,
+            earlyDropAccess: true,
+            perks: true,
+          },
+        },
       },
     })
 
