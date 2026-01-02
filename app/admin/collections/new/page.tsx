@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ImageUpload } from '@/components/admin/ImageUpload'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, CircleNotch } from '@phosphor-icons/react'
 
 export default function NewCollectionPage() {
   const router = useRouter()
@@ -60,7 +60,7 @@ export default function NewCollectionPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link href="/admin/collections" className="text-blue-600 hover:text-blue-800">
-                <ArrowLeft className="w-4 h-4 inline mr-2" />
+                <ArrowLeft size={16} weight="bold" className="inline mr-2" />
                 Back to Collections
               </Link>
               <h1 className="text-2xl font-bold">Create Collection</h1>
@@ -76,7 +76,7 @@ export default function NewCollectionPage() {
               <Button onClick={handleSubmit} disabled={loading}>
                 {loading ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <CircleNotch size={16} weight="bold" className="mr-2 animate-spin" />
                     Creating...
                   </>
                 ) : (

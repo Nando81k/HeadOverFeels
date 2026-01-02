@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Search, X, Clock, TrendingUp, Loader2 } from 'lucide-react'
+import { MagnifyingGlass, X, CircleNotch } from '@phosphor-icons/react'
 import { productApi, Product } from '@/lib/api/products'
 import ProductImage from '@/components/ui/ProductImage'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -18,15 +18,14 @@ interface ModernSearchBarProps {
 
 const RECENT_SEARCHES_KEY = 'headoverfeels_recent_searches'
 const MAX_RECENT_SEARCHES = 5
-const DEBOUNCE_DELAY = 300
+const DEBOUNCE_DELAY = 400
 
-// Popular search terms
 const POPULAR_SEARCHES = [
   'hoodies',
   'limited edition',
   'streetwear',
   't-shirts',
-  'drops',
+  'new arrivals',
 ]
 
 export function ModernSearchBar({
@@ -43,6 +42,7 @@ export function ModernSearchBar({
   const [productResults, setProductResults] = useState<Product[]>([])
   const [bestSellers, setBestSellers] = useState<Product[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -65,9 +65,8 @@ export function ModernSearchBar({
         const response = await productApi.getAll({ 
           isActive: true,
           isFeatured: true,
-          limit: 6
+          limit: 8
         })
-        
         if (response.data) {
           setBestSellers(response.data.data)
         }
@@ -75,16 +74,14 @@ export function ModernSearchBar({
         console.error('Failed to load best sellers:', error)
       }
     }
-    
     fetchBestSellers()
   }, [])
 
   // Search products with debounce
-    const searchProducts = useCallback(async (searchQuery: string) => {
+  const searchProducts = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) return
     
     setIsSearching(true)
-    
     try {
       const response = await productApi.getAll({ 
         isActive: true,
@@ -93,7 +90,7 @@ export function ModernSearchBar({
       })
       
       if (response.data) {
-        setProductResults(response.data.data.slice(0, 6))
+        setProductResults(response.data.data.slice(0, 8))
       } else {
         setProductResults([])
       }
@@ -190,10 +187,7 @@ export function ModernSearchBar({
   // Handle input blur
   const handleBlur = () => {
     setIsFocused(false)
-    // Delay hiding dropdown to allow click events
-    setTimeout(() => {
-      setShowDropdown(false)
-    }, 200)
+    setTimeout(() => setShowDropdown(false), 150)
   }
 
   // Handle clear button
@@ -237,12 +231,16 @@ export function ModernSearchBar({
   }, [onClose])
 
   return (
-    <div className={`relative ${className}`}>
-      <form onSubmit={handleSubmit} className="relative z-50">
+    <div className={`relative w-full ${className}`}>
+      <form onSubmit={handleSubmit} className="relative">
         <div className="relative">
-          <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors duration-200 ${
-            isFocused ? 'text-[#FF3131]' : 'text-gray-400'
-          }`} />
+          <MagnifyingGlass 
+            size={22}
+            weight="bold"
+            className={`absolute left-5 top-1/2 -translate-y-1/2 transition-colors duration-200 ${
+              isFocused ? 'text-black' : 'text-black/40'
+            }`}
+          />
           <input
             ref={inputRef}
             type="text"
@@ -252,244 +250,166 @@ export function ModernSearchBar({
             onBlur={handleBlur}
             placeholder={placeholder}
             autoFocus={autoFocus}
+            spellCheck="false"
             className={`
-              w-full pl-12 pr-12 py-4
-              border-2 rounded-2xl
-              focus:outline-none
-              transition-all duration-300
-              text-base font-medium
-              placeholder:text-gray-400
+              w-full pl-14 pr-14 py-4 sm:py-5
+              border-b-2 rounded-none
+              focus:outline-none transition-all duration-300
+              text-lg sm:text-xl font-medium tracking-wide
+              placeholder:text-black/30 bg-transparent
               ${isFocused 
-                ? 'border-[#FF3131] shadow-2xl shadow-red-100/50 bg-white scale-[1.02]' 
-                : 'border-gray-200 shadow-lg bg-white hover:border-gray-300'
+                ? 'border-black' 
+                : 'border-black/20'
               }
             `}
           />
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+          <div className="absolute right-5 top-1/2 -translate-y-1/2 flex items-center gap-2">
             {isSearching && (
-              <Loader2 className="w-5 h-5 text-[#FF3131] animate-spin" />
+              <CircleNotch size={22} weight="bold" className="text-black animate-spin" />
             )}
-            {query && (
+            {query && !isSearching && (
               <button
                 type="button"
                 onClick={handleClear}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="p-1.5 text-black/40 hover:text-black transition-colors"
+                aria-label="Clear search"
               >
-                <X className="w-5 h-5" />
+                <X size={20} weight="bold" />
               </button>
             )}
           </div>
         </div>
       </form>
 
-      {/* Enhanced Suggestions Dropdown */}
+      {/* Dropdown Results */}
       <AnimatePresence>
         {showDropdown && (
           <motion.div
             ref={dropdownRef}
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            transition={{ 
-              duration: 0.3,
-              ease: [0.4, 0, 0.2, 1]
-            }}
-            className="absolute top-full left-0 right-0 mt-4 bg-white border-2 border-gray-200 rounded-2xl shadow-2xl shadow-gray-200/50 z-50 overflow-hidden max-h-[600px] overflow-y-auto backdrop-blur-sm"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+            className="absolute top-full left-0 right-0 mt-6 bg-white rounded-2xl shadow-2xl z-50 max-h-[65vh] overflow-y-auto border border-black/5"
           >
-            {/* Product Results */}
+            {/* PRODUCT RESULTS SECTION */}
             {query.trim().length >= 2 && productResults.length > 0 && (
-              <div className="border-b border-gray-100">
-                <div className="px-5 py-4 bg-gradient-to-r from-red-50/50 to-white border-b border-red-100">
-                  <div className="flex items-center gap-2">
-                    <Search className="w-4 h-4 text-[#FF3131]" />
-                    <span className="text-sm font-bold text-gray-900">Search Results</span>
-                    <span className="px-2 py-0.5 text-xs font-semibold bg-[#FF3131] text-white rounded-full">
-                      {productResults.length}
-                    </span>
-                  </div>
+              <div>
+                <div className="px-6 pt-5 pb-3">
+                  <p className="text-xs font-medium tracking-widest uppercase text-black/40">
+                    Products
+                  </p>
                 </div>
-                <div className="grid grid-cols-1 divide-y divide-gray-100">
-                  {productResults.map((product) => {
-                    // Parse images
+                <div className="px-3 pb-4">
+                  {productResults.slice(0, 6).map((product) => {
                     let imageUrl = '/placeholder-product.jpg'
                     try {
-                      let images
-                      if (typeof product.images === 'string') {
-                        images = JSON.parse(product.images)
-                      } else {
-                        images = product.images
-                      }
+                      const images = typeof product.images === 'string' ? JSON.parse(product.images) : product.images
                       if (images && images.length > 0) {
                         imageUrl = typeof images[0] === 'string' ? images[0] : images[0]?.url
                       }
-                    } catch {
-                      // Use placeholder
-                    }
+                    } catch {}
 
-                    // Calculate price: check variant prices first, then fall back to product price
                     const variantPrices = product.variants?.map(v => v.price).filter((p): p is number => p !== null && p !== undefined) || []
-                    const price = variantPrices.length > 0 
-                      ? Math.min(...variantPrices) 
-                      : (typeof product.price === 'number' ? product.price : 0)
+                    const price = variantPrices.length > 0 ? Math.min(...variantPrices) : (typeof product.price === 'number' ? product.price : 0)
 
                     return (
                       <Link
                         key={product.id}
                         href={`/products/${product.slug}`}
-                        onClick={() => {
-                          saveRecentSearch(query)
-                          onClose?.()
-                        }}
-                        className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-all duration-200 group"
+                        onClick={() => { saveRecentSearch(query); onClose?.() }}
+                        className="flex items-center gap-4 px-3 py-3 rounded-xl hover:bg-black/5 transition-all group"
                       >
-                        {/* Product Image */}
-                        <div className="relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
-                          <ProductImage
-                            src={imageUrl}
-                            alt={product.name}
-                            width={64}
-                            height={64}
-                            className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-300"
+                        <div className="w-16 h-16 shrink-0 rounded-xl overflow-hidden bg-black/5">
+                          <ProductImage 
+                            src={imageUrl} 
+                            alt={product.name} 
+                            width={64} 
+                            height={64} 
+                            className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300" 
                           />
-                          {product.isLimitedEdition && (
-                            <div className="absolute top-1 right-1 bg-[#FF3131] text-white px-1 py-0.5 rounded text-[8px] font-bold">
-                              Ltd
-                            </div>
-                          )}
                         </div>
-
-                        {/* Product Info */}
-                        <div className="flex-grow min-w-0">
-                          <h4 className="font-semibold text-sm text-gray-900 truncate group-hover:text-[#FF3131] transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-black truncate group-hover:text-black/70 transition-colors">
                             {product.name}
-                          </h4>
-                          <p className="text-xs text-gray-500 truncate mt-0.5">
-                            {product.description}
+                          </p>
+                          <p className="text-sm font-bold text-black/60 mt-0.5">
+                            ${price.toFixed(2)}
                           </p>
                         </div>
-
-                        {/* Price */}
-                        <div className="text-right flex-shrink-0">
-                          <span className="text-base font-bold text-[#FF3131]">
-                            ${price.toFixed(2)}
-                          </span>
-                          {product.variants && product.variants.length > 1 && (
-                            <p className="text-[10px] text-gray-400 mt-0.5">
-                              {product.variants.length} variants
-                            </p>
-                          )}
+                        <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="text-xs font-medium text-black/40">View →</span>
                         </div>
                       </Link>
                     )
                   })}
                 </div>
-                {productResults.length === 6 && (
-                  <button
-                    onClick={() => handleSearch(query)}
-                    className="w-full py-4 text-sm font-bold text-[#FF3131] hover:bg-red-50 transition-all duration-200 border-t border-gray-100 hover:border-red-100"
-                  >
-                    View all results for &ldquo;{query}&rdquo; →
-                  </button>
+                {productResults.length > 6 && (
+                  <div className="px-6 pb-5">
+                    <button
+                      onClick={() => handleSearch(query)}
+                      className="w-full py-3 text-sm font-semibold text-black bg-black/5 hover:bg-black/10 rounded-xl transition-colors"
+                    >
+                      View all {productResults.length} results
+                    </button>
+                  </div>
                 )}
               </div>
             )}
 
-            {/* No Results Message */}
+            {/* NO RESULTS */}
             {query.trim().length >= 2 && !isSearching && productResults.length === 0 && (
-              <div className="px-5 py-12 text-center">
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-red-50 to-orange-50 mb-4">
-                  <Search className="w-10 h-10 text-[#FF3131]" />
+              <div className="px-6 py-12 text-center">
+                <div className="w-12 h-12 rounded-full bg-black/5 flex items-center justify-center mx-auto mb-4">
+                  <MagnifyingGlass size={24} weight="bold" className="text-black/30" />
                 </div>
-                <p className="text-gray-900 font-bold text-lg mb-2">No products found</p>
-                <p className="text-sm text-gray-500">
-                  We couldn&apos;t find any products matching &ldquo;{query}&rdquo;
-                </p>
-                <p className="text-sm text-gray-400 mt-2">Try searching with different keywords</p>
+                <p className="text-base font-semibold text-black">No results found</p>
+                <p className="text-sm text-black/50 mt-1">Try searching for something else</p>
               </div>
             )}
 
-            {/* Best Sellers - Show when search is empty */}
+            {/* BEST SELLERS - When no query */}
             {query.trim().length < 2 && bestSellers.length > 0 && (
-              <div className="border-b border-gray-100">
-                <div className="px-5 py-4 bg-gradient-to-r from-amber-50/50 to-white border-b border-amber-100">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-[#FF3131]" />
-                    <span className="text-sm font-bold text-gray-900">Best Sellers</span>
-                    <span className="px-2 py-0.5 text-xs font-semibold bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full">
-                      Featured
-                    </span>
-                  </div>
+              <div>
+                <div className="px-6 pt-5 pb-3">
+                  <p className="text-xs font-medium tracking-widest uppercase text-black/40">
+                    Popular Products
+                  </p>
                 </div>
-                {/* Horizontal scrollable container */}
-                <div className="px-5 py-4 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400">
-                  <div className="flex gap-4 pb-2">
-                    {bestSellers.map((product) => {
-                      // Parse images
+                <div className="px-4 pb-4">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                    {bestSellers.slice(0, 8).map((product) => {
                       let imageUrl = '/placeholder-product.jpg'
                       try {
-                        let images
-                        if (typeof product.images === 'string') {
-                          images = JSON.parse(product.images)
-                        } else {
-                          images = product.images
-                        }
+                        const images = typeof product.images === 'string' ? JSON.parse(product.images) : product.images
                         if (images && images.length > 0) {
                           imageUrl = typeof images[0] === 'string' ? images[0] : images[0]?.url
                         }
-                      } catch {
-                        // Use placeholder
-                      }
+                      } catch {}
 
-                      // Calculate price: check variant prices first, then fall back to product price
                       const variantPrices = product.variants?.map(v => v.price).filter((p): p is number => p !== null && p !== undefined) || []
-                      const price = variantPrices.length > 0 
-                        ? Math.min(...variantPrices) 
-                        : (typeof product.price === 'number' ? product.price : 0)
+                      const price = variantPrices.length > 0 ? Math.min(...variantPrices) : (typeof product.price === 'number' ? product.price : 0)
 
                       return (
-                        <Link
-                          key={product.id}
-                          href={`/products/${product.slug}`}
-                          onClick={() => {
-                            onClose?.()
-                          }}
-                          className="flex-shrink-0 w-[180px] group"
+                        <Link 
+                          key={product.id} 
+                          href={`/products/${product.slug}`} 
+                          onClick={() => onClose?.()} 
+                          className="group"
                         >
-                          {/* Product Card */}
-                          <div className="bg-white rounded-xl border-2 border-gray-100 hover:border-[#FF3131] transition-all duration-200 overflow-hidden hover:shadow-lg">
-                            {/* Product Image */}
-                            <div className="relative w-full aspect-square bg-gray-100">
-                              <ProductImage
-                                src={imageUrl}
-                                alt={product.name}
-                                width={180}
-                                height={180}
-                                className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-300"
-                              />
-                              {product.isLimitedEdition && (
-                                <div className="absolute top-2 right-2 bg-[#FF3131] text-white px-2 py-1 rounded text-[10px] font-bold">
-                                  LIMITED
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Product Info */}
-                            <div className="p-3">
-                              <h4 className="font-semibold text-sm text-gray-900 truncate group-hover:text-[#FF3131] transition-colors">
-                                {product.name}
-                              </h4>
-                              <div className="flex items-center justify-between mt-2">
-                                <span className="text-base font-bold text-[#FF3131]">
-                                  ${price.toFixed(2)}
-                                </span>
-                                {product.variants && product.variants.length > 1 && (
-                                  <span className="text-[10px] text-gray-400">
-                                    {product.variants.length} variants
-                                  </span>
-                                )}
-                              </div>
-                            </div>
+                          <div className="aspect-square rounded-xl overflow-hidden bg-black/5 mb-2">
+                            <ProductImage 
+                              src={imageUrl} 
+                              alt={product.name} 
+                              width={120} 
+                              height={120} 
+                              className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300" 
+                            />
                           </div>
+                          <p className="text-xs font-medium text-black truncate group-hover:text-black/70 transition-colors">
+                            {product.name}
+                          </p>
+                          <p className="text-xs font-semibold text-black/50">${price.toFixed(2)}</p>
                         </Link>
                       )
                     })}
@@ -498,60 +418,53 @@ export function ModernSearchBar({
               </div>
             )}
 
-            {/* Recent Searches */}
+            {/* RECENT SEARCHES */}
             {query.trim().length < 2 && recentSearches.length > 0 && (
-              <div className="border-b border-gray-100">
-                <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-50/30 to-white border-b border-blue-100">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-[#FF3131]" />
-                    <span className="text-sm font-bold text-gray-900">Recent Searches</span>
-                  </div>
-                  <button
-                    onClick={clearRecentSearches}
-                    className="text-xs font-bold text-gray-400 hover:text-[#FF3131] transition-colors duration-200 px-3 py-1 rounded-full hover:bg-red-50"
+              <div className="border-t border-black/5">
+                <div className="flex items-center justify-between px-6 pt-4 pb-2">
+                  <p className="text-xs font-medium tracking-widest uppercase text-black/40">
+                    Recent Searches
+                  </p>
+                  <button 
+                    onClick={clearRecentSearches} 
+                    className="text-xs font-medium text-black/40 hover:text-black transition-colors"
                   >
-                    Clear All
+                    Clear all
                   </button>
                 </div>
-                {recentSearches.map((search, index) => (
-                  <button
-                    key={`recent-${index}`}
-                    onClick={() => handleSuggestionClick(search)}
-                    className="w-full text-left px-5 py-3.5 hover:bg-blue-50/50 flex items-center gap-3 transition-all duration-200 group border-b border-gray-50 last:border-0"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-gray-100 group-hover:bg-blue-100 flex items-center justify-center transition-colors">
-                      <Clock className="w-4 h-4 text-gray-400 group-hover:text-[#FF3131] transition-colors" />
-                    </div>
-                    <span className="text-gray-700 font-medium group-hover:text-gray-900 transition-colors flex-1">{search}</span>
-                    <span className="text-gray-400 group-hover:text-gray-600 text-xs">→</span>
-                  </button>
-                ))}
+                <div className="px-4 pb-4 flex flex-wrap gap-2">
+                  {recentSearches.slice(0, 5).map((search, idx) => (
+                    <button 
+                      key={idx} 
+                      onClick={() => handleSuggestionClick(search)} 
+                      className="px-4 py-2 text-sm font-medium text-black/70 bg-black/5 hover:bg-black/10 rounded-full transition-colors"
+                    >
+                      {search}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* Popular Searches */}
+            {/* TRENDING SEARCHES */}
             {query.trim().length < 2 && POPULAR_SEARCHES.some((s) => !recentSearches.includes(s)) && (
-              <div>
-                <div className="flex items-center gap-2 px-5 py-4 bg-gradient-to-r from-purple-50/30 to-white text-sm font-bold text-gray-900 border-b border-purple-100">
-                  <TrendingUp className="w-4 h-4 text-[#FF3131]" />
-                  <span>Trending Searches</span>
-                  <span className="px-2 py-0.5 text-xs font-semibold bg-purple-100 text-purple-700 rounded-full ml-auto">
-                    Hot
-                  </span>
+              <div className="border-t border-black/5">
+                <div className="px-6 pt-4 pb-2">
+                  <p className="text-xs font-medium tracking-widest uppercase text-black/40">
+                    Trending
+                  </p>
                 </div>
-                {POPULAR_SEARCHES.filter((s) => !recentSearches.includes(s)).map((search, index) => (
-                  <button
-                    key={`popular-${index}`}
-                    onClick={() => handleSuggestionClick(search)}
-                    className="w-full text-left px-5 py-3.5 hover:bg-purple-50/50 flex items-center gap-3 transition-all duration-200 group border-b border-gray-50 last:border-0"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-100 to-pink-100 group-hover:from-purple-200 group-hover:to-pink-200 flex items-center justify-center transition-colors">
-                      <TrendingUp className="w-4 h-4 text-[#FF3131]" />
-                    </div>
-                    <span className="text-gray-700 font-medium group-hover:text-gray-900 transition-colors flex-1">{search}</span>
-                    <span className="text-gray-400 group-hover:text-gray-600 text-xs">→</span>
-                  </button>
-                ))}
+                <div className="px-4 pb-5 flex flex-wrap gap-2">
+                  {POPULAR_SEARCHES.filter((s) => !recentSearches.includes(s)).slice(0, 5).map((search, idx) => (
+                    <button 
+                      key={idx} 
+                      onClick={() => handleSuggestionClick(search)} 
+                      className="px-4 py-2 text-sm font-medium text-black/70 bg-black/5 hover:bg-black/10 rounded-full transition-colors"
+                    >
+                      {search}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </motion.div>

@@ -225,7 +225,7 @@ async function testCustomerNotes() {
   log('\n📝 Testing Customer Notes CRUD...', BLUE);
 
   // Find or create a test customer
-  let testCustomer = await prisma.customer.findFirst();
+  const testCustomer = await prisma.customer.findFirst();
   
   if (!testCustomer) {
     log('  ⚠️  No customers found to test notes', YELLOW);

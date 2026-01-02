@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Users } from 'lucide-react';
+import { TrendUp, TrendDown, CurrencyDollar, ShoppingCart, Users } from '@phosphor-icons/react';
 
 interface AnalyticsPreviewData {
   totalRevenue: number;
@@ -177,7 +177,7 @@ export default function AnalyticsPreview() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-green-100 rounded">
-              <DollarSign className="w-4 h-4 text-green-600" />
+              <CurrencyDollar size={16} weight="bold" className="text-green-600" />
             </div>
             <div>
               <div className="text-xs text-gray-600">Revenue</div>
@@ -190,9 +190,9 @@ export default function AnalyticsPreview() {
             data.revenueGrowth >= 0 ? 'text-green-600' : 'text-red-600'
           }`}>
             {data.revenueGrowth >= 0 ? (
-              <TrendingUp className="w-3 h-3" />
+              <TrendUp size={12} weight="bold" />
             ) : (
-              <TrendingDown className="w-3 h-3" />
+              <TrendDown size={12} weight="bold" />
             )}
             {Math.abs(data.revenueGrowth).toFixed(1)}%
           </div>
@@ -202,7 +202,7 @@ export default function AnalyticsPreview() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-blue-100 rounded">
-              <ShoppingCart className="w-4 h-4 text-blue-600" />
+              <ShoppingCart size={16} weight="bold" className="text-blue-600" />
             </div>
             <div>
               <div className="text-xs text-gray-600">Orders</div>
@@ -213,9 +213,9 @@ export default function AnalyticsPreview() {
             data.ordersGrowth >= 0 ? 'text-green-600' : 'text-red-600'
           }`}>
             {data.ordersGrowth >= 0 ? (
-              <TrendingUp className="w-3 h-3" />
+              <TrendUp size={12} weight="bold" />
             ) : (
-              <TrendingDown className="w-3 h-3" />
+              <TrendDown size={12} weight="bold" />
             )}
             {Math.abs(data.ordersGrowth).toFixed(1)}%
           </div>
@@ -225,7 +225,7 @@ export default function AnalyticsPreview() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-purple-100 rounded">
-              <Users className="w-4 h-4 text-purple-600" />
+              <Users size={16} weight="bold" className="text-purple-600" />
             </div>
             <div>
               <div className="text-xs text-gray-600">Customers</div>
@@ -236,9 +236,9 @@ export default function AnalyticsPreview() {
             data.customersGrowth >= 0 ? 'text-green-600' : 'text-red-600'
           }`}>
             {data.customersGrowth >= 0 ? (
-              <TrendingUp className="w-3 h-3" />
+              <TrendUp size={12} weight="bold" />
             ) : (
-              <TrendingDown className="w-3 h-3" />
+              <TrendDown size={12} weight="bold" />
             )}
             {Math.abs(data.customersGrowth).toFixed(1)}%
           </div>

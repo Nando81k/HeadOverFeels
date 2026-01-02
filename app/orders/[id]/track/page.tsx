@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Package, Truck, CheckCircle, MapPin, Calendar, ExternalLink } from 'lucide-react'
+import { Package, Truck, CheckCircle, MapPin, Calendar, ArrowSquareOut } from '@phosphor-icons/react'
 
 interface OrderTracking {
   id: string
@@ -127,7 +127,7 @@ export default function OrderTrackingPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center max-w-md">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Package className="w-8 h-8 text-red-600" />
+            <Package size={32} weight="bold" className="text-red-600" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Order Not Found</h1>
           <p className="text-gray-600 mb-6">{error || 'Unable to find tracking information for this order.'}</p>
@@ -164,15 +164,15 @@ export default function OrderTrackingPage() {
                 <div
                   className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${
                     index <= currentStep
-                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                      ? 'bg-linear-to-r from-purple-600 to-blue-600 text-white'
                       : 'bg-gray-200 text-gray-400'
                   }`}
                 >
-                  {index === 0 && <Package className="w-6 h-6" />}
-                  {index === 1 && <CheckCircle className="w-6 h-6" />}
-                  {index === 2 && <Package className="w-6 h-6" />}
-                  {index === 3 && <Truck className="w-6 h-6" />}
-                  {index === 4 && <CheckCircle className="w-6 h-6" />}
+                  {index === 0 && <Package size={24} weight="bold" />}
+                  {index === 1 && <CheckCircle size={24} weight="bold" />}
+                  {index === 2 && <Package size={24} weight="bold" />}
+                  {index === 3 && <Truck size={24} weight="bold" />}
+                  {index === 4 && <CheckCircle size={24} weight="bold" />}
                 </div>
                 <span
                   className={`text-xs sm:text-sm font-medium text-center ${
@@ -198,7 +198,7 @@ export default function OrderTrackingPage() {
           </div>
 
           {/* Current Status */}
-          <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 mb-6">
+          <div className="bg-linear-to-r from-purple-50 to-blue-50 rounded-lg p-6 mb-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">
               {order.status === 'DELIVERED'
                 ? '📦 Delivered!'
@@ -220,7 +220,7 @@ export default function OrderTrackingPage() {
             <div className="grid sm:grid-cols-2 gap-4 mb-6">
               <div className="bg-gray-50 rounded-lg p-4">
                 <div className="flex items-center gap-2 text-gray-600 mb-1">
-                  <Package className="w-4 h-4" />
+                  <Package size={16} weight="bold" />
                   <span className="text-sm font-medium">Tracking Number</span>
                 </div>
                 <p className="font-mono text-lg font-semibold text-gray-900">
@@ -234,7 +234,7 @@ export default function OrderTrackingPage() {
               {order.estimatedDelivery && (
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="flex items-center gap-2 text-gray-600 mb-1">
-                    <Calendar className="w-4 h-4" />
+                    <Calendar size={16} weight="bold" />
                     <span className="text-sm font-medium">Estimated Delivery</span>
                   </div>
                   <p className="text-lg font-semibold text-gray-900">
@@ -253,7 +253,7 @@ export default function OrderTrackingPage() {
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors mb-4"
             >
-              <ExternalLink className="w-4 h-4" />
+              <ArrowSquareOut size={16} weight="bold" />
               Track on {order.carrier} Website
             </a>
           )}
@@ -261,7 +261,7 @@ export default function OrderTrackingPage() {
           {/* Shipping Address */}
           <div className="border-t border-gray-200 pt-6">
             <div className="flex items-center gap-2 text-gray-700 mb-3">
-              <MapPin className="w-5 h-5" />
+              <MapPin size={20} weight="bold" />
               <h3 className="font-semibold">Shipping Address</h3>
             </div>
             <div className="text-gray-700">

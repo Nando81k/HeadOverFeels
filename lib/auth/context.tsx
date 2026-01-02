@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { useSession, signOut as nextAuthSignOut } from 'next-auth/react'
 
 export interface User {
   id: string
@@ -15,14 +16,17 @@ export interface User {
   // Loyalty fields
   currentPoints: number
   lifetimePoints: number
+  annualPointsEarned: number  // Points earned this year (for tier progression)
   totalSpent: number
   totalOrders: number
+  annualSpend: number  // Legacy: dollars spent this year
   loyaltyTier: {
     id: string
     name: string
     slug: string
     description: string | null
-    minAnnualSpend: number
+    minAnnualPoints: number   // Points required for this tier
+    minAnnualSpend: number    // Legacy
     pointMultiplier: number
     freeShipping: boolean
     earlyDropAccess: boolean
@@ -44,14 +48,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const { data: session, status } = useSession()
 
   console.log('✅ AuthProvider component loaded')
 
-  // Fetch current user on mount
+  // Fetch full user data when NextAuth session changes
   useEffect(() => {
-    console.log('✅ AuthProvider useEffect running')
-    fetchCurrentUser()
-  }, [])
+    console.log('✅ AuthProvider useEffect running, session status:', status)
+    if (status === 'loading') return
+    
+    if (session?.user?.email) {
+      // User is authenticated via NextAuth (OAuth or credentials)
+      fetchCurrentUser()
+    } else if (status === 'unauthenticated') {
+      // Check cookie-based session (fallback for existing users)
+      fetchCurrentUser()
+    }
+  }, [session, status])
 
   const fetchCurrentUser = async () => {
     try {
@@ -108,7 +121,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signout = async () => {
-    await fetch('/api/auth/signout', { method: 'POST' })
+    // Sign out from both NextAuth and custom session
+    await Promise.all([
+      nextAuthSignOut({ redirect: false }),
+      fetch('/api/auth/signout', { method: 'POST' })
+    ])
     setUser(null)
   }
 
@@ -120,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider 
       value={{ 
         user, 
-        loading, 
+        loading: loading || status === 'loading', 
         signin, 
         signup, 
         signout, 

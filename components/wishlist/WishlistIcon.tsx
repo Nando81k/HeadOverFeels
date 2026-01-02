@@ -2,15 +2,14 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
+import { Heart } from '@phosphor-icons/react'
 import { useWishlistStore } from '@/lib/store/wishlist'
 
 interface WishlistIconProps {
   customerId?: string
-  size?: number
 }
 
-export function WishlistIcon({ size = 24 }: WishlistIconProps) {
+export function WishlistIcon({}: WishlistIconProps = {}) {
   const { items, loadWishlist, isLoaded } = useWishlistStore()
 
   // Load wishlist on mount if not already loaded
@@ -25,31 +24,13 @@ export function WishlistIcon({ size = 24 }: WishlistIconProps) {
   return (
     <Link
       href="/wishlist"
-      className="relative group transition-all duration-200 hover:scale-110"
+      className="relative p-2.5 rounded-full text-black/70 hover:text-black hover:bg-black/5 transition-all duration-200"
       aria-label={`Wishlist (${count} items)`}
     >
-      <div className="relative">
-        <Image
-          src="/assets/wishlist-icon.png"
-          alt="Wishlist"
-          width={size}
-          height={size}
-          className="object-contain brightness-0 transition-all duration-200"
-        />
-        <Image
-          src="/assets/wishlist-icon.png"
-          alt="Wishlist"
-          width={size}
-          height={size}
-          className="object-contain brightness-0 absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-          style={{
-            filter: 'brightness(0) saturate(100%) invert(21%) sepia(89%) saturate(7426%) hue-rotate(357deg) brightness(94%) contrast(119%)'
-          }}
-        />
-      </div>
+      <Heart size={20} weight={count > 0 ? 'fill' : 'bold'} />
       {count > 0 && (
-        <span className="absolute -top-2 -right-2 bg-[#2B2B2B] text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center group-hover:bg-red-500 transition-colors duration-200">
-          {count > 99 ? '99+' : count}
+        <span className="absolute top-0.5 right-0.5 bg-black text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+          {count > 9 ? '9+' : count}
         </span>
       )}
     </Link>

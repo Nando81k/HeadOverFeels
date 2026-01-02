@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, Clock, TrendingUp } from 'lucide-react'
+import { MagnifyingGlass, X, Clock, TrendUp } from '@phosphor-icons/react'
 
 interface SearchBarProps {
   placeholder?: string
@@ -166,7 +166,7 @@ export function SearchBar({
     <div className={`relative ${className}`}>
       <form onSubmit={handleSubmit} className="relative">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             ref={inputRef}
             type="text"
@@ -234,7 +234,7 @@ export function SearchBar({
           {POPULAR_SEARCHES.some((s) => !recentSearches.includes(s)) && (
             <div>
               <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-sm font-medium text-gray-700">
-                <TrendingUp className="w-4 h-4" />
+                <TrendUp className="w-4 h-4" />
                 <span>Popular Searches</span>
               </div>
               {POPULAR_SEARCHES.filter((s) => !recentSearches.includes(s)).map((search, index) => (
@@ -243,7 +243,7 @@ export function SearchBar({
                   onClick={() => handleSuggestionClick(search)}
                   className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-3 transition-colors"
                 >
-                  <TrendingUp className="w-4 h-4 text-gray-400" />
+                  <TrendUp className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-700">{search}</span>
                 </button>
               ))}

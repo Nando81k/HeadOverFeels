@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ChevronDown, ChevronUp, ArrowRight } from 'lucide-react'
+import { CaretDown, CaretUp, ArrowRight } from '@phosphor-icons/react'
 import { CollectionCarousel } from '@/components/collections/CollectionCarousel'
 import { Button } from '@/components/ui/button'
 import { Product } from '@/lib/api/products'
@@ -34,23 +34,23 @@ export function CollectionPreview({
       <div className="mb-8">
         <div className="flex items-end justify-between mb-4">
           <div>
-            <h2 className="text-3xl lg:text-5xl font-bold mb-3 text-black tracking-tight uppercase">
+            <h2 className="text-3xl lg:text-5xl font-black mb-3 text-black tracking-tight uppercase">
               {name}
             </h2>
-            <p className="text-base lg:text-lg text-gray-600 max-w-3xl">
+            <p className="text-base lg:text-lg text-black/70 max-w-3xl">
               {description}
             </p>
           </div>
           <Link
             href={`/collections/${name.toLowerCase().replace(/\s+/g, '-')}`}
-            className="hidden lg:inline-flex items-center gap-2 text-black hover:text-[#FF3131] transition-colors text-sm font-semibold uppercase tracking-wider"
+            className="hidden lg:inline-flex items-center gap-2 text-black hover:text-black/70 transition-colors text-sm font-bold uppercase tracking-wider"
           >
             View All
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight size={16} weight="bold" />
           </Link>
         </div>
         <div className="flex items-center gap-6">
-          <span className="text-gray-500 text-sm uppercase tracking-wider">
+          <span className="text-black/60 text-sm uppercase tracking-wider">
             {products.length} {products.length === 1 ? 'Product' : 'Products'}
           </span>
         </div>
@@ -82,16 +82,16 @@ export function CollectionPreview({
                 variant="outline"
                 size="lg"
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="min-w-[240px] border-2 hover:bg-black hover:text-white hover:border-black transition-all duration-300"
+                className="min-w-60 border border-black/10 hover:bg-black hover:text-white hover:border-black transition-all duration-300 text-black font-bold uppercase tracking-wider rounded-none"
               >
                 {isExpanded ? (
                   <>
-                    <ChevronUp className="w-5 h-5 mr-2" />
+                    <CaretUp size={20} weight="bold" className="mr-2" />
                     Show Less
                   </>
                 ) : (
                   <>
-                    <ChevronDown className="w-5 h-5 mr-2" />
+                    <CaretDown size={20} weight="bold" className="mr-2" />
                     View {additionalProducts.length} More Products
                   </>
                 )}
@@ -100,14 +100,14 @@ export function CollectionPreview({
           )}
         </>
       ) : (
-        <div className="text-center py-16 bg-gray-50 rounded-3xl">
-          <p className="text-gray-600 text-xl font-medium mb-2">No products in this collection yet</p>
-          <p className="text-gray-500 text-sm">Check back soon for new drops!</p>
+        <div className="text-center py-16 bg-black/5 rounded-none border border-black/10">
+          <p className="text-black/70 text-xl font-bold mb-2">No products in this collection yet</p>
+          <p className="text-black/60 text-sm">Check back soon for new drops!</p>
         </div>
       )}
 
       {/* Divider */}
-      <div className="mt-16 border-t border-gray-200" />
+      <div className="mt-16 border-t border-black/10" />
     </section>
   )
 }

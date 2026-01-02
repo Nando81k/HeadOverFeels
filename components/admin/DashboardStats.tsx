@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown } from '@phosphor-icons/react';
 import DateRangePicker from './DateRangePicker';
 
 type TimePeriod = 'today' | 'week' | 'month' | 'year' | 'custom';
@@ -110,16 +110,16 @@ export default function DashboardStats({
       {/* Time Period Filters */}
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Store Performance</h3>
-          <div className="flex gap-2">
+          <h3 className="text-sm font-medium tracking-[0.15em] text-white/70 uppercase">Store Performance</h3>
+          <div className="flex gap-1.5">
             {(['today', 'week', 'month', 'year'] as Array<Exclude<TimePeriod, 'custom'>>).map((period) => (
               <button
                 key={period}
                 onClick={() => setSelectedPeriod(period)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                className={`px-3 py-1.5 text-xs font-medium uppercase tracking-wide transition-all ${
                   selectedPeriod === period
-                    ? 'bg-black text-white'
-                    : 'bg-white text-gray-600 border border-gray-300 hover:border-gray-400'
+                    ? 'bg-white text-black'
+                    : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
                 }`}
               >
                 {period.charAt(0).toUpperCase() + period.slice(1)}
@@ -127,10 +127,10 @@ export default function DashboardStats({
             ))}
             <button
               onClick={() => setSelectedPeriod('custom')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              className={`px-3 py-1.5 text-xs font-medium uppercase tracking-wide transition-all ${
                 selectedPeriod === 'custom'
-                  ? 'bg-black text-white'
-                  : 'bg-white text-gray-600 border border-gray-300 hover:border-gray-400'
+                  ? 'bg-white text-black'
+                  : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
               }`}
             >
               Custom
@@ -148,11 +148,11 @@ export default function DashboardStats({
       </div>
 
       {/* Stats Grid */}
-      <div className="grid md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <h3 className="text-sm font-medium text-gray-600 mb-2">Total Orders</h3>
-          <p className="text-3xl font-bold">{currentStats.currentOrders}</p>
-          <p className="text-sm text-gray-500">
+      <div className="grid md:grid-cols-4 gap-4">
+        <div className="bg-white/5 p-5 border border-white/10">
+          <h3 className="text-[10px] font-medium tracking-[0.15em] text-white/40 uppercase mb-2">Total Orders</h3>
+          <p className="text-2xl font-bold text-white">{currentStats.currentOrders}</p>
+          <p className="text-xs text-white/40 mt-1">
             {currentStats.currentOrders === 0 ? 'No orders yet' : 
               selectedPeriod === 'custom' && customStats?.startDate && customStats?.endDate 
                 ? `${customStats.startDate.toLocaleDateString()} - ${customStats.endDate.toLocaleDateString()}`
@@ -161,11 +161,11 @@ export default function DashboardStats({
           </p>
         </div>
 
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <h3 className="text-sm font-medium text-gray-600 mb-2">Revenue</h3>
-          <p className="text-3xl font-bold">{formatCurrency(currentStats.currentRevenue)}</p>
+        <div className="bg-white/5 p-5 border border-white/10">
+          <h3 className="text-[10px] font-medium tracking-[0.15em] text-white/40 uppercase mb-2">Revenue</h3>
+          <p className="text-2xl font-bold text-white">{formatCurrency(currentStats.currentRevenue)}</p>
           <div className="flex items-center gap-2 mt-1">
-            <p className="text-sm text-gray-500">
+            <p className="text-xs text-white/40">
               {selectedPeriod === 'custom' && customStats?.startDate && customStats?.endDate 
                 ? `${customStats.startDate.toLocaleDateString()} - ${customStats.endDate.toLocaleDateString()}`
                 : periodLabels[selectedPeriod]
@@ -173,12 +173,12 @@ export default function DashboardStats({
             </p>
             {currentStats.previousRevenue > 0 && (
               <div className={`flex items-center gap-1 text-xs font-medium ${
-                trend.isPositive ? 'text-green-600' : 'text-red-600'
+                trend.isPositive ? 'text-emerald-400' : 'text-red-400'
               }`}>
                 {trend.isPositive ? (
-                  <ArrowUp className="w-3 h-3" />
+                  <ArrowUp size={12} weight="bold" />
                 ) : (
-                  <ArrowDown className="w-3 h-3" />
+                  <ArrowDown size={12} weight="bold" />
                 )}
                 <span>{trend.percentage.toFixed(1)}%</span>
               </div>
@@ -186,16 +186,16 @@ export default function DashboardStats({
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <h3 className="text-sm font-medium text-gray-600 mb-2">Products</h3>
-          <p className="text-3xl font-bold">{currentStats.activeProducts}</p>
-          <p className="text-sm text-gray-500">Active products</p>
+        <div className="bg-white/5 p-5 border border-white/10">
+          <h3 className="text-[10px] font-medium tracking-[0.15em] text-white/40 uppercase mb-2">Products</h3>
+          <p className="text-2xl font-bold text-white">{currentStats.activeProducts}</p>
+          <p className="text-xs text-white/40 mt-1">Active products</p>
         </div>
 
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <h3 className="text-sm font-medium text-gray-600 mb-2">Customers</h3>
-          <p className="text-3xl font-bold">{currentStats.totalCustomers}</p>
-          <p className="text-sm text-gray-500">Total customers</p>
+        <div className="bg-white/5 p-5 border border-white/10">
+          <h3 className="text-[10px] font-medium tracking-[0.15em] text-white/40 uppercase mb-2">Customers</h3>
+          <p className="text-2xl font-bold text-white">{currentStats.totalCustomers}</p>
+          <p className="text-xs text-white/40 mt-1">Total customers</p>
         </div>
       </div>
     </div>

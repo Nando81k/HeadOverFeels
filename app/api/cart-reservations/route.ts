@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { v4 as uuidv4 } from 'uuid';
+import { validateGuestSession, isValidGuestEmail } from '@/lib/security/guest-session';
 
 const RESERVATION_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -9,13 +10,15 @@ const RESERVATION_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 const reserveSchema = z.object({
   productId: z.string().cuid('Invalid product ID'),
   productVariantId: z.string().cuid('Invalid variant ID').optional(),
-  quantity: z.number().int().positive(),
+  quantity: z.number().int().positive('Quantity must be positive').max(100, 'Quantity too high'),
   sessionId: z.string().optional(), // Will generate if not provided
+  guestEmail: z.string().email('Invalid email').max(255, 'Email too long').optional(), // For guest checkout validation
 });
 
 /**
  * POST /api/cart-reservations
  * Reserve inventory for a limited drop item
+ * For guests: requires x-guest-email header to match guestEmail in body
  */
 export async function POST(request: NextRequest) {
   try {
@@ -24,6 +27,27 @@ export async function POST(request: NextRequest) {
 
     // Generate session ID if not provided
     const sessionId = validatedData.sessionId || uuidv4();
+
+    // Validate guest email if provided (security check)
+    if (validatedData.guestEmail) {
+      if (!isValidGuestEmail(validatedData.guestEmail)) {
+        return NextResponse.json(
+          { error: 'Invalid email format' },
+          { status: 400 }
+        );
+      }
+
+      // Verify guest email matches the header (prevent guest email manipulation)
+      const headerEmail = request.headers.get('x-guest-email')?.toLowerCase().trim();
+      const bodyEmail = validatedData.guestEmail.toLowerCase().trim();
+
+      if (!headerEmail || headerEmail !== bodyEmail) {
+        return NextResponse.json(
+          { error: 'Email validation failed' },
+          { status: 400 }
+        );
+      }
+    }
 
     // Check if product is a limited edition drop
     const product = await prisma.product.findUnique({
@@ -181,12 +205,14 @@ export async function POST(request: NextRequest) {
 /**
  * DELETE /api/cart-reservations?sessionId=xxx
  * Release reservation when user removes item or completes checkout
+ * For guests: requires x-guest-email header for validation
  */
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get('sessionId');
     const reservationId = searchParams.get('reservationId');
+    const guestEmail = request.headers.get('x-guest-email');
 
     if (!sessionId && !reservationId) {
       return NextResponse.json(
@@ -195,11 +221,22 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // If guest email is provided, validate it
+    if (guestEmail) {
+      if (!isValidGuestEmail(guestEmail)) {
+        return NextResponse.json(
+          { error: 'Invalid email format' },
+          { status: 400 }
+        );
+      }
+    }
+
     const where = reservationId
       ? { id: reservationId }
       : { sessionId: sessionId! };
 
-    await prisma.cartReservation.updateMany({
+    // Only release active reservations
+    const releaseCount = await prisma.cartReservation.updateMany({
       where: {
         ...where,
         isActive: true,
@@ -208,6 +245,14 @@ export async function DELETE(request: NextRequest) {
         isActive: false,
       },
     });
+
+    // Return error if no reservations were released (prevents info leakage)
+    if (releaseCount.count === 0) {
+      return NextResponse.json(
+        { error: 'No active reservations found' },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

@@ -3,8 +3,9 @@
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { signIn } from 'next-auth/react'
 import { useAuth } from '@/lib/auth/context'
-import { LogIn, UserPlus } from 'lucide-react'
+import { SignIn as SignInIcon, UserPlus, GoogleLogo, GithubLogo, Spinner } from '@phosphor-icons/react'
 import { PasswordStrength } from '@/components/auth/PasswordStrength'
 
 function SignInContent() {
@@ -15,6 +16,7 @@ function SignInContent() {
 
   const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin')
   const [loading, setLoading] = useState(false)
+  const [socialLoading, setSocialLoading] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   // Sign in form state
@@ -85,13 +87,25 @@ function SignInContent() {
     }
   }
 
+  // Social login handlers
+  const handleSocialLogin = async (provider: 'google' | 'github') => {
+    setError('')
+    setSocialLoading(provider)
+    try {
+      await signIn(provider, { callbackUrl: redirectTo })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Failed to sign in with ${provider}`)
+      setSocialLoading(null)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#FAF8F5] pt-32 pb-16">
       <div className="max-w-md mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-[#1A1A1A] mb-2">
-            Welcome to Head Over Feels
+                    <h1 className="text-4xl font-bold text-[#1A1A1A] mb-2 logo-font">
+            Welcome Back
           </h1>
           <p className="text-[#6B6B6B]">
             Sign in to track your orders and save your wishlist
@@ -173,9 +187,50 @@ function SignInContent() {
               disabled={loading}
               className="w-full bg-[#1A1A1A] text-white py-3 rounded-lg font-medium hover:bg-[#2B2B2B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              <LogIn className="w-5 h-5" />
+              <SignInIcon size={20} weight="bold" />
               {loading ? 'Signing In...' : 'Sign In'}
             </button>
+
+            {/* Divider */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[#E5DDD5]"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-[#FAF8F5] text-[#6B6B6B]">or continue with</span>
+              </div>
+            </div>
+
+            {/* Social Login Buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => handleSocialLogin('google')}
+                disabled={socialLoading !== null}
+                className="flex items-center justify-center gap-2 px-4 py-3 border border-[#E5DDD5] rounded-lg bg-white hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {socialLoading === 'google' ? (
+                  <Spinner size={20} className="animate-spin" />
+                ) : (
+                  <GoogleLogo size={20} weight="bold" className="text-[#4285F4]" />
+                )}
+                <span className="text-sm font-medium text-[#1A1A1A]">Google</span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => handleSocialLogin('github')}
+                disabled={socialLoading !== null}
+                className="flex items-center justify-center gap-2 px-4 py-3 border border-[#E5DDD5] rounded-lg bg-white hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {socialLoading === 'github' ? (
+                  <Spinner size={20} className="animate-spin" />
+                ) : (
+                  <GithubLogo size={20} weight="bold" className="text-[#1A1A1A]" />
+                )}
+                <span className="text-sm font-medium text-[#1A1A1A]">GitHub</span>
+              </button>
+            </div>
           </form>
         )}
 
@@ -254,9 +309,50 @@ function SignInContent() {
               disabled={loading}
               className="w-full bg-[#1A1A1A] text-white py-3 rounded-lg font-medium hover:bg-[#2B2B2B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              <UserPlus className="w-5 h-5" />
+              <UserPlus size={20} weight="bold" />
               {loading ? 'Creating Account...' : 'Create Account'}
             </button>
+
+            {/* Divider */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[#E5DDD5]"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-[#FAF8F5] text-[#6B6B6B]">or sign up with</span>
+              </div>
+            </div>
+
+            {/* Social Login Buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => handleSocialLogin('google')}
+                disabled={socialLoading !== null}
+                className="flex items-center justify-center gap-2 px-4 py-3 border border-[#E5DDD5] rounded-lg bg-white hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {socialLoading === 'google' ? (
+                  <Spinner size={20} className="animate-spin" />
+                ) : (
+                  <GoogleLogo size={20} weight="bold" className="text-[#4285F4]" />
+                )}
+                <span className="text-sm font-medium text-[#1A1A1A]">Google</span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => handleSocialLogin('github')}
+                disabled={socialLoading !== null}
+                className="flex items-center justify-center gap-2 px-4 py-3 border border-[#E5DDD5] rounded-lg bg-white hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {socialLoading === 'github' ? (
+                  <Spinner size={20} className="animate-spin" />
+                ) : (
+                  <GithubLogo size={20} weight="bold" className="text-[#1A1A1A]" />
+                )}
+                <span className="text-sm font-medium text-[#1A1A1A]">GitHub</span>
+              </button>
+            </div>
           </form>
         )}
 

@@ -63,9 +63,9 @@ const createLimitedDropProduct = async () => {
     // Add product images (you'll need to upload actual images)
     images: [
       // Replace these with actual Cloudinary URLs after uploading
-      "https://via.placeholder.com/800x1000/000000/FFD700?text=MIDNIGHT+LEGEND+HOODIE",
-      "https://via.placeholder.com/800x1000/000000/FFFFFF?text=BACK+VIEW",
-      "https://via.placeholder.com/800x1000/000000/FFFFFF?text=DETAIL+SHOT"
+      "https://via.placeholder.com/800x1000/F0E6FF/9D7DD9?text=MIDNIGHT+LEGEND+HOODIE",
+      "https://via.placeholder.com/800x1000/FFE8F0/E878B5?text=BACK+VIEW",
+      "https://via.placeholder.com/800x1000/FFF5F7/B5D9FF?text=DETAIL+SHOT"
     ]
   }
 

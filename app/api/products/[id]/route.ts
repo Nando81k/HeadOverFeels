@@ -32,38 +32,102 @@ const updateProductSchema = z.object({
   })).optional()
 })
 
-// GET /api/products/[id] - Fetch single product
+// GET /api/products/[id] - Fetch single product (by ID or slug)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    const product = await prisma.product.findUnique({
+    
+    // Check if this is for the ProductCard component (needs minimal data)
+    const url = new URL(request.url)
+    const minimal = url.searchParams.get('minimal') === 'true'
+    
+    // Try to find by ID first, then by slug
+    let product = await prisma.product.findUnique({
       where: { id },
-      include: {
+      include: minimal ? {
+        category: {
+          select: { name: true }
+        }
+      } : {
         variants: true,
         category: true,
         collections: {
           select: {
             collectionId: true
           }
-        },
-        _count: {
-          select: { 
-            variants: true,
-            orderItems: true,
-            cartItems: true
-          }
         }
       }
     })
+    
+    // If not found by ID, try slug
+    if (!product) {
+      product = await prisma.product.findUnique({
+        where: { slug: id }, // Using 'id' param but searching by slug
+        include: minimal ? {
+          category: {
+            select: { name: true }
+          }
+        } : {
+          variants: true,
+          category: true,
+          collections: {
+            select: {
+              collectionId: true
+            }
+          },
+          _count: {
+            select: { 
+              variants: true,
+              orderItems: true,
+              cartItems: true
+            }
+          }
+        }
+      })
+    }
 
     if (!product) {
       return NextResponse.json(
         { error: 'Product not found' },
         { status: 404 }
       )
+    }
+
+    // If minimal response requested (for ProductCard), format it
+    if (minimal) {
+      let images: string[] = []
+      if (product.images) {
+        if (typeof product.images === 'string') {
+          try {
+            const parsed = JSON.parse(product.images)
+            // Extract URLs from image objects
+            images = Array.isArray(parsed) 
+              ? parsed.map((img: string | { url?: string }) => typeof img === 'string' ? img : img.url || '')
+              : []
+          } catch {
+            images = []
+          }
+        } else if (Array.isArray(product.images)) {
+          // Extract URLs from image objects
+          images = (product.images as Array<string | { url?: string }>).map((img) => 
+            typeof img === 'string' ? img : img.url || ''
+          )
+        }
+      }
+
+      return NextResponse.json({
+        data: {
+          id: product.id,
+          name: product.name,
+          slug: product.slug,
+          price: product.price,
+          images: images.filter(Boolean).length > 0 ? images.filter(Boolean) : ['/placeholder-product.jpg'],
+          category: product.category?.name || 'Uncategorized'
+        }
+      })
     }
 
     return NextResponse.json(product)

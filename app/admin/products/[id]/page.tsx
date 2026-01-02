@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, Trash2 } from 'lucide-react'
+import { ArrowLeft, CircleNotch, Trash } from '@phosphor-icons/react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -347,7 +347,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin" />
+        <CircleNotch size={32} weight="bold" className="animate-spin" />
       </div>
     )
   }
@@ -374,7 +374,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             href="/admin/products"
             className="inline-flex items-center gap-2 text-neutral-600 hover:text-black transition-colors mb-2"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft size={16} weight="bold" />
             Back to Products
           </Link>
           <h1 className="text-3xl font-bold">Edit Product</h1>
@@ -386,12 +386,12 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         >
           {deleting ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              <CircleNotch size={16} weight="bold" className="animate-spin mr-2" />
               Deleting...
             </>
           ) : (
             <>
-              <Trash2 className="w-4 h-4 mr-2" />
+              <Trash size={16} weight="bold" className="mr-2" />
               Delete Product
             </>
           )}
@@ -645,7 +645,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                     onClick={() => removeVariant(index)}
                     disabled={variants.length === 1}
                   >
-                    <Trash2 className="w-4 h-4 mr-2" />
+                    <Trash size={16} weight="bold" className="mr-2" />
                     Remove Variant
                   </Button>
                 </div>
@@ -828,7 +828,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           <Button type="submit" size="lg" disabled={saving} className="flex-1">
             {saving ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <CircleNotch size={16} weight="bold" className="animate-spin mr-2" />
                 Saving...
               </>
             ) : (
@@ -912,7 +912,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                 >
                   {creating ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      <CircleNotch size={16} weight="bold" className="animate-spin mr-2" />
                       Creating...
                     </>
                   ) : (

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Three.js Avatar Creator</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Missing asset overlay */
+    #missing-asset-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(10px);
+    }
+
+    #missing-asset-overlay.visible {
+      display: flex;
+    }
+
+    .missing-asset-message {
+      background: white;
+      padding: 3rem;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 600px;
+      text-align: center;
+    }
+
+    .missing-asset-message h2 {
+      color: #e74c3c;
+      margin-bottom: 1rem;
+      font-size: 1.8rem;
+    }
+
+    .missing-asset-message p {
+      color: #555;
+      line-height: 1.6;
+      margin-bottom: 0.8rem;
+    }
+
+    .missing-asset-message code {
+      background: #f5f5f5;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      color: #e74c3c;
+    }
+
+    .missing-asset-message .instructions {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+      text-align: left;
+    }
+
+    .missing-asset-message .instructions ol {
+      margin-left: 1.5rem;
+    }
+
+    .missing-asset-message .instructions li {
+      margin-bottom: 0.5rem;
+      color: #333;
+    }
+
+    /* Loading indicator */
+    #loading-indicator {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 255, 255, 0.95);
+      padding: 2rem 3rem;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      display: none;
+      align-items: center;
+      gap: 1rem;
+      z-index: 100;
+    }
+
+    #loading-indicator.visible {
+      display: flex;
+    }
+
+    .spinner {
+      width: 30px;
+      height: 30px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    #loading-indicator span {
+      font-size: 1rem;
+      color: #333;
+      font-weight: 500;
+    }
+
+    /* Info banner */
+    #info-banner {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.95);
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      font-size: 0.9rem;
+      color: #555;
+      max-width: 80%;
+      text-align: center;
+      z-index: 50;
+      display: none;
+    }
+
+    #info-banner.visible {
+      display: block;
+    }
+
+    /* Responsive lil-gui styling */
+    .lil-gui {
+      --width: 320px;
+      --widget-height: 24px;
+      --name-width: 45%;
+      --slider-knob-width: 4px;
+      --background-color: rgba(30, 30, 30, 0.95);
+      --widget-color: rgba(255, 255, 255, 0.1);
+      --focus-color: rgba(102, 126, 234, 0.7);
+      --hover-color: rgba(255, 255, 255, 0.15);
+      --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container">
+    <canvas id="avatar-canvas"></canvas>
+    
+    <!-- Loading indicator -->
+    <div id="loading-indicator">
+      <div class="spinner"></div>
+      <span>Loading avatar...</span>
+    </div>
+
+    <!-- Missing asset overlay -->
+    <div id="missing-asset-overlay">
+      <div class="missing-asset-message">
+        <h2>⚠️ Missing Avatar Asset</h2>
+        <p>The avatar file <code>assets/base-avatar.glb</code> was not found.</p>
+        <p>This is a placeholder application waiting for your 3D avatar model.</p>
+        
+        <div class="instructions">
+          <strong>To get started:</strong>
+          <ol>
+            <li>Create a rigged avatar with blend shapes (Ready Player Me, Mixamo, or custom)</li>
+            <li>Export as GLB format with morph targets</li>
+            <li>Place the file at: <code>assets/base-avatar.glb</code></li>
+            <li>Optional: Add animations to <code>assets/animations/</code></li>
+            <li>Refresh this page</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info banner -->
+    <div id="info-banner">
+      Use the panel to customize your avatar. Changes save automatically.
+    </div>
+  </div>
+
+  <!-- Import map for ES modules from CDN -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+      "lil-gui": "https://unpkg.com/lil-gui@0.19/dist/lil-gui.esm.js"
+    }
+  }
+  </script>
+
+  <!-- Main application entry point -->
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

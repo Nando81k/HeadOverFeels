@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { Prisma } from '@prisma/client'
+import { isValidGuestEmail } from '@/lib/security/guest-session'
+import { getPaginationParams, createPaginatedResponse } from '@/lib/validation/schemas'
 
 // Validation schemas
 const AddressSchema = z.object({
@@ -19,29 +21,56 @@ const AddressSchema = z.object({
 const OrderItemSchema = z.object({
   productId: z.string(),
   productVariantId: z.string().optional(),
-  quantity: z.number().int().positive(),
-  price: z.number().positive(), // Price at time of purchase
+  quantity: z.number().int().positive('Quantity must be positive'),
+  price: z.number().positive('Price must be positive'),
 })
 
 const CreateOrderSchema = z.object({
-  customerEmail: z.string().email(),
+  customerEmail: z.string().email('Invalid email'),
   customerPhone: z.string().optional(),
   shippingAddress: AddressSchema,
   billingAddress: AddressSchema,
   items: z.array(OrderItemSchema).min(1, 'Order must have at least one item'),
-  subtotal: z.number().positive(),
-  shipping: z.number().min(0),
-  tax: z.number().min(0),
-  total: z.number().positive(),
-  paymentIntentId: z.string().optional(), // Stripe payment intent ID
-  sessionId: z.string().optional(), // For releasing cart reservations
+  subtotal: z.number().positive('Subtotal must be positive'),
+  discount: z.number().min(0, 'Discount must be non-negative').default(0),
+  shipping: z.number().min(0, 'Shipping must be non-negative'),
+  tax: z.number().min(0, 'Tax must be non-negative'),
+  total: z.number().positive('Total must be positive'),
+  paymentIntentId: z.string().optional(),
+  sessionId: z.string().optional(),
+  couponCode: z.string().optional(),
+  redemptionId: z.string().optional(),
 })
 
 // POST /api/orders - Create a new order
+// For guest checkouts: validates guest email against x-guest-email header
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const validatedData = CreateOrderSchema.parse(body)
+
+    // Validate guest email if provided
+    const headerEmail = request.headers.get('x-guest-email')
+    if (headerEmail) {
+      const bodyEmail = validatedData.customerEmail.toLowerCase().trim()
+      const cleanHeaderEmail = headerEmail.toLowerCase().trim()
+
+      // For guests: email in request must match header to prevent manipulation
+      if (cleanHeaderEmail !== bodyEmail) {
+        return NextResponse.json(
+          { error: 'Email validation failed' },
+          { status: 400 }
+        )
+      }
+
+      // Validate email format
+      if (!isValidGuestEmail(bodyEmail)) {
+        return NextResponse.json(
+          { error: 'Invalid email format' },
+          { status: 400 }
+        )
+      }
+    }
 
     // Start a transaction to ensure all operations succeed or fail together
     const result = await prisma.$transaction(async (tx) => {
@@ -175,9 +204,12 @@ export async function POST(request: NextRequest) {
           shippingAddressId: shippingAddress.id,
           billingAddressId: billingAddress.id,
           subtotal: validatedData.subtotal,
+          discount: validatedData.discount || 0,
           shipping: validatedData.shipping,
           tax: validatedData.tax,
           total: validatedData.total,
+          couponCode: validatedData.couponCode || null,
+          redemptionId: validatedData.redemptionId || null,
           status: 'PENDING',
           paymentStatus: validatedData.paymentIntentId ? 'PENDING' : 'PENDING',
           paymentMethod: 'stripe',
@@ -269,9 +301,9 @@ export async function GET(request: NextRequest) {
     const userEmail = request.headers.get('x-user-email') // We'll need to pass this from the client
     const isAdmin = request.headers.get('x-user-admin') === 'true'
     
+    // Validate pagination parameters
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const { page, limit } = getPaginationParams(new URL(request.url).searchParams)
     const status = searchParams.get('status')
     const email = searchParams.get('email')
 
@@ -287,10 +319,11 @@ export async function GET(request: NextRequest) {
       where.status = status as Prisma.EnumOrderStatusFilter
     }
     
-    // Admin can search by email
+    // Admin can search by email (max 255 chars)
     if (email && isAdmin) {
+      const cleanEmail = email.substring(0, 255)
       where.customerEmail = {
-        contains: email,
+        contains: cleanEmail,
       }
     }
 
@@ -316,15 +349,9 @@ export async function GET(request: NextRequest) {
       prisma.order.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: orders,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    })
+    return NextResponse.json(
+      createPaginatedResponse(orders, total, page, limit)
+    )
   } catch (error) {
     console.error('Orders fetch error:', error)
     return NextResponse.json(

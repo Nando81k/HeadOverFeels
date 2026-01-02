@@ -255,11 +255,17 @@ export function getTopProductsByUnits(orders: OrderWithDetails[], limit: number 
 
 /**
  * Aggregate customer acquisition by date period
+ * 
+ * @param customersInRange - Customers created within the date range
+ * @param dateRange - The date range for aggregation
+ * @param period - Aggregation period (daily/weekly/monthly)
+ * @param existingCustomerCount - Count of customers created BEFORE the date range (baseline)
  */
 export function aggregateCustomerAcquisition(
-  customers: Customer[],
+  customersInRange: Customer[],
   dateRange: DateRange,
-  period: 'daily' | 'weekly' | 'monthly' = 'daily'
+  period: 'daily' | 'weekly' | 'monthly' = 'daily',
+  existingCustomerCount: number = 0
 ): CustomerAcquisition[] {
   let intervals: Date[];
   let formatStr: string;
@@ -279,11 +285,12 @@ export function aggregateCustomerAcquisition(
       break;
   }
   
-  let cumulativeTotal = 0;
+  // Start with existing customer count as baseline
+  let cumulativeTotal = existingCustomerCount;
   
   return intervals.map(date => {
     const dateStr = format(date, formatStr);
-    const newCustomers = customers.filter(c => {
+    const newCustomers = customersInRange.filter(c => {
       const customerDate = format(new Date(c.createdAt), formatStr);
       return customerDate === dateStr;
     }).length;

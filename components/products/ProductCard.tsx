@@ -1,16 +1,14 @@
 'use client'
-
-import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Product } from '@/lib/api/products'
 
 interface ProductCardProps {
   product: Product
+  badge?: string // optional top-left badge text (e.g. "#1 Seller")
 }
 
-export function ProductCard({ product }: ProductCardProps) {
-  const [imageLoaded, setImageLoaded] = useState(false)
+export function ProductCard({ product, badge }: ProductCardProps) {
 
   // Parse images JSON - handle both string and already-parsed array
   let imageUrl = '/placeholder-product.jpg'
@@ -45,63 +43,72 @@ export function ProductCard({ product }: ProductCardProps) {
 
   return (
     <div className="group relative">
-      <Link 
-        href={`/products/${product.slug}`}
-        className="block"
-      >
-        {/* Product Image */}
-        <div className="relative aspect-3/4 overflow-hidden rounded-xl bg-[#F5F1EB] mb-3">
-          <Image
-            src={imageUrl}
-            alt={product.name}
-            fill
-            className={`object-cover transition-all duration-500 group-hover:scale-105 ${
-              imageLoaded ? 'opacity-100' : 'opacity-0'
-            }`}
-            onLoad={() => setImageLoaded(true)}
-          />
-          
-          {/* Badges - Top Left Only */}
-          <div className="absolute top-3 left-3 flex flex-col gap-2">
-            {onSale && (
-              <span className="bg-[#E74C3C] text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                Sale
-              </span>
-            )}
-            {!inStock && (
-              <span className="bg-[#2B2B2B] text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                Sold Out
-              </span>
-            )}
-            {product.isLimitedEdition && inStock && (
-              <span className="bg-[#8B7355] text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                Limited
-              </span>
-            )}
-          </div>
-        </div>
+      <Link href={`/products/${product.slug}`} className="block">
+        {/* Card Container - mirror BestSellers style */}
+        <div className="group relative bg-white border border-black/10 overflow-hidden transition-all duration-300 h-full flex flex-col hover:border-black/30">
+          {/* Image Container */}
+          <div className="relative h-80 overflow-hidden bg-black/2">
+            <Image
+              src={imageUrl}
+              alt={product.name}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+            />
 
-        {/* Product Info - Minimal Comfrt Style */}
-        <div className="space-y-1.5">
-          <h3 className="font-medium text-[#2B2B2B] text-sm tracking-tight leading-tight group-hover:text-[#6B6B6B] transition-colors">
-            {product.name}
-          </h3>
-          
-          <div className="flex items-baseline gap-2">
-            {onSale ? (
-              <>
-                <span className="text-[#2B2B2B] font-semibold text-base">
-                  ${product.price.toFixed(2)}
+            {/* Badges - Top Left */}
+            <div className="absolute top-4 left-4 z-10 flex gap-2">
+              {badge && (
+                <span className="px-3 py-1 bg-black text-white text-xs font-black rounded-none uppercase tracking-widest">
+                  {badge}
                 </span>
-                <span className="text-[#9B9B9B] line-through text-sm">
-                  ${product.compareAtPrice?.toFixed(2)}
+              )}
+              {product.category && (
+                <span className="px-3 py-1 bg-black/5 text-black/70 text-xs font-bold rounded-none uppercase border border-black/10">
+                  {product.category.name}
                 </span>
-              </>
-            ) : (
-              <span className="text-[#2B2B2B] font-semibold text-base">
-                From ${product.price.toFixed(2)}
-              </span>
+              )}
+              {onSale && (
+                <span className="px-3 py-1 bg-black text-white text-xs font-bold rounded-none uppercase tracking-widest">
+                  Sale
+                </span>
+              )}
+              {!inStock && (
+                <span className="px-3 py-1 bg-black text-white text-xs font-bold rounded-none uppercase tracking-widest">
+                  Sold Out
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Content - follow BestSellers ordering: title, short description, price */}
+          <div className="p-6 flex-1 flex flex-col">
+            <h3 className="text-lg md:text-xl font-black text-black mb-3 line-clamp-2">
+              {product.name}
+            </h3>
+
+            {product.description && (
+              <p className="text-xs md:text-sm text-black/60 mb-4 line-clamp-2 flex-1 font-medium">
+                {product.description}
+              </p>
             )}
+
+            {/* Price Section */}
+            <div className="flex items-baseline gap-3 mb-5">
+              <span className="text-2xl font-black text-black">
+                ${product.price.toFixed(2)}
+              </span>
+              {product.compareAtPrice && product.compareAtPrice > product.price && (
+                <span className="text-sm text-black/40 line-through font-semibold">
+                  ${product.compareAtPrice.toFixed(2)}
+                </span>
+              )}
+            </div>
+
+            {/* Small CTA row to match BestSellers */}
+            <div className="inline-flex items-center gap-1.5 text-black font-bold text-xs uppercase tracking-widest group-hover:gap-3 transition-all">
+              <span>View</span>
+            </div>
           </div>
         </div>
       </Link>

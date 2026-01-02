@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Navigation } from '@/components/layout/Navigation'
 import { CollectionPreview } from '@/components/collections/CollectionPreview'
 import { Product } from '@/lib/api/products'
-import { Loader2, Sparkles } from 'lucide-react'
+import { CircleNotch, Sparkle } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 
 interface CollectionWithProducts {
@@ -66,24 +66,21 @@ export default function CollectionsPage() {
       <Navigation />
 
       {/* Hero Section - Modern */}
-      <section className="relative h-[70vh] min-h-[600px] overflow-hidden">
-        <div className="absolute inset-0 bg-black">
-          <div className="w-full h-full bg-linear-to-br from-[#FF3131]/30 to-[#CDA09B]/20" />
-        </div>
+      <section className="relative h-[60vh] min-h-[500px] overflow-hidden bg-white pt-24 lg:pt-32">
         <div className="relative h-full max-w-7xl mx-auto px-6 lg:px-12 flex flex-col justify-center z-10">
           <div className="max-w-4xl">
-            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-5 py-2 rounded-full mb-8">
-              <Sparkles className="w-5 h-5 text-white" />
-              <span className="text-sm font-semibold uppercase tracking-wider text-white">Curated Collections</span>
+            <div className="inline-flex items-center gap-2 bg-white border border-black/10 px-5 py-2 rounded-none mb-6">
+              <Sparkle size={20} weight="fill" className="text-black" />
+              <span className="text-sm font-bold uppercase tracking-wider text-black">Curated Collections</span>
             </div>
-            <h1 className="text-6xl lg:text-8xl font-bold mb-8 tracking-tight text-white">
+            <h1 className="text-6xl lg:text-8xl font-black mb-6 tracking-tight text-black">
               Our Collections
             </h1>
-            <p className="text-xl lg:text-2xl text-white/90 leading-relaxed mb-8 max-w-3xl">
+            <p className="text-xl lg:text-2xl text-black/70 leading-relaxed mb-6 max-w-3xl">
               Discover our carefully curated streetwear collections, from everyday essentials to exclusive limited drops
             </p>
             {!loading && collections.length > 0 && (
-              <div className="flex items-center gap-4 text-white/70">
+              <div className="flex items-center gap-4 text-black/60">
                 <span className="text-sm uppercase tracking-wider">{collections.length} Collections</span>
                 <span className="text-sm">•</span>
                 <span className="text-sm uppercase tracking-wider">
@@ -97,14 +94,14 @@ export default function CollectionsPage() {
 
       {/* Loading State */}
       {loading && (
-        <div className="flex justify-center items-center py-32">
-          <Loader2 className="w-12 h-12 animate-spin text-[#6B6B6B]" />
+        <div className="flex justify-center items-center py-16">
+          <CircleNotch size={48} weight="bold" className="animate-spin text-black" />
         </div>
       )}
 
       {/* Collections Grid */}
       {!loading && (
-        <div className="max-w-7xl mx-auto px-6 py-16 lg:py-24">
+        <div className="max-w-7xl mx-auto px-6 py-6 lg:py-8">
           {collections.length > 0 ? (
             <>
               {collections.map((collection, index) => (
@@ -122,32 +119,32 @@ export default function CollectionsPage() {
             </>
           ) : (
             <div className="text-center py-20">
-              <p className="text-[#6B6B6B] text-xl mb-2">No collections available yet</p>
-              <p className="text-[#6B6B6B]">Check back soon for new drops!</p>
+              <p className="text-black/70 text-xl mb-2">No collections available yet</p>
+              <p className="text-black/60">Check back soon for new drops!</p>
             </div>
           )}
         </div>
       )}
 
       {/* Newsletter CTA Section */}
-      <section className="py-20 lg:py-28 bg-[#2B2B2B] text-white">
+      <section className="py-12 lg:py-16 bg-white text-black border-t border-black/10">
         <div className="max-w-3xl mx-auto px-6 text-center">
-          <h2 className="text-4xl lg:text-5xl font-bold mb-6 tracking-tight">
+          <h2 className="text-4xl lg:text-5xl font-black mb-6 tracking-tight">
             Never Miss a Drop
           </h2>
-          <p className="text-lg text-white/80 mb-10 leading-relaxed">
+          <p className="text-lg text-black/70 mb-10 leading-relaxed">
             Join our community to get early access to new collections, exclusive drops, and special offers
           </p>
           <form className="flex flex-col sm:flex-row gap-4 max-w-xl mx-auto">
             <input
               type="email"
               placeholder="Enter your email"
-              className="flex-1 px-6 py-4 rounded-xl bg-white/10 border border-white/20 text-white placeholder:text-white/60 focus:outline-none focus:border-white transition-colors"
+              className="flex-1 px-6 py-4 rounded-none bg-white border border-black/10 text-black placeholder:text-black/40 focus:outline-none focus:border-black/20 transition-colors h-[52px]"
             />
             <Button
               type="submit"
               size="lg"
-              className="bg-white text-[#2B2B2B] hover:bg-[#F5F1EB] whitespace-nowrap"
+              className="bg-black text-white hover:bg-black/90 whitespace-nowrap h-[52px] px-8 rounded-none font-bold uppercase tracking-wider"
             >
               Subscribe
             </Button>

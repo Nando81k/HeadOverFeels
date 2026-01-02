@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { CheckCircle2, Package, Mail, Loader2, Star, Truck } from 'lucide-react'
+import { CheckCircle, Package, EnvelopeSimple, CircleNotch, Star, Truck } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 
 interface OrderItem {
@@ -93,7 +93,7 @@ function ConfirmationContent() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
+        <CircleNotch size={32} weight="bold" className="animate-spin text-neutral-400" />
       </div>
     )
   }
@@ -117,13 +117,13 @@ function ConfirmationContent() {
         {/* Success icon */}
         <div className="flex justify-center mb-6">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-            <CheckCircle2 className="w-10 h-10 text-green-600" />
+            <CheckCircle size={40} weight="fill" className="text-green-600" />
           </div>
         </div>
 
         {/* Heading */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">
+          <h1 className="text-3xl md:text-4xl font-bold mb-2 logo-font">
             Order Confirmed!
           </h1>
           <p className="text-lg text-neutral-600 mb-2">
@@ -202,7 +202,7 @@ function ConfirmationContent() {
             <div className="flex items-start gap-3">
               <div className="shrink-0">
                 <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center">
-                  <Truck className="w-6 h-6 text-white" />
+                  <Truck size={24} weight="bold" className="text-white" />
                 </div>
               </div>
               <div className="flex-1">
@@ -249,7 +249,7 @@ function ConfirmationContent() {
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
                       >
-                        <Package className="w-4 h-4" />
+                        <Package size={16} weight="bold" />
                         Track Package
                       </a>
                     )}
@@ -270,7 +270,7 @@ function ConfirmationContent() {
         <div className="grid md:grid-cols-2 gap-4 mb-8">
           <div className="p-4 bg-neutral-50 rounded-lg">
             <div className="flex items-start gap-3">
-              <Mail className="w-5 h-5 text-neutral-600 mt-0.5" />
+              <EnvelopeSimple size={20} weight="bold" className="text-neutral-600 mt-0.5" />
               <div>
                 <h3 className="font-semibold mb-1">Email Confirmation</h3>
                 <p className="text-sm text-neutral-600">

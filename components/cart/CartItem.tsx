@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { CartItem as CartItemType } from '@/lib/store/cart'
-import { Trash2, Plus, Minus, AlertCircle } from 'lucide-react'
+import { Trash, Plus, Minus, Warning } from '@phosphor-icons/react'
 import { motion } from 'framer-motion'
 
 interface CartItemProps {
@@ -99,7 +99,7 @@ export function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
               className="w-9 h-9 flex items-center justify-center border-2 border-gray-300 rounded-lg hover:border-[#FF3131] hover:bg-[#FF3131]/5 transition-all duration-200 hover:scale-110 group/btn"
               aria-label="Decrease quantity"
             >
-              <Minus className="w-4 h-4 text-gray-700 group-hover/btn:text-[#FF3131]" />
+              <Minus size={16} weight="bold" className="text-gray-700 group-hover/btn:text-[#FF3131]" />
             </button>
             <span className="w-14 text-center font-bold text-lg">{quantity}</span>
             <button
@@ -108,7 +108,7 @@ export function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
               className="w-9 h-9 flex items-center justify-center border-2 border-gray-300 rounded-lg hover:border-[#FF3131] hover:bg-[#FF3131]/5 transition-all duration-200 hover:scale-110 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 group/btn"
               aria-label="Increase quantity"
             >
-              <Plus className="w-4 h-4 text-gray-700 group-hover/btn:text-[#FF3131]" />
+              <Plus size={16} weight="bold" className="text-gray-700 group-hover/btn:text-[#FF3131]" />
             </button>
           </div>
 
@@ -117,7 +117,7 @@ export function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
             onClick={() => onRemove(product.id, variant.id)}
             className="flex items-center gap-2 text-gray-600 hover:text-[#FF3131] font-semibold text-sm transition-all duration-200 hover:scale-105 group/del"
           >
-            <Trash2 className="w-4 h-4 group-hover/del:scale-110 transition-transform" />
+            <Trash size={16} weight="bold" className="group-hover/del:scale-110 transition-transform" />
             Remove
           </button>
         </div>
@@ -129,7 +129,7 @@ export function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
             animate={{ opacity: 1, y: 0 }}
             className="mt-3 flex items-center gap-2 text-xs font-semibold text-orange-600 bg-orange-50 px-3 py-2 rounded-lg border border-orange-200"
           >
-            <AlertCircle className="w-4 h-4" />
+            <Warning size={16} weight="bold" />
             Only {variant.inventory} left in stock - Order soon!
           </motion.div>
         )}

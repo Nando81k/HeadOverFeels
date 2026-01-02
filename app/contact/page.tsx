@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Navigation } from '@/components/layout/Navigation'
-import { Mail, MapPin, Phone, Instagram, Twitter, Facebook, Send } from 'lucide-react'
+import { EnvelopeSimple, MapPin, Phone, InstagramLogo, TwitterLogo, FacebookLogo, PaperPlaneTilt } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 
 export default function ContactPage() {
@@ -44,12 +44,12 @@ export default function ContactPage() {
       <Navigation />
 
       {/* Hero */}
-      <div className="bg-black text-white py-20 pt-28">
+      <div className="bg-white text-black py-20 pt-28 border-b border-black/10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl md:text-6xl font-bold mb-6">
+          <h1 className="text-4xl md:text-6xl font-black mb-6">
             Get in Touch
           </h1>
-          <p className="text-xl text-gray-300">
+          <p className="text-xl text-black/70">
             Have questions? We&apos;d love to hear from you
           </p>
         </div>
@@ -60,14 +60,14 @@ export default function ContactPage() {
         <div className="grid lg:grid-cols-2 gap-12">
           {/* Contact Form */}
           <div>
-            <h2 className="text-3xl font-bold mb-6">Send us a Message</h2>
-            <p className="text-gray-600 mb-8">
+            <h2 className="text-3xl font-black mb-6">Send us a Message</h2>
+            <p className="text-black/70 mb-8">
               Fill out the form below and we&apos;ll get back to you within 24 hours
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-900 mb-2">
+                <label htmlFor="name" className="block text-sm font-bold text-black mb-2">
                   Name *
                 </label>
                 <input
@@ -77,13 +77,13 @@ export default function ContactPage() {
                   required
                   value={formData.name}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                  className="w-full px-4 py-3 border border-black/10 rounded-none focus:ring-2 focus:ring-black focus:border-transparent bg-white"
                   placeholder="Your name"
                 />
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-900 mb-2">
+                <label htmlFor="email" className="block text-sm font-bold text-black mb-2">
                   Email *
                 </label>
                 <input
@@ -93,13 +93,13 @@ export default function ContactPage() {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                  className="w-full px-4 py-3 border border-black/10 rounded-none focus:ring-2 focus:ring-black focus:border-transparent bg-white"
                   placeholder="your@email.com"
                 />
               </div>
 
               <div>
-                <label htmlFor="subject" className="block text-sm font-medium text-gray-900 mb-2">
+                <label htmlFor="subject" className="block text-sm font-bold text-black mb-2">
                   Subject *
                 </label>
                 <select
@@ -108,7 +108,7 @@ export default function ContactPage() {
                   required
                   value={formData.subject}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                  className="w-full px-4 py-3 border border-black/10 rounded-none focus:ring-2 focus:ring-black focus:border-transparent bg-white text-black"
                 >
                   <option value="">Select a subject</option>
                   <option value="order">Order Inquiry</option>
@@ -120,7 +120,7 @@ export default function ContactPage() {
               </div>
 
               <div>
-                <label htmlFor="message" className="block text-sm font-medium text-gray-900 mb-2">
+                <label htmlFor="message" className="block text-sm font-bold text-black mb-2">
                   Message *
                 </label>
                 <textarea
@@ -130,7 +130,7 @@ export default function ContactPage() {
                   rows={6}
                   value={formData.message}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent resize-none"
+                  className="w-full px-4 py-3 border border-black/10 rounded-none focus:ring-2 focus:ring-black focus:border-transparent resize-none bg-white text-black"
                   placeholder="Tell us what's on your mind..."
                 />
               </div>
@@ -143,21 +143,21 @@ export default function ContactPage() {
               >
                 {submitted ? (
                   <>
-                    <Send className="w-5 h-5 mr-2" />
+                    <PaperPlaneTilt size={20} weight="bold" className="mr-2" />
                     Message Sent!
                   </>
                 ) : isSubmitting ? (
                   'Sending...'
                 ) : (
                   <>
-                    <Send className="w-5 h-5 mr-2" />
+                    <PaperPlaneTilt size={20} weight="bold" className="mr-2" />
                     Send Message
                   </>
                 )}
               </Button>
 
               {submitted && (
-                <p className="text-green-600 text-sm text-center">
+                <p className="text-black/70 text-sm text-center font-medium">
                   Thank you! We&apos;ll get back to you soon.
                 </p>
               )}
@@ -166,44 +166,44 @@ export default function ContactPage() {
 
           {/* Contact Information */}
           <div className="lg:pl-12">
-            <h2 className="text-3xl font-bold mb-6">Contact Information</h2>
-            <p className="text-gray-600 mb-8">
+            <h2 className="text-3xl font-black mb-6">Contact Information</h2>
+            <p className="text-black/70 mb-8">
               Reach out through any of these channels
             </p>
 
             <div className="space-y-6 mb-12">
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center shrink-0">
-                  <Mail className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 bg-black rounded-none flex items-center justify-center shrink-0">
+                  <EnvelopeSimple size={24} weight="bold" className="text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-1">Email</h3>
-                  <a href="mailto:hello@headoverfeels.com" className="text-gray-600 hover:text-black transition-colors">
+                  <h3 className="font-bold text-lg mb-1">Email</h3>
+                  <a href="mailto:hello@headoverfeels.com" className="text-black/70 hover:text-black transition-colors">
                     hello@headoverfeels.com
                   </a>
                 </div>
               </div>
 
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center shrink-0">
-                  <Phone className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 bg-black rounded-none flex items-center justify-center shrink-0">
+                  <Phone size={24} weight="bold" className="text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-1">Phone</h3>
-                  <a href="tel:+15551234567" className="text-gray-600 hover:text-black transition-colors">
+                  <h3 className="font-bold text-lg mb-1">Phone</h3>
+                  <a href="tel:+15551234567" className="text-black/70 hover:text-black transition-colors">
                     +1 (555) 123-4567
                   </a>
-                  <p className="text-sm text-gray-500 mt-1">Mon-Fri, 9am-6pm EST</p>
+                  <p className="text-sm text-black/60 mt-1">Mon-Fri, 9am-6pm EST</p>
                 </div>
               </div>
 
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center shrink-0">
-                  <MapPin className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 bg-black rounded-none flex items-center justify-center shrink-0">
+                  <MapPin size={24} weight="bold" className="text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-1">Address</h3>
-                  <p className="text-gray-600">
+                  <h3 className="font-bold text-lg mb-1">Address</h3>
+                  <p className="text-black/70">
                     123 Street Culture Ave<br />
                     Brooklyn, NY 11211<br />
                     United States
@@ -214,53 +214,53 @@ export default function ContactPage() {
 
             {/* Social Media */}
             <div>
-              <h3 className="font-semibold text-lg mb-4">Follow Us</h3>
+              <h3 className="font-bold text-lg mb-4">Follow Us</h3>
               <div className="flex gap-4">
                 <a
                   href="https://instagram.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center hover:bg-black hover:text-white transition-colors"
+                  className="w-12 h-12 bg-black/5 border border-black/10 rounded-none flex items-center justify-center hover:bg-black hover:text-white hover:border-black transition-colors"
                   aria-label="Instagram"
                 >
-                  <Instagram className="w-5 h-5" />
+                  <InstagramLogo size={20} weight="bold" />
                 </a>
                 <a
                   href="https://twitter.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center hover:bg-black hover:text-white transition-colors"
+                  className="w-12 h-12 bg-black/5 border border-black/10 rounded-none flex items-center justify-center hover:bg-black hover:text-white hover:border-black transition-colors"
                   aria-label="Twitter"
                 >
-                  <Twitter className="w-5 h-5" />
+                  <TwitterLogo size={20} weight="bold" />
                 </a>
                 <a
                   href="https://facebook.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center hover:bg-black hover:text-white transition-colors"
+                  className="w-12 h-12 bg-black/5 border border-black/10 rounded-none flex items-center justify-center hover:bg-black hover:text-white hover:border-black transition-colors"
                   aria-label="Facebook"
                 >
-                  <Facebook className="w-5 h-5" />
+                  <FacebookLogo size={20} weight="bold" />
                 </a>
               </div>
             </div>
 
             {/* Store Hours */}
-            <div className="mt-12 p-6 bg-gray-50 rounded-lg">
-              <h3 className="font-semibold text-lg mb-3">Store Hours</h3>
+            <div className="mt-12 p-6 bg-black/5 rounded-none border border-black/10">
+              <h3 className="font-bold text-lg mb-3">Store Hours</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Monday - Friday</span>
-                  <span className="font-medium">10am - 8pm</span>
+                  <span className="text-black/70">Monday - Friday</span>
+                  <span className="font-bold">10am - 8pm</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Saturday</span>
-                  <span className="font-medium">11am - 7pm</span>
+                  <span className="text-black/70">Saturday</span>
+                  <span className="font-bold">11am - 7pm</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Sunday</span>
-                  <span className="font-medium">12pm - 6pm</span>
+                  <span className="text-black/70">Sunday</span>
+                  <span className="font-bold">12pm - 6pm</span>
                 </div>
               </div>
             </div>

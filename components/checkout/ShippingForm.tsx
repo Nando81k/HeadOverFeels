@@ -1,6 +1,7 @@
 'use client'
 
 import { Input } from '@/components/ui/input'
+import { PhoneInput } from '@/components/ui/PhoneInput'
 import { Select } from '@/components/ui/select'
 
 export interface ShippingFormData {
@@ -82,12 +83,10 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-gray-900">Shipping Information</h2>
-
+    <div className="space-y-8">
       {/* Contact Information */}
       <div className="space-y-4">
-        <h3 className="text-sm font-medium text-gray-700">Contact</h3>
+        <h3 className="text-sm font-bold uppercase tracking-wide text-black/60">Contact Details</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             label="First Name"
@@ -113,9 +112,8 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
           placeholder="your@email.com"
           required
         />
-        <Input
+        <PhoneInput
           label="Phone"
-          type="tel"
           value={data.phone}
           onChange={(e) => handleChange('phone', e.target.value)}
           error={errors.phone}
@@ -126,7 +124,7 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
 
       {/* Shipping Address */}
       <div className="space-y-4">
-        <h3 className="text-sm font-medium text-gray-700">Shipping Address</h3>
+        <h3 className="text-sm font-bold uppercase tracking-wide text-black/60">Shipping Address</h3>
         <Input
           label="Address"
           value={data.address}

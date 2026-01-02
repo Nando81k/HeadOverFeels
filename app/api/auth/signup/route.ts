@@ -2,29 +2,38 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
-import { awardAccountCreationPoints } from '@/lib/loyalty/service'
+import { awardAccountCreationPoints, awardReferralWelcomeBonus } from '@/lib/loyalty/service'
+import { checkRateLimit, rateLimitResponse, getClientIdentifier, RATE_LIMITS } from '@/lib/security/rateLimit'
 
 const signupSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  referralCode: z.string().optional(), // Optional referral code
+  email: z.string().email('Invalid email address').max(255, 'Email too long'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128, 'Password too long'),
+  name: z.string().min(2, 'Name must be at least 2 characters').max(255, 'Name too long'),
+  referralCode: z.string().optional(),
 })
 
 // POST /api/auth/signup - Register a new user
 export async function POST(request: NextRequest) {
+  // Rate limit by IP address: 5 attempts per minute
+  const clientIp = getClientIdentifier(request.headers)
+  const rateLimit = checkRateLimit(clientIp, RATE_LIMITS.auth.maxRequests, RATE_LIMITS.auth.windowMs)
+
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.retryAfter)
+  }
+
   try {
     const body = await request.json()
     const validatedData = signupSchema.parse(body)
 
-    // Check if user already exists
+    // Check if user already exists (don't reveal whether email exists)
     const existingCustomer = await prisma.customer.findUnique({
       where: { email: validatedData.email },
     })
 
     if (existingCustomer) {
       return NextResponse.json(
-        { error: 'An account with this email already exists' },
+        { error: 'Unable to create account. Please try again.' },
         { status: 400 }
       )
     }
@@ -61,7 +70,6 @@ export async function POST(request: NextRequest) {
         id: true,
         email: true,
         name: true,
-        isAdmin: true,
         createdAt: true,
       },
     })
@@ -73,6 +81,17 @@ export async function POST(request: NextRequest) {
     } catch (loyaltyError) {
       // Log error but don't fail signup
       console.error(`Failed to award welcome points to customer ${customer.id}:`, loyaltyError)
+    }
+
+    // Award referral welcome bonus if they signed up with a referral code (+100 points)
+    if (referrerId) {
+      try {
+        await awardReferralWelcomeBonus(customer.id, referrerId)
+        console.log(`Awarded referral welcome bonus to customer ${customer.id}`)
+      } catch (referralBonusError) {
+        // Log error but don't fail signup
+        console.error(`Failed to award referral welcome bonus to customer ${customer.id}:`, referralBonusError)
+      }
     }
 
     // Update referral code usage count

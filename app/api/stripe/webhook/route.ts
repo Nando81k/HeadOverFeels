@@ -59,9 +59,27 @@ export async function POST(request: NextRequest) {
                   },
                 },
                 shippingAddress: true,
+                redemption: true, // Include coupon redemption
               },
             })
             console.log(`Order ${orderId} marked as PAID`)
+
+            // Mark coupon/redemption as used
+            if (order.redemptionId) {
+              try {
+                await prisma.rewardRedemption.update({
+                  where: { id: order.redemptionId },
+                  data: {
+                    status: 'USED',
+                    usedAt: new Date(),
+                    orderId: order.id,
+                  },
+                })
+                console.log(`Coupon ${order.couponCode} marked as used for order ${orderId}`)
+              } catch (couponError) {
+                console.error(`Failed to mark coupon as used for order ${orderId}:`, couponError)
+              }
+            }
 
             // Send order confirmation email
             try {
@@ -154,6 +172,61 @@ export async function POST(request: NextRequest) {
               } catch (loyaltyError) {
                 // Log error but don't fail the webhook
                 console.error(`Failed to process CRM/loyalty for order ${orderId}:`, loyaltyError)
+              }
+
+              // Unlock avatar items for purchased products
+              try {
+                const orderWithAvatarItems = await prisma.order.findUnique({
+                  where: { id: orderId },
+                  include: {
+                    items: {
+                      include: {
+                        product: {
+                          include: {
+                            avatarItems: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                })
+
+                if (orderWithAvatarItems) {
+                  const avatarItemsToUnlock: string[] = []
+                  for (const orderItem of orderWithAvatarItems.items) {
+                    if (orderItem.product.avatarItems && orderItem.product.avatarItems.length > 0) {
+                      avatarItemsToUnlock.push(
+                        ...orderItem.product.avatarItems.map((item) => item.id)
+                      )
+                    }
+                  }
+
+                  if (avatarItemsToUnlock.length > 0) {
+                    const unlockPromises = avatarItemsToUnlock.map((avatarItemId) =>
+                      prisma.userAvatarItem.upsert({
+                        where: {
+                          customerId_avatarItemId: {
+                            customerId: order.customerId!,
+                            avatarItemId,
+                          },
+                        },
+                        update: {},
+                        create: {
+                          customerId: order.customerId!,
+                          avatarItemId,
+                          unlockedVia: 'purchase',
+                          orderId,
+                        },
+                      })
+                    )
+
+                    await Promise.all(unlockPromises)
+                    console.log(`✅ Unlocked ${avatarItemsToUnlock.length} avatar item(s) for order ${orderId}`)
+                  }
+                }
+              } catch (avatarError) {
+                // Log error but don't fail the webhook
+                console.error(`Failed to unlock avatar items for order ${orderId}:`, avatarError)
               }
             } else {
               console.log(`Order ${orderId} has no customerId - skipping CRM/loyalty`)

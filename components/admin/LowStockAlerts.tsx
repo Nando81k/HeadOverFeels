@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link';
-import { AlertTriangle, Package } from 'lucide-react';
+import { Warning, Package } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { RestockModal } from './RestockModal';
 
@@ -52,37 +52,37 @@ export default function LowStockAlerts({ products, threshold = 5 }: LowStockAler
   );
 
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+    <div className="bg-amber-500/10 border border-amber-500/20 p-5">
       <div className="flex items-start gap-4">
         <div className="shrink-0">
-          <AlertTriangle className="w-6 h-6 text-amber-600" />
+          <Warning size={24} weight="bold" className="text-amber-400" />
         </div>
         <div className="flex-1">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Low Stock Alert</h3>
-              <p className="text-sm text-gray-600 mt-1">
+              <h3 className="text-sm font-medium tracking-[0.1em] text-white uppercase">Low Stock Alert</h3>
+              <p className="text-xs text-white/50 mt-1">
                 {totalLowStockVariants} variant{totalLowStockVariants !== 1 ? 's' : ''} running low (below {threshold} units)
               </p>
             </div>
             <Link
               href="/admin/products"
-              className="text-sm text-amber-700 hover:text-amber-800 font-medium"
+              className="text-xs text-amber-400 hover:text-amber-300 font-medium uppercase tracking-wide"
             >
-              View All Products →
+              View All →
             </Link>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {products.slice(0, 5).map((product) => (
               <div
                 key={product.id}
-                className="block p-4 bg-white rounded-lg border border-amber-200 hover:border-amber-300 transition-all"
+                className="block p-4 bg-white/5 border border-white/10 hover:border-white/20 transition-all"
               >
                 <div className="flex items-center justify-between gap-4">
                   <Link href={`/admin/products/${product.id}`} className="flex-1">
                     <div>
-                      <h4 className="font-medium text-gray-900 hover:text-amber-700 transition-colors">
+                      <h4 className="font-medium text-white hover:text-amber-400 transition-colors">
                         {product.name}
                       </h4>
                       <div className="flex gap-2 mt-2">
@@ -91,7 +91,7 @@ export default function LowStockAlerts({ products, threshold = 5 }: LowStockAler
                           .map((variant) => (
                             <span
                               key={variant.id}
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-800"
+                              className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium uppercase tracking-wide bg-amber-500/20 text-amber-400"
                             >
                               {variant.size && <span>{variant.size}</span>}
                               {variant.size && variant.color && <span>•</span>}
@@ -104,17 +104,17 @@ export default function LowStockAlerts({ products, threshold = 5 }: LowStockAler
                   </Link>
                   <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <span className="text-2xl font-bold text-amber-600">
+                      <span className="text-xl font-bold text-amber-400">
                         {product.variants.reduce((sum, v) => sum + v.inventory, 0)}
                       </span>
-                      <p className="text-xs text-gray-500 mt-1">Total Stock</p>
+                      <p className="text-[10px] text-white/40 uppercase tracking-wide mt-1">Total</p>
                     </div>
                     <button
                       onClick={(e) => handleRestock(product, e)}
-                      className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                      className="px-3 py-2 bg-white text-black hover:bg-white/90 transition-colors flex items-center gap-2 text-xs font-medium uppercase tracking-wide"
                       title="Restock Product"
                     >
-                      <Package className="w-4 h-4" />
+                      <Package size={14} weight="bold" />
                       Restock
                     </button>
                   </div>
@@ -124,7 +124,7 @@ export default function LowStockAlerts({ products, threshold = 5 }: LowStockAler
           </div>
 
           {products.length > 5 && (
-            <p className="text-sm text-gray-600 mt-4 text-center">
+            <p className="text-xs text-white/40 mt-4 text-center">
               And {products.length - 5} more product{products.length - 5 !== 1 ? 's' : ''} with low stock
             </p>
           )}

@@ -165,7 +165,6 @@ async function migrate() {
       })
 
       if (!existing && customer.password) {
-        // @ts-expect-error - password field exists but TypeScript doesn't recognize it
         await pgClient.customer.create({
           data: {
             id: customer.id,

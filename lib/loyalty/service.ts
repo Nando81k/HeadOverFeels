@@ -1,15 +1,20 @@
 import { prisma } from '@/lib/prisma'
 import { PointsTransactionType } from '@prisma/client'
+import { sendTierUpgradeEmail, sendReferralSuccessEmail, getTierColor } from '@/lib/email/loyalty'
 
 /**
  * Loyalty Service
  * Handles all Care Points operations for Head Over Feels
  */
 
+// Points expire after 12 months of inactivity
+const POINTS_EXPIRATION_MONTHS = 12
+
 // ===== POINTS EARNING =====
 
 /**
  * Award points to a customer
+ * Points expire after 12 months from the transaction date
  */
 export async function awardPoints(
   customerId: string,
@@ -20,7 +25,7 @@ export async function awardPoints(
     orderId?: string
     reviewId?: string
     referralId?: string
-    expiresAt?: Date
+    expiresAt?: Date  // Override default expiration
   }
 ) {
   const customer = await prisma.customer.findUnique({
@@ -36,6 +41,18 @@ export async function awardPoints(
   const multiplier = customer.loyaltyTier?.pointMultiplier || 1.0
   const finalPoints = Math.floor(points * multiplier)
 
+  // Calculate expiration date (12 months from now) for positive points
+  // Negative points (redemptions, expirations) don't expire
+  let expiresAt: Date | null = null
+  if (points > 0 && type !== 'EXPIRATION') {
+    if (metadata?.expiresAt) {
+      expiresAt = metadata.expiresAt
+    } else {
+      expiresAt = new Date()
+      expiresAt.setMonth(expiresAt.getMonth() + POINTS_EXPIRATION_MONTHS)
+    }
+  }
+
   // Create transaction
   const transaction = await prisma.pointsTransaction.create({
     data: {
@@ -46,27 +63,104 @@ export async function awardPoints(
       orderId: metadata?.orderId,
       reviewId: metadata?.reviewId,
       referralId: metadata?.referralId,
-      expiresAt: metadata?.expiresAt,
+      expiresAt,
     },
   })
 
   // Update customer points
+  // Only increment annualPointsEarned for positive points (earnings, not redemptions)
+  const updateData: { currentPoints: { increment: number }; lifetimePoints: { increment: number }; annualPointsEarned?: { increment: number } } = {
+    currentPoints: { increment: finalPoints },
+    lifetimePoints: { increment: finalPoints },
+  }
+  
+  // Tier progression is based on points EARNED (not available balance)
+  // So we track annual points earned separately
+  if (finalPoints > 0 && type !== 'EXPIRATION') {
+    updateData.annualPointsEarned = { increment: finalPoints }
+  }
+  
   await prisma.customer.update({
     where: { id: customerId },
-    data: {
-      currentPoints: { increment: finalPoints },
-      lifetimePoints: { increment: finalPoints },
-    },
+    data: updateData,
   })
 
   return transaction
 }
 
 /**
+ * Get active multiplier event that applies to the customer
+ * Returns the highest multiplier if multiple events are active
+ */
+export async function getActiveMultiplierEvent(customerId: string): Promise<{ multiplier: number; eventId: string; eventName: string } | null> {
+  const now = new Date()
+  
+  // Get customer's tier for tier-specific events
+  const customer = await prisma.customer.findUnique({
+    where: { id: customerId },
+    select: { loyaltyTierId: true },
+  })
+
+  // Find all active events where current time is within the event period
+  const activeEvents = await prisma.pointsMultiplierEvent.findMany({
+    where: {
+      isActive: true,
+      startDate: { lte: now },
+      endDate: { gte: now },
+    },
+    orderBy: { multiplier: 'desc' }, // Get highest multiplier first
+  })
+
+  // Filter events based on tier requirements
+  for (const event of activeEvents) {
+    // If tierIds is set, check if customer's tier qualifies
+    if (event.tierIds) {
+      const tierIds = JSON.parse(event.tierIds) as string[]
+      if (customer?.loyaltyTierId && tierIds.includes(customer.loyaltyTierId)) {
+        return { multiplier: event.multiplier, eventId: event.id, eventName: event.name }
+      }
+      // Skip this event if tier doesn't match
+      continue
+    }
+    // No tier restriction - event applies to all
+    return { multiplier: event.multiplier, eventId: event.id, eventName: event.name }
+  }
+
+  return null
+}
+
+/**
  * Award points for a purchase (1 point per $1)
+ * Checks for active multiplier events (e.g., Double Points Weekend)
  */
 export async function awardPurchasePoints(customerId: string, orderId: string, orderTotal: number) {
   const basePoints = Math.floor(orderTotal) // 1 point per dollar
+  
+  // Check for active multiplier event
+  const activeEvent = await getActiveMultiplierEvent(customerId)
+  
+  if (activeEvent && activeEvent.multiplier > 1) {
+    const bonusPoints = Math.floor(basePoints * (activeEvent.multiplier - 1))
+    const totalPoints = basePoints + bonusPoints
+    
+    // Update event tracking
+    await prisma.pointsMultiplierEvent.update({
+      where: { id: activeEvent.eventId },
+      data: {
+        totalBonusPointsAwarded: { increment: bonusPoints },
+        ordersAffected: { increment: 1 },
+      },
+    })
+    
+    // Award points with event description
+    return awardPoints(
+      customerId,
+      totalPoints,
+      'PURCHASE',
+      `Earned ${basePoints} Care Points + ${bonusPoints} bonus from ${activeEvent.eventName}! 🎉`,
+      { orderId }
+    )
+  }
   
   return awardPoints(
     customerId,
@@ -128,15 +222,61 @@ export async function awardBirthdayPoints(customerId: string) {
 }
 
 /**
- * Award points for referral
+ * Award points to the referrer when their referral makes first purchase
  */
 export async function awardReferralPoints(referrerId: string, referredCustomerId: string) {
-  return awardPoints(
+  const REFERRAL_POINTS = 250
+  
+  const transaction = await awardPoints(
     referrerId,
-    250,
+    REFERRAL_POINTS,
     'REFERRAL_GIVE',
     'Thanks for spreading the love! Your friend just made their first purchase 💕',
     { referralId: referredCustomerId }
+  )
+  
+  // Send referral success email to referrer
+  try {
+    const [referrer, referredCustomer] = await Promise.all([
+      prisma.customer.findUnique({
+        where: { id: referrerId },
+        select: { email: true, name: true, currentPoints: true },
+      }),
+      prisma.customer.findUnique({
+        where: { id: referredCustomerId },
+        select: { name: true, email: true },
+      }),
+    ])
+    
+    if (referrer?.email) {
+      await sendReferralSuccessEmail({
+        referrerEmail: referrer.email,
+        referrerName: referrer.name || 'Friend',
+        referredName: referredCustomer?.name || referredCustomer?.email?.split('@')[0] || 'A friend',
+        pointsEarned: REFERRAL_POINTS,
+        currentPoints: referrer.currentPoints,
+      })
+      console.log(`Referral success email sent to ${referrer.email}`)
+    }
+  } catch (emailError) {
+    // Log but don't fail the points award
+    console.error(`Failed to send referral success email:`, emailError)
+  }
+  
+  return transaction
+}
+
+/**
+ * Award welcome bonus to new customer who signed up with a referral code
+ * This is awarded immediately at signup (not on first purchase)
+ */
+export async function awardReferralWelcomeBonus(customerId: string, referrerId: string) {
+  return awardPoints(
+    customerId,
+    100,
+    'REFERRAL_RECEIVE',
+    'Welcome bonus! Thanks for joining via a friend\'s referral 🎁',
+    { referralId: referrerId }
   )
 }
 
@@ -224,16 +364,16 @@ export async function updateCustomerTier(customerId: string) {
     throw new Error('Customer not found')
   }
 
-  // Get all tiers sorted by spend requirement
+  // Get all tiers sorted by points requirement (highest first)
   const tiers = await prisma.loyaltyTier.findMany({
     where: { isActive: true, isInviteOnly: false },
-    orderBy: { minAnnualSpend: 'desc' },
+    orderBy: { minAnnualPoints: 'desc' },
   })
 
-  // Find appropriate tier
+  // Find appropriate tier based on annual points earned
   let newTier = tiers[tiers.length - 1] // Default to lowest tier
   for (const tier of tiers) {
-    if (customer.annualSpend >= tier.minAnnualSpend) {
+    if (customer.annualPointsEarned >= tier.minAnnualPoints) {
       newTier = tier
       break
     }
@@ -241,6 +381,8 @@ export async function updateCustomerTier(customerId: string) {
 
   // Update if tier changed
   if (newTier.id !== customer.loyaltyTierId) {
+    const previousTier = customer.loyaltyTier
+    
     await prisma.customer.update({
       where: { id: customerId },
       data: {
@@ -251,13 +393,39 @@ export async function updateCustomerTier(customerId: string) {
 
     // Award tier upgrade bonus
     if (customer.loyaltyTierId) { // Not first tier assignment
-      const bonusPoints = newTier.minAnnualSpend > 0 ? Math.floor(newTier.minAnnualSpend / 10) : 50
+      const bonusPoints = newTier.minAnnualPoints > 0 ? Math.floor(newTier.minAnnualPoints / 10) : 50
       await awardPoints(
         customerId,
         bonusPoints,
         'TIER_BONUS',
         `🎉 Welcome to ${newTier.name} tier! Enjoy your new perks!`
       )
+      
+      // Send tier upgrade email notification
+      if (customer.email && previousTier) {
+        const updatedCustomer = await prisma.customer.findUnique({
+          where: { id: customerId },
+          select: { currentPoints: true },
+        })
+        
+        try {
+          await sendTierUpgradeEmail({
+            customerEmail: customer.email,
+            customerName: customer.name || 'Valued Customer',
+            previousTierName: previousTier.name,
+            newTierName: newTier.name,
+            newTierColor: getTierColor(newTier.slug),
+            pointMultiplier: newTier.pointMultiplier,
+            freeShipping: newTier.freeShipping,
+            earlyDropAccess: newTier.earlyDropAccess,
+            currentPoints: updatedCustomer?.currentPoints || customer.currentPoints + bonusPoints,
+          })
+          console.log(`Tier upgrade email sent to ${customer.email} for upgrade to ${newTier.name}`)
+        } catch (emailError) {
+          // Log but don't fail the tier upgrade
+          console.error(`Failed to send tier upgrade email to ${customer.email}:`, emailError)
+        }
+      }
     }
 
     return newTier
@@ -290,24 +458,25 @@ export async function getCustomerLoyaltyStats(customerId: string) {
     throw new Error('Customer not found')
   }
 
-  // Get next tier
+  // Get next tier based on points earned
   const nextTier = await prisma.loyaltyTier.findFirst({
     where: {
       isActive: true,
       isInviteOnly: false,
-      minAnnualSpend: { gt: customer.annualSpend },
+      minAnnualPoints: { gt: customer.annualPointsEarned },
     },
-    orderBy: { minAnnualSpend: 'asc' },
+    orderBy: { minAnnualPoints: 'asc' },
   })
 
   return {
-    currentPoints: customer.currentPoints,
-    lifetimePoints: customer.lifetimePoints,
-    annualSpend: customer.annualSpend,
+    currentPoints: customer.currentPoints,      // Available for redemption
+    lifetimePoints: customer.lifetimePoints,    // Historical total
+    annualPointsEarned: customer.annualPointsEarned, // For tier progression
+    annualSpend: customer.annualSpend,          // For tracking (legacy)
     currentTier: customer.loyaltyTier,
     nextTier,
     pointsToNextTier: nextTier 
-      ? Math.floor((nextTier.minAnnualSpend - customer.annualSpend) * (customer.loyaltyTier?.pointMultiplier || 1))
+      ? nextTier.minAnnualPoints - customer.annualPointsEarned
       : null,
     recentTransactions: customer.pointsTransactions,
     recentRedemptions: customer.redemptions,
@@ -331,13 +500,28 @@ export async function getAvailableRewards(customerId: string) {
     where: { isActive: true },
     orderBy: { pointsCost: 'asc' },
   })
+  
+  // Get all tiers to compare hierarchy
+  const allTiers = await prisma.loyaltyTier.findMany({
+    where: { isActive: true },
+    orderBy: { minAnnualPoints: 'asc' },
+  })
+  
+  const tierHierarchy = allTiers.map(t => t.slug)
 
   // Filter rewards based on tier requirements and customer points
   return rewards.map(reward => {
     const meetsPointRequirement = customer.currentPoints >= reward.pointsCost
-    const meetsTierRequirement = !reward.minTierRequired || 
-      (customer.loyaltyTier && customer.loyaltyTier.minAnnualSpend >= 
-        (rewards.find(r => r.slug === reward.minTierRequired)?.pointsCost || 0))
+    
+    // Check tier requirement by comparing tier positions in hierarchy
+    let meetsTierRequirement = true
+    if (reward.minTierRequired && customer.loyaltyTier) {
+      const customerTierIndex = tierHierarchy.indexOf(customer.loyaltyTier.slug)
+      const requiredTierIndex = tierHierarchy.indexOf(reward.minTierRequired)
+      meetsTierRequirement = customerTierIndex >= requiredTierIndex
+    } else if (reward.minTierRequired && !customer.loyaltyTier) {
+      meetsTierRequirement = false
+    }
 
     return {
       ...reward,
@@ -436,10 +620,17 @@ export async function expireOldPoints() {
 }
 
 /**
- * Reset annual spend for tier calculations (run yearly)
+ * Reset annual points and spend for tier calculations (run yearly)
+ * This should be run at the start of each year to reset tier progression
  */
-export async function resetAnnualSpend() {
+export async function resetAnnualStats() {
   await prisma.customer.updateMany({
-    data: { annualSpend: 0 },
+    data: { 
+      annualSpend: 0,
+      annualPointsEarned: 0,
+    },
   })
 }
+
+// Legacy alias
+export const resetAnnualSpend = resetAnnualStats

@@ -10,7 +10,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, FileText, FileJson, ChevronDown } from 'lucide-react';
+import { Download, FileText, FileJs, CaretDown } from '@phosphor-icons/react';
 
 interface ExportButtonProps {
   data: Record<string, unknown>;
@@ -124,15 +124,15 @@ export default function ExportButton({
 
   return (
     <div className={`relative ${className}`}>
-      {/* Main Button */}
+      {/* Main Button - dark theme */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         disabled={isExporting}
-        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-medium text-sm hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <Download className="w-4 h-4" />
+        <Download size={16} weight="bold" />
         <span>{isExporting ? 'Exporting...' : 'Export'}</span>
-        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <CaretDown size={16} weight="bold" className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Dropdown Menu */}
@@ -144,21 +144,21 @@ export default function ExportButton({
             onClick={() => setIsOpen(false)}
           />
           
-          {/* Menu */}
-          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+          {/* Menu - dark theme */}
+          <div className="absolute right-0 mt-2 w-48 bg-neutral-900 border border-white/10 shadow-xl z-20">
             <div className="py-1">
               <button
                 onClick={handleCSVExport}
-                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition-colors"
               >
-                <FileText className="w-4 h-4 text-gray-400" />
+                <FileText size={16} weight="bold" className="text-white/40" />
                 <span>Export as CSV</span>
               </button>
               <button
                 onClick={handleJSONExport}
-                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition-colors"
               >
-                <FileJson className="w-4 h-4 text-gray-400" />
+                <FileJs size={16} weight="bold" className="text-white/40" />
                 <span>Export as JSON</span>
               </button>
             </div>

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { awardBirthdayPoints } from '@/lib/loyalty/service'
+import { verifyCronRequest } from '@/lib/security/cron'
+import { sendBirthdayBonusEmail } from '@/lib/email/loyalty'
 
 /**
  * POST /api/cron/birthday-points
@@ -8,27 +10,24 @@ import { awardBirthdayPoints } from '@/lib/loyalty/service'
  * Cron job endpoint to award birthday points to customers
  * Should be scheduled to run daily (e.g., via Vercel Cron, GitHub Actions, or external scheduler)
  * 
- * Security: Add authorization header check in production
- * Example Vercel Cron config in vercel.json:
- * {
- *   "crons": [{
- *     "path": "/api/cron/birthday-points",
- *     "schedule": "0 0 * * *"
- *   }]
- * }
+ * Security: HMAC-SHA256 signature verification required
+ * Include headers:
+ * - x-cron-signature: HMAC-SHA256(timestamp:method, CRON_SECRET)
+ * - x-cron-timestamp: current timestamp in milliseconds
+ * 
+ * Example curl:
+ * curl -X POST http://localhost:3000/api/cron/birthday-points \
+ *   -H "x-cron-signature: <signature>" \
+ *   -H "x-cron-timestamp: <timestamp>"
  */
 export async function POST(request: NextRequest) {
+  // Verify cron signature
+  const verificationError = verifyCronRequest(request)
+  if (verificationError) {
+    return verificationError
+  }
+
   try {
-    // Optional: Verify cron secret for security
-    const authHeader = request.headers.get('authorization')
-    const cronSecret = process.env.CRON_SECRET
-    
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
 
     // Get today's date (month and day only)
     const today = new Date()
@@ -66,11 +65,40 @@ export async function POST(request: NextRequest) {
     const results = []
     for (const customer of birthdayCustomers) {
       try {
-        await awardBirthdayPoints(customer.id)
+        // Award the points
+        const transaction = await awardBirthdayPoints(customer.id)
+        
+        // Get updated customer info for email
+        const updatedCustomer = await prisma.customer.findUnique({
+          where: { id: customer.id },
+          select: { 
+            currentPoints: true,
+            loyaltyTier: { select: { name: true } },
+          },
+        })
+        
+        // Send birthday email notification
+        if (customer.email) {
+          try {
+            await sendBirthdayBonusEmail({
+              customerEmail: customer.email,
+              customerName: customer.name || 'Friend',
+              pointsAwarded: transaction.points,
+              currentPoints: updatedCustomer?.currentPoints || transaction.points,
+              tierName: updatedCustomer?.loyaltyTier?.name || 'Member',
+            })
+            console.log(`Birthday email sent to ${customer.email}`)
+          } catch (emailError) {
+            console.error(`Failed to send birthday email to ${customer.email}:`, emailError)
+            // Don't fail the whole operation if email fails
+          }
+        }
+        
         results.push({
           customerId: customer.id,
           email: customer.email,
           success: true,
+          emailSent: !!customer.email,
         })
         console.log(`Awarded birthday points to ${customer.email}`)
       } catch (error) {
@@ -110,7 +138,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET endpoint for manual testing
-export async function GET(request: NextRequest) {
-  return POST(request)
-}

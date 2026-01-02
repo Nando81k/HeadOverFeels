@@ -4,19 +4,20 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowRight } from '@phosphor-icons/react';
 
 interface DropHeroProps {
   product: {
     id: string;
     name: string;
     slug: string;
-    description: string;
+    description: string | null;
     price: number;
-    compareAtPrice?: number;
+    compareAtPrice?: number | null;
     images: string[];
-    releaseDate?: Date;
-    dropEndDate?: Date;
-    maxQuantity?: number;
+    releaseDate?: Date | null;
+    dropEndDate?: Date | null;
+    maxQuantity?: number | null;
     variants: Array<{
       inventory: number;
     }>;
@@ -38,6 +39,18 @@ export default function DropHeroSection({ product }: DropHeroProps) {
   const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(null);
   const [isDropLive, setIsDropLive] = useState(false);
 
+  // Helpers
+  const getFirstImageUrl = (images: Array<string | { url?: string }> | undefined) => {
+    if (!images || images.length === 0) return null
+    const first = images[0]
+    if (!first) return null
+    if (typeof first === 'string') return first.trim() || null
+    if (typeof first === 'object' && first.url) return first.url.trim() || null
+    return null
+  }
+
+  const heroImage = getFirstImageUrl(product.images)
+
   // Countdown timer logic
   useEffect(() => {
     const calculateTimeLeft = () => {
@@ -45,7 +58,6 @@ export default function DropHeroSection({ product }: DropHeroProps) {
       const releaseTime = product.releaseDate ? new Date(product.releaseDate).getTime() : now;
       const endTime = product.dropEndDate ? new Date(product.dropEndDate).getTime() : 0;
 
-      // Check if drop is live
       if (now >= releaseTime && now < endTime) {
         setIsDropLive(true);
         const difference = endTime - now;
@@ -57,7 +69,6 @@ export default function DropHeroSection({ product }: DropHeroProps) {
           seconds: Math.floor((difference / 1000) % 60),
         };
       } else if (now < releaseTime) {
-        // Drop hasn't started yet
         setIsDropLive(false);
         const difference = releaseTime - now;
         
@@ -69,7 +80,7 @@ export default function DropHeroSection({ product }: DropHeroProps) {
         };
       }
 
-      return null; // Drop has ended
+      return null;
     };
 
     setTimeLeft(calculateTimeLeft());
@@ -112,218 +123,175 @@ export default function DropHeroSection({ product }: DropHeroProps) {
   };
 
   if (!timeLeft) {
-    return null; // Drop has ended
+    return null;
   }
 
   return (
-    <section className="relative bg-[#000000] rounded-2xl overflow-hidden">
-      <div className="grid lg:grid-cols-2 gap-0">
-        {/* Left side - Product image */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-          className="relative aspect-square lg:aspect-auto lg:min-h-[600px]"
-        >
-          {product.images && product.images.length > 0 ? (
-            <Image
-              src={product.images[0]}
-              alt={product.name}
-              fill
-              className="object-cover"
-              priority
-            />
-          ) : (
-            <div className="w-full h-full bg-linear-to-br from-[#FF3131] to-[#CDA09B] flex items-center justify-center">
-              <span className="text-6xl animate-pulse">🔥</span>
-            </div>
-          )}
+    <section className="relative w-full overflow-hidden bg-black text-white">
+      {/* Background grid pattern */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute inset-0" style={{
+          backgroundImage: 'linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)',
+          backgroundSize: '50px 50px'
+        }} />
+      </div>
+
+      <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
+        <div className="grid lg:grid-cols-5 gap-8 lg:gap-12 items-stretch">
           
-          {/* Limited edition badge */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="absolute top-6 left-6"
-          >
-            <div className="bg-[#FF3131] text-white px-6 py-2 rounded-full font-bold text-xs tracking-widest uppercase shadow-lg animate-pulse">
-              Limited Edition
-            </div>
-          </motion.div>
-        </motion.div>
-
-        {/* Right side - Drop info */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="flex flex-col justify-center p-8 lg:p-16 text-white"
-        >
-          <div className="space-y-6">
-            <div>
-              <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="text-sm font-semibold text-[#FF3131] tracking-widest uppercase mb-3"
-              >
-                {isDropLive ? '🔴 Live Now' : '⏰ Coming Soon'}
-              </motion.p>
-              <motion.h1
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-4 leading-tight text-white"
-              >
-                {product.name}
-              </motion.h1>
-              {product.description && (
-                <motion.p
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
-                  className="text-lg text-white/80 leading-relaxed"
-                >
-                  {product.description}
-                </motion.p>
-              )}
+          {/* LEFT: Hero Content - Bold Typography */}
+          <div className="lg:col-span-2 flex flex-col justify-center space-y-8">
+            {/* Status Indicator - Compact */}
+            <div className="inline-flex items-center gap-1.5 w-fit">
+              <div className={`w-2 h-2 rounded-full ${isDropLive ? 'bg-white animate-pulse' : 'bg-white/40'}`} />
+              <span className="text-xs tracking-widest uppercase font-bold text-white/70">
+                {isDropLive ? 'Live' : 'Incoming'}
+              </span>
             </div>
 
-            {/* Countdown timer */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              className="bg-white/5 backdrop-blur-sm border border-[#CDA09B]/30 rounded-xl p-6"
-            >
-              <p className="text-sm text-white/60 mb-4 uppercase tracking-wide">
-                {isDropLive ? 'Drop ends in' : 'Drops in'}
-              </p>
-              <div className="grid grid-cols-4 gap-3">
-                {[
-                  { label: 'Days', value: timeLeft.days },
-                  { label: 'Hours', value: timeLeft.hours },
-                  { label: 'Minutes', value: timeLeft.minutes },
-                  { label: 'Seconds', value: timeLeft.seconds },
-                ].map((unit) => (
-                  <div key={unit.label} className="text-center">
-                    <motion.div
-                      key={`${unit.label}-${unit.value}`}
-                      initial={{ scale: 1.2 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: "spring", stiffness: 200 }}
-                      className="bg-[#FF3131] rounded-lg p-3 mb-2 shadow-lg"
-                    >
-                      <span className="text-2xl sm:text-3xl font-bold text-white">
-                        {String(unit.value).padStart(2, '0')}
-                      </span>
-                    </motion.div>
-                    <span className="text-xs text-white/60 font-medium uppercase tracking-wide">
-                      {unit.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
+            {/* Main Headline - Ultra Bold */}
+            <div className="space-y-3">
+              <h1 className="text-6xl md:text-7xl lg:text-8xl font-black logo-font leading-none text-white">
+                Midnight
+              </h1>
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-black text-white/40 leading-none logo-font">
+                Legend Hoodie [Limited Drop]
+              </h2>
+            </div>
 
-            {/* Price */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.7 }}
-              className="flex items-baseline gap-4"
-            >
-              <span className="text-5xl font-bold text-[#FF3131]">${product.price}</span>
-              {product.compareAtPrice && (
-                <span className="text-2xl text-white/40 line-through">
-                  ${product.compareAtPrice}
+            {/* Price - Bold Display */}
+            <div className="flex items-baseline gap-3 text-5xl md:text-6xl font-black">
+              <span className="text-white">${product.price.toFixed(2)}</span>
+              {product.compareAtPrice && product.compareAtPrice > product.price && (
+                <span className="text-2xl md:text-3xl text-white/30 line-through">
+                  ${product.compareAtPrice.toFixed(2)}
                 </span>
               )}
-            </motion.div>
+            </div>
+
+            {/* Description - Minimal */}
+            {product.description && (
+              <p className="text-sm md:text-base text-white/60 leading-relaxed max-w-sm">
+                {product.description.substring(0, 120)}
+                {product.description.length > 120 ? '...' : ''}
+              </p>
+            )}
 
             {/* CTA Section */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.8 }}
-              className="space-y-4 pt-4"
-            >
-              {isDropLive ? (
-                <Link
-                  href={`/products/${product.slug}`}
-                  className="block w-full"
-                >
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full bg-[#FF3131] hover:bg-[#FF3131]/90 text-white text-lg font-bold py-5 px-8 rounded-xl transition-colors uppercase tracking-wide shadow-lg hover:shadow-xl"
-                  >
-                    Shop Now →
-                  </motion.button>
-                </Link>
-              ) : (
+            {isDropLive ? (
+              <Link href={`/products/${product.slug}`}>
+                <button className="w-full md:w-auto group relative overflow-hidden">
+                  <div className="relative px-8 md:px-12 py-5 md:py-6 bg-white text-black font-black text-base md:text-lg uppercase tracking-wider flex items-center gap-3 hover:gap-4 transition-all duration-300">
+                    <span>Shop Now</span>
+                    <ArrowRight size={20} weight="bold" />
+                  </div>
+                </button>
+              </Link>
+            ) : (
+              <form onSubmit={handleSubscribe} className="w-full md:w-auto space-y-3">
                 <AnimatePresence mode="wait">
-                  {subscribed ? (
+                  {!subscribed ? (
                     <motion.div
-                      key="success"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="bg-[#CDA09B]/20 border border-[#CDA09B] rounded-xl p-6 text-center"
-                    >
-                      <p className="text-white font-semibold text-lg">
-                        ✓ You&apos;re on the list! We&apos;ll notify you when this drop goes live.
-                      </p>
-                    </motion.div>
-                  ) : (
-                    <motion.form
                       key="form"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      onSubmit={handleSubscribe}
-                      className="space-y-3"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="space-y-2"
                     >
-                      <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="flex gap-2">
                         <input
                           type="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          placeholder="Enter your email"
+                          placeholder="Your Email"
                           required
-                          disabled={loading}
-                          className="flex-1 px-6 py-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FF3131] disabled:opacity-50 transition-all"
+                          className="flex-1 px-4 py-3 md:py-4 bg-white/10 border border-white/20 rounded-none text-white placeholder:text-white/50 text-sm md:text-base font-medium focus:border-white/50 focus:outline-none transition-all"
                         />
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
+                        <button
                           type="submit"
                           disabled={loading}
-                          className="px-8 py-4 bg-[#FF3131] hover:bg-[#FF3131]/90 text-white font-bold rounded-xl transition-colors disabled:opacity-50 uppercase tracking-wide shadow-lg"
+                          className="px-6 md:px-8 py-3 md:py-4 bg-white text-black font-black text-sm md:text-base uppercase tracking-wider hover:bg-white/90 transition-all disabled:opacity-50"
                         >
-                          {loading ? 'Joining...' : 'Notify Me'}
-                        </motion.button>
+                          {loading ? '...' : 'Go'}
+                        </button>
                       </div>
                       {error && (
-                        <motion.p
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="text-[#FF3131] text-sm"
-                        >
-                          {error}
-                        </motion.p>
+                        <p className="text-xs text-white/60 font-medium">
+                          ⚠️ {error}
+                        </p>
                       )}
-                      <p className="text-white/60 text-sm text-center">
-                        Be the first to know when this exclusive drop launches
-                      </p>
-                    </motion.form>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="success"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-sm text-white/80"
+                    >
+                      ✨ Check Your Email
+                    </motion.div>
                   )}
                 </AnimatePresence>
-              )}
-            </motion.div>
+              </form>
+            )}
           </div>
-        </motion.div>
+
+          {/* RIGHT: Visual Section - Image Focus */}
+          <div className="lg:col-span-3 flex flex-col gap-8">
+            
+            {/* Main Product Image - Optimized Size */}
+            <div className="relative h-full min-h-96 lg:min-h-[60vh]">
+              <div className="relative w-full h-full bg-white/5 border border-white/10 overflow-hidden group">
+                {heroImage ? (
+                  <Image
+                    src={heroImage}
+                    alt={product.name}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-1000"
+                    priority
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-linear-to-br from-white/10 to-white/5" />
+                )}
+                
+                {/* Limited Badge - Corner */}
+                <div className="absolute top-0 right-0 z-20 px-4 py-2 bg-black text-white text-xs font-black uppercase tracking-widest border-l border-b border-white/20">
+                  Limited
+                </div>
+              </div>
+            </div>
+
+            {/* Countdown - Bottom Card */}
+            <div className="bg-white/5 border border-white/10 p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-widest text-white/70">
+                  {isDropLive ? '🔥 Ends' : '⏰ Starts'}
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { label: 'D', value: timeLeft.days },
+                  { label: 'H', value: timeLeft.hours },
+                  { label: 'M', value: timeLeft.minutes },
+                  { label: 'S', value: timeLeft.seconds },
+                ].map((unit) => (
+                  <div key={unit.label} className="text-center">
+                    <p className="text-2xl font-black text-white tabular-nums leading-none">
+                      {String(unit.value).padStart(2, '0')}
+                    </p>
+                    <p className="text-[9px] text-white/60 mt-1 font-bold uppercase">
+                      {unit.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
 }
+

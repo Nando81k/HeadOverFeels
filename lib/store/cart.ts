@@ -8,25 +8,40 @@ export interface CartItem {
   quantity: number
 }
 
+export interface AppliedCoupon {
+  code: string
+  redemptionId: string
+  discountType: 'fixed' | 'percentage' | 'free_shipping' | 'perk'
+  discountAmount: number
+  description: string
+  rewardName: string
+}
+
 interface CartState {
   items: CartItem[]
+  appliedCoupon: AppliedCoupon | null
   
   // Actions
   addItem: (product: Product, variant: ProductVariant, quantity?: number) => void
   removeItem: (productId: string, variantId: string) => void
   updateQuantity: (productId: string, variantId: string, quantity: number) => void
   clearCart: () => void
+  applyCoupon: (coupon: AppliedCoupon) => void
+  removeCoupon: () => void
   
   // Computed values
   getTotalItems: () => number
   getTotalPrice: () => number
   getItemCount: (productId: string, variantId: string) => number
+  getDiscount: () => number
+  getFinalTotal: (shippingCost: number, taxRate?: number) => { subtotal: number; shipping: number; discount: number; tax: number; total: number }
 }
 
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
+      appliedCoupon: null,
 
       addItem: (product, variant, quantity = 1) => {
         const items = get().items
@@ -72,7 +87,15 @@ export const useCartStore = create<CartState>()(
       },
 
       clearCart: () => {
-        set({ items: [] })
+        set({ items: [], appliedCoupon: null })
+      },
+
+      applyCoupon: (coupon) => {
+        set({ appliedCoupon: coupon })
+      },
+
+      removeCoupon: () => {
+        set({ appliedCoupon: null })
       },
 
       getTotalItems: () => {
@@ -91,6 +114,51 @@ export const useCartStore = create<CartState>()(
           item => item.product.id === productId && item.variant.id === variantId
         )
         return item?.quantity || 0
+      },
+
+      getDiscount: () => {
+        const coupon = get().appliedCoupon
+        if (!coupon) return 0
+        
+        if (coupon.discountType === 'fixed') {
+          return coupon.discountAmount
+        }
+        if (coupon.discountType === 'percentage') {
+          return get().getTotalPrice() * (coupon.discountAmount / 100)
+        }
+        // free_shipping and perk don't affect subtotal discount
+        return 0
+      },
+
+      getFinalTotal: (shippingCost, taxRate = 0.08) => {
+        const subtotal = get().getTotalPrice()
+        const coupon = get().appliedCoupon
+        
+        // Calculate discount
+        let discount = 0
+        let shipping = shippingCost
+        
+        if (coupon) {
+          if (coupon.discountType === 'fixed') {
+            discount = Math.min(coupon.discountAmount, subtotal) // Don't discount more than subtotal
+          } else if (coupon.discountType === 'percentage') {
+            discount = subtotal * (coupon.discountAmount / 100)
+          } else if (coupon.discountType === 'free_shipping') {
+            shipping = 0
+          }
+        }
+        
+        const discountedSubtotal = subtotal - discount
+        const tax = discountedSubtotal * taxRate
+        const total = discountedSubtotal + shipping + tax
+        
+        return {
+          subtotal,
+          shipping,
+          discount,
+          tax,
+          total: Math.max(0, total),
+        }
       },
     }),
     {

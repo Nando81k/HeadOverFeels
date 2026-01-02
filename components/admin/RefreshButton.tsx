@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { ArrowClockwise } from '@phosphor-icons/react';
 import { useRouter } from 'next/navigation';
 
 export default function RefreshButton() {
@@ -39,7 +39,7 @@ export default function RefreshButton() {
       className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
       title="Refresh dashboard data"
     >
-      <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+      <ArrowClockwise size={16} weight="bold" className={isRefreshing ? 'animate-spin' : ''} />
       {isRefreshing ? 'Refreshing...' : 'Refresh'}
     </button>
   );

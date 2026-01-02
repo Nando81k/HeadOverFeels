@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { ProductVariant } from '@/lib/api/products'
-import { Check } from 'lucide-react'
+import { Check } from '@phosphor-icons/react'
 
 // Helper function to determine if color is light (for contrast)
 function isLightColor(hexColor: string): boolean {
@@ -74,9 +74,9 @@ export function VariantSelector({ variants, onVariantChange }: VariantSelectorPr
       {sizes.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <label className="text-sm font-medium text-gray-900">Size</label>
+            <label className="text-sm font-bold text-black">Size</label>
             {selectedSize && selectedVariant && (
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-black/60">
                 {selectedVariant.inventory > 0 
                   ? `${selectedVariant.inventory} in stock`
                   : 'Out of stock'
@@ -99,10 +99,10 @@ export function VariantSelector({ variants, onVariantChange }: VariantSelectorPr
                   onClick={() => handleSizeChange(size!)}
                   disabled={!isAvailable || !inStock}
                   className={`
-                    relative px-4 py-3 text-sm font-medium rounded-lg border-2 transition-all
+                    relative px-4 py-3 text-sm font-bold rounded-none border transition-all
                     ${isSelected 
                       ? 'border-black bg-black text-white' 
-                      : 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
+                      : 'border-black/10 bg-white text-black hover:border-black/20'
                     }
                     ${!isAvailable || !inStock 
                       ? 'opacity-40 cursor-not-allowed' 
@@ -112,7 +112,7 @@ export function VariantSelector({ variants, onVariantChange }: VariantSelectorPr
                 >
                   {size}
                   {isSelected && (
-                    <Check className="absolute top-1 right-1 w-4 h-4" />
+                    <Check size={16} weight="bold" className="absolute top-1 right-1" />
                   )}
                 </button>
               )
@@ -124,7 +124,7 @@ export function VariantSelector({ variants, onVariantChange }: VariantSelectorPr
       {/* Color Selection */}
       {colors.length > 0 && (
         <div>
-          <label className="block text-sm font-medium text-gray-900 mb-3">
+          <label className="block text-sm font-bold text-black mb-3">
             Color {selectedColor && `- ${selectedColor}`}
           </label>
           <div className="flex flex-wrap gap-3">
@@ -142,10 +142,10 @@ export function VariantSelector({ variants, onVariantChange }: VariantSelectorPr
                   disabled={!isAvailable}
                   title={color || undefined}
                   className={`
-                    relative w-12 h-12 rounded-full border-4 transition-all
+                    relative w-12 h-12 rounded-none border-2 transition-all
                     ${isSelected 
                       ? 'border-black scale-110' 
-                      : 'border-gray-300 hover:border-gray-400'
+                      : 'border-black/20 hover:border-black/40'
                     }
                     ${!isAvailable 
                       ? 'opacity-40 cursor-not-allowed' 
@@ -169,10 +169,10 @@ export function VariantSelector({ variants, onVariantChange }: VariantSelectorPr
                   onClick={() => handleColorChange(color!)}
                   disabled={!isAvailable}
                   className={`
-                    px-4 py-2 text-sm font-medium rounded-lg border-2 transition-all
+                    px-4 py-2 text-sm font-bold rounded-none border transition-all
                     ${isSelected 
                       ? 'border-black bg-black text-white' 
-                      : 'border-gray-300 bg-white text-gray-900 hover:border-gray-400'
+                      : 'border-black/10 bg-white text-black hover:border-black/20'
                     }
                     ${!isAvailable 
                       ? 'opacity-40 cursor-not-allowed' 
@@ -190,15 +190,15 @@ export function VariantSelector({ variants, onVariantChange }: VariantSelectorPr
 
       {/* Selected Variant Info */}
       {selectedVariant && (
-        <div className="pt-4 border-t border-gray-200">
+        <div className="pt-4 border-t border-black/10">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600">SKU:</span>
-            <span className="font-mono text-gray-900">{selectedVariant.sku}</span>
+            <span className="text-black/60">SKU:</span>
+            <span className="font-mono text-black">{selectedVariant.sku}</span>
           </div>
           {selectedVariant.price && (
             <div className="flex items-center justify-between text-sm mt-2">
-              <span className="text-gray-600">Variant Price:</span>
-              <span className="font-semibold text-gray-900">
+              <span className="text-black/60">Variant Price:</span>
+              <span className="font-bold text-black">
                 ${selectedVariant.price.toFixed(2)}
               </span>
             </div>

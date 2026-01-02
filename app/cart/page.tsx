@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useCartStore } from '@/lib/store/cart'
 import { CartItem } from '@/components/cart/CartItem'
 import { Button } from '@/components/ui/button'
-import { ShoppingBag, ArrowLeft, Loader2, Home, ShoppingCart, Sparkles, Lock, RotateCcw, Truck } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { Bag, ArrowLeft, ShoppingCart, Sparkle, Lock, ArrowClockwise, Truck, Heart, ArrowRight, Package, ShieldCheck } from '@phosphor-icons/react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Navigation } from '@/components/layout/Navigation'
 
 export default function CartPage() {
   const router = useRouter()
@@ -16,258 +18,415 @@ export default function CartPage() {
 
   // Handle hydration
   useEffect(() => {
-    setMounted(true)
+    const timer = setTimeout(() => setMounted(true), 0)
+    return () => clearTimeout(timer)
   }, [])
 
   const totalPrice = getTotalPrice()
   const totalItems = getTotalItems()
-  const shipping = totalPrice > 100 ? 0 : 10 // Free shipping over $100
-  const tax = totalPrice * 0.08 // 8% tax
+  const shipping = totalPrice > 100 ? 0 : 10
+  const tax = totalPrice * 0.08
   const grandTotal = totalPrice + shipping + tax
 
   const handleCheckout = () => {
     router.push('/checkout')
   }
 
-  // Show loading state during hydration
+  // Loading state
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#F6F1EE] via-[#F6F1EE] to-[#CDA09B]/20 flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-          className="text-center"
-        >
-          <ShoppingCart className="w-16 h-16 text-[#FF3131] mx-auto mb-4 animate-pulse" />
-          <p className="text-xl font-medium text-gray-800">Loading your cart...</p>
-        </motion.div>
-      </div>
-    )
-  }
-
-  if (items.length === 0) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#F6F1EE] via-[#F6F1EE] to-[#CDA09B]/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          {/* Hero Section */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <h1 className="text-5xl md:text-6xl font-bold mb-4 tracking-tight">
-              Shopping Cart
-            </h1>
-            <p className="text-lg text-gray-600">Your curated streetwear collection</p>
-          </motion.div>
-
-          {/* Empty State */}
+      <>
+        <Navigation />
+        <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            className="text-center py-20"
+            className="text-center"
           >
-            <div className="max-w-md mx-auto">
-              <div className="relative inline-block mb-8">
-                <ShoppingBag className="w-24 h-24 text-[#CDA09B] mx-auto" strokeWidth={1.5} />
-                <Sparkles className="w-8 h-8 text-[#FF3131] absolute -top-2 -right-2 animate-pulse" />
-              </div>
-              
-              <h2 className="text-3xl font-bold mb-4">Your Cart is Empty</h2>
-              <p className="text-lg text-gray-600 mb-8">
-                Ready to start building your streetwear collection?
-              </p>
-              
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link
-                  href="/products"
-                  className="group inline-flex items-center justify-center gap-3 bg-[#FF3131] text-white px-8 py-4 rounded-full font-semibold text-lg hover:bg-black transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
-                >
-                  Explore Products
-                  <ShoppingCart className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                </Link>
-                
-                <Link
-                  href="/"
-                  className="group inline-flex items-center justify-center gap-3 bg-white text-gray-800 px-8 py-4 rounded-full font-semibold text-lg hover:shadow-lg transition-all duration-300 hover:scale-105 border-2 border-gray-200"
-                >
-                  <Home className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                  Go Home
-                </Link>
-              </div>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-black/5 flex items-center justify-center">
+              <ShoppingCart size={32} weight="bold" className="text-black animate-pulse" />
             </div>
+            <p className="text-lg font-medium text-black/60">Loading your cart...</p>
           </motion.div>
         </div>
-      </div>
+      </>
+    )
+  }
+
+  // Empty cart state
+  if (items.length === 0) {
+    return (
+      <>
+        <Navigation />
+        <div className="min-h-screen bg-[#FAF8F5]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20">
+            {/* Header */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center mb-16"
+            >
+              <h1 className="text-5xl md:text-6xl font-black tracking-tight logo-font text-black mb-4">
+                Your Cart
+              </h1>
+              <div className="w-20 h-1 bg-black mx-auto rounded-full" />
+            </motion.div>
+
+            {/* Empty State Card */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.1 }}
+              className="max-w-lg mx-auto"
+            >
+              <div className="bg-white rounded-3xl p-12 text-center shadow-sm border border-black/5">
+                <div className="relative inline-block mb-8">
+                  <div className="w-32 h-32 rounded-full bg-black/5 flex items-center justify-center mx-auto">
+                    <Bag size={64} weight="duotone" className="text-black/40" />
+                  </div>
+                  <motion.div
+                    animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.1, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="absolute -top-2 -right-2"
+                  >
+                    <Heart size={32} weight="fill" className="text-[#FF3131]" />
+                  </motion.div>
+                </div>
+                
+                <h2 className="text-2xl font-bold text-black mb-3">Your cart is empty</h2>
+                <p className="text-black/60 mb-8 max-w-sm mx-auto">
+                  Looks like you haven&apos;t added anything yet. Discover our latest drops and add some heat to your wardrobe.
+                </p>
+                
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Link href="/products">
+                    <Button className="w-full sm:w-auto bg-black hover:bg-black/80 text-white px-8 py-6 rounded-full font-semibold text-base group">
+                      Shop Now
+                      <ArrowRight size={18} weight="bold" className="ml-2 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </Link>
+                  <Link href="/">
+                    <Button variant="outline" className="w-full sm:w-auto border-black/20 hover:bg-black/5 px-8 py-6 rounded-full font-semibold text-base">
+                      Back to Home
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Trust badges */}
+              <div className="mt-8 grid grid-cols-3 gap-4">
+                {[
+                  { icon: Truck, text: 'Free Shipping 100+' },
+                  { icon: ArrowClockwise, text: '30-Day Returns' },
+                  { icon: ShieldCheck, text: 'Secure Checkout' },
+                ].map((badge, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 + i * 0.1 }}
+                    className="text-center"
+                  >
+                    <badge.icon size={24} weight="bold" className="mx-auto text-black/40 mb-2" />
+                    <p className="text-xs text-black/50 font-medium">{badge.text}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F6F1EE] via-[#F6F1EE] to-[#CDA09B]/20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="mb-8"
-        >
-          <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
-            <div>
-              <h1 className="text-5xl md:text-6xl font-bold mb-3 tracking-tight">
-                Shopping Cart
-              </h1>
-              <p className="text-lg text-gray-600">
-                {totalItems} {totalItems === 1 ? 'item' : 'items'} in your cart
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <Link
-                href="/"
-                className="flex items-center gap-2 bg-white px-6 py-3 rounded-full shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300 font-semibold group"
-              >
-                <Home className="w-5 h-5 text-gray-700 group-hover:text-[#FF3131] transition-colors" />
-                <span className="hidden sm:inline">Home</span>
-              </Link>
-              
-              <Link 
-                href="/products"
-                className="flex items-center gap-2 bg-white px-6 py-3 rounded-full shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300 font-semibold group"
-              >
-                <ArrowLeft className="w-5 h-5 text-gray-700 group-hover:text-[#FF3131] transition-colors" />
-                <span className="hidden sm:inline">Continue Shopping</span>
-              </Link>
-            </div>
-          </div>
-        </motion.div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
+    <>
+      <Navigation />
+      <div className="min-h-screen bg-[#FAF8F5]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20">
+          {/* Header */}
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            className="lg:col-span-2"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-10"
           >
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                <ShoppingCart className="w-6 h-6 text-[#FF3131]" />
-                Cart Items
-              </h2>
-              <div className="divide-y divide-gray-100">
-                {items.map((item) => (
-                  <CartItem
-                    key={`${item.product.id}-${item.variant.id}`}
-                    item={item}
-                    onUpdateQuantity={updateQuantity}
-                    onRemove={removeItem}
-                  />
-                ))}
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <Link 
+                  href="/products"
+                  className="inline-flex items-center gap-2 text-black/60 hover:text-black transition-colors text-sm font-medium mb-4"
+                >
+                  <ArrowLeft size={16} weight="bold" />
+                  Continue Shopping
+                </Link>
+                <h1 className="text-4xl md:text-5xl font-black tracking-tight logo-font text-black">
+                  Your Cart
+                </h1>
+                <p className="text-black/60 mt-2">
+                  {totalItems} {totalItems === 1 ? 'item' : 'items'} in your cart
+                </p>
               </div>
             </div>
           </motion.div>
 
-          {/* Order Summary */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="lg:col-span-1"
-          >
-            <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-8">
-              <h2 className="text-2xl font-bold mb-6">Order Summary</h2>
-              
-              <div className="space-y-4 mb-6">
-                <div className="flex justify-between text-gray-700">
-                  <span className="font-medium">Subtotal</span>
-                  <span className="font-semibold">${totalPrice.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-700">
-                  <span className="font-medium">Shipping</span>
-                  <span className="font-semibold">
-                    {shipping === 0 ? (
-                      <span className="text-green-600 font-bold">FREE</span>
-                    ) : (
-                      `$${shipping.toFixed(2)}`
-                    )}
-                  </span>
-                </div>
-                <div className="flex justify-between text-gray-700">
-                  <span className="font-medium">Tax (8%)</span>
-                  <span className="font-semibold">${tax.toFixed(2)}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Cart Items */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
+              className="lg:col-span-8"
+            >
+              <div className="bg-white rounded-3xl shadow-sm border border-black/5 overflow-hidden">
+                {/* Column Headers */}
+                <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-4 bg-black/[0.02] border-b border-black/5">
+                  <div className="col-span-6 text-xs font-semibold text-black/50 uppercase tracking-wider">Product</div>
+                  <div className="col-span-2 text-xs font-semibold text-black/50 uppercase tracking-wider text-center">Quantity</div>
+                  <div className="col-span-2 text-xs font-semibold text-black/50 uppercase tracking-wider text-right">Price</div>
+                  <div className="col-span-2 text-xs font-semibold text-black/50 uppercase tracking-wider text-right">Total</div>
                 </div>
                 
-                {totalPrice < 100 && totalPrice > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl p-4 text-sm"
-                  >
-                    <div className="flex items-start gap-2">
-                      <Sparkles className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                {/* Cart Items List */}
+                <AnimatePresence mode="popLayout">
+                  <div className="divide-y divide-black/5">
+                    {items.map((item, index) => (
+                      <CartItemRow
+                        key={`${item.product.id}-${item.variant.id}`}
+                        item={item}
+                        onUpdateQuantity={updateQuantity}
+                        onRemove={removeItem}
+                        index={index}
+                      />
+                    ))}
+                  </div>
+                </AnimatePresence>
+              </div>
+            </motion.div>
+
+            {/* Order Summary */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+              className="lg:col-span-4"
+            >
+              <div className="bg-white rounded-3xl shadow-sm border border-black/5 p-6 sticky top-28">
+                <h2 className="text-xl font-bold text-black mb-6">Order Summary</h2>
+                
+                <div className="space-y-4 mb-6">
+                  <div className="flex justify-between text-black/70">
+                    <span>Subtotal</span>
+                    <span className="font-semibold text-black">${totalPrice.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-black/70">
+                    <span>Shipping</span>
+                    <span className="font-semibold">
+                      {shipping === 0 ? (
+                        <span className="text-green-600">FREE</span>
+                      ) : (
+                        <span className="text-black">${shipping.toFixed(2)}</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-black/70">
+                    <span>Estimated Tax</span>
+                    <span className="font-semibold text-black">${tax.toFixed(2)}</span>
+                  </div>
+                  
+                  {/* Free shipping progress */}
+                  {totalPrice < 100 && totalPrice > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="bg-black/[0.02] rounded-2xl p-4 border border-black/5"
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Sparkle size={16} weight="fill" className="text-[#FF3131]" />
+                        <span className="text-sm font-semibold text-black">
+                          ${(100 - totalPrice).toFixed(2)} away from free shipping!
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-black/10 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(totalPrice / 100) * 100}%` }}
+                          className="h-full bg-[#FF3131] rounded-full"
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+
+                  <div className="pt-4 border-t border-black/10">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-bold text-black">Total</span>
+                      <span className="text-2xl font-black text-black">${grandTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={handleCheckout}
+                  className="w-full bg-black hover:bg-black/80 text-white font-bold py-6 text-base rounded-full transition-all duration-300 hover:scale-[1.02] hover:shadow-lg group"
+                  size="lg"
+                >
+                  Checkout
+                  <ArrowRight size={18} weight="bold" className="ml-2 group-hover:translate-x-1 transition-transform" />
+                </Button>
+
+                {/* Security badges */}
+                <div className="mt-6 flex items-center justify-center gap-2 text-xs text-black/50">
+                  <Lock size={14} weight="bold" />
+                  <span>Secure checkout with SSL encryption</span>
+                </div>
+
+                {/* Trust badges */}
+                <div className="mt-6 pt-6 border-t border-black/10 space-y-3">
+                  {[
+                    { icon: Truck, title: 'Free Shipping', desc: 'On orders over $100' },
+                    { icon: ArrowClockwise, title: 'Easy Returns', desc: '30-day return policy' },
+                    { icon: Package, title: 'Fast Delivery', desc: '2-3 business days' },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-black/[0.03] flex items-center justify-center shrink-0">
+                        <item.icon size={18} weight="bold" className="text-black/60" />
+                      </div>
                       <div>
-                        <p className="font-bold text-blue-900 mb-1">Almost there!</p>
-                        <p className="text-blue-800">
-                          Add <span className="font-bold">${(100 - totalPrice).toFixed(2)}</span> more for free shipping!
-                        </p>
+                        <p className="text-sm font-semibold text-black">{item.title}</p>
+                        <p className="text-xs text-black/50">{item.desc}</p>
                       </div>
                     </div>
-                  </motion.div>
-                )}
-
-                <div className="pt-4 border-t-2 border-gray-200">
-                  <div className="flex justify-between text-xl font-bold text-gray-900">
-                    <span>Total</span>
-                    <span className="text-[#FF3131]">${grandTotal.toFixed(2)}</span>
-                  </div>
+                  ))}
                 </div>
               </div>
-
-              <Button 
-                onClick={handleCheckout}
-                className="w-full bg-[#FF3131] hover:bg-black text-white font-bold py-6 text-lg rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-xl"
-                size="lg"
-              >
-                Proceed to Checkout
-              </Button>
-
-              <div className="mt-6 space-y-3">
-                <div className="flex items-start gap-3 text-sm text-gray-700">
-                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-                    <Lock className="w-5 h-5 text-green-700" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">Secure Checkout</p>
-                    <p className="text-gray-600">Your payment info is safe</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 text-sm text-gray-700">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                    <RotateCcw className="w-5 h-5 text-blue-700" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">Free Returns</p>
-                    <p className="text-gray-600">Within 30 days of purchase</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 text-sm text-gray-700">
-                  <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
-                    <Truck className="w-5 h-5 text-purple-700" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">Fast Shipping</p>
-                    <p className="text-gray-600">Ships in 2-3 business days</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
+  )
+}
+
+// Inline cart item component for better layout control
+function CartItemRow({ 
+  item, 
+  onUpdateQuantity, 
+  onRemove,
+  index 
+}: { 
+  item: ReturnType<typeof useCartStore.getState>['items'][0]
+  onUpdateQuantity: (productId: string, variantId: string, quantity: number) => void
+  onRemove: (productId: string, variantId: string) => void
+  index: number
+}) {
+  const { product, variant, quantity } = item
+  const price = variant.price || product.price
+  const subtotal = price * quantity
+
+  // Parse images
+  let imageUrl = '/placeholder-product.jpg'
+  try {
+    const images = JSON.parse(product.images)
+    if (images && images.length > 0 && images[0].url) {
+      imageUrl = images[0].url
+    }
+  } catch {
+    // Use placeholder
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, x: -100 }}
+      transition={{ delay: index * 0.05 }}
+      className="p-6"
+    >
+      <div className="grid grid-cols-12 gap-4 items-center">
+        {/* Product Info */}
+        <div className="col-span-12 md:col-span-6">
+          <div className="flex gap-4">
+            <Link 
+              href={`/products/${product.slug}`}
+              className="relative w-24 h-24 rounded-2xl overflow-hidden bg-black/[0.02] shrink-0 group"
+            >
+              <Image
+                src={imageUrl}
+                alt={product.name}
+                fill
+                className="object-cover transition-transform duration-500 group-hover:scale-110"
+              />
+            </Link>
+            <div className="flex-1 min-w-0">
+              <Link 
+                href={`/products/${product.slug}`}
+                className="font-semibold text-black hover:text-[#FF3131] transition-colors line-clamp-2"
+              >
+                {product.name}
+              </Link>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {variant.size && (
+                  <span className="text-xs font-medium px-2 py-1 bg-black/[0.03] rounded-full text-black/70">
+                    {variant.size}
+                  </span>
+                )}
+                {variant.color && (
+                  <span className="text-xs font-medium px-2 py-1 bg-black/[0.03] rounded-full text-black/70">
+                    {variant.color}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-black/40 mt-1 font-mono">SKU: {variant.sku}</p>
+              
+              {/* Mobile price */}
+              <p className="md:hidden text-lg font-bold text-black mt-2">${price.toFixed(2)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Quantity */}
+        <div className="col-span-6 md:col-span-2">
+          <div className="flex items-center justify-start md:justify-center">
+            <div className="inline-flex items-center border border-black/10 rounded-full overflow-hidden">
+              <button
+                onClick={() => onUpdateQuantity(product.id, variant.id, quantity - 1)}
+                className="w-8 h-8 flex items-center justify-center hover:bg-black/5 transition-colors text-black/70 hover:text-black"
+                aria-label="Decrease quantity"
+              >
+                <span className="text-lg font-medium">−</span>
+              </button>
+              <span className="w-10 text-center text-sm font-semibold text-black">{quantity}</span>
+              <button
+                onClick={() => onUpdateQuantity(product.id, variant.id, quantity + 1)}
+                className="w-8 h-8 flex items-center justify-center hover:bg-black/5 transition-colors text-black/70 hover:text-black"
+                aria-label="Increase quantity"
+              >
+                <span className="text-lg font-medium">+</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Price - Desktop */}
+        <div className="hidden md:block col-span-2 text-right">
+          <span className="font-semibold text-black">${price.toFixed(2)}</span>
+        </div>
+
+        {/* Total */}
+        <div className="col-span-6 md:col-span-2 text-right">
+          <div className="flex items-center justify-end gap-3">
+            <span className="font-bold text-black">${subtotal.toFixed(2)}</span>
+            <button
+              onClick={() => onRemove(product.id, variant.id)}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 text-black/40 hover:text-[#FF3131] transition-colors"
+              aria-label="Remove item"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   )
 }

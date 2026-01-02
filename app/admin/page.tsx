@@ -1,11 +1,13 @@
 import Link from "next/link";
+import { Package, ShoppingCart, Users, TrendUp, CurrencyDollar, Warning } from '@phosphor-icons/react/dist/ssr';
 import { prisma } from "@/lib/prisma";
+import { AdminLayout } from "@/components/admin/AdminLayout";
+import { DashboardCard, StatCard } from "@/components/admin/DashboardCard";
 import DashboardStats from "@/components/admin/DashboardStats";
 import LowStockAlerts from "@/components/admin/LowStockAlerts";
 import ExportButton from "@/components/admin/ExportButton";
-import ExportHistory from "@/components/admin/ExportHistory";
-import RefreshButton from "@/components/admin/RefreshButton";
-import AnalyticsPreview from "@/components/admin/AnalyticsPreview";
+import RealTimeSalesFeed from "@/components/admin/RealTimeSalesFeed";
+import SalesGoalsTracker from "@/components/admin/SalesGoalsTracker";
 
 // Force dynamic rendering (no prerendering during build)
 export const dynamic = 'force-dynamic';
@@ -264,218 +266,213 @@ export default async function AdminDashboard() {
     },
   };
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold">Head Over Feels</h1>
-              <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
-                Admin Dashboard
-              </span>
-            </div>
-            <div className="flex items-center gap-4">
-              <RefreshButton />
-              <Link 
-                href="/" 
-                className="text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                ← Store
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
+    <AdminLayout 
+      title="Dashboard" 
+      subtitle="Welcome back! Here's what's happening today."
+      pendingOrders={pendingOrdersCount}
+      headerActions={
+        <ExportButton
+          period="month"
+          stats={{
+            orders: monthOrders,
+            revenue: monthRevenue._sum.total || 0,
+            products: activeProducts,
+            customers: totalCustomers,
+          }}
+          orders={recentOrders}
+        />
+      }
+    >
+      {/* Quick Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <StatCard
+          title="Total Revenue (Month)"
+          value={formatCurrency(monthRevenue._sum.total || 0)}
+          change={{
+            value: lastMonthRevenue._sum.total 
+              ? ((((monthRevenue._sum.total || 0) - lastMonthRevenue._sum.total) / lastMonthRevenue._sum.total) * 100)
+              : 0,
+            label: "vs last month"
+          }}
+          icon={<CurrencyDollar size={24} weight="bold" className="text-emerald-400" />}
+        />
+        
+        <StatCard
+          title="Orders (Month)"
+          value={monthOrders}
+          change={{
+            value: weekOrders > 0 ? 12 : 0,
+            label: "vs last month"
+          }}
+          icon={<ShoppingCart size={24} weight="bold" className="text-white/70" />}
+          href="/admin/orders"
+          badge={pendingOrdersCount}
+        />
+        
+        <StatCard
+          title="Active Products"
+          value={activeProducts}
+          icon={<Package size={24} weight="bold" className="text-white/70" />}
+          href="/admin/products"
+        />
+        
+        <StatCard
+          title="Total Customers"
+          value={totalCustomers}
+          change={{
+            value: 8,
+            label: "this month"
+          }}
+          icon={<Users size={24} weight="bold" className="text-white/70" />}
+          href="/admin/customers"
+        />
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Dashboard Stats */}
+      {/* Low Stock Alerts */}
+      {lowStockProducts.length > 0 && (
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Overview</h2>
-            <ExportButton
-              period="month"
-              stats={{
-                orders: monthOrders,
-                revenue: monthRevenue._sum.total || 0,
-                products: activeProducts,
-                customers: totalCustomers,
-              }}
-              orders={recentOrders}
-            />
-          </div>
+          <DashboardCard 
+            title="Low Stock Alerts" 
+            icon={<Warning size={20} weight="bold" className="text-amber-400" />}
+            action={{ label: "Manage Inventory", href: "/admin/products" }}
+          >
+            <LowStockAlerts products={lowStockProducts} threshold={LOW_STOCK_THRESHOLD} />
+          </DashboardCard>
+        </div>
+      )}
+
+      {/* Performance Overview */}
+      <div className="mb-8">
+        <h2 className="text-sm font-medium tracking-[0.15em] text-white/70 uppercase mb-4">Performance Overview</h2>
+        <div className="bg-neutral-900 border border-white/10 p-6">
           <DashboardStats {...statsData} />
         </div>
+      </div>
 
-        {/* Alerts Section */}
-        {lowStockProducts.length > 0 && (
-          <div className="mb-8">
-            <LowStockAlerts products={lowStockProducts} threshold={LOW_STOCK_THRESHOLD} />
+      {/* Sales Performance */}
+      <div className="grid lg:grid-cols-2 gap-6 mb-8">
+        <DashboardCard 
+          title="Sales Goals" 
+          icon={<TrendUp size={20} weight="bold" className="text-white/70" />}
+          action={{ label: "Manage Goals", href: "/admin/goals" }}
+          noPadding
+        >
+          <div className="p-5">
+            <SalesGoalsTracker />
           </div>
-        )}
+        </DashboardCard>
 
-        {/* Quick Actions & Analytics Row */}
-        <div className="grid lg:grid-cols-2 gap-8 mb-8">
-          {/* Analytics Preview - Full Height */}
-          <AnalyticsPreview />
+        <DashboardCard 
+          title="Real-Time Sales Feed" 
+          icon={<CurrencyDollar size={20} weight="bold" className="text-emerald-400" />}
+          action={{ label: "View All Orders", href: "/admin/orders" }}
+          noPadding
+        >
+          <div className="p-5">
+            <RealTimeSalesFeed 
+              refreshInterval={10000}
+              maxItems={6}
+              showNotifications={true}
+            />
+          </div>
+        </DashboardCard>
+      </div>
 
-          {/* Recent Orders */}
-          {recentOrders.length > 0 && (
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold">Recent Orders</h3>
-                <Link 
-                  href="/admin/orders"
-                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                >
-                  View All →
-                </Link>
-              </div>
-              <div className="space-y-3">
-                {recentOrders.map((order) => (
-                  <Link
-                    key={order.id}
-                    href={`/admin/orders/${order.id}`}
-                    className="block p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50/50 transition-all"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-gray-900">
-                            #{order.orderNumber}
-                          </span>
-                          <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                            order.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                            order.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
-                            order.status === 'PROCESSING' ? 'bg-purple-100 text-purple-800' :
-                            order.status === 'SHIPPED' ? 'bg-indigo-100 text-indigo-800' :
-                            order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
-                            order.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {order.status}
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray-600 truncate">
-                          {order.customer ? (
-                            <span className="font-medium">{order.customer.name}</span>
-                          ) : (
-                            <span className="text-gray-400">Guest</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right ml-4">
-                        <div className="font-bold text-gray-900">
-                          {formatCurrency(order.total)}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {new Date(order.createdAt).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </div>
-                      </div>
+      {/* Recent Orders */}
+      {recentOrders.length > 0 && (
+        <DashboardCard 
+          title="Recent Orders" 
+          icon={<ShoppingCart size={20} weight="bold" className="text-white/70" />}
+          action={{ label: "View All", href: "/admin/orders" }}
+        >
+          <div className="space-y-2">
+            {recentOrders.map((order) => (
+              <Link
+                key={order.id}
+                href={`/admin/orders/${order.id}`}
+                className="block p-4 border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-white">
+                        #{order.orderNumber}
+                      </span>
+                      <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                        order.status === 'PENDING' ? 'bg-amber-500/20 text-amber-400' :
+                        order.status === 'CONFIRMED' ? 'bg-blue-500/20 text-blue-400' :
+                        order.status === 'PROCESSING' ? 'bg-purple-500/20 text-purple-400' :
+                        order.status === 'SHIPPED' ? 'bg-indigo-500/20 text-indigo-400' :
+                        order.status === 'DELIVERED' ? 'bg-emerald-500/20 text-emerald-400' :
+                        order.status === 'CANCELLED' ? 'bg-red-500/20 text-red-400' :
+                        'bg-white/10 text-white/60'
+                      }`}>
+                        {order.status}
+                      </span>
                     </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Management Cards */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Management</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Products */}
-            <Link 
-              href="/admin/products"
-              className="bg-white p-6 rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all group"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
-                  <span className="text-2xl">📦</span>
+                    <div className="text-sm text-white/50 truncate">
+                      {order.customer ? (
+                        <span className="font-medium">{order.customer.name}</span>
+                      ) : (
+                        <span className="text-white/30">Guest</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right ml-4">
+                    <div className="font-bold text-white">
+                      {formatCurrency(order.total)}
+                    </div>
+                    <div className="text-xs text-white/40">
+                      {new Date(order.createdAt).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </div>
+                  </div>
                 </div>
-                <span className="text-2xl font-bold text-gray-900">{activeProducts}</span>
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Products</h3>
-              <p className="text-sm text-gray-600">Manage inventory & pricing</p>
-            </Link>
-
-            {/* Orders */}
-            <Link 
-              href="/admin/orders"
-              className="bg-white p-6 rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all group relative"
-            >
-              {pendingOrdersCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[24px] text-center shadow-lg">
-                  {pendingOrdersCount}
-                </span>
-              )}
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
-                  <span className="text-2xl">🛒</span>
-                </div>
-                <span className="text-2xl font-bold text-gray-900">{monthOrders}</span>
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Orders</h3>
-              <p className="text-sm text-gray-600 mb-4">Process & fulfill orders</p>
-              {pendingOrdersCount > 0 && (
-                <div className="text-xs text-yellow-700 bg-yellow-50 px-2 py-1 rounded">
-                  {pendingOrdersCount} pending
-                </div>
-              )}
-            </Link>
-
-            {/* Customers */}
-            <Link 
-              href="/admin/customers"
-              className="bg-white p-6 rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all group"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
-                  <span className="text-2xl">👥</span>
-                </div>
-                <span className="text-2xl font-bold text-gray-900">{totalCustomers}</span>
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Customers</h3>
-              <p className="text-sm text-gray-600">CRM & relationships</p>
-            </Link>
-
-            {/* Collections */}
-            <Link 
-              href="/admin/collections"
-              className="bg-white p-6 rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all group"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-orange-100 rounded-lg group-hover:bg-orange-200 transition-colors">
-                  <span className="text-2xl">🏷️</span>
-                </div>
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Collections</h3>
-              <p className="text-sm text-gray-600 mb-4">Organize products</p>
-            </Link>
-
-            {/* Reviews */}
-            <Link 
-              href="/admin/reviews"
-              className="bg-white p-6 rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all group"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-yellow-100 rounded-lg group-hover:bg-yellow-200 transition-colors">
-                  <span className="text-2xl">⭐</span>
-                </div>
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Reviews</h3>
-              <p className="text-sm text-gray-600">Moderate feedback</p>
-            </Link>
+              </Link>
+            ))}
           </div>
-        </div>
+        </DashboardCard>
+      )}
 
-        {/* Export History */}
-        <ExportHistory />
-      </main>
-    </div>
+      {/* Quick Access Links */}
+      <div className="mt-8">
+        <h2 className="text-sm font-medium tracking-[0.15em] text-white/70 uppercase mb-4">Quick Access</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Link
+            href="/admin/analytics"
+            className="p-4 bg-neutral-900 border border-white/10 hover:border-white/20 hover:bg-neutral-900/80 transition-all group text-center"
+          >
+            <div className="text-2xl mb-2 opacity-60 group-hover:opacity-100 transition-opacity">📊</div>
+            <div className="text-xs font-medium text-white/70 uppercase tracking-wide">Analytics</div>
+          </Link>
+          
+          <Link
+            href="/admin/financial"
+            className="p-4 bg-neutral-900 border border-white/10 hover:border-white/20 hover:bg-neutral-900/80 transition-all group text-center"
+          >
+            <div className="text-2xl mb-2 opacity-60 group-hover:opacity-100 transition-opacity">💰</div>
+            <div className="text-xs font-medium text-white/70 uppercase tracking-wide">Financial</div>
+          </Link>
+          
+          <Link
+            href="/admin/drops"
+            className="p-4 bg-neutral-900 border border-white/10 hover:border-white/20 hover:bg-neutral-900/80 transition-all group text-center"
+          >
+            <div className="text-2xl mb-2 opacity-60 group-hover:opacity-100 transition-opacity">⚡</div>
+            <div className="text-xs font-medium text-white/70 uppercase tracking-wide">Drops</div>
+          </Link>
+          
+          <Link
+            href="/admin/abandoned-carts"
+            className="p-4 bg-neutral-900 border border-white/10 hover:border-white/20 hover:bg-neutral-900/80 transition-all group text-center"
+          >
+            <div className="text-2xl mb-2 opacity-60 group-hover:opacity-100 transition-opacity">🛒</div>
+            <div className="text-xs font-medium text-white/70 uppercase tracking-wide">Abandoned</div>
+          </Link>
+        </div>
+      </div>
+    </AdminLayout>
   );
 }

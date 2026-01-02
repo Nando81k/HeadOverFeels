@@ -134,7 +134,7 @@ The original DropHeroSection had a flashy, neon aesthetic that clashed with the 
 ### Before
 | Element | Old Color | Description |
 |---------|-----------|-------------|
-| Background | `bg-gradient-to-br from-black via-gray-900` | Black gradient |
+| Background | `bg-linear-to-br from-black via-gray-900` | Black gradient |
 | Blur effects | `bg-red-500`, `bg-purple-500` | Animated blurs |
 | Timer boxes | `from-red-500 to-purple-600` | Gradient boxes |
 | Badge | `bg-red-600` | Bright red |
@@ -189,7 +189,7 @@ The original DropHeroSection had a flashy, neon aesthetic that clashed with the 
 
 ### Before
 ```tsx
-<section className="relative min-h-[90vh] bg-gradient-to-br from-black">
+<section className="relative min-h-[90vh] bg-linear-to-br from-black">
   <div className="max-w-7xl mx-auto px-4 py-12 lg:py-20">
     <div className="grid lg:grid-cols-2 gap-12"> {/* 12 unit gap */}
 ```

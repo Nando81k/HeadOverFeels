@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Download } from 'lucide-react';
+import { Download } from '@phosphor-icons/react';
 import { generateDashboardCSV, downloadCSV, generateFilename, saveExportToHistory } from '@/lib/export-utils';
 
 interface ExportButtonProps {

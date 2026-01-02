@@ -30,7 +30,7 @@ async function updateOrderStatuses() {
     
     await prisma.order.update({
       where: { id: order.id },
-      data: { status: newStatus }
+      data: { status: newStatus as any }
     })
     
     console.log(`✓ Order #${order.orderNumber || order.id.slice(0, 8)}`)

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CaretLeft, CaretRight } from '@phosphor-icons/react';
 import { Product } from '@/lib/api/products';
 
 interface CollectionCarouselProps {
@@ -174,7 +174,7 @@ export function CollectionCarousel({ products, itemsPerView = 2 }: CollectionCar
                       sizes="(max-width: 768px) 100vw, 50vw"
                     />
                     {/* Gradient Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+                    <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/50 to-transparent" />
                   </div>
 
                   {/* Product Info Overlay */}
@@ -232,14 +232,14 @@ export function CollectionCarousel({ products, itemsPerView = 2 }: CollectionCar
               className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/90 backdrop-blur-sm shadow-lg flex items-center justify-center text-black hover:bg-[#FF3131] hover:text-white transition-all duration-300"
               aria-label="Previous products"
             >
-              <ChevronLeft className="w-6 h-6" />
+              <CaretLeft size={24} weight="bold" />
             </button>
             <button
               onClick={() => paginate(1)}
               className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/90 backdrop-blur-sm shadow-lg flex items-center justify-center text-black hover:bg-[#FF3131] hover:text-white transition-all duration-300"
               aria-label="Next products"
             >
-              <ChevronRight className="w-6 h-6" />
+              <CaretRight size={24} weight="bold" />
             </button>
           </>
         )}

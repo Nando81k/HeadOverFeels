@@ -8,9 +8,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("POSTGRES_PRISMA_URL") // uses connection pooling
-  directUrl = env("POSTGRES_URL_NON_POOLING") // uses a direct connection
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 // ===== ADMIN USERS =====
@@ -22,6 +21,16 @@ model AdminUser {
   role      AdminRole @default(ADMIN)
   isActive  Boolean   @default(true)
   lastLogin DateTime?
+  
+  // Support tickets assigned
+  assignedTickets SupportTicket[]
+  
+  // Live chat relations
+  liveChatSessions LiveChatSession[]
+  availability     AdminAvailability?
+  
+  // AI conversations
+  aiConversations  AiConversation[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -57,6 +66,9 @@ model Product {
   price       Float
   compareAtPrice Float?
   
+  // Cost and profit tracking
+  costPrice   Float?    // Cost per unit (for profit calculation)
+  
   // Categorization
   categoryId  String?
   category    Category? @relation(fields: [categoryId], references: [id])
@@ -88,6 +100,10 @@ model Product {
   cartReservations  CartReservation[]
   reviews        Review[]
   wishlistItems  WishlistItem[]
+  productViews   ProductView[]
+  sourceRecommendations ProductRecommendation[] @relation("SourceProduct")
+  targetRecommendations ProductRecommendation[] @relation("TargetProduct")
+  avatarItems    AvatarItem[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -146,6 +162,9 @@ model ProductVariant {
   // Pricing (can override product price)
   price     Float?
   
+  // Cost tracking (can override product cost)
+  costPrice Float?  // Cost per unit for this variant
+  
   // Inventory
   inventory Int     @default(0)
   
@@ -189,9 +208,10 @@ model Customer {
   // Loyalty System
   loyaltyTierId String?
   loyaltyTier   LoyaltyTier? @relation(fields: [loyaltyTierId], references: [id])
-  currentPoints Int       @default(0)      // Available "Care Points"
+  currentPoints Int       @default(0)      // Available "Care Points" for redemption
   lifetimePoints Int      @default(0)      // Total earned ever
-  annualSpend   Float     @default(0)      // Spending this year for tier calc
+  annualPointsEarned Int  @default(0)      // Points earned this year (for tier progression)
+  annualSpend   Float     @default(0)      // Spending this year (for tracking)
   tierStartDate DateTime  @default(now())  // When they joined current tier
   referredBy    String?                    // Customer ID who referred them
   
@@ -199,17 +219,69 @@ model Customer {
   orders        Order[]
   addresses     Address[]
   cartItems     CartItem[]
+  abandonedCarts AbandonedCart[]
   reviews       Review[]
   wishlistItems WishlistItem[]
   notes         CustomerNote[]
   pointsTransactions PointsTransaction[]
   redemptions   RewardRedemption[]
   referralCode  ReferralCode?
+  productViews  ProductView[]
+  supportTickets SupportTicket[]
+  liveChatSessions LiveChatSession[]
+  avatar        UserAvatar?
+  avatarItems   UserAvatarItem[]
+  aiConversations AiConversation[]
+  
+  // OAuth Accounts (for social login)
+  accounts      Account[]
+  sessions      Session[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
   @@map("customers")
+}
+
+// ===== OAUTH ACCOUNTS (for Social Login) =====
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("customer_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  
+  user Customer @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("customer_id")
+  expires      DateTime
+  
+  user Customer @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  
+  @@unique([identifier, token])
+  @@map("verification_tokens")
 }
 
 model CustomerNote {
@@ -232,6 +304,79 @@ model CustomerNote {
   
   @@index([customerId])
   @@map("customer_notes")
+}
+
+// ===== AVATAR CUSTOMIZATION =====
+model UserAvatar {
+  id           String   @id @default(cuid())
+  customerId   String   @unique
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // Avatar customization state (JSON)
+  configuration String  // JSON object storing equipped items by slot
+  
+  // Appearance settings
+  skinTone     String   @default("#FFE0BD")
+  bodyType     String   @default("default")
+  
+  // Gender and proportions
+  gender       String   @default("male") // "male" or "female"
+  
+  // Facial features (JSON)
+  faceFeatures String   @default("{\"eyeShape\":\"round\",\"noseShape\":\"medium\",\"mouthShape\":\"smile\",\"eyebrowShape\":\"normal\"}")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("user_avatars")
+}
+
+model AvatarItem {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  // Item details
+  slot        AvatarSlot  // Which part of avatar (HAIR, TOP, BOTTOM, SHOES, ACCESSORY)
+  modelUrl    String      // URL to 3D model file (GLB/GLTF format)
+  thumbnailUrl String?    // Preview image
+  
+  // Optional product association
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+  
+  // Metadata
+  rarity      ItemRarity @default(COMMON)
+  isDefault   Boolean    @default(false) // Default items available to all users
+  
+  // Relationships
+  unlockedBy  UserAvatarItem[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([productId])
+  @@map("avatar_items")
+}
+
+model UserAvatarItem {
+  id           String     @id @default(cuid())
+  customerId   String
+  customer     Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  avatarItemId String
+  avatarItem   AvatarItem @relation(fields: [avatarItemId], references: [id], onDelete: Cascade)
+  
+  // How they unlocked it
+  unlockedVia  String?    // "purchase", "loyalty_reward", "admin_grant"
+  orderId      String?    // Reference to order if unlocked via purchase
+  
+  unlockedAt DateTime @default(now())
+  
+  @@unique([customerId, avatarItemId])
+  @@index([customerId])
+  @@index([avatarItemId])
+  @@map("user_avatar_items")
 }
 
 model Address {
@@ -278,9 +423,15 @@ model Order {
   
   // Pricing
   subtotal    Float
+  discount    Float       @default(0) // Applied coupon discount
   shipping    Float
   tax         Float
   total       Float
+  
+  // Coupon/Reward redemption
+  couponCode    String?   // HOF-DISC-XXXXXX or HOF-SHIP-XXXXXX
+  redemptionId  String?   // Link to RewardRedemption
+  redemption    RewardRedemption? @relation(fields: [redemptionId], references: [id])
   
   // Customer info (for guest checkout)
   customerEmail String
@@ -308,11 +459,17 @@ model Order {
   // Items
   items OrderItem[]
   
+  // Abandoned cart recovery
+  recoveredFromCart AbandonedCart?
+  
   // Reviews
   reviews Review[]
   
   // Loyalty points earned
   pointsTransactions PointsTransaction[]
+  
+  // Support tickets
+  supportTickets SupportTicket[]
   
   // Notes
   notes         String?
@@ -365,6 +522,44 @@ model CartItem {
   
   @@unique([customerId, productId, productVariantId])
   @@map("cart_items")
+}
+
+// ===== ABANDONED CARTS =====
+model AbandonedCart {
+  id         String   @id @default(cuid())
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  
+  // Cart data snapshot
+  customerEmail String
+  customerName  String?
+  items         String  // JSON array of cart items with product details
+  totalValue    Float
+  itemCount     Int
+  
+  // Recovery tracking
+  recoveryEmailSent Boolean   @default(false)
+  recoveryEmailSentAt DateTime?
+  recovered         Boolean   @default(false)
+  recoveredAt       DateTime?
+  recoveryOrderId   String?   @unique
+  recoveryOrder     Order?    @relation(fields: [recoveryOrderId], references: [id], onDelete: SetNull)
+  
+  // Metadata
+  abandonedAt DateTime @default(now())
+  expiresAt   DateTime // When this cart is considered expired (e.g., 30 days)
+  
+  // Optional discount code for recovery
+  discountCode String?
+  discountAmount Float?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([customerId])
+  @@index([customerEmail])
+  @@index([abandonedAt])
+  @@map("abandoned_carts")
 }
 
 // ===== WISHLIST =====
@@ -504,7 +699,165 @@ model Review {
   @@map("reviews")
 }
 
+// ===== PRODUCT RECOMMENDATIONS =====
+model ProductView {
+  id         String   @id @default(cuid())
+  
+  // Product reference
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  // Customer reference (optional - can track anonymous views too)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  
+  // Session tracking for anonymous users
+  sessionId  String?
+  
+  // View metadata
+  viewedAt   DateTime @default(now())
+  duration   Int?     // Seconds spent on page
+  source     String?  // 'search', 'collection', 'recommendation', 'direct'
+  
+  // Device/context
+  userAgent  String?
+  ipAddress  String?
+  
+  @@index([productId])
+  @@index([customerId])
+  @@index([sessionId])
+  @@index([viewedAt])
+  @@map("product_views")
+}
+
+model ProductRecommendation {
+  id              String   @id @default(cuid())
+  
+  // Source product (e.g., "product A is similar to product B")
+  sourceProductId String
+  sourceProduct   Product  @relation("SourceProduct", fields: [sourceProductId], references: [id], onDelete: Cascade)
+  
+  // Recommended product
+  targetProductId String
+  targetProduct   Product  @relation("TargetProduct", fields: [targetProductId], references: [id], onDelete: Cascade)
+  
+  // Recommendation type
+  type            RecommendationType
+  
+  // Scoring
+  score           Float    @default(0) // 0-1 confidence score
+  
+  // Performance tracking
+  impressions     Int      @default(0) // Times shown
+  clicks          Int      @default(0) // Times clicked
+  conversions     Int      @default(0) // Times led to purchase
+  revenue         Float    @default(0) // Revenue attributed
+  
+  // Metadata
+  reason          String?  // e.g., "Customers who bought X also bought Y"
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([sourceProductId, targetProductId, type])
+  @@index([sourceProductId, type])
+  @@index([score])
+  @@map("product_recommendations")
+}
+
 // ===== LOYALTY & REWARDS SYSTEM =====
+
+// Loyalty Program Settings (singleton - only one record)
+model LoyaltySettings {
+  id          String   @id @default("default")
+  
+  // Program Status
+  isEnabled       Boolean @default(true)
+  programName     String  @default("Loyalty Rewards")
+  
+  // Points Configuration
+  pointsPerDollar      Int      @default(1)      // Base points per dollar spent
+  pointsRoundingMode   String   @default("round") // round, floor, ceil
+  minimumOrderForPoints Float   @default(0)      // Min order value to earn points
+  
+  // Referral Configuration
+  referralPointsReferrer  Int  @default(100)  // Points for person who refers
+  referralPointsReferred  Int  @default(50)   // Points for person being referred
+  referralEnabled         Boolean @default(true)
+  
+  // Review Points
+  reviewPointsEnabled     Boolean @default(true)
+  reviewPointsAmount      Int     @default(25)
+  reviewWithPhotoBonus    Int     @default(25)   // Extra points for photo review
+  
+  // Birthday Rewards
+  birthdayRewardsEnabled  Boolean @default(true)
+  birthdayRewardType      String  @default("points") // points, discount, reward
+  birthdayRewardValue     Int     @default(100)      // Points amount or discount %
+  birthdayRewardExpireDays Int    @default(30)       // Days until birthday reward expires
+  
+  // Points Expiration
+  pointsExpireEnabled     Boolean @default(false)
+  pointsExpireMonths      Int     @default(12)  // Months until points expire
+  
+  // Tier Evaluation
+  tierEvaluationPeriod    String  @default("annual") // annual, lifetime, rolling
+  tierDowngradeEnabled    Boolean @default(true)     // Can customers lose tier status?
+  
+  // Display Settings
+  showPointsInCart        Boolean @default(true)
+  showPointsInCheckout    Boolean @default(true)
+  showTierProgress        Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("loyalty_settings")
+}
+
+// ===== SALES GOALS =====
+model SalesGoals {
+  id          String   @id @default("default")
+  
+  // Goal targets
+  dailyTarget    Float    @default(500)
+  weeklyTarget   Float    @default(3500)
+  monthlyTarget  Float    @default(15000)
+  quarterlyTarget Float   @default(45000)
+  yearlyTarget   Float    @default(180000)
+  
+  // Goal history tracking
+  goalsHistory   SalesGoalHistory[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("sales_goals")
+}
+
+model SalesGoalHistory {
+  id          String   @id @default(cuid())
+  
+  // Link to parent
+  salesGoalsId String   @default("default")
+  salesGoals   SalesGoals @relation(fields: [salesGoalsId], references: [id], onDelete: Cascade)
+  
+  // Goal record
+  period      String   // 'daily', 'weekly', 'monthly', 'quarterly', 'yearly'
+  periodStart DateTime // Start of the period
+  periodEnd   DateTime // End of the period
+  target      Float    // Target for this period
+  achieved    Float    // What was actually achieved
+  percentage  Float    // Achievement percentage
+  metGoal     Boolean  // Whether goal was met
+  
+  createdAt DateTime @default(now())
+  
+  @@index([period, periodStart])
+  @@index([salesGoalsId])
+  @@map("sales_goal_history")
+}
+
 model LoyaltyTier {
   id          String   @id @default(cuid())
   name        String   @unique // Head, Heart, Mind, Overdrive
@@ -512,7 +865,8 @@ model LoyaltyTier {
   description String?
   
   // Requirements
-  minAnnualSpend Float   @default(0)   // Minimum spending per year
+  minAnnualPoints Int    @default(0)   // Minimum points earned per year for this tier
+  minAnnualSpend Float   @default(0)   // Legacy: kept for reference
   isInviteOnly   Boolean @default(false) // For Overdrive tier
   
   // Benefits
@@ -568,6 +922,38 @@ model PointsTransaction {
   @@map("points_transactions")
 }
 
+// Points multiplier events (e.g., Double Points Weekend)
+model PointsMultiplierEvent {
+  id          String   @id @default(cuid())
+  name        String   // e.g., "Double Points Weekend"
+  description String?  // Marketing description
+  
+  // Event timing
+  startDate   DateTime
+  endDate     DateTime
+  
+  // Multiplier configuration
+  multiplier  Float    @default(2.0)  // 2.0 = double points, 1.5 = 50% bonus
+  
+  // Targeting (optional - null means applies to all)
+  tierIds     String?  // JSON array of tier IDs that qualify (null = all tiers)
+  categoryIds String?  // JSON array of product category IDs (null = all products)
+  
+  // Status
+  isActive    Boolean  @default(true)
+  
+  // Tracking
+  totalBonusPointsAwarded Int @default(0)
+  ordersAffected          Int @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([startDate, endDate])
+  @@index([isActive])
+  @@map("points_multiplier_events")
+}
+
 model Reward {
   id          String   @id @default(cuid())
   name        String
@@ -605,6 +991,10 @@ model Reward {
 
 model RewardRedemption {
   id          String   @id @default(cuid())
+  
+  // Idempotency key to prevent race conditions and duplicate redemptions
+  idempotencyKey String @unique // Prevents concurrent duplicate redemptions
+  
   customerId  String
   customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   rewardId    String
@@ -627,6 +1017,7 @@ model RewardRedemption {
   metadata    String? // JSON for additional data
   
   pointsTransactions PointsTransaction[]
+  orders             Order[]  // Orders that used this redemption
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -650,7 +1041,185 @@ model ReferralCode {
   @@map("referral_codes")
 }
 
+// ===== SUPPORT & HELP =====
+model SupportTicket {
+  id              String               @id @default(cuid())
+  ticketNumber    String               @unique // e.g., "TKT-2024-001234"
+  
+  // Ticket details
+  type            SupportTicketType
+  status          SupportTicketStatus  @default(OPEN)
+  priority        SupportPriority      @default(MEDIUM)
+  subject         String
+  
+  // Customer info
+  customerId      String?
+  customer        Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerEmail   String               // Required even if no customer account
+  customerName    String
+  
+  // Order reference (for refunds, returns, exchanges)
+  orderId         String?
+  order           Order?               @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderNumber     String?              // Stored separately for reference after order deletion
+  
+  // Refund/Return specific
+  refundAmount    Float?               // Requested refund amount
+  refundReason    String?
+  returnRequested Boolean              @default(false)
+  returnApproved  Boolean?
+  returnLabel     String?              // URL to return shipping label
+  
+  // Admin assignment
+  assignedToId    String?
+  assignedTo      AdminUser?           @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedAt      DateTime?
+  
+  // Resolution
+  resolvedAt      DateTime?
+  resolvedBy      String?              // Admin name/ID
+  resolution      String?              // Notes about resolution
+  
+  // AI interaction
+  aiAssisted      Boolean              @default(false) // Was AI involved
+  aiSummary       String?              // AI-generated summary of issue
+  
+  messages        SupportMessage[]
+  liveChatSession LiveChatSession?
+  
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  
+  @@index([customerId])
+  @@index([orderId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@map("support_tickets")
+}
+
+model SupportMessage {
+  id              String         @id @default(cuid())
+  ticketId        String
+  ticket          SupportTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  // Message details
+  message         String         // The message content
+  isInternal      Boolean        @default(false) // Internal admin note
+  
+  // Sender info
+  senderType      String         // "customer", "admin", "ai"
+  senderId        String?        // Customer ID or Admin ID
+  senderName      String         // Display name
+  
+  // Attachments
+  attachments     String?        // JSON array of URLs
+  
+  createdAt       DateTime       @default(now())
+  
+  @@index([ticketId])
+  @@index([createdAt])
+  @@map("support_messages")
+}
+
+// ===== LIVE CHAT SYSTEM =====
+model LiveChatSession {
+  id              String              @id @default(cuid())
+  sessionId       String              @unique // Socket.IO room identifier
+  
+  // Relations
+  ticketId        String              @unique
+  ticket          SupportTicket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  customerId      String?
+  customer        Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  
+  adminId         String?
+  admin           AdminUser?          @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  
+  // Status tracking
+  status          ChatSessionStatus   @default(WAITING) // WAITING, ACTIVE, CLOSED
+  
+  // Timestamps
+  requestedAt     DateTime            @default(now())
+  acceptedAt      DateTime?           // When admin joined
+  closedAt        DateTime?
+  
+  // Metadata
+  customerName    String
+  customerEmail   String
+  waitTime        Int?                // Seconds waited before admin joined
+  duration        Int?                // Total chat duration in seconds
+  
+  // Pre-chat questionnaire context (JSON)
+  // Stores the questionnaire answers so agents have context before accepting
+  preChatContext  String?             // JSON: { category, flow, answers, summary, priority }
+  issueCategory   String?             // Quick reference: order, shipping, payment, etc.
+  issueSummary    String?             // Generated summary from questionnaire
+  
+  messages        LiveChatMessage[]
+  
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  @@index([status])
+  @@index([adminId])
+  @@index([requestedAt])
+  @@map("live_chat_sessions")
+}
+
+model LiveChatMessage {
+  id              String            @id @default(cuid())
+  
+  sessionId       String
+  session         LiveChatSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  // Message details
+  message         String
+  senderType      String            // 'customer' | 'admin' | 'system'
+  senderId        String?           // Customer or Admin ID
+  senderName      String
+  
+  // Read receipts
+  isRead          Boolean           @default(false)
+  readAt          DateTime?
+  
+  createdAt       DateTime          @default(now())
+  
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("live_chat_messages")
+}
+
+model AdminAvailability {
+  id              String      @id @default(cuid())
+  
+  adminId         String      @unique
+  admin           AdminUser   @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  
+  // Status
+  isOnline        Boolean     @default(false)
+  status          String      @default("offline") // offline, available, busy, away
+  
+  // Capacity
+  maxChats        Int         @default(3) // Max simultaneous chats
+  activeChats     Int         @default(0) // Current active chats
+  
+  // Last activity
+  lastSeenAt      DateTime?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@map("admin_availability")
+}
+
 // ===== ENUMS =====
+enum ChatSessionStatus {
+  WAITING   // Customer waiting for admin
+  ACTIVE    // Admin connected, chat in progress
+  CLOSED    // Session ended
+}
 enum PointsTransactionType {
   PURCHASE              // 1 point per $1
   ACCOUNT_CREATION      // +50
@@ -693,6 +1262,16 @@ enum ReviewStatus {
   FLAGGED
 }
 
+enum RecommendationType {
+  SIMILAR          // Similar style/category
+  FREQUENTLY_BOUGHT_TOGETHER // Often purchased together
+  COMPLEMENTARY    // Complementary items (e.g., shoes with jeans)
+  ALSO_VIEWED      // Viewed by same users
+  TRENDING         // Currently trending
+  PERSONALIZED     // Based on user history
+  BEST_SELLERS     // Top selling in category
+}
+
 enum AdminRole {
   SUPER_ADMIN
   ADMIN
@@ -720,4 +1299,396 @@ enum AddressType {
   SHIPPING
   BILLING
   BOTH
+}
+
+enum SupportTicketType {
+  REFUND
+  RETURN
+  EXCHANGE
+  ORDER_ISSUE
+  PRODUCT_QUESTION
+  SHIPPING_ISSUE
+  PAYMENT_ISSUE
+  GENERAL
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  ESCALATED
+  RESOLVED
+  CLOSED
+}
+
+enum SupportPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum AvatarSlot {
+  HAIR
+  TOP
+  BOTTOM
+  SHOES
+  ACCESSORY
+  HEADWEAR
+  OUTERWEAR
+}
+
+enum ItemRarity {
+  COMMON
+  UNCOMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+// ===== AI CONVERSATIONS =====
+model AiConversation {
+  id         String   @id @default(cuid())
+  title      String?  // Auto-generated from first message
+  
+  // Owner (either customer or admin, not both)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  adminId    String?
+  admin      AdminUser? @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  
+  // Metadata
+  isActive   Boolean  @default(true)
+  messageCount Int    @default(0)
+  
+  // Relations
+  messages       AiMessage[]
+  pendingActions AiPendingAction[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([customerId])
+  @@index([adminId])
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  // Message content
+  role           AiMessageRole
+  content        String    // The actual message text
+  
+  // Tool/function calling (stored as JSON)
+  toolCalls      String?   // JSON: [{name, arguments, id}]
+  toolResults    String?   // JSON: [{toolCallId, result}]
+  
+  createdAt DateTime @default(now())
+  
+  @@index([conversationId])
+  @@map("ai_messages")
+}
+
+model AiPendingAction {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  // Action details
+  actionType     String    // e.g., "processRefund", "updateOrderStatus"
+  actionPayload  String    // JSON with action parameters
+  description    String    // Human-readable description
+  
+  // Status
+  status         AiActionStatus @default(PENDING)
+  executedAt     DateTime?
+  result         String?   // JSON result after execution
+  
+  // Expiry (pending actions expire after 5 minutes)
+  expiresAt      DateTime
+  
+  createdAt DateTime @default(now())
+  
+  @@index([conversationId])
+  @@index([status])
+  @@map("ai_pending_actions")
+}
+
+enum AiMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  TOOL
+}
+
+enum AiActionStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  EXPIRED
+  EXECUTED
+}
+
+// ===== ACCOUNTING & FINANCE =====
+
+model ExpenseCategory {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  color       String    @default("#6B7280") // Hex color for UI
+  icon        String?   // Phosphor icon name
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  
+  // Relations
+  expenses    Expense[]
+  budgets     Budget[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@map("expense_categories")
+}
+
+model Expense {
+  id            String          @id @default(cuid())
+  
+  // Category
+  categoryId    String
+  category      ExpenseCategory @relation(fields: [categoryId], references: [id])
+  
+  // Details
+  description   String
+  amount        Float
+  date          DateTime        @default(now())
+  
+  // Vendor/payee
+  vendor        String?
+  
+  // Receipt/documentation
+  receiptUrl    String?
+  notes         String?
+  
+  // Tax deductible flag
+  isTaxDeductible Boolean       @default(false)
+  taxCategory     String?       // For tax reporting categorization
+  
+  // Payment method
+  paymentMethod String?         // Cash, Credit Card, Bank Transfer, etc.
+  
+  // Recurring expense tracking
+  isRecurring   Boolean         @default(false)
+  recurringFrequency String?    // monthly, weekly, yearly
+  
+  // Status
+  status        ExpenseStatus   @default(RECORDED)
+  
+  // Link to invoice if applicable
+  invoiceId     String?
+  invoice       Invoice?        @relation(fields: [invoiceId], references: [id])
+  
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  
+  @@index([categoryId])
+  @@index([date])
+  @@index([status])
+  @@map("expenses")
+}
+
+enum ExpenseStatus {
+  RECORDED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PAID
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  
+  // Vendor details
+  vendorName      String
+  vendorEmail     String?
+  vendorAddress   String?
+  
+  // Invoice details
+  description     String?
+  subtotal        Float
+  tax             Float         @default(0)
+  total           Float
+  
+  // Dates
+  issueDate       DateTime      @default(now())
+  dueDate         DateTime
+  paidDate        DateTime?
+  
+  // Status
+  status          InvoiceStatus @default(PENDING)
+  
+  // Payment details
+  paymentMethod   String?
+  paymentReference String?
+  
+  // Document
+  documentUrl     String?
+  notes           String?
+  
+  // Relations
+  expenses        Expense[]
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@index([status])
+  @@index([dueDate])
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model Budget {
+  id            String          @id @default(cuid())
+  
+  // Category (optional - can be overall budget)
+  categoryId    String?
+  category      ExpenseCategory? @relation(fields: [categoryId], references: [id])
+  
+  // Budget details
+  name          String
+  amount        Float           // Budget limit
+  period        BudgetPeriod    @default(MONTHLY)
+  
+  // Date range
+  startDate     DateTime
+  endDate       DateTime
+  
+  // Alert thresholds (percentage)
+  warningThreshold  Float       @default(75)  // Alert at 75% spent
+  criticalThreshold Float       @default(90)  // Critical at 90% spent
+  
+  // Status
+  isActive      Boolean         @default(true)
+  
+  // Notes
+  notes         String?
+  
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  
+  @@index([categoryId])
+  @@index([period])
+  @@map("budgets")
+}
+
+enum BudgetPeriod {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+model TaxRecord {
+  id              String        @id @default(cuid())
+  
+  // Period
+  period          TaxPeriod
+  year            Int
+  quarter         Int?          // 1-4 for quarterly
+  month           Int?          // 1-12 for monthly
+  
+  // Revenue & Sales Tax
+  grossRevenue    Float         @default(0)
+  taxableRevenue  Float         @default(0)
+  salesTaxCollected Float       @default(0)
+  
+  // Expenses & Deductions
+  totalExpenses   Float         @default(0)
+  deductibleExpenses Float      @default(0)
+  
+  // Calculated values
+  netIncome       Float         @default(0)
+  estimatedTaxLiability Float   @default(0)
+  
+  // Payment tracking
+  taxPaid         Float         @default(0)
+  paidDate        DateTime?
+  paymentReference String?
+  
+  // Status
+  status          TaxRecordStatus @default(DRAFT)
+  
+  // Notes and documents
+  notes           String?
+  documentUrls    String?       // JSON array of document URLs
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@unique([period, year, quarter, month])
+  @@index([year])
+  @@index([status])
+  @@map("tax_records")
+}
+
+enum TaxPeriod {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum TaxRecordStatus {
+  DRAFT
+  CALCULATED
+  FILED
+  PAID
+}
+
+model FinancialSnapshot {
+  id              String        @id @default(cuid())
+  
+  // Period
+  date            DateTime      @default(now())
+  periodType      String        @default("daily") // daily, weekly, monthly
+  
+  // Revenue metrics
+  totalRevenue    Float         @default(0)
+  totalOrders     Int           @default(0)
+  avgOrderValue   Float         @default(0)
+  
+  // Cost metrics
+  totalCOGS       Float         @default(0)  // Cost of Goods Sold
+  totalExpenses   Float         @default(0)
+  
+  // Profit metrics
+  grossProfit     Float         @default(0)
+  grossMargin     Float         @default(0)  // Percentage
+  netProfit       Float         @default(0)
+  netMargin       Float         @default(0)  // Percentage
+  
+  // Tax metrics
+  salesTaxCollected Float       @default(0)
+  
+  // Inventory value
+  inventoryValue  Float         @default(0)
+  
+  // Cash position (manual entry or calculated)
+  cashOnHand      Float?
+  
+  createdAt       DateTime      @default(now())
+  
+  @@unique([date, periodType])
+  @@index([date])
+  @@map("financial_snapshots")
 }

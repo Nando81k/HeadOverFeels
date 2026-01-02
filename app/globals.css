@@ -31,9 +31,30 @@ body {
   letter-spacing: -0.01em;
 }
 
-/* Smooth scrolling */
+/* Smooth scrolling with enhanced easing */
 html {
   scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  * {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Custom smooth scroll snap */
+.scroll-snap-x {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scroll-snap-item {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 /* Hide scrollbar */
@@ -258,4 +279,80 @@ html {
 .scrollbar-thin {
   scrollbar-width: thin;
   scrollbar-color: #d1d5db transparent;
+}
+
+/* Head Over Feels Logo Font Style - Outlined stroke effect */
+.logo-font {
+  font-family: 'Harlow Solid Italic', 'Harlow', sans-serif;
+  -webkit-text-stroke: 2px currentColor;
+  -webkit-text-fill-color: transparent;
+  paint-order: stroke fill;
+}
+
+/* Alternative logo font with fill - For headings and solid text */
+.logo-font-filled {
+  font-family: 'Harlow Solid Italic', 'Harlow', sans-serif;
+}
+
+/* Heading font - Elegant script for headings without stroke effect */
+.heading-font {
+  font-family: 'Harlow Solid Italic', 'Harlow', sans-serif;
+}
+
+/* NeonHero animations */
+@keyframes grid-flow {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(60px);
+  }
+}
+
+@keyframes neon-flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 5px #FF3131) drop-shadow(0 0 10px #FF3131);
+  }
+  20%, 24%, 55% {
+    opacity: 0.3;
+    filter: drop-shadow(0 0 2px #FF3131);
+  }
+}
+
+@keyframes neon-flicker-red {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 3px rgba(204, 40, 40, 0.6));
+  }
+  20%, 24%, 55% {
+    opacity: 0.85;
+    filter: drop-shadow(0 0 2px rgba(204, 40, 40, 0.4));
+  }
+}
+
+@keyframes neon-flicker-lavender {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 3px rgba(139, 123, 168, 0.6));
+  }
+  20%, 24%, 55% {
+    opacity: 0.85;
+    filter: drop-shadow(0 0 2px rgba(139, 123, 168, 0.4));
+  }
+}
+
+@keyframes neon-flicker-babyblue {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 3px rgba(90, 159, 204, 0.6));
+  }
+  20%, 24%, 55% {
+    opacity: 0.85;
+    filter: drop-shadow(0 0 2px rgba(90, 159, 204, 0.4));
+  }
+}
+
+.bg-gradient-radial {
+  background: radial-gradient(circle at center, transparent 0%, rgba(10, 10, 10, 0.5) 50%, #0A0A0A 100%);
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X } from '@phosphor-icons/react'
 
 interface PromotionalBannerProps {
   message?: string
@@ -56,7 +56,7 @@ export function PromotionalBanner({
         aria-label="Close promotional banner"
         style={{ color: textColor }}
       >
-        <X className="w-4 h-4" />
+        <X size={16} weight="bold" />
       </button>
 
       <style jsx>{`

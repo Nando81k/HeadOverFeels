@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Check, X } from 'lucide-react'
+import { Check, X } from '@phosphor-icons/react'
 
 interface PasswordStrengthProps {
   password: string
@@ -97,9 +97,9 @@ export function PasswordStrength({ password, showRequirements = true }: Password
                 }`}
               >
                 {req.met ? (
-                  <Check className="w-3.5 h-3.5 flex-shrink-0" />
+                  <Check size={24} weight="bold" className="w-3.5 h-3.5 flex-shrink-0" />
                 ) : (
-                  <X className="w-3.5 h-3.5 flex-shrink-0 opacity-30" />
+                  <X size={24} weight="bold" className="w-3.5 h-3.5 flex-shrink-0 opacity-30" />
                 )}
                 <span>{req.label}</span>
               </li>

@@ -7,7 +7,7 @@ import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ImageUpload } from '@/components/admin/ImageUpload'
-import { ArrowLeft, Loader2, X, Plus, GripVertical } from 'lucide-react'
+import { ArrowLeft, CircleNotch, X, Plus, DotsSixVertical } from '@phosphor-icons/react'
 
 interface Product {
   id: string
@@ -152,7 +152,7 @@ export default function EditCollectionPage({ params }: { params: Promise<{ id: s
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin" />
+        <CircleNotch size={32} weight="bold" className="animate-spin" />
       </div>
     )
   }
@@ -186,7 +186,7 @@ export default function EditCollectionPage({ params }: { params: Promise<{ id: s
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link href="/admin/collections" className="text-blue-600 hover:text-blue-800">
-                <ArrowLeft className="w-4 h-4 inline mr-2" />
+                <ArrowLeft size={16} weight="bold" className="inline mr-2" />
                 Back to Collections
               </Link>
               <h1 className="text-2xl font-bold">Edit Collection</h1>
@@ -202,7 +202,7 @@ export default function EditCollectionPage({ params }: { params: Promise<{ id: s
               <Button onClick={handleSubmit} disabled={saving}>
                 {saving ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <CircleNotch size={16} weight="bold" className="mr-2 animate-spin" />
                     Saving...
                   </>
                 ) : (
@@ -361,7 +361,7 @@ export default function EditCollectionPage({ params }: { params: Promise<{ id: s
                     size="sm"
                     onClick={() => setShowProductSelector(!showProductSelector)}
                   >
-                    <Plus className="w-4 h-4 mr-1" />
+                    <Plus size={16} weight="bold" className="mr-1" />
                     Add
                   </Button>
                 </div>
@@ -410,7 +410,7 @@ export default function EditCollectionPage({ params }: { params: Promise<{ id: s
                             disabled={index === 0}
                             className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
                           >
-                            <GripVertical className="w-3 h-3" />
+                            <DotsSixVertical size={12} weight="bold" />
                           </button>
                           <button
                             type="button"
@@ -418,7 +418,7 @@ export default function EditCollectionPage({ params }: { params: Promise<{ id: s
                             disabled={index === selectedProducts.length - 1}
                             className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
                           >
-                            <GripVertical className="w-3 h-3" />
+                            <DotsSixVertical size={12} weight="bold" />
                           </button>
                         </div>
                         
@@ -442,7 +442,7 @@ export default function EditCollectionPage({ params }: { params: Promise<{ id: s
                           onClick={() => removeProduct(product.id)}
                           className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
-                          <X className="w-4 h-4" />
+                          <X size={16} weight="bold" />
                         </button>
                       </div>
                     ))}

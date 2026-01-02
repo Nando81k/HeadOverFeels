@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { X, Package, AlertCircle } from 'lucide-react'
+import { X, Package, Warning } from '@phosphor-icons/react'
 
 interface Variant {
   id: string
@@ -109,7 +109,7 @@ export function RestockModal({
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Package className="w-5 h-5 text-blue-600" />
+                <Package size={20} weight="bold" className="text-blue-600" />
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">
@@ -122,7 +122,7 @@ export function RestockModal({
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
             >
-              <X className="w-6 h-6" />
+              <X size={24} weight="bold" />
             </button>
           </div>
 
@@ -131,7 +131,7 @@ export function RestockModal({
             <div className="p-6 overflow-y-auto max-h-[60vh]">
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                  <Warning size={20} weight="bold" className="text-red-600 shrink-0 mt-0.5" />
                   <p className="text-sm text-red-800">{error}</p>
                 </div>
               )}

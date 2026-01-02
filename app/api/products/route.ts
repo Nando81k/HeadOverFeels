@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { getPaginationParams, createPaginatedResponse } from '@/lib/validation/schemas'
 
 // Helper function to create slug from name
 function createSlug(name: string): string {
@@ -52,13 +53,21 @@ const createProductSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
+    
+    // Validate pagination parameters
+    const { page, limit, skip } = getPaginationParams(searchParams)
+    
     const isActive = searchParams.get('isActive') === 'true'
     const isFeatured = searchParams.get('isFeatured') === 'true'
-    const search = searchParams.get('search')
+    const search = searchParams.get('search')?.trim()
 
-    const skip = (page - 1) * limit
+    // Validate search input (max 200 chars, prevent injection)
+    if (search && search.length > 200) {
+      return NextResponse.json(
+        { error: 'Search query too long' },
+        { status: 400 }
+      )
+    }
 
     const where: {
       isActive?: boolean
@@ -84,11 +93,11 @@ export async function GET(request: NextRequest) {
     
     // Add search filter - SQLite doesn't fully support mode: 'insensitive', 
     // so we'll use LIKE which is case-insensitive by default in SQLite
-    if (search && search.trim()) {
+    if (search) {
       where.OR = [
-        { name: { contains: search.trim() } },
-        { description: { contains: search.trim() } },
-        { slug: { contains: search.trim() } }
+        { name: { contains: search } },
+        { description: { contains: search } },
+        { slug: { contains: search } }
       ]
     }
 
@@ -124,15 +133,9 @@ export async function GET(request: NextRequest) {
       prisma.product.count({ where })
     ])
 
-    return NextResponse.json({
-      data: products,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    })
+    return NextResponse.json(
+      createPaginatedResponse(products, total, page, limit)
+    )
   } catch (error) {
     console.error('Error fetching products:', error)
     return NextResponse.json(

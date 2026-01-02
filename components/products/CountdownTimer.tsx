@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Clock } from 'lucide-react'
+import { Clock } from '@phosphor-icons/react'
 
 interface CountdownTimerProps {
   targetDate: Date
@@ -69,7 +69,7 @@ export function CountdownTimer({ targetDate, onExpire, className = '' }: Countdo
   return (
     <div className={`${className}`}>
       <div className="flex items-center justify-center gap-2 mb-3">
-        <Clock className="w-5 h-5" />
+        <Clock size={20} weight="bold" />
         <p className="text-sm font-medium uppercase tracking-wide">Drop Ends In</p>
       </div>
       

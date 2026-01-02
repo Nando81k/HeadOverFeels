@@ -79,6 +79,7 @@ export interface SegmentDistribution {
   segment: string;
   count: number;
   percentage: number;
+  color?: string; // Optional chart color
 }
 
 export interface CustomerMetrics {

@@ -2,14 +2,23 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
+import { checkRateLimit, rateLimitResponse, getClientIdentifier, RATE_LIMITS } from '@/lib/security/rateLimit'
 
 const signinSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().email('Invalid email address').max(255, 'Email too long'),
+  password: z.string().min(1, 'Password is required').max(128, 'Password too long'),
 })
 
 // POST /api/auth/signin - Sign in a user
 export async function POST(request: NextRequest) {
+  // Rate limit by IP address: 5 attempts per minute
+  const clientIp = getClientIdentifier(request.headers)
+  const rateLimit = checkRateLimit(clientIp, RATE_LIMITS.auth.maxRequests, RATE_LIMITS.auth.windowMs)
+
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.retryAfter)
+  }
+
   try {
     const body = await request.json()
     const validatedData = signinSchema.parse(body)
@@ -22,7 +31,6 @@ export async function POST(request: NextRequest) {
         email: true,
         name: true,
         password: true,
-        isAdmin: true,
         createdAt: true,
       },
     })

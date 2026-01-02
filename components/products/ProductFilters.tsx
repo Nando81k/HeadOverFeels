@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, X, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react'
+import { MagnifyingGlass, X, CaretDown, CaretUp, Faders } from '@phosphor-icons/react'
 
 interface ProductFiltersProps {
   onFilterChange: (filters: FilterState) => void
@@ -64,30 +64,30 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
     <div className="space-y-6">
       {/* Search */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-bold text-black mb-2">
           Search
         </label>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <MagnifyingGlass size={16} weight="bold" className="absolute left-3 top-1/2 -translate-y-1/2 text-black/40" />
           <input
             type="text"
             placeholder="Search products..."
             value={filters.search}
             onChange={(e) => updateFilters({ search: e.target.value })}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-black/10 rounded-none focus:ring-2 focus:ring-black focus:border-transparent bg-white text-black placeholder-black/40"
           />
         </div>
       </div>
 
       {/* Sort */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-bold text-black mb-2">
           Sort By
         </label>
         <select
           value={filters.sortBy}
           onChange={(e) => updateFilters({ sortBy: e.target.value })}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+          className="w-full px-4 py-2 border border-black/10 rounded-none focus:ring-2 focus:ring-black focus:border-transparent bg-white text-black"
         >
           {SORT_OPTIONS.map(option => (
             <option key={option.value} value={option.value}>
@@ -100,16 +100,16 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
       {/* Advanced Filters Toggle */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-2 text-sm font-bold text-black border border-black/10 rounded-none hover:bg-black/5 transition-colors uppercase tracking-wider"
       >
         <div className="flex items-center gap-2">
-          <SlidersHorizontal className="w-4 h-4" />
+          <Faders size={16} weight="bold" />
           <span>Advanced Filters</span>
         </div>
         {isExpanded ? (
-          <ChevronUp className="w-4 h-4" />
+          <CaretUp size={16} weight="bold" />
         ) : (
-          <ChevronDown className="w-4 h-4" />
+          <CaretDown size={16} weight="bold" />
         )}
       </button>
 
@@ -118,7 +118,7 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
         <div className="space-y-6 animate-in fade-in duration-200">
           {/* Price Range */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-bold text-black mb-2">
               Price Range
             </label>
             <div className="space-y-2">
@@ -132,7 +132,7 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
                 })}
                 className="w-full"
               />
-              <div className="flex justify-between text-sm text-gray-600">
+              <div className="flex justify-between text-sm text-black/70">
                 <span>${filters.priceRange[0]}</span>
                 <span>${filters.priceRange[1]}</span>
               </div>
@@ -141,7 +141,7 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
 
           {/* Sizes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-bold text-black mb-2">
               Sizes
             </label>
             <div className="flex flex-wrap gap-2">
@@ -149,10 +149,10 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
                 <button
                   key={size}
                   onClick={() => toggleSize(size)}
-                  className={`px-4 py-2 border rounded-lg transition-colors ${
+                  className={`px-4 py-2 border rounded-none transition-colors text-sm font-bold uppercase tracking-wider ${
                     filters.sizes.includes(size)
                       ? 'bg-black text-white border-black'
-                      : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                      : 'bg-white text-black border-black/10 hover:border-black'
                   }`}
                 >
                   {size}
@@ -168,9 +168,9 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
                 type="checkbox"
                 checked={filters.inStockOnly}
                 onChange={(e) => updateFilters({ inStockOnly: e.target.checked })}
-                className="w-4 h-4 text-black border-gray-300 rounded focus:ring-black"
+                className="w-4 h-4 text-black border-black/10 rounded-none focus:ring-black"
               />
-              <span className="text-sm text-gray-700">In Stock Only</span>
+              <span className="text-sm text-black font-medium">In Stock Only</span>
             </label>
           </div>
         </div>
@@ -180,9 +180,9 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
       {hasActiveFilters && (
         <button
           onClick={clearFilters}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold text-black border border-black/10 rounded-none hover:bg-black/5 transition-colors uppercase tracking-wider"
         >
-          <X className="w-4 h-4" />
+          <X size={16} weight="bold" />
           Clear Filters
         </button>
       )}

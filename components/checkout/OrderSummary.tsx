@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import { useCartStore } from '@/lib/store/cart'
+import { CouponInput } from './CouponInput'
 
 interface OrderSummaryProps {
   shippingCost?: number
@@ -9,12 +10,13 @@ interface OrderSummaryProps {
 }
 
 export function OrderSummary({ shippingCost, selectedShippingMethod }: OrderSummaryProps) {
-  const { items, getTotalPrice } = useCartStore()
+  const { items, getTotalPrice, appliedCoupon, getFinalTotal } = useCartStore()
 
   const subtotal = getTotalPrice()
-  const shipping = shippingCost ?? (subtotal > 100 ? 0 : 10)
-  const tax = subtotal * 0.08
-  const total = subtotal + shipping + tax
+  const baseShipping = shippingCost ?? (subtotal > 100 ? 0 : 10)
+  
+  // Calculate totals with coupon
+  const { shipping, discount, tax, total } = getFinalTotal(baseShipping)
 
   return (
     <div className="bg-gray-50 rounded-lg p-6">
@@ -72,12 +74,28 @@ export function OrderSummary({ shippingCost, selectedShippingMethod }: OrderSumm
         })}
       </div>
 
+      {/* Coupon Input */}
+      <div className="border-t border-gray-200 pt-4">
+        <CouponInput />
+      </div>
+
       {/* Price Breakdown */}
       <div className="border-t border-gray-200 pt-4 space-y-3">
         <div className="flex justify-between text-sm text-gray-600">
           <span>Subtotal</span>
           <span className="font-medium text-gray-900">${subtotal.toFixed(2)}</span>
         </div>
+        
+        {/* Discount Line */}
+        {discount > 0 && (
+          <div className="flex justify-between text-sm">
+            <span className="text-green-600">
+              Discount ({appliedCoupon?.description})
+            </span>
+            <span className="font-medium text-green-600">-${discount.toFixed(2)}</span>
+          </div>
+        )}
+        
         <div className="flex justify-between text-sm text-gray-600">
           <div className="flex flex-col">
             <span>Shipping</span>
@@ -87,7 +105,9 @@ export function OrderSummary({ shippingCost, selectedShippingMethod }: OrderSumm
           </div>
           <span className="font-medium text-gray-900">
             {shipping === 0 ? (
-              <span className="text-green-600">FREE</span>
+              <span className="text-green-600">
+                FREE{appliedCoupon?.discountType === 'free_shipping' ? ' (Reward)' : ''}
+              </span>
             ) : (
               `$${shipping.toFixed(2)}`
             )}

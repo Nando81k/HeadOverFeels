@@ -3,7 +3,7 @@
 import { useState, FormEvent } from 'react'
 import { useStripe, useElements, PaymentElement } from '@stripe/react-stripe-js'
 import { Button } from '@/components/ui/button'
-import { Loader2 } from 'lucide-react'
+import { CircleNotch, ShieldCheck, Lock } from '@phosphor-icons/react'
 
 interface PaymentFormProps {
   amount: number
@@ -55,16 +55,12 @@ export function PaymentForm({ amount, orderId, onSuccess, onError }: PaymentForm
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Payment Details
-        </h3>
-        
+      <div>
         <PaymentElement />
         
         {errorMessage && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-800">{errorMessage}</p>
+          <div className="mt-4 p-4 bg-[#FF3131]/10 border border-[#FF3131]/20 rounded-2xl">
+            <p className="text-sm text-[#FF3131] font-medium">{errorMessage}</p>
           </div>
         )}
       </div>
@@ -72,22 +68,26 @@ export function PaymentForm({ amount, orderId, onSuccess, onError }: PaymentForm
       <Button
         type="submit"
         disabled={!stripe || loading}
-        className="w-full"
+        className="w-full bg-black hover:bg-black/80 text-white font-bold py-6 text-base rounded-full transition-all duration-300 hover:scale-[1.02] hover:shadow-lg disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none"
         size="lg"
       >
         {loading ? (
           <>
-            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+            <CircleNotch size={20} weight="bold" className="mr-2 animate-spin" />
             Processing Payment...
           </>
         ) : (
-          `Pay $${amount.toFixed(2)}`
+          <>
+            <Lock size={18} weight="bold" className="mr-2" />
+            Pay ${amount.toFixed(2)}
+          </>
         )}
       </Button>
 
-      <p className="text-xs text-center text-gray-500">
-        Your payment information is secure and encrypted
-      </p>
+      <div className="flex items-center justify-center gap-2 text-xs text-black/50">
+        <ShieldCheck size={14} weight="bold" className="text-green-600" />
+        <span>Your payment information is secure and encrypted</span>
+      </div>
     </form>
   )
 }

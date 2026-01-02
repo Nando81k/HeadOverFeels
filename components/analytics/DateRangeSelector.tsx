@@ -10,7 +10,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Calendar } from 'lucide-react';
+import { Calendar } from '@phosphor-icons/react';
 
 export interface DateRange {
   start: Date;
@@ -142,23 +142,23 @@ export default function DateRangeSelector({
   return (
     <div className="space-y-4">
       {/* Current Selection Display */}
-      <div className="flex items-center gap-2 text-sm text-gray-600">
-        <Calendar className="w-4 h-4" />
-        <span className="font-medium">
+      <div className="flex items-center gap-2 text-sm text-white/60">
+        <Calendar size={16} weight="bold" />
+        <span className="font-medium text-white">
           {formatDate(value.start)} - {formatDate(value.end)}
         </span>
       </div>
 
-      {/* Preset Buttons */}
+      {/* Preset Buttons - dark theme */}
       <div className="flex flex-wrap gap-2">
         {presets.map((preset) => (
           <button
             key={preset.value}
             onClick={() => handlePreset(preset)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
               activePreset === preset.value
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                ? 'bg-purple-600 text-white border border-purple-500'
+                : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10 hover:border-white/20'
             }`}
           >
             {preset.label}
@@ -166,40 +166,40 @@ export default function DateRangeSelector({
         ))}
         <button
           onClick={() => setShowCustom(!showCustom)}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
             showCustom || (!activePreset && !showCustom)
-              ? 'bg-blue-600 text-white'
-              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              ? 'bg-purple-600 text-white border border-purple-500'
+              : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10 hover:border-white/20'
           }`}
         >
           Custom Range
         </button>
       </div>
 
-      {/* Custom Date Range Picker */}
+      {/* Custom Date Range Picker - dark theme */}
       {showCustom && (
-        <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
+        <div className="bg-white/5 border border-white/10 p-4 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-[10px] uppercase tracking-[0.15em] text-white/40 mb-2">
                 Start Date
               </label>
               <input
                 type="date"
                 value={tempStart}
                 onChange={(e) => setTempStart(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-black/30 border border-white/10 text-white text-sm focus:outline-none focus:border-white/30"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-[10px] uppercase tracking-[0.15em] text-white/40 mb-2">
                 End Date
               </label>
               <input
                 type="date"
                 value={tempEnd}
                 onChange={(e) => setTempEnd(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 bg-black/30 border border-white/10 text-white text-sm focus:outline-none focus:border-white/30"
               />
             </div>
           </div>
@@ -208,13 +208,13 @@ export default function DateRangeSelector({
           <div className="flex justify-end gap-2">
             <button
               onClick={handleCancelCustom}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white/70 bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleApplyCustom}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 transition-colors"
             >
               Apply
             </button>

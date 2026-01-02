@@ -1,12 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { auth } from '@/lib/auth/auth'
 
 // GET /api/auth/me - Get current user from session
 export async function GET(request: NextRequest) {
   try {
-    const sessionId = request.cookies.get('auth_session')?.value
+    // First, try NextAuth session (for OAuth users)
+    const session = await auth()
+    let userId: string | null = null
 
-    if (!sessionId) {
+    if (session?.user?.id) {
+      userId = session.user.id
+    } else {
+      // Fall back to cookie-based session (for existing email/password users)
+      const sessionId = request.cookies.get('auth_session')?.value
+      if (sessionId) {
+        userId = sessionId
+      }
+    }
+
+    if (!userId) {
       return NextResponse.json(
         { error: 'Not authenticated' },
         { status: 401 }
@@ -15,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     // Find the customer with loyalty data
     const customer = await prisma.customer.findUnique({
-      where: { id: sessionId },
+      where: { id: userId },
       select: {
         id: true,
         email: true,
@@ -29,14 +42,17 @@ export async function GET(request: NextRequest) {
         // Loyalty fields
         currentPoints: true,
         lifetimePoints: true,
+        annualPointsEarned: true,  // For tier progression
         totalSpent: true,
         totalOrders: true,
+        annualSpend: true,
         loyaltyTier: {
           select: {
             id: true,
             name: true,
             slug: true,
             description: true,
+            minAnnualPoints: true,  // Points required for tier
             minAnnualSpend: true,
             pointMultiplier: true,
             freeShipping: true,

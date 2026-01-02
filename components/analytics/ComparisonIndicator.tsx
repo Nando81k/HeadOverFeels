@@ -9,7 +9,7 @@
 
 'use client';
 
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendUp, TrendDown, Minus } from '@phosphor-icons/react';
 
 interface ComparisonIndicatorProps {
   value: number; // Percentage change (-100 to infinity)
@@ -51,15 +51,15 @@ export default function ComparisonIndicator({
     }
   };
 
-  // Color classes
+  // Color classes - dark theme
   const colorClasses = {
-    up: 'bg-green-50 text-green-700 border-green-200',
-    down: 'bg-red-50 text-red-700 border-red-200',
-    neutral: 'bg-gray-50 text-gray-700 border-gray-200'
+    up: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    down: 'bg-red-500/20 text-red-400 border-red-500/30',
+    neutral: 'bg-white/10 text-white/50 border-white/20'
   };
 
   // Icon component
-  const Icon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Minus;
+  const Icon = trend === 'up' ? TrendUp : trend === 'down' ? TrendDown : Minus;
 
   // Format value
   const formattedValue = Math.abs(value).toFixed(1);
@@ -68,7 +68,7 @@ export default function ComparisonIndicator({
   return (
     <div className={`inline-flex items-center ${className}`}>
       <span
-        className={`inline-flex items-center font-medium rounded-lg border ${
+        className={`inline-flex items-center font-medium border ${
           sizeClasses[size].padding
         } ${sizeClasses[size].gap} ${colorClasses[trend]}`}
       >
@@ -76,7 +76,7 @@ export default function ComparisonIndicator({
         <span className={sizeClasses[size].text}>{displayValue}</span>
       </span>
       {showLabel && label && (
-        <span className={`ml-2 text-gray-600 ${sizeClasses[size].text}`}>
+        <span className={`ml-2 text-white/60 ${sizeClasses[size].text}`}>
           {label}
         </span>
       )}

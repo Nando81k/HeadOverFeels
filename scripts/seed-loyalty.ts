@@ -155,22 +155,6 @@ async function main() {
       sortOrder: 5,
     },
     
-    // Charity & Purpose
-    {
-      name: 'Mental Health Charity Donation',
-      slug: 'charity-donation',
-      description: 'We\'ll donate $5 to mental health organizations on your behalf',
-      pointsCost: 500,
-      rewardType: 'CHARITY_DONATION' as const,
-      value: 5.0,
-      isActive: true,
-      metadata: JSON.stringify({
-        charityName: 'National Alliance on Mental Illness (NAMI)',
-        charityUrl: 'https://www.nami.org',
-      }),
-      sortOrder: 6,
-    },
-    
     // Digital Content
     {
       name: 'Digital Wellness Pack',
@@ -183,7 +167,7 @@ async function main() {
       metadata: JSON.stringify({
         includes: ['journal-templates', 'meditation-audio', 'wallpapers'],
       }),
-      sortOrder: 7,
+      sortOrder: 6,
     },
     
     // Physical Perks
@@ -201,7 +185,7 @@ async function main() {
         shipping: 'free',
         estimatedDelivery: '7-10 days',
       }),
-      sortOrder: 8,
+      sortOrder: 7,
     },
   ]
 
