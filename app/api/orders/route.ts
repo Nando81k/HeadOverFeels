@@ -305,7 +305,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const { page, limit } = getPaginationParams(new URL(request.url).searchParams)
     const status = searchParams.get('status')
-    const email = searchParams.get('email')
+    const search = searchParams.get('search') // New unified search param
 
     const where: Prisma.OrderWhereInput = {}
     
@@ -319,12 +319,29 @@ export async function GET(request: NextRequest) {
       where.status = status as Prisma.EnumOrderStatusFilter
     }
     
-    // Admin can search by email (max 255 chars)
-    if (email && isAdmin) {
-      const cleanEmail = email.substring(0, 255)
-      where.customerEmail = {
-        contains: cleanEmail,
-      }
+    // Admin can search by email, order number, or customer name
+    if (search && isAdmin) {
+      const cleanSearch = search.substring(0, 255).trim().toLowerCase()
+      where.OR = [
+        { orderNumber: { contains: cleanSearch } },
+        { customerEmail: { contains: cleanSearch } },
+        { 
+          shippingAddress: { 
+            OR: [
+              { firstName: { contains: cleanSearch } },
+              { lastName: { contains: cleanSearch } },
+            ]
+          } 
+        },
+        {
+          customer: {
+            OR: [
+              { name: { contains: cleanSearch } },
+              { email: { contains: cleanSearch } },
+            ]
+          }
+        }
+      ]
     }
 
     const [orders, total] = await Promise.all([

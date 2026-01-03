@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   House,
@@ -12,7 +12,8 @@ import {
   CurrencyDollar,
   TrendUp,
   CaretDown,
-  Spinner,
+  ArrowUp,
+  ArrowDown,
 } from '@phosphor-icons/react';
 import {
   ExpenseTracker,
@@ -23,6 +24,7 @@ import {
 } from '@/components/admin/accounting';
 import ProfitMarginCalculator from '@/components/admin/ProfitMarginCalculator';
 import CashFlowProjections from '@/components/admin/CashFlowProjections';
+import GlobalDateRangePicker, { getDefaultDateRange, DateRange } from '@/components/admin/GlobalDateRangePicker';
 
 type TabId = 'overview' | 'expenses' | 'invoices' | 'budgets' | 'tax' | 'reports';
 
@@ -39,6 +41,9 @@ interface QuickStats {
   netProfit: number;
   pendingInvoices: number;
   budgetUtilization: number;
+  revenueTrend: number;
+  expenseTrend: number;
+  profitTrend: number;
 }
 
 const tabs: Tab[] = [
@@ -85,16 +90,13 @@ export default function AccountingDashboard() {
   const [quickStats, setQuickStats] = useState<QuickStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange());
 
-  useEffect(() => {
-    fetchQuickStats();
-  }, []);
-
-  const fetchQuickStats = async () => {
+  const fetchQuickStats = useCallback(async () => {
+    setLoading(true);
     try {
-      // Fetch all-time data for quick stats (from 2020 to now)
-      const startDate = new Date('2020-01-01').toISOString();
-      const endDate = new Date().toISOString();
+      const startDate = dateRange.startDate.toISOString();
+      const endDate = dateRange.endDate.toISOString();
       const response = await fetch(`/api/admin/accounting/summary?startDate=${startDate}&endDate=${endDate}`);
       if (response.ok) {
         const data = await response.json();
@@ -104,6 +106,9 @@ export default function AccountingDashboard() {
           netProfit: data.profitAndLoss?.netProfit?.current || 0,
           pendingInvoices: data.invoices?.pendingAmount || 0,
           budgetUtilization: data.budgetHealth?.overallUtilization || 0,
+          revenueTrend: data.profitAndLoss?.revenue?.change || 0,
+          expenseTrend: data.profitAndLoss?.expenses?.change || 0,
+          profitTrend: data.profitAndLoss?.netProfit?.change || 0,
         });
       }
     } catch (error) {
@@ -111,7 +116,11 @@ export default function AccountingDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateRange]);
+
+  useEffect(() => {
+    fetchQuickStats();
+  }, [fetchQuickStats]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -128,59 +137,97 @@ export default function AccountingDashboard() {
 
   const activeTabData = tabs.find((tab) => tab.id === activeTab);
 
+  const TrendIndicator = ({ value }: { value: number }) => {
+    if (value === 0) return null;
+    const isPositive = value > 0;
+    return (
+      <span className={`flex items-center gap-0.5 text-xs font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+        {isPositive ? <ArrowUp size={12} weight="bold" /> : <ArrowDown size={12} weight="bold" />}
+        {Math.abs(value).toFixed(1)}%
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-6">
+      {/* Header with Date Range Picker */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Financial Dashboard</h1>
+          <p className="text-sm text-white/50">Track revenue, expenses, and business health</p>
+        </div>
+        <GlobalDateRangePicker value={dateRange} onChange={setDateRange} />
+      </div>
+
       {/* Quick Stats Bar */}
-      {!loading && quickStats && (
+      {loading ? (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10 animate-pulse">
+              <div className="h-4 bg-white/10 rounded w-24 mb-2"></div>
+              <div className="h-7 bg-white/10 rounded w-20"></div>
+            </div>
+          ))}
+        </div>
+      ) : quickStats && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="grid grid-cols-2 md:grid-cols-5 gap-4"
         >
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-            <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
-              <TrendUp size={16} />
-              Total Revenue
+          <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 backdrop-blur-sm rounded-xl p-4 border border-emerald-500/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-emerald-400/80 text-sm mb-1">
+                <TrendUp size={16} />
+                Total Revenue
+              </div>
+              <TrendIndicator value={quickStats.revenueTrend} />
             </div>
-            <div className="text-xl font-bold text-white">
+            <div className="text-xl font-bold text-emerald-300">
               {formatCurrency(quickStats.totalRevenue)}
             </div>
           </div>
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-            <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
-              <Receipt size={16} />
-              Total Expenses
+          <div className="bg-gradient-to-br from-rose-500/10 to-rose-600/5 backdrop-blur-sm rounded-xl p-4 border border-rose-500/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-rose-400/80 text-sm mb-1">
+                <Receipt size={16} />
+                Total Expenses
+              </div>
+              <TrendIndicator value={-quickStats.expenseTrend} />
             </div>
-            <div className="text-xl font-bold text-white">
+            <div className="text-xl font-bold text-rose-300">
               {formatCurrency(quickStats.totalExpenses)}
             </div>
           </div>
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-            <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
-              <CurrencyDollar size={16} />
-              Net Profit
+          <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 backdrop-blur-sm rounded-xl p-4 border border-blue-500/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-blue-400/80 text-sm mb-1">
+                <CurrencyDollar size={16} />
+                Net Profit
+              </div>
+              <TrendIndicator value={quickStats.profitTrend} />
             </div>
-            <div className={`text-xl font-bold ${quickStats.netProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            <div className={`text-xl font-bold ${quickStats.netProfit >= 0 ? 'text-blue-300' : 'text-red-400'}`}>
               {formatCurrency(quickStats.netProfit)}
             </div>
           </div>
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-            <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
+          <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 backdrop-blur-sm rounded-xl p-4 border border-amber-500/20">
+            <div className="flex items-center gap-2 text-amber-400/80 text-sm mb-1">
               <Invoice size={16} />
               Pending Invoices
             </div>
-            <div className="text-xl font-bold text-amber-400">
+            <div className="text-xl font-bold text-amber-300">
               {formatCurrency(quickStats.pendingInvoices)}
             </div>
           </div>
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10 col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
+          <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 backdrop-blur-sm rounded-xl p-4 border border-purple-500/20 col-span-2 md:col-span-1">
+            <div className="flex items-center gap-2 text-purple-400/80 text-sm mb-1">
               <Wallet size={16} />
               Budget Utilization
             </div>
             <div className={`text-xl font-bold ${
               quickStats.budgetUtilization > 100 ? 'text-red-400' :
-              quickStats.budgetUtilization > 80 ? 'text-amber-400' : 'text-emerald-400'
+              quickStats.budgetUtilization > 80 ? 'text-amber-300' : 'text-purple-300'
             }`}>
               {formatPercent(quickStats.budgetUtilization)}
             </div>

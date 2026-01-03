@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { ArrowLeft, Package, Printer, Plus, Truck, CheckCircle, Clock } from '@phosphor-icons/react';
 import ShippingLabel from '@/components/admin/ShippingLabel';
 
 interface ProductVariant {
@@ -243,31 +244,41 @@ export default function AdminOrderDetailPage() {
 
   const getStatusBadgeColor = (status: string) => {
     const colors: Record<string, string> = {
-      PENDING: 'bg-yellow-100 text-yellow-800',
-      CONFIRMED: 'bg-blue-100 text-blue-800',
-      PROCESSING: 'bg-purple-100 text-purple-800',
-      SHIPPED: 'bg-indigo-100 text-indigo-800',
-      DELIVERED: 'bg-green-100 text-green-800',
-      CANCELLED: 'bg-red-100 text-red-800',
-      REFUNDED: 'bg-gray-100 text-gray-800',
+      PENDING: 'bg-amber-500/20 text-amber-400',
+      CONFIRMED: 'bg-blue-500/20 text-blue-400',
+      PROCESSING: 'bg-purple-500/20 text-purple-400',
+      SHIPPED: 'bg-indigo-500/20 text-indigo-400',
+      DELIVERED: 'bg-emerald-500/20 text-emerald-400',
+      CANCELLED: 'bg-red-500/20 text-red-400',
+      REFUNDED: 'bg-white/10 text-white/70',
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[status] || 'bg-white/10 text-white/70';
+  };
+
+  const getPaymentStatusBadgeColor = (status: string) => {
+    const colors: Record<string, string> = {
+      PENDING: 'bg-amber-500/20 text-amber-400',
+      PAID: 'bg-emerald-500/20 text-emerald-400',
+      FAILED: 'bg-red-500/20 text-red-400',
+      REFUNDED: 'bg-white/10 text-white/70',
+    };
+    return colors[status] || 'bg-white/10 text-white/70';
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-neutral-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF3131]"></div>
       </div>
     );
   }
 
   if (error || !order) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-neutral-900 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 mb-4">{error || 'Order not found'}</p>
-          <Link href="/admin/orders" className="text-blue-600 hover:text-blue-800">
+          <p className="text-red-400 mb-4">{error || 'Order not found'}</p>
+          <Link href="/admin/orders" className="text-[#FF3131] hover:text-[#E02828]">
             ← Back to Orders
           </Link>
         </div>
@@ -276,31 +287,32 @@ export default function AdminOrderDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-neutral-900">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-neutral-900 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold">Order {order.orderNumber}</h1>
+                <h1 className="text-2xl font-bold text-white">Order {order.orderNumber}</h1>
                 <span
-                  className={`px-3 py-1 text-sm font-semibold rounded-full ${getStatusBadgeColor(
+                  className={`px-3 py-1 text-sm font-semibold ${getStatusBadgeColor(
                     order.status
                   )}`}
                 >
                   {order.status}
                 </span>
               </div>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-white/50 mt-1">
                 Placed on {formatDate(order.createdAt)}
               </p>
             </div>
             <Link
               href="/admin/orders"
-              className="text-blue-600 hover:text-blue-800 text-sm"
+              className="inline-flex items-center gap-2 text-white/70 hover:text-white text-sm transition-colors"
             >
-              ← Back to Orders
+              <ArrowLeft size={16} weight="bold" />
+              Back to Orders
             </Link>
           </div>
         </div>
@@ -312,43 +324,54 @@ export default function AdminOrderDetailPage() {
           {/* Left Column - Order Details */}
           <div className="md:col-span-2 space-y-6">
             {/* Order Items */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold">Order Items</h2>
+            <div className="bg-white/5 border border-white/10 overflow-hidden">
+              <div className="px-6 py-4 border-b border-white/10">
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Package size={20} weight="bold" className="text-white/50" />
+                  Order Items
+                </h2>
               </div>
               <div className="p-6">
                 <div className="space-y-4">
                   {order.items.map((item) => (
                     <div
                       key={item.id}
-                      className="flex gap-4 pb-4 border-b border-gray-200 last:border-0"
+                      className="flex gap-4 pb-4 border-b border-white/10 last:border-0 last:pb-0"
                     >
-                      <div className="w-20 h-20 bg-gray-100 rounded shrink-0 flex items-center justify-center text-gray-400 text-xs">
-                        Product
+                      <div className="w-20 h-20 bg-white/5 border border-white/10 shrink-0 flex items-center justify-center text-white/30 text-xs">
+                        {item.product.images?.[0] ? (
+                          <img
+                            src={item.product.images[0]}
+                            alt={item.product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Package size={24} weight="light" />
+                        )}
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">
+                        <h3 className="font-medium text-white">
                           {item.product.name}
                         </h3>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-white/50">
                           SKU: {item.productVariant.sku}
                         </p>
                         {item.productVariant.size && (
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-white/50">
                             Size: {item.productVariant.size}
                           </p>
                         )}
                         {item.productVariant.color && (
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-white/50">
                             Color: {item.productVariant.color}
                           </p>
                         )}
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="text-sm text-white/50 mt-1">
                           Quantity: {item.quantity} × {formatCurrency(item.price)}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-white">
                           {formatCurrency(item.price * item.quantity)}
                         </p>
                       </div>
@@ -357,29 +380,29 @@ export default function AdminOrderDetailPage() {
                 </div>
 
                 {/* Order Totals */}
-                <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="mt-6 pt-6 border-t border-white/10">
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Subtotal</span>
-                      <span className="text-gray-900">
+                      <span className="text-white/50">Subtotal</span>
+                      <span className="text-white">
                         {formatCurrency(order.subtotal)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Shipping</span>
-                      <span className="text-gray-900">
+                      <span className="text-white/50">Shipping</span>
+                      <span className="text-white">
                         {formatCurrency(order.shipping)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Tax</span>
-                      <span className="text-gray-900">
+                      <span className="text-white/50">Tax</span>
+                      <span className="text-white">
                         {formatCurrency(order.tax)}
                       </span>
                     </div>
-                    <div className="flex justify-between text-lg font-semibold pt-2 border-t border-gray-200">
-                      <span>Total</span>
-                      <span>{formatCurrency(order.total)}</span>
+                    <div className="flex justify-between text-lg font-semibold pt-2 border-t border-white/10">
+                      <span className="text-white">Total</span>
+                      <span className="text-[#FF3131]">{formatCurrency(order.total)}</span>
                     </div>
                   </div>
                 </div>
@@ -387,42 +410,42 @@ export default function AdminOrderDetailPage() {
             </div>
 
             {/* Customer Information */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold">Customer Information</h2>
+            <div className="bg-white/5 border border-white/10 overflow-hidden">
+              <div className="px-6 py-4 border-b border-white/10">
+                <h2 className="text-lg font-semibold text-white">Customer Information</h2>
               </div>
               <div className="p-6">
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
-                    <h3 className="font-medium text-gray-900 mb-2">
+                    <h3 className="font-medium text-white mb-2">
                       Contact Details
                     </h3>
-                    <p className="text-sm text-gray-600">{order.customer.email}</p>
+                    <p className="text-sm text-white/70">{order.customer.email}</p>
                     {order.customer.phone && (
-                      <p className="text-sm text-gray-600">{order.customer.phone}</p>
+                      <p className="text-sm text-white/70">{order.customer.phone}</p>
                     )}
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900 mb-2">
+                    <h3 className="font-medium text-white mb-2">
                       Shipping Address
                     </h3>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-white/70">
                       {order.shippingAddress.firstName}{' '}
                       {order.shippingAddress.lastName}
                     </p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-white/70">
                       {order.shippingAddress.addressLine1}
                     </p>
                     {order.shippingAddress.addressLine2 && (
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-white/70">
                         {order.shippingAddress.addressLine2}
                       </p>
                     )}
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-white/70">
                       {order.shippingAddress.city}, {order.shippingAddress.state}{' '}
                       {order.shippingAddress.zipCode}
                     </p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-white/70">
                       {order.shippingAddress.country}
                     </p>
                   </div>
@@ -431,29 +454,36 @@ export default function AdminOrderDetailPage() {
             </div>
 
             {/* Order Timeline */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold">Order Timeline</h2>
+            <div className="bg-white/5 border border-white/10 overflow-hidden">
+              <div className="px-6 py-4 border-b border-white/10">
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Clock size={20} weight="bold" className="text-white/50" />
+                  Order Timeline
+                </h2>
               </div>
               <div className="p-6">
                 <div className="space-y-4">
                   <div className="flex gap-3">
-                    <div className="w-2 h-2 bg-green-500 rounded-full mt-1.5"></div>
+                    <div className="w-8 h-8 bg-emerald-500/20 rounded-full flex items-center justify-center">
+                      <CheckCircle size={16} weight="fill" className="text-emerald-400" />
+                    </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium text-white">
                         Order Placed
                       </p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-white/50">
                         {formatDate(order.createdAt)}
                       </p>
                     </div>
                   </div>
                   {order.shippedAt && (
                     <div className="flex gap-3">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5"></div>
+                      <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
+                        <Truck size={16} weight="fill" className="text-blue-400" />
+                      </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">Shipped</p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm font-medium text-white">Shipped</p>
+                        <p className="text-sm text-white/50">
                           {formatDate(order.shippedAt)}
                         </p>
                       </div>
@@ -461,12 +491,14 @@ export default function AdminOrderDetailPage() {
                   )}
                   {order.deliveredAt && (
                     <div className="flex gap-3">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full mt-1.5"></div>
+                      <div className="w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center">
+                        <Package size={16} weight="fill" className="text-purple-400" />
+                      </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-white">
                           Delivered
                         </p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-white/50">
                           {formatDate(order.deliveredAt)}
                         </p>
                       </div>
@@ -480,35 +512,35 @@ export default function AdminOrderDetailPage() {
           {/* Right Column - Order Management */}
           <div className="space-y-6">
             {/* Update Order Status */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold">Update Order</h2>
+            <div className="bg-white/5 border border-white/10 overflow-hidden">
+              <div className="px-6 py-4 border-b border-white/10">
+                <h2 className="text-lg font-semibold text-white">Update Order</h2>
               </div>
               <div className="p-6">
                 <form onSubmit={handleUpdateOrder} className="space-y-4">
                   {/* Status */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">
                       Order Status
                     </label>
                     <select
                       value={status}
                       onChange={(e) => setStatus(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 text-white focus:outline-none focus:border-white/30"
                     >
-                      <option value="PENDING">Pending</option>
-                      <option value="CONFIRMED">Confirmed</option>
-                      <option value="PROCESSING">Processing</option>
-                      <option value="SHIPPED">Shipped</option>
-                      <option value="DELIVERED">Delivered</option>
-                      <option value="CANCELLED">Cancelled</option>
-                      <option value="REFUNDED">Refunded</option>
+                      <option value="PENDING" className="bg-neutral-900">Pending</option>
+                      <option value="CONFIRMED" className="bg-neutral-900">Confirmed</option>
+                      <option value="PROCESSING" className="bg-neutral-900">Processing</option>
+                      <option value="SHIPPED" className="bg-neutral-900">Shipped</option>
+                      <option value="DELIVERED" className="bg-neutral-900">Delivered</option>
+                      <option value="CANCELLED" className="bg-neutral-900">Cancelled</option>
+                      <option value="REFUNDED" className="bg-neutral-900">Refunded</option>
                     </select>
                   </div>
 
                   {/* Tracking Number */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">
                       Tracking Number
                     </label>
                     <input
@@ -516,13 +548,13 @@ export default function AdminOrderDetailPage() {
                       value={trackingNumber}
                       onChange={(e) => setTrackingNumber(e.target.value)}
                       placeholder="Enter tracking number"
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-white/30"
                     />
                   </div>
 
                   {/* Shipping Method */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">
                       Shipping Method
                     </label>
                     <input
@@ -530,13 +562,13 @@ export default function AdminOrderDetailPage() {
                       value={shippingMethod}
                       onChange={(e) => setShippingMethod(e.target.value)}
                       placeholder="e.g., USPS Priority Mail"
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-white/30"
                     />
                   </div>
 
                   {/* Internal Notes */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">
                       Internal Notes
                     </label>
                     <textarea
@@ -544,12 +576,12 @@ export default function AdminOrderDetailPage() {
                       onChange={(e) => setInternalNotes(e.target.value)}
                       rows={4}
                       placeholder="Add internal notes (not visible to customer)"
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-white/30 resize-none"
                     />
                   </div>
 
                   {error && (
-                    <div className="text-sm text-red-600 bg-red-50 p-3 rounded">
+                    <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 p-3">
                       {error}
                     </div>
                   )}
@@ -557,31 +589,27 @@ export default function AdminOrderDetailPage() {
                   <button
                     type="submit"
                     disabled={updating}
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-[#FF3131] text-white py-2 px-4 hover:bg-[#E02828] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {updating ? 'Updating...' : 'Update Order'}
                   </button>
 
                   {/* Quick Actions */}
-                  <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-200">
+                  <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/10">
                     <button
                       type="button"
                       onClick={() => setShowTrackingModal(true)}
-                      className="flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                      className="flex items-center justify-center gap-2 px-4 py-2 bg-purple-500/20 text-purple-400 border border-purple-500/30 hover:bg-purple-500/30 transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
+                      <Plus size={16} weight="bold" />
                       Add Tracking
                     </button>
                     <button
                       type="button"
                       onClick={() => window.print()}
-                      className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                      className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                      </svg>
+                      <Printer size={16} weight="bold" />
                       Print Label
                     </button>
                   </div>
@@ -590,35 +618,35 @@ export default function AdminOrderDetailPage() {
             </div>
 
             {/* Order Summary */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold">Order Summary</h2>
+            <div className="bg-white/5 border border-white/10 overflow-hidden">
+              <div className="px-6 py-4 border-b border-white/10">
+                <h2 className="text-lg font-semibold text-white">Order Summary</h2>
               </div>
               <div className="p-6 space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Payment Status</span>
-                  <span className="font-medium text-gray-900">
+                  <span className="text-white/50">Payment Status</span>
+                  <span className={`font-medium ${getPaymentStatusBadgeColor(order.paymentStatus)} px-2 py-0.5`}>
                     {order.paymentStatus}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Items</span>
-                  <span className="font-medium text-gray-900">
+                  <span className="text-white/50">Items</span>
+                  <span className="font-medium text-white">
                     {order.items.reduce((sum, item) => sum + item.quantity, 0)}
                   </span>
                 </div>
                 {order.trackingNumber && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Tracking</span>
-                    <span className="font-medium text-gray-900">
+                    <span className="text-white/50">Tracking</span>
+                    <span className="font-medium text-white">
                       {order.trackingNumber}
                     </span>
                   </div>
                 )}
                 {order.shippingMethod && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Shipping Method</span>
-                    <span className="font-medium text-gray-900">
+                    <span className="text-white/50">Shipping Method</span>
+                    <span className="font-medium text-white">
                       {order.shippingMethod}
                     </span>
                   </div>
@@ -631,12 +659,12 @@ export default function AdminOrderDetailPage() {
 
       {/* Tracking Modal */}
       {showTrackingModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-xl font-semibold mb-4">Add Tracking Information</h3>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-neutral-900 border border-white/10 max-w-md w-full p-6">
+            <h3 className="text-xl font-semibold text-white mb-4">Add Tracking Information</h3>
             <form onSubmit={handleAddTracking} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">
                   Tracking Number *
                 </label>
                 <input
@@ -647,12 +675,12 @@ export default function AdminOrderDetailPage() {
                   }
                   required
                   placeholder="1Z999AA10123456784"
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-white/30"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">
                   Carrier *
                 </label>
                 <select
@@ -661,17 +689,17 @@ export default function AdminOrderDetailPage() {
                     setTrackingFormData({ ...trackingFormData, carrier: e.target.value })
                   }
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 text-white focus:outline-none focus:border-white/30"
                 >
-                  <option value="USPS">USPS</option>
-                  <option value="FedEx">FedEx</option>
-                  <option value="UPS">UPS</option>
-                  <option value="DHL">DHL</option>
+                  <option value="USPS" className="bg-neutral-900">USPS</option>
+                  <option value="FedEx" className="bg-neutral-900">FedEx</option>
+                  <option value="UPS" className="bg-neutral-900">UPS</option>
+                  <option value="DHL" className="bg-neutral-900">DHL</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">
                   Estimated Delivery (Optional)
                 </label>
                 <input
@@ -681,7 +709,7 @@ export default function AdminOrderDetailPage() {
                     setTrackingFormData({ ...trackingFormData, estimatedDelivery: e.target.value })
                   }
                   min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 text-white focus:outline-none focus:border-white/30 [color-scheme:dark]"
                 />
               </div>
 
@@ -693,9 +721,9 @@ export default function AdminOrderDetailPage() {
                   onChange={(e) =>
                     setTrackingFormData({ ...trackingFormData, sendEmail: e.target.checked })
                   }
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                  className="h-4 w-4 bg-white/5 border-white/30 text-[#FF3131] focus:ring-[#FF3131] rounded"
                 />
-                <label htmlFor="sendEmail" className="ml-2 text-sm text-gray-700">
+                <label htmlFor="sendEmail" className="ml-2 text-sm text-white/70">
                   Send tracking email to customer
                 </label>
               </div>
@@ -705,14 +733,14 @@ export default function AdminOrderDetailPage() {
                   type="button"
                   onClick={() => setShowTrackingModal(false)}
                   disabled={submittingTracking}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-white/10 text-white/70 hover:bg-white/5 hover:border-white/20 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingTracking}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-[#FF3131] text-white hover:bg-[#E02828] transition-colors disabled:opacity-50"
                 >
                   {submittingTracking ? 'Adding...' : 'Add Tracking'}
                 </button>

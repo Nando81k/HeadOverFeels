@@ -166,11 +166,11 @@ export function AdminLiveChatPanel({ sessionId, onClose }: AdminLiveChatPanelPro
     try {
       setClosing(true)
       
-      const response = await fetch('/api/chat/live/admin/close', {
+      const response = await fetch(`/api/chat/live/${sessionId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sessionId,
+          action: 'close',
           resolveTicket,
           resolution: resolveTicket ? resolution : undefined
         })

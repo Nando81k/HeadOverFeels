@@ -61,6 +61,7 @@ export interface CreateProductData {
   description?: string
   price: number
   compareAtPrice?: number
+  costPrice?: number
   images?: string
   materials?: string
   careGuide?: string

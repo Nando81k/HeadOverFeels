@@ -8,7 +8,7 @@ export function Skeleton({ className }: SkeletonProps) {
   return (
     <div
       className={cn(
-        "animate-pulse rounded-md bg-gray-200",
+        "animate-pulse rounded-md bg-white/[0.06]",
         className
       )}
     />
@@ -18,7 +18,7 @@ export function Skeleton({ className }: SkeletonProps) {
 // Stat Card Skeleton
 export function StatCardSkeleton() {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="bg-white/5 rounded-lg border border-white/10 p-6">
       <div className="flex items-center justify-between mb-2">
         <Skeleton className="h-4 w-24" />
         <Skeleton className="h-8 w-8 rounded-full" />
@@ -32,7 +32,7 @@ export function StatCardSkeleton() {
 // Dashboard Card Skeleton
 export function DashboardCardSkeleton() {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="bg-white/5 rounded-lg border border-white/10 p-6">
       <div className="flex items-center justify-between mb-4">
         <Skeleton className="h-6 w-32" />
         <Skeleton className="h-8 w-20 rounded-md" />
@@ -49,7 +49,7 @@ export function DashboardCardSkeleton() {
 // Table Row Skeleton
 export function TableRowSkeleton({ columns = 5 }: { columns?: number }) {
   return (
-    <tr className="border-b border-gray-200">
+    <tr className="border-b border-white/5">
       {Array.from({ length: columns }).map((_, i) => (
         <td key={i} className="px-6 py-4">
           <Skeleton className="h-4 w-full" />
@@ -62,9 +62,9 @@ export function TableRowSkeleton({ columns = 5 }: { columns?: number }) {
 // Table Skeleton
 export function TableSkeleton({ rows = 5, columns = 5 }: { rows?: number; columns?: number }) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div className="bg-white/5 rounded-lg border border-white/10 overflow-hidden">
       {/* Table Header */}
-      <div className="border-b border-gray-200 bg-gray-50 p-4">
+      <div className="border-b border-white/10 bg-white/[0.03] p-4">
         <div className="flex gap-4">
           {Array.from({ length: columns }).map((_, i) => (
             <Skeleton key={i} className="h-4 flex-1" />
@@ -73,7 +73,7 @@ export function TableSkeleton({ rows = 5, columns = 5 }: { rows?: number; column
       </div>
       
       {/* Table Rows */}
-      <div className="divide-y divide-gray-200">
+      <div className="divide-y divide-white/5">
         {Array.from({ length: rows }).map((_, i) => (
           <div key={i} className="p-4">
             <div className="flex gap-4">
@@ -91,7 +91,7 @@ export function TableSkeleton({ rows = 5, columns = 5 }: { rows?: number; column
 // Product Card Skeleton
 export function ProductCardSkeleton() {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div className="bg-white/5 rounded-lg border border-white/10 overflow-hidden">
       <Skeleton className="h-48 w-full" />
       <div className="p-4 space-y-3">
         <Skeleton className="h-5 w-3/4" />
@@ -130,7 +130,7 @@ export function StatsGridSkeleton({ count = 4 }: { count?: number }) {
 // Chart Skeleton
 export function ChartSkeleton() {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="bg-white/5 rounded-lg border border-white/10 p-6">
       <div className="flex items-center justify-between mb-6">
         <Skeleton className="h-6 w-40" />
         <Skeleton className="h-8 w-32 rounded-md" />

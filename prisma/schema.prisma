@@ -1692,3 +1692,177 @@ model FinancialSnapshot {
   @@index([date])
   @@map("financial_snapshots")
 }
+
+// ===== MARKETING & PROMOTIONS =====
+
+model Promotion {
+  id              String          @id @default(cuid())
+  name            String
+  description     String?
+  
+  // Type & Value
+  type            PromotionType   @default(PERCENTAGE)
+  value           Float           // 10 for 10%, or 10.00 for $10 off
+  
+  // Coupon Code
+  code            String?         @unique
+  autoApply       Boolean         @default(false) // Auto-apply at checkout when conditions met
+  
+  // Conditions
+  minimumPurchase Float?          // Minimum order amount to qualify
+  maxUsesTotal    Int?            // Total uses allowed (null = unlimited)
+  maxUsesPerCustomer Int?         // Uses per customer (null = unlimited)
+  usedCount       Int             @default(0)
+  
+  // Targeting (JSON arrays of IDs, null = applies to all)
+  productIds      String?         // JSON array of product IDs
+  collectionIds   String?         // JSON array of collection IDs
+  customerEmails  String?         // JSON array of specific customer emails
+  
+  // Scheduling
+  startDate       DateTime        @default(now())
+  endDate         DateTime?       // null = no end date
+  isActive        Boolean         @default(true)
+  
+  // Tracking
+  totalDiscountGiven Float        @default(0) // Sum of all discounts applied
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  @@index([code])
+  @@index([isActive, startDate, endDate])
+  @@map("promotions")
+}
+
+enum PromotionType {
+  PERCENTAGE      // e.g., 10% off
+  FIXED_AMOUNT    // e.g., $10 off
+  FREE_SHIPPING   // Free shipping
+  BOGO            // Buy One Get One (value = discount on second item, 100 = free)
+  BUY_X_GET_Y     // Buy X items, get Y% off (value = Y discount %)
+}
+
+model MarketingPopup {
+  id              String          @id @default(cuid())
+  name            String
+  
+  // Template & Display
+  template        PopupTemplate   @default(MODAL)
+  position        PopupPosition   @default(CENTER) // For banners: TOP/BOTTOM, modals: CENTER
+  
+  // Content (JSON structure)
+  // { heading, body, buttonText, buttonUrl, image, backgroundColor, textColor, buttonColor }
+  content         String          // JSON
+  
+  // Trigger Settings
+  triggerType     PopupTrigger    @default(DELAY)
+  triggerValue    Int             @default(3) // seconds for DELAY, percentage for SCROLL
+  
+  // Targeting
+  showOnPages     String          @default("all") // "all", "home", "products", "cart", "checkout" or JSON array
+  showToNewVisitors    Boolean    @default(true)
+  showToReturning      Boolean    @default(true)
+  
+  // Frequency (once per session enforced on frontend)
+  frequency       PopupFrequency  @default(ONCE_PER_SESSION)
+  
+  // Scheduling
+  startDate       DateTime?       // null = start immediately
+  endDate         DateTime?       // null = no end date
+  isActive        Boolean         @default(true)
+  priority        Int             @default(0) // Higher = shown first if multiple match
+  
+  // A/B Testing
+  variants        PopupVariant[]
+  
+  // Analytics
+  analytics       PopupAnalytics[]
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  @@index([isActive, startDate, endDate])
+  @@map("marketing_popups")
+}
+
+model PopupVariant {
+  id              String          @id @default(cuid())
+  popupId         String
+  popup           MarketingPopup  @relation(fields: [popupId], references: [id], onDelete: Cascade)
+  
+  name            String          // e.g., "Variant A", "Variant B"
+  
+  // Content overrides (JSON, merged with parent popup content)
+  // Only include fields that differ from parent
+  content         String?         // JSON
+  
+  // Traffic allocation (percentage, all variants should sum to 100)
+  weight          Int             @default(50) // 50 = 50% of traffic
+  
+  // Analytics
+  analytics       PopupAnalytics[]
+  
+  isActive        Boolean         @default(true)
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  @@index([popupId])
+  @@map("popup_variants")
+}
+
+model PopupAnalytics {
+  id              String          @id @default(cuid())
+  
+  popupId         String
+  popup           MarketingPopup  @relation(fields: [popupId], references: [id], onDelete: Cascade)
+  
+  variantId       String?
+  variant         PopupVariant?   @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  
+  // Date for aggregation (stored as full datetime, aggregate by day in queries)
+  date            DateTime        @default(now())
+  
+  // Metrics
+  impressions     Int             @default(0)
+  clicks          Int             @default(0)     // CTA button clicks
+  dismissals      Int             @default(0)     // Closed without action
+  conversions     Int             @default(0)     // Email signups or purchases after click
+  
+  @@unique([popupId, variantId, date])
+  @@index([popupId, date])
+  @@map("popup_analytics")
+}
+
+enum PopupTemplate {
+  MODAL           // Centered modal overlay
+  BANNER          // Top or bottom bar
+  SLIDE_IN        // Corner slide-in notification
+  FULL_SCREEN     // Full page takeover
+  EMAIL_CAPTURE   // Modal with email input field
+}
+
+enum PopupPosition {
+  TOP
+  BOTTOM
+  CENTER
+  BOTTOM_RIGHT
+  BOTTOM_LEFT
+  TOP_RIGHT
+  TOP_LEFT
+}
+
+enum PopupTrigger {
+  DELAY           // Show after X seconds
+  SCROLL          // Show after scrolling X%
+  EXIT_INTENT     // Show when mouse leaves viewport (desktop) or scroll up (mobile)
+  IMMEDIATE       // Show immediately on page load
+}
+
+enum PopupFrequency {
+  ONCE_PER_SESSION    // Show once per browser session
+  ONCE_PER_DAY        // Show once per day
+  ONCE_EVER           // Show once ever (localStorage)
+  ALWAYS              // Show every time conditions are met
+}

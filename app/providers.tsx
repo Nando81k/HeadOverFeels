@@ -5,6 +5,7 @@ import { AuthProvider } from '@/lib/auth/context'
 import { Toaster } from 'sonner'
 import { ReactNode } from 'react'
 import { ReggieProvider } from '@/components/ai/ReggieProvider'
+import { PopupManager } from '@/components/marketing/PopupManager'
 
 export function Providers({ children }: { children: ReactNode }) {
   console.log('✅ Providers component loaded')
@@ -28,6 +29,8 @@ export function Providers({ children }: { children: ReactNode }) {
         />
         {/* Reggie AI Assistant for Customer Pages */}
         <ReggieProvider />
+        {/* Marketing Popups for Storefront */}
+        <PopupManager />
       </AuthProvider>
     </SessionProvider>
   )

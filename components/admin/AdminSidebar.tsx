@@ -19,10 +19,13 @@ import {
   House, 
   CaretLeft, 
   CaretRight, 
-  Headset
+  Headset,
+  Percent,
+  Megaphone
 } from '@phosphor-icons/react'
 import { useState, useEffect } from 'react'
 import { useLiveChatNotifications } from '@/lib/hooks/useLiveChatNotifications'
+import { usePendingOrders } from '@/lib/hooks/usePendingOrders'
 
 interface NavItem {
   name: string
@@ -32,7 +35,7 @@ interface NavItem {
 }
 
 interface AdminSidebarProps {
-  pendingOrders?: number
+  pendingOrders?: number // Deprecated - now fetched via hook
 }
 
 function NavSection({ 
@@ -97,13 +100,16 @@ function NavSection({
   )
 }
 
-export function AdminSidebar({ pendingOrders = 0 }: AdminSidebarProps) {
+export function AdminSidebar({ pendingOrders: _pendingOrdersProp }: AdminSidebarProps) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [mounted, setMounted] = useState(false)
   
   // Live chat notifications
   const { waitingCount } = useLiveChatNotifications(true, 15000) // Poll every 15 seconds
+  
+  // Pending orders - fetched via hook so it works on all pages
+  const { pendingOrders } = usePendingOrders(30000) // Poll every 30 seconds
 
   useEffect(() => {
     // Read from localStorage after mount to avoid hydration mismatch
@@ -138,6 +144,8 @@ export function AdminSidebar({ pendingOrders = 0 }: AdminSidebarProps) {
   ]
 
   const marketingItems: NavItem[] = [
+    { name: 'Promotions', href: '/admin/promotions', icon: Percent },
+    { name: 'Popups', href: '/admin/popups', icon: Megaphone },
     { name: 'Loyalty', href: '/admin/loyalty', icon: Gift },
     { name: 'Live Feed', href: '/admin/live-feed', icon: Bell },
   ]

@@ -225,7 +225,7 @@ export default function CustomerActivityChart({
           margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
           onMouseMove={(state) => {
             if (state.activeLabel) {
-              setHoveredBar(state.activeLabel);
+              setHoveredBar(String(state.activeLabel));
             }
           }}
           onMouseLeave={() => setHoveredBar(null)}

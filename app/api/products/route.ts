@@ -17,6 +17,7 @@ const createProductSchema = z.object({
   description: z.string().optional(),
   price: z.number().positive('Price must be positive'),
   compareAtPrice: z.number().optional(),
+  costPrice: z.number().positive('Cost price must be positive').optional(),
   images: z.union([
     z.string(), // JSON string
     z.array(z.string()) // Array of strings
@@ -174,6 +175,7 @@ export async function POST(request: NextRequest) {
       description?: string
       price: number
       compareAtPrice?: number
+      costPrice?: number
       images: string
       materials?: string
       careGuide?: string

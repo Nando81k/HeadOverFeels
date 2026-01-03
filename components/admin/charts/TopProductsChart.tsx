@@ -37,8 +37,8 @@ export function TopProductsChart({ data }: TopProductsChartProps) {
           tickFormatter={formatCurrency}
         />
         <Tooltip 
-          formatter={(value: number, name: string) => {
-            if (name === 'revenue') return formatCurrency(value)
+          formatter={(value, name) => {
+            if (name === 'revenue') return formatCurrency(value as number)
             return value
           }}
           contentStyle={{

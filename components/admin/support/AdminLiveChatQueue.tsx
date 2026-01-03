@@ -37,7 +37,7 @@ export function AdminLiveChatQueue({ onAcceptChat, refreshTrigger = 0 }: AdminLi
 
   async function loadQueue() {
     try {
-      const response = await fetch('/api/chat/live/admin/queue')
+      const response = await fetch('/api/chat/live/queue')
       if (!response.ok) throw new Error('Failed to load queue')
       const data = await response.json()
       setQueue(data.sessions || [])
@@ -52,14 +52,10 @@ export function AdminLiveChatQueue({ onAcceptChat, refreshTrigger = 0 }: AdminLi
     try {
       setAccepting(sessionId)
       
-      // Get admin ID from session/auth (for now using a placeholder)
-      // TODO: Replace with actual admin ID from auth context
-      const adminId = localStorage.getItem('adminId') || 'temp-admin-id'
-      
-      const response = await fetch('/api/chat/live/admin/accept', {
+      const response = await fetch(`/api/chat/live/${sessionId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, adminId })
+        body: JSON.stringify({ action: 'accept' })
       })
 
       if (!response.ok) {
