@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { AdminContext } from './admin-agent'
-import { createAuditLogger, AuditAction, AuditCategory } from '@/lib/audit'
+import { createAuditLogger, AuditAction } from '@/lib/audit'
 import { processStripeRefund, checkStripeRefundEligibility } from '@/lib/stripe/refunds'
 import { sendOrderStatusEmail, sendRefundEmail } from '@/lib/email/order-status'
 
@@ -1126,7 +1126,7 @@ async function updateInventory(args: Record<string, unknown>, context: AdminCont
 // ===== AI DRAFTING =====
 
 async function draftCustomerEmail(args: Record<string, unknown>) {
-  const { customerId, email, type, context: emailContext } = args
+  const { customerId: _customerId, email, type, context: emailContext } = args
 
   // This would typically call the AI to generate the email
   // For now, return a template-based draft

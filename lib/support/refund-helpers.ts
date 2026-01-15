@@ -172,7 +172,7 @@ export async function initiateRefund(options: {
   reason: string
   itemsToRefund?: string[] // Item IDs
 }): Promise<{ success: boolean; message: string; refundId?: string }> {
-  const { ticketId, orderId, amount, reason, itemsToRefund } = options
+  const { ticketId, orderId, amount, reason, itemsToRefund: _itemsToRefund } = options
 
   try {
     // 1. Verify eligibility
