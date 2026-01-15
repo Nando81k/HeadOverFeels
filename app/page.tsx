@@ -8,6 +8,7 @@ import DropHeroSection from '@/components/drops/DropHeroSection'
 import { getActiveDrop } from '@/lib/drops'
 import { prisma } from '@/lib/prisma'
 import { ArrowRight } from '@phosphor-icons/react/dist/ssr'
+import { generateOrganizationSchema, generateWebsiteSchema, jsonLdScript, combineSchemas } from '@/lib/seo/schemas'
 
 // Force dynamic rendering (no prerendering during build)
 export const dynamic = 'force-dynamic';
@@ -92,9 +93,21 @@ export default async function Home() {
     .map(convertProduct)
     .filter((p): p is NonNullable<typeof p> => p !== null)
 
+  // Generate JSON-LD schemas for homepage
+  const organizationSchema = generateOrganizationSchema()
+  const websiteSchema = generateWebsiteSchema()
+  const homeSchemas = combineSchemas(organizationSchema, websiteSchema)
+
   return (
-    <div className="min-h-screen bg-white">
-      <Navigation />
+    <>
+      {/* JSON-LD Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(homeSchemas) }}
+      />
+      
+      <div className="min-h-screen bg-white">
+        <Navigation />
 
       {/* Hero Section */}
       <NeonHero />
@@ -228,5 +241,6 @@ export default async function Home() {
         </div>
       </footer>
     </div>
+    </>
   );
 }

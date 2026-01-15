@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import { ArrowLeft, CircleNotch, PencilSimple } from '@phosphor-icons/react'
+import { AdminLayout } from '@/components/admin/AdminLayout'
+import { LoyaltyNav } from '@/components/admin/LoyaltyNav'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, CircleNotch } from '@phosphor-icons/react'
 
 interface FormData {
   name: string
@@ -22,6 +24,23 @@ interface FormData {
   metadata: string
   sortOrder: number
 }
+
+const rewardTypes = [
+  { value: 'DISCOUNT', label: 'Discount' },
+  { value: 'FREE_SHIPPING', label: 'Free Shipping' },
+  { value: 'EARLY_ACCESS', label: 'Early Access' },
+  { value: 'EXCLUSIVE_PRODUCT', label: 'Exclusive Product' },
+  { value: 'DIGITAL_CONTENT', label: 'Digital Content' },
+  { value: 'PHYSICAL_PERK', label: 'Physical Perk' },
+]
+
+const tierOptions = [
+  { value: '', label: 'All Tiers' },
+  { value: 'head', label: 'Head' },
+  { value: 'heart', label: 'Heart' },
+  { value: 'mind', label: 'Mind' },
+  { value: 'overdrive', label: 'Overdrive' },
+]
 
 export default function EditRewardPage() {
   const router = useRouter()
@@ -47,6 +66,31 @@ export default function EditRewardPage() {
     sortOrder: 0,
   })
 
+  const getStringValue = (val: unknown, fallback = ''): string => 
+    (val as string) || fallback
+
+  const getNumberValue = (val: unknown, fallback = 0): number => 
+    (val as number) || fallback
+
+  const getNullableValue = (val: unknown): number | string => 
+    val !== null ? (val as number | string) : ''
+
+  const mapRewardToFormData = (reward: Record<string, unknown>): FormData => ({
+    name: getStringValue(reward.name),
+    slug: getStringValue(reward.slug),
+    description: getStringValue(reward.description),
+    pointsCost: getNumberValue(reward.pointsCost),
+    rewardType: getStringValue(reward.rewardType, 'DISCOUNT'),
+    value: getNullableValue(reward.value),
+    isActive: (reward.isActive as boolean) ?? true,
+    minTierRequired: getStringValue(reward.minTierRequired),
+    maxRedemptionsPerCustomer: getNullableValue(reward.maxRedemptionsPerCustomer),
+    totalAvailable: getNullableValue(reward.totalAvailable),
+    image: getStringValue(reward.image),
+    metadata: getStringValue(reward.metadata),
+    sortOrder: getNumberValue(reward.sortOrder),
+  })
+
   const loadReward = async () => {
     setLoading(true)
     try {
@@ -59,24 +103,9 @@ export default function EditRewardPage() {
       }
 
       const reward = await response.json()
-      
-      setFormData({
-        name: reward.name || '',
-        slug: reward.slug || '',
-        description: reward.description || '',
-        pointsCost: reward.pointsCost || 0,
-        rewardType: reward.rewardType || 'DISCOUNT',
-        value: reward.value !== null ? reward.value : '',
-        isActive: reward.isActive ?? true,
-        minTierRequired: reward.minTierRequired || '',
-        maxRedemptionsPerCustomer: reward.maxRedemptionsPerCustomer !== null ? reward.maxRedemptionsPerCustomer : '',
-        totalAvailable: reward.totalAvailable !== null ? reward.totalAvailable : '',
-        image: reward.image || '',
-        metadata: reward.metadata || '',
-        sortOrder: reward.sortOrder || 0,
-      })
-    } catch (error) {
-      console.error('Failed to load reward:', error)
+      setFormData(mapRewardToFormData(reward))
+    } catch (err) {
+      console.error('Failed to load reward:', err)
       setError('Failed to load reward')
     } finally {
       setLoading(false)
@@ -91,7 +120,6 @@ export default function EditRewardPage() {
   const handleInputChange = (field: keyof FormData, value: string | number | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }))
     
-    // Auto-generate slug from name (but allow manual override)
     if (field === 'name' && typeof value === 'string') {
       const slug = value
         .toLowerCase()
@@ -107,7 +135,6 @@ export default function EditRewardPage() {
     setError('')
 
     try {
-      // Prepare data with proper null handling
       const data = {
         ...formData,
         value: formData.value !== '' ? formData.value : null,
@@ -135,8 +162,8 @@ export default function EditRewardPage() {
       }
 
       router.push('/admin/loyalty/rewards')
-    } catch (error) {
-      console.error('Failed to update reward:', error)
+    } catch (err) {
+      console.error('Failed to update reward:', err)
       setError('Failed to update reward')
     } finally {
       setIsSubmitting(false)
@@ -145,257 +172,256 @@ export default function EditRewardPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
-        <Card>
-          <CardContent className="py-12">
-            <div className="flex items-center justify-center">
-              <CircleNotch size={32} weight="bold" className="animate-spin text-[#6B6B6B]" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <AdminLayout title="Edit Reward" subtitle="Loading...">
+        <div className="flex items-center justify-center h-64">
+          <CircleNotch size={32} weight="bold" className="animate-spin text-white/30" />
+        </div>
+      </AdminLayout>
     )
   }
 
   return (
-    <div className="p-8">
-      {/* Header */}
-      <div className="mb-6">
-        <Link 
-          href="/admin/loyalty/rewards"
-          className="inline-flex items-center text-sm text-[#6B6B6B] hover:text-[#1A1A1A] mb-2"
-        >
-          <ArrowLeft size={16} weight="bold" className="mr-1" />
-          Back to Rewards
+    <AdminLayout
+      title="Edit Reward"
+      subtitle="Update reward details and settings"
+      headerActions={
+        <Link href="/admin/loyalty/rewards">
+          <Button variant="outline" className="gap-2">
+            <ArrowLeft size={16} weight="bold" />
+            Back to Rewards
+          </Button>
         </Link>
-        <h1 className="text-3xl font-bold text-[#1A1A1A]">Edit Reward</h1>
-        <p className="text-[#6B6B6B] mt-1">Update reward details and settings</p>
-      </div>
-
-      {/* Error Display */}
-      {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-          {error}
-        </div>
-      )}
-
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Reward Name *</label>
-              <input
-                type="text"
-                required
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A1A1A] focus:border-transparent"
-                placeholder="e.g., $10 Off Next Purchase"
-              />
+      }
+    >
+      <div className="space-y-6">
+        {/* Navigation Tabs */}
+        <LoyaltyNav />
+        
+        <div className="max-w-4xl">
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 mb-6 rounded-lg">
+              {error}
             </div>
+          )}
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Slug *</label>
-              <input
-                type="text"
-                required
-                value={formData.slug}
-                onChange={(e) => handleInputChange('slug', e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A1A1A] focus:border-transparent"
-                placeholder="e.g., 10-off-next-purchase"
-              />
-              <p className="text-xs text-[#6B6B6B] mt-1">Auto-generated from name, but can be customized</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Description</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => handleInputChange('description', e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A1A1A] focus:border-transparent"
-                placeholder="Describe what the customer gets..."
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Basic Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <PencilSimple size={20} weight="bold" />
+                Basic Information
+              </CardTitle>
+              <CardDescription>Core details about the reward</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Points Cost *</label>
+                <label className="block text-sm font-medium text-white/70 mb-2">Reward Name *</label>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  min="0"
-                  value={formData.pointsCost}
-                  onChange={(e) => handleInputChange('pointsCost', parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A1A1A] focus:border-transparent"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none"
+                  placeholder="e.g., $10 Off Next Purchase"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Reward Type *</label>
-                <select
+                <label className="block text-sm font-medium text-white/70 mb-2">Slug *</label>
+                <input
+                  type="text"
                   required
-                  value={formData.rewardType}
-                  onChange={(e) => handleInputChange('rewardType', e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A1A1A] focus:border-transparent"
-                >
-                  <option value="DISCOUNT">Discount</option>
-                  <option value="FREE_SHIPPING">Free Shipping</option>
-                  <option value="EARLY_ACCESS">Early Access</option>
-                  <option value="EXCLUSIVE_PRODUCT">Exclusive Product</option>
-                  <option value="DIGITAL_CONTENT">Digital Content</option>
-                  <option value="PHYSICAL_PERK">Physical Perk</option>
-                </select>
+                  value={formData.slug}
+                  onChange={(e) => handleInputChange('slug', e.target.value)}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none"
+                  placeholder="auto-generated-from-name"
+                />
+                <p className="text-xs text-white/40 mt-1">URL-friendly identifier</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Dollar Value</label>
+                <label className="block text-sm font-medium text-white/70 mb-2">Description</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none"
+                  placeholder="Describe what the customer gets"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-white/70 mb-2">Points Cost *</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={formData.pointsCost}
+                    onChange={(e) => handleInputChange('pointsCost', parseInt(e.target.value) || 0)}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/70 mb-2">Reward Type *</label>
+                  <select
+                    required
+                    value={formData.rewardType}
+                    onChange={(e) => handleInputChange('rewardType', e.target.value)}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-white/30 focus:outline-none"
+                  >
+                    {rewardTypes.map(type => (
+                      <option key={type.value} value={type.value} className="bg-neutral-900">{type.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white/70 mb-2">Dollar Value</label>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
                   value={formData.value}
                   onChange={(e) => handleInputChange('value', e.target.value ? parseFloat(e.target.value) : '')}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A1A1A] focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none"
                   placeholder="For discount rewards"
                 />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Availability & Requirements */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Availability & Requirements</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Availability & Requirements */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Availability & Requirements</CardTitle>
+              <CardDescription>Control who can redeem this reward</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Minimum Tier Required</label>
+                <label className="block text-sm font-medium text-white/70 mb-2">Minimum Tier Required</label>
                 <select
                   value={formData.minTierRequired}
                   onChange={(e) => handleInputChange('minTierRequired', e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A1A1A] focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-white/30 focus:outline-none"
                 >
-                  <option value="">All Tiers</option>
-                  <option value="head">Head Tier</option>
-                  <option value="heart">Heart Tier</option>
-                  <option value="mind">Mind Tier</option>
-                  <option value="overdrive">Overdrive Tier</option>
+                  {tierOptions.map(tier => (
+                    <option key={tier.value} value={tier.value} className="bg-neutral-900">{tier.label}</option>
+                  ))}
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Max Redemptions Per Customer</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.maxRedemptionsPerCustomer}
-                  onChange={(e) => handleInputChange('maxRedemptionsPerCustomer', e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A1A1A] focus:border-transparent"
-                  placeholder="Unlimited"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-white/70 mb-2">Max Redemptions Per Customer</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.maxRedemptionsPerCustomer}
+                    onChange={(e) => handleInputChange('maxRedemptionsPerCustomer', e.target.value)}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none"
+                    placeholder="Unlimited"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/70 mb-2">Total Available</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.totalAvailable}
+                    onChange={(e) => handleInputChange('totalAvailable', e.target.value)}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none"
+                    placeholder="Unlimited"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Total Available</label>
+              <label className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10 transition-colors">
                 <input
-                  type="number"
-                  min="0"
-                  value={formData.totalAvailable}
-                  onChange={(e) => handleInputChange('totalAvailable', e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A1A1A] focus:border-transparent"
-                  placeholder="Unlimited"
+                  type="checkbox"
+                  checked={formData.isActive}
+                  onChange={(e) => handleInputChange('isActive', e.target.checked)}
+                  className="w-5 h-5 rounded"
                 />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="isActive"
-                checked={formData.isActive}
-                onChange={(e) => handleInputChange('isActive', e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300"
-              />
-              <label htmlFor="isActive" className="text-sm font-medium">
-                Active (visible to customers)
+                <div>
+                  <span className="font-medium text-white">Active</span>
+                  <p className="text-sm text-white/50">Visible to customers for redemption</p>
+                </div>
               </label>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Additional Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Additional Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Image URL</label>
-              <input
-                type="url"
-                value={formData.image}
-                onChange={(e) => handleInputChange('image', e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A1A1A] focus:border-transparent"
-                placeholder="https://..."
-              />
-            </div>
+          {/* Additional Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Additional Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-white/70 mb-2">Image URL</label>
+                <input
+                  type="url"
+                  value={formData.image}
+                  onChange={(e) => handleInputChange('image', e.target.value)}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none"
+                  placeholder="https://..."
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Sort Order</label>
-              <input
-                type="number"
-                value={formData.sortOrder}
-                onChange={(e) => handleInputChange('sortOrder', parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A1A1A] focus:border-transparent"
-              />
-              <p className="text-xs text-[#6B6B6B] mt-1">Lower numbers appear first</p>
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-white/70 mb-2">Sort Order</label>
+                <input
+                  type="number"
+                  value={formData.sortOrder}
+                  onChange={(e) => handleInputChange('sortOrder', parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none"
+                />
+                <p className="text-xs text-white/40 mt-1">Lower numbers appear first</p>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Metadata (JSON)</label>
-              <textarea
-                value={formData.metadata}
-                onChange={(e) => handleInputChange('metadata', e.target.value)}
-                rows={4}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1A1A1A] focus:border-transparent font-mono text-sm"
-                placeholder='{"key": "value"}'
-              />
-              <p className="text-xs text-[#6B6B6B] mt-1">Optional JSON data for special reward properties</p>
-            </div>
-          </CardContent>
-        </Card>
+              <div>
+                <label className="block text-sm font-medium text-white/70 mb-2">Metadata (JSON)</label>
+                <textarea
+                  value={formData.metadata}
+                  onChange={(e) => handleInputChange('metadata', e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none font-mono text-sm"
+                  placeholder='{"key": "value"}'
+                />
+                <p className="text-xs text-white/40 mt-1">Optional JSON data for special reward properties</p>
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Form Actions */}
-        <div className="flex gap-4">
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="bg-[#1A1A1A] hover:bg-[#2B2B2B] text-white px-6"
-          >
-            {isSubmitting ? (
-              <>
-                <CircleNotch size={16} weight="bold" className="mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save Changes'
-            )}
-          </Button>
-          <Link href="/admin/loyalty/rewards">
-            <Button type="button" variant="outline">
-              Cancel
+          {/* Actions */}
+          <div className="flex gap-4">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-[#FF3131] hover:bg-[#E02828]"
+            >
+              {isSubmitting ? (
+                <>
+                  <CircleNotch size={18} weight="bold" className="animate-spin mr-2" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
             </Button>
-          </Link>
+            <Link href="/admin/loyalty/rewards">
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </Link>
+          </div>
+        </form>
         </div>
-      </form>
-    </div>
+      </div>
+    </AdminLayout>
   )
 }

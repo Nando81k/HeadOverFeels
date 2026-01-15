@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useCartStore } from '@/lib/store/cart'
 import { useAuth } from '@/lib/auth/context'
 import { WishlistIcon } from '@/components/wishlist/WishlistIcon'
+import { NotificationCenter } from '@/components/notifications/NotificationCenter'
 import { SearchModal } from '@/components/search'
 import { ShoppingCart, MagnifyingGlass, User, List, X, Medal, CaretDown, TShirt, Hoodie, Bag } from '@phosphor-icons/react'
 
@@ -227,11 +228,10 @@ export function Navigation() {
               className="object-contain hidden sm:block"
             />
             <span 
-              className="text-2xl sm:text-3xl md:text-4xl text-[#1A1A1A]" 
+              className="text-2xl sm:text-3xl md:text-4xl text-transparent" 
               style={{ 
                 fontFamily: "'Harlow Solid Italic', 'Harlow', sans-serif",
-                WebkitTextStroke: '2px #1A1A1A',
-                WebkitTextFillColor: 'transparent'
+                WebkitTextStroke: '1px #1A1A1A'
               }}
             >
               Head Over Feels
@@ -278,6 +278,9 @@ export function Navigation() {
                 <User size={20} weight="bold" />
               </Link>
             )}
+
+            {/* Notifications - Only show when logged in */}
+            {user && <NotificationCenter />}
 
             {/* Wishlist */}
             <WishlistIcon />

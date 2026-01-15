@@ -53,6 +53,12 @@ export function FrequentlyBoughtTogether({
           // Select all products by default
           const allIds = new Set<string>((data.data.recommendations || []).map((p: BundleProduct) => p.id))
           setSelectedProducts(allIds)
+          
+          // Track impressions
+          const recommendationIds = (data.data.recommendations || []).map((p: BundleProduct) => p.id)
+          if (recommendationIds.length > 0) {
+            trackBatchImpressions(recommendationIds)
+          }
         }
       } catch (err) {
         console.error('Error fetching frequently bought together:', err)
@@ -63,6 +69,55 @@ export function FrequentlyBoughtTogether({
 
     fetchFrequentlyBought()
   }, [productId, limit])
+
+  // Track batch impressions
+  const trackBatchImpressions = async (targetProductIds: string[]) => {
+    try {
+      await fetch('/api/recommendations/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'batch_impression',
+          sourceProductId: productId,
+          targetProductIds,
+          type: 'FREQUENTLY_BOUGHT_TOGETHER',
+        }),
+      })
+    } catch (error) {
+      console.error('Failed to track impressions:', error)
+    }
+  }
+
+  // Track click when user navigates to a product
+  const trackClick = async (targetProductId: string) => {
+    try {
+      await fetch('/api/recommendations/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'click',
+          sourceProductId: productId,
+          targetProductId,
+          type: 'FREQUENTLY_BOUGHT_TOGETHER',
+        }),
+      })
+      
+      // Store click for conversion attribution
+      const clicks = JSON.parse(sessionStorage.getItem('recommendation_clicks') || '[]')
+      clicks.push({
+        sourceProductId: productId,
+        targetProductId,
+        type: 'FREQUENTLY_BOUGHT_TOGETHER',
+        timestamp: Date.now(),
+      })
+      const recentClicks = clicks.filter(
+        (c: { timestamp: number }) => Date.now() - c.timestamp < 7 * 24 * 60 * 60 * 1000
+      ).slice(-20)
+      sessionStorage.setItem('recommendation_clicks', JSON.stringify(recentClicks))
+    } catch (error) {
+      console.error('Failed to track click:', error)
+    }
+  }
 
   const toggleProduct = (productId: string) => {
     const newSelected = new Set(selectedProducts)

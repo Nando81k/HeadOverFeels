@@ -1,136 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { validatePromotion, calculateStackedDiscount, type AppliedPromotion } from '@/lib/promotions/validation'
 
 interface ValidateRequest {
   code: string
   cartTotal: number
   productIds?: string[]
+  collectionIds?: string[]
   customerEmail?: string
+  customerId?: string
+  currentPromotions?: AppliedPromotion[]
 }
 
-// POST /api/promotions/validate - Validate a promotion code
+// POST /api/promotions/validate - Validate a promotion code with stacking rules
 export async function POST(request: NextRequest) {
   try {
     const body: ValidateRequest = await request.json()
-    const { code, cartTotal, productIds, customerEmail } = body
+    const { code, cartTotal, productIds, collectionIds, customerEmail, customerId, currentPromotions } = body
     
-    if (!code) {
-      return NextResponse.json(
-        { valid: false, error: 'Promotion code is required' },
-        { status: 400 }
-      )
-    }
-    
-    const promotion = await prisma.promotion.findUnique({
-      where: { code: code.toUpperCase() }
+    // Use the new validation service
+    const result = await validatePromotion({
+      code,
+      cartTotal,
+      productIds,
+      collectionIds,
+      customerEmail,
+      customerId,
+      currentPromotions,
     })
-    
-    if (!promotion) {
+
+    if (!result.valid) {
       return NextResponse.json({
         valid: false,
-        error: 'Invalid promotion code'
+        error: result.error,
       })
     }
-    
-    // Check if active
-    if (!promotion.isActive) {
-      return NextResponse.json({
-        valid: false,
-        error: 'This promotion is no longer active'
-      })
+
+    // Calculate stacked discount if there are current promotions
+    let stackInfo = null
+    if (currentPromotions && currentPromotions.length > 0 && result.promotion) {
+      const allPromos = [...currentPromotions, {
+        id: result.promotion.id,
+        code: result.promotion.code,
+        type: result.promotion.type,
+        value: result.promotion.value,
+        discount: result.promotion.discount,
+        stackable: result.promotion.stackable,
+        excludeFromLoyalty: result.promotion.excludeFromLoyalty,
+      }]
+      
+      stackInfo = calculateStackedDiscount(allPromos, cartTotal)
     }
-    
-    // Check date range
-    const now = new Date()
-    if (promotion.startDate > now) {
-      return NextResponse.json({
-        valid: false,
-        error: 'This promotion has not started yet'
-      })
-    }
-    
-    if (promotion.endDate && promotion.endDate < now) {
-      return NextResponse.json({
-        valid: false,
-        error: 'This promotion has expired'
-      })
-    }
-    
-    // Check usage limits
-    if (promotion.maxUsesTotal && promotion.usedCount >= promotion.maxUsesTotal) {
-      return NextResponse.json({
-        valid: false,
-        error: 'This promotion has reached its usage limit'
-      })
-    }
-    
-    // Check minimum purchase
-    if (promotion.minimumPurchase && cartTotal < promotion.minimumPurchase) {
-      return NextResponse.json({
-        valid: false,
-        error: `Minimum purchase of $${promotion.minimumPurchase.toFixed(2)} required`
-      })
-    }
-    
-    // Check product targeting
-    if (promotion.productIds && productIds) {
-      const targetedProducts: string[] = JSON.parse(promotion.productIds)
-      const hasTargetedProduct = productIds.some(id => targetedProducts.includes(id))
-      if (!hasTargetedProduct) {
-        return NextResponse.json({
-          valid: false,
-          error: 'This promotion does not apply to items in your cart'
-        })
-      }
-    }
-    
-    // Check customer email targeting
-    if (promotion.customerEmails && customerEmail) {
-      const targetedEmails: string[] = JSON.parse(promotion.customerEmails)
-      if (!targetedEmails.includes(customerEmail.toLowerCase())) {
-        return NextResponse.json({
-          valid: false,
-          error: 'This promotion is not available for your account'
-        })
-      }
-    }
-    
-    // Calculate discount
-    let discount = 0
-    let discountDescription = ''
-    
-    switch (promotion.type) {
-      case 'PERCENTAGE':
-        discount = cartTotal * (promotion.value / 100)
-        discountDescription = `${promotion.value}% off`
-        break
-      case 'FIXED_AMOUNT':
-        discount = Math.min(promotion.value, cartTotal)
-        discountDescription = `$${promotion.value.toFixed(2)} off`
-        break
-      case 'FREE_SHIPPING':
-        discount = 0 // Shipping discount handled separately
-        discountDescription = 'Free shipping'
-        break
-      case 'BOGO':
-        discountDescription = 'Buy One Get One'
-        break
-      case 'BUY_X_GET_Y':
-        discountDescription = `Buy more, save ${promotion.value}%`
-        break
-    }
-    
+
     return NextResponse.json({
       valid: true,
-      promotion: {
-        id: promotion.id,
-        name: promotion.name,
-        type: promotion.type,
-        value: promotion.value,
-        discount,
-        discountDescription,
-        freeShipping: promotion.type === 'FREE_SHIPPING'
-      }
+      promotion: result.promotion,
+      warnings: result.warnings,
+      stackInfo,
     })
   } catch (error) {
     console.error('Error validating promotion:', error)

@@ -3,13 +3,16 @@
 import Image from 'next/image'
 import { useCartStore } from '@/lib/store/cart'
 import { CouponInput } from './CouponInput'
+import { PointsPreview } from './PointsPreview'
 
 interface OrderSummaryProps {
   shippingCost?: number
   selectedShippingMethod?: string
+  loyaltyTierName?: string | null // For showing loyalty tier free shipping perk
+  isSignedIn?: boolean // For showing points preview
 }
 
-export function OrderSummary({ shippingCost, selectedShippingMethod }: OrderSummaryProps) {
+export function OrderSummary({ shippingCost, selectedShippingMethod, loyaltyTierName, isSignedIn = false }: OrderSummaryProps) {
   const { items, getTotalPrice, appliedCoupon, getFinalTotal } = useCartStore()
 
   const subtotal = getTotalPrice()
@@ -106,7 +109,9 @@ export function OrderSummary({ shippingCost, selectedShippingMethod }: OrderSumm
           <span className="font-medium text-gray-900">
             {shipping === 0 ? (
               <span className="text-green-600">
-                FREE{appliedCoupon?.discountType === 'free_shipping' ? ' (Reward)' : ''}
+                FREE
+                {loyaltyTierName ? ` (${loyaltyTierName} Perk)` : 
+                 appliedCoupon?.discountType === 'free_shipping' ? ' (Reward)' : ''}
               </span>
             ) : (
               `$${shipping.toFixed(2)}`
@@ -124,6 +129,11 @@ export function OrderSummary({ shippingCost, selectedShippingMethod }: OrderSumm
             <span className="text-lg font-bold text-gray-900">${total.toFixed(2)}</span>
           </div>
         </div>
+      </div>
+
+      {/* Care Points Preview */}
+      <div className="mt-6">
+        <PointsPreview orderTotal={total} isSignedIn={isSignedIn} />
       </div>
 
       {/* Trust Badges */}

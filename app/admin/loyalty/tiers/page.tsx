@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { toast } from '@/lib/toast'
+import ConfirmModal from '@/components/ui/ConfirmModal'
 import { 
   Medal, 
   Users, 
@@ -9,7 +11,6 @@ import {
   FloppyDisk, 
   Plus, 
   Trash, 
-  ArrowLeft,
   CaretDown,
   CaretUp,
   Truck,
@@ -19,6 +20,10 @@ import {
   X,
   Warning
 } from '@phosphor-icons/react'
+import { AdminLayout } from '@/components/admin/AdminLayout'
+import { LoyaltyNav } from '@/components/admin/LoyaltyNav'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 interface Tier {
   id: string
@@ -86,6 +91,8 @@ export default function AdminTiersPage() {
     perks: DEFAULT_PERKS,
   })
   const [creatingTier, setCreatingTier] = useState(false)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [tierToDelete, setTierToDelete] = useState<Tier | null>(null)
 
   useEffect(() => {
     loadTiers()
@@ -157,9 +164,11 @@ export default function AdminTiersPage() {
 
       if (!response.ok) {
         const data = await response.json()
-        alert(data.error || 'Failed to update tier')
+        toast.error('Failed to update tier', data.error)
         return
       }
+
+      toast.success('Tier updated')
 
       setEditedTiers(prev => {
         const next = { ...prev }
@@ -170,19 +179,22 @@ export default function AdminTiersPage() {
       loadTiers()
     } catch (error) {
       console.error('Failed to update tier:', error)
-      alert('Failed to update tier')
+      toast.error('Failed to update tier')
     } finally {
       setSaving(null)
     }
   }
 
-  const handleDelete = async (tier: Tier) => {
+  const performDeleteTier = async () => {
+    const tier = tierToDelete
+    if (!tier) return
+
     if (tier._count.customers > 0) {
-      alert(`Cannot delete tier with ${tier._count.customers} customers. Reassign customers first.`)
+      toast.error(`Cannot delete tier with ${tier._count.customers} customers. Reassign customers first.`)
+      setConfirmDeleteOpen(false)
+      setTierToDelete(null)
       return
     }
-    
-    if (!confirm(`Are you sure you want to delete "${tier.name}" tier?`)) return
 
     setDeleting(tier.id)
     try {
@@ -192,22 +204,30 @@ export default function AdminTiersPage() {
 
       if (!response.ok) {
         const data = await response.json()
-        alert(data.error || 'Failed to delete tier')
+        toast.error(data.error || 'Failed to delete tier')
         return
       }
 
+      toast.success('Tier deleted')
       loadTiers()
     } catch (error) {
       console.error('Failed to delete tier:', error)
-      alert('Failed to delete tier')
+      toast.error('Failed to delete tier')
     } finally {
       setDeleting(null)
+      setConfirmDeleteOpen(false)
+      setTierToDelete(null)
     }
+  }
+
+  const handleDelete = (tier: Tier) => {
+    setTierToDelete(tier)
+    setConfirmDeleteOpen(true)
   }
 
   const handleCreateTier = async () => {
     if (!newTier.name || !newTier.slug) {
-      alert('Name and slug are required')
+      toast.error('Name and slug are required')
       return
     }
 
@@ -224,9 +244,11 @@ export default function AdminTiersPage() {
 
       if (!response.ok) {
         const data = await response.json()
-        alert(data.error || 'Failed to create tier')
+        toast.error(data.error || 'Failed to create tier')
         return
       }
+
+      toast.success('Tier created')
 
       setNewTier({
         name: '',
@@ -243,7 +265,7 @@ export default function AdminTiersPage() {
       loadTiers()
     } catch (error) {
       console.error('Failed to create tier:', error)
-      alert('Failed to create tier')
+      toast.error('Failed to create tier')
     } finally {
       setCreatingTier(false)
     }
@@ -268,81 +290,68 @@ export default function AdminTiersPage() {
   const totalMembers = tiers.reduce((sum, t) => sum + t._count.customers, 0)
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="border-b border-black/10">
-        <div className="max-w-6xl mx-auto px-6 py-6">
-          <Link
-            href="/admin/loyalty"
-            className="inline-flex items-center gap-2 text-black/60 hover:text-black transition-colors mb-4"
-          >
-            <ArrowLeft size={20} weight="bold" />
-            <span className="font-medium">Back to Loyalty</span>
-          </Link>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-black flex items-center justify-center">
-                <Medal size={24} weight="fill" className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-black text-black">Loyalty Tiers</h1>
-                <p className="text-black/60">Configure tier requirements and benefits</p>
-              </div>
-            </div>
-            
-            <button
-              onClick={() => setShowNewTierForm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-black text-white font-medium hover:bg-black/90 transition-colors"
-            >
-              <Plus size={20} weight="bold" />
-              Add Tier
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-6xl mx-auto px-6 py-8">
+    <AdminLayout
+      title="Loyalty Tiers"
+      subtitle="Configure tier requirements and benefits"
+      headerActions={
+        <Button onClick={() => setShowNewTierForm(true)} className="gap-2 bg-[#FF3131] hover:bg-[#E02828]">
+          <Plus size={16} weight="bold" />
+          Add Tier
+        </Button>
+      }
+    >
+      <div className="space-y-6">
+        {/* Navigation Tabs */}
+        <LoyaltyNav />
+        
         {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white border border-black/10 p-4">
-            <p className="text-sm text-black/60 mb-1">Total Tiers</p>
-            <p className="text-2xl font-bold text-black">{tiers.length}</p>
-          </div>
-          <div className="bg-white border border-black/10 p-4">
-            <p className="text-sm text-black/60 mb-1">Total Members</p>
-            <p className="text-2xl font-bold text-black">{totalMembers.toLocaleString()}</p>
-          </div>
-          <div className="bg-white border border-black/10 p-4">
-            <p className="text-sm text-black/60 mb-1">Active Tiers</p>
-            <p className="text-2xl font-bold text-black">{tiers.filter(t => t.isActive).length}</p>
-          </div>
-          <div className="bg-white border border-black/10 p-4">
-            <p className="text-sm text-black/60 mb-1">Avg Multiplier</p>
-            <p className="text-2xl font-bold text-black">
-              {tiers.length > 0 ? (tiers.reduce((sum, t) => sum + t.pointMultiplier, 0) / tiers.length).toFixed(2) : '0'}x
-            </p>
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-xs text-white/50 uppercase tracking-wide mb-1">Total Tiers</p>
+              <p className="text-2xl font-bold text-white">{tiers.length}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-xs text-white/50 uppercase tracking-wide mb-1">Total Members</p>
+              <p className="text-2xl font-bold text-[#FF3131]">{totalMembers.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-xs text-white/50 uppercase tracking-wide mb-1">Active Tiers</p>
+              <p className="text-2xl font-bold text-emerald-400">{tiers.filter(t => t.isActive).length}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-xs text-white/50 uppercase tracking-wide mb-1">Avg Multiplier</p>
+              <p className="text-2xl font-bold text-amber-400">
+                {tiers.length > 0 ? (tiers.reduce((sum, t) => sum + t.pointMultiplier, 0) / tiers.length).toFixed(2) : '0'}x
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* New Tier Form Modal */}
         {showNewTierForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-            <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="border-b border-black/10 p-6 flex items-center justify-between">
-                <h2 className="text-xl font-bold text-black">Create New Tier</h2>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+            <div className="bg-neutral-900 border border-white/10 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="border-b border-white/10 p-6 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white">Create New Tier</h2>
                 <button
                   onClick={() => setShowNewTierForm(false)}
-                  className="p-2 hover:bg-black/5 transition-colors"
+                  className="p-2 hover:bg-white/5 rounded-lg transition-colors"
                 >
-                  <X size={20} weight="bold" />
+                  <X size={20} weight="bold" className="text-white/60" />
                 </button>
               </div>
               
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-black mb-2">Tier Name *</label>
+                    <label className="block text-sm font-medium text-white/70 mb-2">Tier Name *</label>
                     <input
                       type="text"
                       value={newTier.name}
@@ -351,98 +360,98 @@ export default function AdminTiersPage() {
                         const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
                         setNewTier(prev => ({ ...prev, name, slug }))
                       }}
-                      className="w-full px-3 py-2 border border-black/10 focus:border-black focus:outline-none"
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none"
                       placeholder="e.g., Diamond"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-black mb-2">Slug *</label>
+                    <label className="block text-sm font-medium text-white/70 mb-2">Slug *</label>
                     <input
                       type="text"
                       value={newTier.slug}
                       onChange={(e) => setNewTier(prev => ({ ...prev, slug: e.target.value }))}
-                      className="w-full px-3 py-2 border border-black/10 focus:border-black focus:outline-none"
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none"
                       placeholder="e.g., diamond"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-black mb-2">Description</label>
+                  <label className="block text-sm font-medium text-white/70 mb-2">Description</label>
                   <textarea
                     value={newTier.description}
                     onChange={(e) => setNewTier(prev => ({ ...prev, description: e.target.value }))}
                     rows={2}
-                    className="w-full px-3 py-2 border border-black/10 focus:border-black focus:outline-none"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none"
                     placeholder="Brief description of this tier"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-black mb-2">Min Annual Points</label>
+                    <label className="block text-sm font-medium text-white/70 mb-2">Min Annual Points</label>
                     <input
                       type="number"
                       min="0"
                       value={newTier.minAnnualPoints}
                       onChange={(e) => setNewTier(prev => ({ ...prev, minAnnualPoints: parseInt(e.target.value) || 0 }))}
-                      className="w-full px-3 py-2 border border-black/10 focus:border-black focus:outline-none"
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-[#FF3131]/50 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-black mb-2">Points Multiplier</label>
+                    <label className="block text-sm font-medium text-white/70 mb-2">Points Multiplier</label>
                     <input
                       type="number"
                       min="1"
                       step="0.25"
                       value={newTier.pointMultiplier}
                       onChange={(e) => setNewTier(prev => ({ ...prev, pointMultiplier: parseFloat(e.target.value) || 1 }))}
-                      className="w-full px-3 py-2 border border-black/10 focus:border-black focus:outline-none"
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-[#FF3131]/50 focus:outline-none"
                     />
                   </div>
                 </div>
 
-                <div className="border-t border-black/10 pt-4">
-                  <h3 className="font-medium text-black mb-3">Core Benefits</h3>
+                <div className="border-t border-white/10 pt-4">
+                  <h3 className="font-medium text-white mb-3">Core Benefits</h3>
                   <div className="space-y-2">
-                    <label className="flex items-center gap-3 cursor-pointer">
+                    <label className="flex items-center gap-3 cursor-pointer p-3 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10">
                       <input
                         type="checkbox"
                         checked={newTier.freeShipping}
                         onChange={(e) => setNewTier(prev => ({ ...prev, freeShipping: e.target.checked }))}
-                        className="w-4 h-4"
+                        className="w-4 h-4 accent-[#FF3131]"
                       />
-                      <Truck size={18} className="text-black/60" />
-                      <span className="text-sm">Free Shipping</span>
+                      <Truck size={18} className="text-white/60" />
+                      <span className="text-sm text-white">Free Shipping</span>
                     </label>
-                    <label className="flex items-center gap-3 cursor-pointer">
+                    <label className="flex items-center gap-3 cursor-pointer p-3 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10">
                       <input
                         type="checkbox"
                         checked={newTier.earlyDropAccess}
                         onChange={(e) => setNewTier(prev => ({ ...prev, earlyDropAccess: e.target.checked }))}
-                        className="w-4 h-4"
+                        className="w-4 h-4 accent-[#FF3131]"
                       />
-                      <Lightning size={18} className="text-black/60" />
-                      <span className="text-sm">Early Drop Access</span>
+                      <Lightning size={18} className="text-white/60" />
+                      <span className="text-sm text-white">Early Drop Access</span>
                     </label>
-                    <label className="flex items-center gap-3 cursor-pointer">
+                    <label className="flex items-center gap-3 cursor-pointer p-3 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10">
                       <input
                         type="checkbox"
                         checked={newTier.isInviteOnly}
                         onChange={(e) => setNewTier(prev => ({ ...prev, isInviteOnly: e.target.checked }))}
-                        className="w-4 h-4"
+                        className="w-4 h-4 accent-[#FF3131]"
                       />
-                      <Star size={18} className="text-black/60" />
-                      <span className="text-sm">Invite Only</span>
+                      <Star size={18} className="text-white/60" />
+                      <span className="text-sm text-white">Invite Only</span>
                     </label>
                   </div>
                 </div>
 
-                <div className="border-t border-black/10 pt-4">
-                  <h3 className="font-medium text-black mb-3">Additional Perks</h3>
+                <div className="border-t border-white/10 pt-4">
+                  <h3 className="font-medium text-white mb-3">Additional Perks</h3>
                   <div className="grid grid-cols-2 gap-2">
                     {(Object.keys(PERK_LABELS) as Array<keyof ParsedPerks>).map((perkKey) => (
-                      <label key={perkKey} className="flex items-center gap-2 cursor-pointer p-2 border border-black/10 hover:bg-black/5">
+                      <label key={perkKey} className="flex items-center gap-2 cursor-pointer p-3 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10">
                         <input
                           type="checkbox"
                           checked={newTier.perks[perkKey]}
@@ -450,11 +459,11 @@ export default function AdminTiersPage() {
                             ...prev,
                             perks: { ...prev.perks, [perkKey]: e.target.checked }
                           }))}
-                          className="w-4 h-4"
+                          className="w-4 h-4 accent-[#FF3131]"
                         />
                         <div>
-                          <span className="text-sm font-medium">{PERK_LABELS[perkKey].label}</span>
-                          <p className="text-xs text-black/50">{PERK_LABELS[perkKey].description}</p>
+                          <span className="text-sm font-medium text-white">{PERK_LABELS[perkKey].label}</span>
+                          <p className="text-xs text-white/50">{PERK_LABELS[perkKey].description}</p>
                         </div>
                       </label>
                     ))}
@@ -462,17 +471,17 @@ export default function AdminTiersPage() {
                 </div>
               </div>
 
-              <div className="border-t border-black/10 p-6 flex justify-end gap-3">
-                <button
+              <div className="border-t border-white/10 p-6 flex justify-end gap-3">
+                <Button
+                  variant="outline"
                   onClick={() => setShowNewTierForm(false)}
-                  className="px-4 py-2 border border-black/10 font-medium hover:bg-black/5 transition-colors"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleCreateTier}
                   disabled={creatingTier}
-                  className="flex items-center gap-2 px-4 py-2 bg-black text-white font-medium hover:bg-black/90 transition-colors disabled:opacity-50"
+                  className="gap-2 bg-[#FF3131] hover:bg-[#E02828]"
                 >
                   {creatingTier ? (
                     <>
@@ -485,7 +494,7 @@ export default function AdminTiersPage() {
                       Create Tier
                     </>
                   )}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -494,21 +503,20 @@ export default function AdminTiersPage() {
         {/* Tiers List */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <CircleNotch size={32} weight="bold" className="animate-spin text-black/30" />
+            <CircleNotch size={32} weight="bold" className="animate-spin text-white/30" />
           </div>
         ) : tiers.length === 0 ? (
-          <div className="text-center py-12 border border-black/10">
-            <Medal size={48} className="mx-auto text-black/20 mb-4" />
-            <h3 className="text-lg font-medium text-black mb-2">No tiers yet</h3>
-            <p className="text-black/60 mb-4">Create your first loyalty tier to get started</p>
-            <button
-              onClick={() => setShowNewTierForm(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white font-medium"
-            >
-              <Plus size={18} weight="bold" />
-              Add Your First Tier
-            </button>
-          </div>
+          <Card>
+            <CardContent className="text-center py-12">
+              <Medal size={48} className="mx-auto text-white/20 mb-4" />
+              <h3 className="text-lg font-medium text-white mb-2">No tiers yet</h3>
+              <p className="text-white/50 mb-4">Create your first loyalty tier to get started</p>
+              <Button onClick={() => setShowNewTierForm(true)} className="gap-2 bg-[#FF3131] hover:bg-[#E02828]">
+                <Plus size={18} weight="bold" />
+                Add Your First Tier
+              </Button>
+            </CardContent>
+          </Card>
         ) : (
           <div className="space-y-4">
             {tiers.map((tier) => {
@@ -519,164 +527,164 @@ export default function AdminTiersPage() {
               const perks = getTierPerks(tier)
 
               return (
-                <div key={tier.id} className="border border-black/10 bg-white">
+                <Card key={tier.id}>
                   {/* Tier Header */}
                   <div 
-                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-black/5"
+                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"
                     onClick={() => setExpandedTier(isExpanded ? null : tier.id)}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-black/5 flex items-center justify-center">
-                        <Medal size={20} weight="bold" className="text-black" />
+                      <div className="w-10 h-10 bg-[#FF3131]/10 rounded-lg flex items-center justify-center">
+                        <Medal size={20} weight="bold" className="text-[#FF3131]" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-bold text-black">{tier.name}</h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-bold text-white">{tier.name}</h3>
                           {!tier.isActive && (
-                            <span className="px-2 py-0.5 bg-black/10 text-black/60 text-xs font-medium">Inactive</span>
+                            <span className="px-2 py-0.5 bg-white/10 text-white/50 text-xs font-medium rounded">Inactive</span>
                           )}
                           {tier.isInviteOnly && (
-                            <span className="px-2 py-0.5 bg-black text-white text-xs font-medium">Invite Only</span>
+                            <span className="px-2 py-0.5 bg-violet-500/10 text-violet-400 text-xs font-medium rounded">Invite Only</span>
                           )}
                           {isEdited && (
-                            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium">Unsaved</span>
+                            <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 text-xs font-medium rounded">Unsaved</span>
                           )}
                         </div>
-                        <p className="text-sm text-black/60">
+                        <p className="text-sm text-white/50">
                           {tier._count.customers} members • {tier.pointMultiplier}x points • {tier.minAnnualPoints.toLocaleString()} min points
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {isExpanded ? (
-                        <CaretUp size={20} className="text-black/40" />
+                        <CaretUp size={20} className="text-white/40" />
                       ) : (
-                        <CaretDown size={20} className="text-black/40" />
+                        <CaretDown size={20} className="text-white/40" />
                       )}
                     </div>
                   </div>
 
                   {/* Expanded Content */}
                   {isExpanded && (
-                    <div className="border-t border-black/10 p-6 space-y-6">
+                    <CardContent className="border-t border-white/10 space-y-6 pt-6">
                       {/* Basic Info */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-black mb-2">Tier Name</label>
+                          <label className="block text-sm font-medium text-white/70 mb-2">Tier Name</label>
                           <input
                             type="text"
                             value={getTierValue(tier, 'name')}
                             onChange={(e) => handleChange(tier.id, 'name', e.target.value)}
-                            className="w-full px-3 py-2 border border-black/10 focus:border-black focus:outline-none"
+                            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-[#FF3131]/50 focus:outline-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-black mb-2">Min Annual Points</label>
+                          <label className="block text-sm font-medium text-white/70 mb-2">Min Annual Points</label>
                           <input
                             type="number"
                             min="0"
                             value={getTierValue(tier, 'minAnnualPoints')}
                             onChange={(e) => handleChange(tier.id, 'minAnnualPoints', parseInt(e.target.value) || 0)}
-                            className="w-full px-3 py-2 border border-black/10 focus:border-black focus:outline-none"
+                            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-[#FF3131]/50 focus:outline-none"
                           />
-                          <p className="text-xs text-black/50 mt-1">Points earned per year to qualify</p>
+                          <p className="text-xs text-white/40 mt-1">Points earned per year to qualify</p>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-black mb-2">Points Multiplier</label>
+                          <label className="block text-sm font-medium text-white/70 mb-2">Points Multiplier</label>
                           <input
                             type="number"
                             min="1"
                             step="0.25"
                             value={getTierValue(tier, 'pointMultiplier')}
                             onChange={(e) => handleChange(tier.id, 'pointMultiplier', parseFloat(e.target.value) || 1)}
-                            className="w-full px-3 py-2 border border-black/10 focus:border-black focus:outline-none"
+                            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-[#FF3131]/50 focus:outline-none"
                           />
-                          <p className="text-xs text-black/50 mt-1">e.g., 1.5 = 50% bonus points</p>
+                          <p className="text-xs text-white/40 mt-1">e.g., 1.5 = 50% bonus points</p>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-black mb-2">Current Members</label>
-                          <div className="flex items-center gap-2 px-3 py-2 border border-black/10 bg-black/5">
-                            <Users size={16} className="text-black/60" />
-                            <span className="font-medium">{tier._count.customers.toLocaleString()}</span>
+                          <label className="block text-sm font-medium text-white/70 mb-2">Current Members</label>
+                          <div className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-lg">
+                            <Users size={16} className="text-white/60" />
+                            <span className="font-medium text-white">{tier._count.customers.toLocaleString()}</span>
                           </div>
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-black mb-2">Description</label>
+                        <label className="block text-sm font-medium text-white/70 mb-2">Description</label>
                         <textarea
                           value={getTierValue(tier, 'description') || ''}
                           onChange={(e) => handleChange(tier.id, 'description', e.target.value)}
                           rows={2}
-                          className="w-full px-3 py-2 border border-black/10 focus:border-black focus:outline-none"
+                          className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none"
                           placeholder="Brief description of this tier"
                         />
                       </div>
 
                       {/* Core Benefits */}
-                      <div className="border-t border-black/10 pt-4">
-                        <h4 className="font-medium text-black mb-3">Core Benefits</h4>
+                      <div className="border-t border-white/10 pt-4">
+                        <h4 className="font-medium text-white mb-3">Core Benefits</h4>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <label className="flex items-center gap-3 cursor-pointer p-3 border border-black/10 hover:bg-black/5">
+                          <label className="flex items-center gap-3 cursor-pointer p-3 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10">
                             <input
                               type="checkbox"
                               checked={getTierValue(tier, 'freeShipping')}
                               onChange={(e) => handleChange(tier.id, 'freeShipping', e.target.checked)}
-                              className="w-4 h-4"
+                              className="w-4 h-4 accent-[#FF3131]"
                             />
-                            <Truck size={20} className="text-black/60" />
+                            <Truck size={20} className="text-white/60" />
                             <div>
-                              <span className="text-sm font-medium">Free Shipping</span>
-                              <p className="text-xs text-black/50">On all orders</p>
+                              <span className="text-sm font-medium text-white">Free Shipping</span>
+                              <p className="text-xs text-white/40">On all orders</p>
                             </div>
                           </label>
-                          <label className="flex items-center gap-3 cursor-pointer p-3 border border-black/10 hover:bg-black/5">
+                          <label className="flex items-center gap-3 cursor-pointer p-3 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10">
                             <input
                               type="checkbox"
                               checked={getTierValue(tier, 'earlyDropAccess')}
                               onChange={(e) => handleChange(tier.id, 'earlyDropAccess', e.target.checked)}
-                              className="w-4 h-4"
+                              className="w-4 h-4 accent-[#FF3131]"
                             />
-                            <Lightning size={20} className="text-black/60" />
+                            <Lightning size={20} className="text-white/60" />
                             <div>
-                              <span className="text-sm font-medium">Early Access</span>
-                              <p className="text-xs text-black/50">Limited drops</p>
+                              <span className="text-sm font-medium text-white">Early Access</span>
+                              <p className="text-xs text-white/40">Limited drops</p>
                             </div>
                           </label>
-                          <label className="flex items-center gap-3 cursor-pointer p-3 border border-black/10 hover:bg-black/5">
+                          <label className="flex items-center gap-3 cursor-pointer p-3 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10">
                             <input
                               type="checkbox"
                               checked={getTierValue(tier, 'isInviteOnly')}
                               onChange={(e) => handleChange(tier.id, 'isInviteOnly', e.target.checked)}
-                              className="w-4 h-4"
+                              className="w-4 h-4 accent-[#FF3131]"
                             />
-                            <Star size={20} className="text-black/60" />
+                            <Star size={20} className="text-white/60" />
                             <div>
-                              <span className="text-sm font-medium">Invite Only</span>
-                              <p className="text-xs text-black/50">Exclusive tier</p>
+                              <span className="text-sm font-medium text-white">Invite Only</span>
+                              <p className="text-xs text-white/40">Exclusive tier</p>
                             </div>
                           </label>
                         </div>
                       </div>
 
                       {/* Additional Perks */}
-                      <div className="border-t border-black/10 pt-4">
-                        <h4 className="font-medium text-black mb-3">Additional Perks</h4>
+                      <div className="border-t border-white/10 pt-4">
+                        <h4 className="font-medium text-white mb-3">Additional Perks</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {(Object.keys(PERK_LABELS) as Array<keyof ParsedPerks>).map((perkKey) => (
                             <label 
                               key={perkKey} 
-                              className="flex items-center gap-2 cursor-pointer p-2 border border-black/10 hover:bg-black/5"
+                              className="flex items-center gap-2 cursor-pointer p-2 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10"
                             >
                               <input
                                 type="checkbox"
                                 checked={perks[perkKey]}
                                 onChange={(e) => handlePerkChange(tier.id, perkKey, e.target.checked)}
-                                className="w-4 h-4"
+                                className="w-4 h-4 accent-[#FF3131]"
                               />
                               <div>
-                                <span className="text-sm font-medium">{PERK_LABELS[perkKey].label}</span>
-                                <p className="text-xs text-black/50">{PERK_LABELS[perkKey].description}</p>
+                                <span className="text-sm font-medium text-white">{PERK_LABELS[perkKey].label}</span>
+                                <p className="text-xs text-white/40">{PERK_LABELS[perkKey].description}</p>
                               </div>
                             </label>
                           ))}
@@ -684,11 +692,11 @@ export default function AdminTiersPage() {
                       </div>
 
                       {/* Actions */}
-                      <div className="border-t border-black/10 pt-4 flex items-center justify-between">
+                      <div className="border-t border-white/10 pt-4 flex items-center justify-between">
                         <button
                           onClick={() => handleDelete(tier)}
                           disabled={isDeleting || tier._count.customers > 0}
-                          className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex items-center gap-2 px-4 py-2 text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {isDeleting ? (
                             <CircleNotch size={18} weight="bold" className="animate-spin" />
@@ -699,17 +707,17 @@ export default function AdminTiersPage() {
                         </button>
                         
                         {tier._count.customers > 0 && (
-                          <p className="text-xs text-black/50 flex items-center gap-1">
+                          <p className="text-xs text-white/40 flex items-center gap-1">
                             <Warning size={14} />
                             Can&apos;t delete tier with members
                           </p>
                         )}
 
                         {isEdited && (
-                          <button
+                          <Button
                             onClick={() => handleSave(tier)}
                             disabled={isSaving}
-                            className="flex items-center gap-2 px-4 py-2 bg-black text-white font-medium hover:bg-black/90 transition-colors disabled:opacity-50"
+                            className="gap-2 bg-[#FF3131] hover:bg-[#E02828]"
                           >
                             {isSaving ? (
                               <>
@@ -722,35 +730,37 @@ export default function AdminTiersPage() {
                                 Save Changes
                               </>
                             )}
-                          </button>
+                          </Button>
                         )}
                       </div>
-                    </div>
+                    </CardContent>
                   )}
-                </div>
+                </Card>
               )
             })}
           </div>
         )}
 
         {/* Quick Links */}
-        <div className="mt-8 flex gap-4">
-          <Link 
-            href="/admin/loyalty/rewards"
-            className="flex items-center gap-2 px-4 py-2 border border-black/10 font-medium hover:bg-black/5 transition-colors"
-          >
-            <Gift size={18} />
-            Manage Rewards
-          </Link>
-          <Link 
-            href="/admin/loyalty"
-            className="flex items-center gap-2 px-4 py-2 border border-black/10 font-medium hover:bg-black/5 transition-colors"
-          >
-            <ArrowLeft size={18} />
-            Back to Dashboard
+        <div className="flex gap-4">
+          <Link href="/admin/loyalty/rewards">
+            <Button variant="outline" className="gap-2">
+              <Gift size={18} />
+              Manage Rewards
+            </Button>
           </Link>
         </div>
       </div>
-    </div>
+      
+      <ConfirmModal
+        isOpen={confirmDeleteOpen}
+        title={tierToDelete ? `Delete tier "${tierToDelete.name}"?` : 'Delete tier?'}
+        description={tierToDelete ? `This will permanently delete the "${tierToDelete.name}" tier.` : undefined}
+        confirmLabel="Delete Tier"
+        loading={!!deleting}
+        onConfirm={performDeleteTier}
+        onCancel={() => setConfirmDeleteOpen(false)}
+      />
+    </AdminLayout>
   )
 }

@@ -2,11 +2,12 @@
 
 import { use, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, CircleNotch, Trash } from '@phosphor-icons/react'
+import { CircleNotch, Trash, X, Plus, FloppyDisk } from '@phosphor-icons/react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { ImageUpload } from '@/components/admin/ImageUpload'
+import { AdminLayout } from '@/components/admin/AdminLayout'
 
 interface ProductImage {
   url: string
@@ -131,7 +132,6 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             ? JSON.parse(data.images)
             : data.images
           
-          // Ensure images are in the correct format with url and alt
           const formattedImages: ProductImage[] = Array.isArray(parsedImages) 
             ? parsedImages.map((img: string | ProductImage) => {
                 if (typeof img === 'string') {
@@ -230,7 +230,6 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             images: v.images || undefined,
             inventory: parseInt(v.inventory?.toString() || '0') || 0,
           }
-          // Only include price if it has a value
           if (v.price) {
             variant.price = parseFloat(v.price.toString())
           }
@@ -238,10 +237,6 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         }),
         collectionIds: selectedCollections,
       }
-      
-      console.log('Sending payload:', payload)
-      console.log('Payload JSON:', JSON.stringify(payload, null, 2))
-      console.log('Variants being sent:', payload.variants)
       
       const response = await fetch(`/api/products/${id}`, {
         method: 'PUT',
@@ -256,10 +251,6 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           ? `${result.error}: ${typeof result.details === 'string' ? result.details : JSON.stringify(result.details)}`
           : result.error || 'Failed to update product'
         setError(errorMsg)
-        if (result.details) {
-          console.error('Validation errors:', result.details)
-          console.error('Full validation error details:', JSON.stringify(result.details, null, 2))
-        }
         return
       }
 
@@ -314,13 +305,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         return
       }
 
-      // Add new collection to the list
       setCollections([...collections, result])
-      
-      // Auto-select the new collection
       setSelectedCollections([...selectedCollections, result.id])
-      
-      // Reset form and close modal
       setNewCollectionData({ name: '', description: '', isActive: true })
       setShowCreateModal(false)
     } catch {
@@ -346,596 +332,630 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <CircleNotch size={32} weight="bold" className="animate-spin" />
-      </div>
+      <AdminLayout title="Edit Product" subtitle="Loading product...">
+        <div className="flex items-center justify-center py-20">
+          <CircleNotch size={32} weight="bold" className="animate-spin text-white/30" />
+        </div>
+      </AdminLayout>
     )
   }
 
   if (error && !product) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <Card className="p-6 text-center">
-          <p className="text-red-600 mb-4">{error}</p>
-          <Button asChild variant="outline">
-            <Link href="/admin/products">Back to Products</Link>
-          </Button>
+      <AdminLayout title="Edit Product" subtitle="Error loading product">
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-rose-400 mb-4">{error}</p>
+            <Button asChild variant="outline">
+              <Link href="/admin/products">Back to Products</Link>
+            </Button>
+          </CardContent>
         </Card>
-      </div>
+      </AdminLayout>
     )
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <Link
-            href="/admin/products"
-            className="inline-flex items-center gap-2 text-neutral-600 hover:text-black transition-colors mb-2"
+    <AdminLayout
+      title="Edit Product"
+      subtitle={product?.name || 'Update product details'}
+      headerActions={
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="gap-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border-rose-500/20"
           >
-            <ArrowLeft size={16} weight="bold" />
-            Back to Products
-          </Link>
-          <h1 className="text-3xl font-bold">Edit Product</h1>
+            {deleting ? (
+              <>
+                <CircleNotch size={16} weight="bold" className="animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              <>
+                <Trash size={16} weight="bold" />
+                Delete
+              </>
+            )}
+          </Button>
         </div>
-        <Button
-          variant="destructive"
-          onClick={handleDelete}
-          disabled={deleting}
-        >
-          {deleting ? (
-            <>
-              <CircleNotch size={16} weight="bold" className="animate-spin mr-2" />
-              Deleting...
-            </>
-          ) : (
-            <>
-              <Trash size={16} weight="bold" className="mr-2" />
-              Delete Product
-            </>
-          )}
-        </Button>
-      </div>
-
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600">
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Information */}
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Product Name *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-black"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Slug *</label>
-              <input
-                type="text"
-                required
-                value={formData.slug}
-                onChange={(e) =>
-                  setFormData({ ...formData, slug: e.target.value })
-                }
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-black"
-                placeholder="product-url-slug"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Description *
-              </label>
-              <textarea
-                required
-                rows={4}
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-black"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Category *
-              </label>
-              <select
-                required
-                value={formData.category}
-                onChange={(e) =>
-                  setFormData({ ...formData, category: e.target.value })
-                }
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-black"
-              >
-                <option value="">Select a category</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+      }
+    >
+      <div className="space-y-6">
+        {error && (
+          <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-400">
+            {error}
           </div>
-        </Card>
+        )}
 
-        {/* Pricing */}
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Pricing</h2>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Price *</label>
-              <input
-                type="number"
-                step="0.01"
-                required
-                value={formData.price}
-                onChange={(e) =>
-                  setFormData({ ...formData, price: e.target.value })
-                }
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-black"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Compare at Price (Optional)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.compareAtPrice}
-                onChange={(e) =>
-                  setFormData({ ...formData, compareAtPrice: e.target.value })
-                }
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-black"
-              />
-            </div>
-          </div>
-        </Card>
-
-        {/* Images */}
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Product Images</h2>
-          <ImageUpload 
-            images={images.map(img => img.url)} 
-            onImagesChange={(urls) => setImages(urls.map(url => ({ url, alt: formData.name })))} 
-          />
-        </Card>
-
-        {/* Variants */}
-        <Card className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Variants</h2>
-            <Button type="button" variant="outline" onClick={addVariant}>
-              Add Variant
-            </Button>
-          </div>
-          <div className="space-y-4">
-            {variants.map((variant, index) => (
-              <div
-                key={index}
-                className="p-6 border rounded-lg space-y-4"
-              >
-                <div className="grid md:grid-cols-5 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Size</label>
-                    <input
-                      type="text"
-                      value={variant.size}
-                      onChange={(e) => updateVariant(index, 'size', e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      placeholder="S, M, L"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Color Name</label>
-                    <input
-                      type="text"
-                      value={variant.color}
-                      onChange={(e) => updateVariant(index, 'color', e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      placeholder="Black"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Color Hex
-                      {variant.colorHex && (
-                        <span
-                          className="ml-2 inline-block w-4 h-4 rounded-full border border-gray-300"
-                          style={{ backgroundColor: variant.colorHex }}
-                        />
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      value={variant.colorHex || ''}
-                      onChange={(e) => updateVariant(index, 'colorHex', e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg font-mono"
-                      placeholder="#000000"
-                      pattern="^#[0-9A-Fa-f]{6}$"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">SKU *</label>
-                    <input
-                      type="text"
-                      required
-                      value={variant.sku}
-                      onChange={(e) => updateVariant(index, 'sku', e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Inventory *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      value={variant.inventory}
-                      onChange={(e) =>
-                        updateVariant(index, 'inventory', parseInt(e.target.value) || 0)
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                      min="0"
-                    />
-                  </div>
-                </div>
-
-                {/* Variant Images */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Basic Information */}
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <h2 className="text-lg font-bold text-white">Basic Information</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Variant Images (Optional)
+                  <label className="block text-sm font-medium text-white/70 mb-2">
+                    Product Name *
                   </label>
-                  <p className="text-xs text-gray-500 mb-2">
-                    Upload images specific to this variant (e.g., product in this color)
-                  </p>
-                  <ImageUpload
-                    images={
-                      variant.images
-                        ? (() => {
-                            try {
-                              const parsed = typeof variant.images === 'string'
-                                ? JSON.parse(variant.images)
-                                : variant.images
-                              return Array.isArray(parsed)
-                                ? parsed.map((img: string | { url: string }) => 
-                                    typeof img === 'string' ? img : img.url
-                                  )
-                                : []
-                            } catch {
-                              return []
-                            }
-                          })()
-                        : []
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
                     }
-                    onImagesChange={(urls) =>
-                      updateVariant(
-                        index,
-                        'images',
-                        JSON.stringify(urls.map((url) => ({ url, alt: `${variant.color || 'Variant'} ${variant.size || ''}` })))
-                      )
-                    }
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none"
                   />
                 </div>
 
-                <div className="flex justify-end">
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => removeVariant(index)}
-                    disabled={variants.length === 1}
-                  >
-                    <Trash size={16} weight="bold" className="mr-2" />
-                    Remove Variant
-                  </Button>
+                <div>
+                  <label className="block text-sm font-medium text-white/70 mb-2">Slug *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.slug}
+                    onChange={(e) =>
+                      setFormData({ ...formData, slug: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none"
+                    placeholder="product-url-slug"
+                  />
                 </div>
               </div>
-            ))}
-          </div>
-        </Card>
 
-        {/* Status */}
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Status</h2>
-          <div className="space-y-3">
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={formData.isActive}
-                onChange={(e) =>
-                  setFormData({ ...formData, isActive: e.target.checked })
-                }
-                className="w-4 h-4"
-              />
-              <span className="text-sm font-medium">Active (visible on store)</span>
-            </label>
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={formData.isFeatured}
-                onChange={(e) =>
-                  setFormData({ ...formData, isFeatured: e.target.checked })
-                }
-                className="w-4 h-4"
-              />
-              <span className="text-sm font-medium">Featured</span>
-            </label>
-          </div>
-        </Card>
+              <div>
+                <label className="block text-sm font-medium text-white/70 mb-2">
+                  Description *
+                </label>
+                <textarea
+                  required
+                  rows={4}
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none"
+                />
+              </div>
 
-        {/* Collections */}
-        <Card className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h2 className="text-xl font-semibold">Collections</h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Select which collections this product belongs to
-              </p>
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-white/70 mb-2">
+                  Category *
+                </label>
+                <select
+                  required
+                  value={formData.category}
+                  onChange={(e) =>
+                    setFormData({ ...formData, category: e.target.value })
+                  }
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-[#FF3131]/50 focus:outline-none"
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Pricing */}
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <h2 className="text-lg font-bold text-white">Pricing</h2>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-white/70 mb-2">Price *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formData.price}
+                    onChange={(e) =>
+                      setFormData({ ...formData, price: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-[#FF3131]/50 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white/70 mb-2">
+                    Compare at Price (Optional)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.compareAtPrice}
+                    onChange={(e) =>
+                      setFormData({ ...formData, compareAtPrice: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-[#FF3131]/50 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Images */}
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <h2 className="text-lg font-bold text-white">Product Images</h2>
+              <ImageUpload 
+                images={images.map(img => img.url)} 
+                onImagesChange={(urls) => setImages(urls.map(url => ({ url, alt: formData.name })))} 
+              />
+            </CardContent>
+          </Card>
+
+          {/* Variants */}
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-bold text-white">Variants</h2>
+                <Button type="button" variant="outline" onClick={addVariant} className="gap-2">
+                  <Plus size={16} weight="bold" />
+                  Add Variant
+                </Button>
+              </div>
+              <div className="space-y-4">
+                {variants.map((variant, index) => (
+                  <div
+                    key={index}
+                    className="p-4 bg-white/5 border border-white/10 rounded-lg space-y-4"
+                  >
+                    <div className="grid md:grid-cols-5 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-white/70 mb-2">Size</label>
+                        <input
+                          type="text"
+                          value={variant.size}
+                          onChange={(e) => updateVariant(index, 'size', e.target.value)}
+                          className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none"
+                          placeholder="S, M, L"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-white/70 mb-2">Color Name</label>
+                        <input
+                          type="text"
+                          value={variant.color}
+                          onChange={(e) => updateVariant(index, 'color', e.target.value)}
+                          className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none"
+                          placeholder="Black"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-white/70 mb-2">
+                          Color Hex
+                          {variant.colorHex && (
+                            <span
+                              className="ml-2 inline-block w-4 h-4 rounded-full border border-white/20"
+                              style={{ backgroundColor: variant.colorHex }}
+                            />
+                          )}
+                        </label>
+                        <input
+                          type="text"
+                          value={variant.colorHex || ''}
+                          onChange={(e) => updateVariant(index, 'colorHex', e.target.value)}
+                          className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white font-mono placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none"
+                          placeholder="#000000"
+                          pattern="^#[0-9A-Fa-f]{6}$"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-white/70 mb-2">SKU *</label>
+                        <input
+                          type="text"
+                          required
+                          value={variant.sku}
+                          onChange={(e) => updateVariant(index, 'sku', e.target.value)}
+                          className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-white/70 mb-2">
+                          Inventory *
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          value={variant.inventory}
+                          onChange={(e) =>
+                            updateVariant(index, 'inventory', parseInt(e.target.value) || 0)
+                          }
+                          className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-[#FF3131]/50 focus:outline-none"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Variant Images */}
+                    <div>
+                      <label className="block text-sm font-medium text-white/70 mb-2">
+                        Variant Images (Optional)
+                      </label>
+                      <p className="text-xs text-white/40 mb-2">
+                        Upload images specific to this variant (e.g., product in this color)
+                      </p>
+                      <ImageUpload
+                        images={
+                          variant.images
+                            ? (() => {
+                                try {
+                                  const parsed = typeof variant.images === 'string'
+                                    ? JSON.parse(variant.images)
+                                    : variant.images
+                                  return Array.isArray(parsed)
+                                    ? parsed.map((img: string | { url: string }) => 
+                                        typeof img === 'string' ? img : img.url
+                                      )
+                                    : []
+                                } catch {
+                                  return []
+                                }
+                              })()
+                            : []
+                        }
+                        onImagesChange={(urls) =>
+                          updateVariant(
+                            index,
+                            'images',
+                            JSON.stringify(urls.map((url) => ({ url, alt: `${variant.color || 'Variant'} ${variant.size || ''}` })))
+                          )
+                        }
+                      />
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeVariant(index)}
+                        disabled={variants.length === 1}
+                        className="gap-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border-rose-500/20"
+                      >
+                        <Trash size={16} weight="bold" />
+                        Remove Variant
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Status */}
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <h2 className="text-lg font-bold text-white">Status</h2>
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10">
+                  <input
+                    type="checkbox"
+                    checked={formData.isActive}
+                    onChange={(e) =>
+                      setFormData({ ...formData, isActive: e.target.checked })
+                    }
+                    className="w-4 h-4 accent-[#FF3131]"
+                  />
+                  <span className="text-sm font-medium text-white">Active (visible on store)</span>
+                </label>
+                <label className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10">
+                  <input
+                    type="checkbox"
+                    checked={formData.isFeatured}
+                    onChange={(e) =>
+                      setFormData({ ...formData, isFeatured: e.target.checked })
+                    }
+                    className="w-4 h-4 accent-[#FF3131]"
+                  />
+                  <span className="text-sm font-medium text-white">Featured</span>
+                </label>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Collections */}
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-lg font-bold text-white">Collections</h2>
+                  <p className="text-sm text-white/50 mt-1">
+                    Select which collections this product belongs to
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowCreateModal(true)}
+                  className="gap-2"
+                >
+                  <Plus size={16} weight="bold" />
+                  Create New
+                </Button>
+              </div>
+              {collections.length === 0 ? (
+                <p className="text-sm text-white/50">No collections available. Create one to get started!</p>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {collections.map((collection) => (
+                    <label 
+                      key={collection.id} 
+                      className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedCollections.includes(collection.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedCollections([...selectedCollections, collection.id])
+                          } else {
+                            setSelectedCollections(
+                              selectedCollections.filter((id) => id !== collection.id)
+                            )
+                          }
+                        }}
+                        className="w-4 h-4 accent-[#FF3131]"
+                      />
+                      <span className="text-sm font-medium text-white">{collection.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Limited Edition Drop */}
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <h2 className="text-lg font-bold text-white">Limited Edition Drop</h2>
+              <label className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10">
+                <input
+                  type="checkbox"
+                  checked={formData.isLimitedEdition}
+                  onChange={(e) =>
+                    setFormData({ ...formData, isLimitedEdition: e.target.checked })
+                  }
+                  className="w-4 h-4 accent-[#FF3131]"
+                />
+                <span className="text-sm font-medium text-white">This is a limited edition drop</span>
+              </label>
+
+              {formData.isLimitedEdition && (
+                <div className="grid md:grid-cols-3 gap-4 pt-2">
+                  <div>
+                    <label className="block text-sm font-medium text-white/70 mb-2">Release Date</label>
+                    <input
+                      type="datetime-local"
+                      value={formData.releaseDate}
+                      onChange={(e) =>
+                        setFormData({ ...formData, releaseDate: e.target.value })
+                      }
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-[#FF3131]/50 focus:outline-none"
+                    />
+                    <p className="text-xs text-white/40 mt-1">When the drop becomes available</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-white/70 mb-2">Drop End Date</label>
+                    <input
+                      type="datetime-local"
+                      value={formData.dropEndDate}
+                      onChange={(e) =>
+                        setFormData({ ...formData, dropEndDate: e.target.value })
+                      }
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-[#FF3131]/50 focus:outline-none"
+                    />
+                    <p className="text-xs text-white/40 mt-1">When the drop ends (countdown timer)</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-white/70 mb-2">Max Quantity</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={formData.maxQuantity}
+                      onChange={(e) =>
+                        setFormData({ ...formData, maxQuantity: e.target.value })
+                      }
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none"
+                      placeholder="Total units available"
+                    />
+                    <p className="text-xs text-white/40 mt-1">Total limited quantity for this drop</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Featured Sections */}
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <h2 className="text-lg font-bold text-white">Featured Sections</h2>
+              <p className="text-sm text-white/50">Feature this product in special sections on the home page</p>
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10">
+                  <input
+                    type="checkbox"
+                    checked={formData.isFeatured}
+                    onChange={(e) =>
+                      setFormData({ ...formData, isFeatured: e.target.checked })
+                    }
+                    className="w-4 h-4 accent-[#FF3131]"
+                  />
+                  <span className="text-sm font-medium text-white">Featured Product (Best Sellers section)</span>
+                </label>
+
+                <label className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10">
+                  <input
+                    type="checkbox"
+                    checked={formData.isFeaturedNewArrival}
+                    onChange={(e) =>
+                      setFormData({ ...formData, isFeaturedNewArrival: e.target.checked })
+                    }
+                    className="w-4 h-4 accent-[#FF3131]"
+                  />
+                  <span className="text-sm font-medium text-white">New Arrivals Carousel (Hero section)</span>
+                </label>
+                <p className="text-xs text-white/40">Maximum 10 products will display in the New Arrivals carousel</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Submit */}
+          <div className="flex gap-4">
+            <Button type="submit" size="lg" disabled={saving} className="flex-1 gap-2 bg-[#FF3131] hover:bg-[#E02828]">
+              {saving ? (
+                <>
+                  <CircleNotch size={16} weight="bold" className="animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <FloppyDisk size={16} weight="bold" />
+                  Update Product
+                </>
+              )}
+            </Button>
             <Button
               type="button"
               variant="outline"
-              size="sm"
-              onClick={() => setShowCreateModal(true)}
+              size="lg"
+              asChild
             >
-              + Create New
+              <Link href="/admin/products">Cancel</Link>
             </Button>
           </div>
-          {collections.length === 0 ? (
-            <p className="text-sm text-gray-500">No collections available. Create one to get started!</p>
-          ) : (
-            <div className="space-y-3">
-              {collections.map((collection) => (
-                <label key={collection.id} className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={selectedCollections.includes(collection.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedCollections([...selectedCollections, collection.id])
-                      } else {
-                        setSelectedCollections(
-                          selectedCollections.filter((id) => id !== collection.id)
-                        )
-                      }
-                    }}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm font-medium">{collection.name}</span>
-                </label>
-              ))}
-            </div>
-          )}
-        </Card>
+        </form>
 
-        {/* Limited Edition Drop */}
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Limited Edition Drop</h2>
-          <div className="space-y-4">
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={formData.isLimitedEdition}
-                onChange={(e) =>
-                  setFormData({ ...formData, isLimitedEdition: e.target.checked })
-                }
-                className="w-4 h-4"
-              />
-              <span className="text-sm font-medium">This is a limited edition drop</span>
-            </label>
+        {/* Create Collection Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-neutral-900 border border-white/10 rounded-xl max-w-md w-full">
+              <div className="border-b border-white/10 p-6 flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white">Create New Collection</h3>
+                <button
+                  onClick={() => {
+                    setShowCreateModal(false)
+                    setCreateError('')
+                    setNewCollectionData({ name: '', description: '', isActive: true })
+                  }}
+                  className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+                >
+                  <X size={20} weight="bold" className="text-white/60" />
+                </button>
+              </div>
+              
+              {createError && (
+                <div className="mx-6 mt-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-400 text-sm">
+                  {createError}
+                </div>
+              )}
 
-            {formData.isLimitedEdition && (
-              <>
+              <form onSubmit={handleCreateCollection} className="p-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Release Date</label>
+                  <label className="block text-sm font-medium text-white/70 mb-2">
+                    Collection Name *
+                  </label>
                   <input
-                    type="datetime-local"
-                    value={formData.releaseDate}
+                    type="text"
+                    required
+                    value={newCollectionData.name}
                     onChange={(e) =>
-                      setFormData({ ...formData, releaseDate: e.target.value })
+                      setNewCollectionData({ ...newCollectionData, name: e.target.value })
                     }
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none"
+                    placeholder="e.g., Summer 2025"
                   />
-                  <p className="text-xs text-gray-500 mt-1">When the drop becomes available</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-2">Drop End Date</label>
-                  <input
-                    type="datetime-local"
-                    value={formData.dropEndDate}
+                  <label className="block text-sm font-medium text-white/70 mb-2">
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={newCollectionData.description}
                     onChange={(e) =>
-                      setFormData({ ...formData, dropEndDate: e.target.value })
+                      setNewCollectionData({ ...newCollectionData, description: e.target.value })
                     }
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-black"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none"
+                    placeholder="Brief description of this collection"
                   />
-                  <p className="text-xs text-gray-500 mt-1">When the drop ends (countdown timer)</p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-2">Max Quantity</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formData.maxQuantity}
-                    onChange={(e) =>
-                      setFormData({ ...formData, maxQuantity: e.target.value })
-                    }
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-black"
-                    placeholder="Total units available"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Total limited quantity for this drop</p>
-                </div>
-              </>
-            )}
-          </div>
-        </Card>
-
-        {/* Featured Sections */}
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Featured Sections</h2>
-          <p className="text-sm text-gray-600 mb-4">Feature this product in special sections on the home page</p>
-          <div className="space-y-4">
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={formData.isFeatured}
-                onChange={(e) =>
-                  setFormData({ ...formData, isFeatured: e.target.checked })
-                }
-                className="w-4 h-4"
-              />
-              <span className="text-sm font-medium">Featured Product (Best Sellers section)</span>
-            </label>
-
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={formData.isFeaturedNewArrival}
-                onChange={(e) =>
-                  setFormData({ ...formData, isFeaturedNewArrival: e.target.checked })
-                }
-                className="w-4 h-4"
-              />
-              <span className="text-sm font-medium">New Arrivals Carousel (Hero section)</span>
-            </label>
-            <p className="text-xs text-gray-500">Maximum 10 products will display in the New Arrivals carousel</p>
-          </div>
-        </Card>
-
-        {/* Submit */}
-        <div className="flex gap-4">
-          <Button type="submit" size="lg" disabled={saving} className="flex-1">
-            {saving ? (
-              <>
-                <CircleNotch size={16} weight="bold" className="animate-spin mr-2" />
-                Saving...
-              </>
-            ) : (
-              'Update Product'
-            )}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            asChild
-          >
-            <Link href="/admin/products">Cancel</Link>
-          </Button>
-        </div>
-      </form>
-
-      {/* Create Collection Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-xl font-semibold mb-4">Create New Collection</h3>
-            
-            {createError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                {createError}
-              </div>
-            )}
-
-            <form onSubmit={handleCreateCollection} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Collection Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newCollectionData.name}
-                  onChange={(e) =>
-                    setNewCollectionData({ ...newCollectionData, name: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-black"
-                  placeholder="e.g., Summer 2025"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Description (Optional)
-                </label>
-                <textarea
-                  rows={3}
-                  value={newCollectionData.description}
-                  onChange={(e) =>
-                    setNewCollectionData({ ...newCollectionData, description: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-black"
-                  placeholder="Brief description of this collection"
-                />
-              </div>
-
-              <div>
-                <label className="flex items-center gap-3">
+                <label className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10">
                   <input
                     type="checkbox"
                     checked={newCollectionData.isActive}
                     onChange={(e) =>
                       setNewCollectionData({ ...newCollectionData, isActive: e.target.checked })
                     }
-                    className="w-4 h-4"
+                    className="w-4 h-4 accent-[#FF3131]"
                   />
-                  <span className="text-sm font-medium">Active (visible on store)</span>
+                  <span className="text-sm font-medium text-white">Active (visible on store)</span>
                 </label>
-              </div>
 
-              <div className="flex gap-3 pt-4">
-                <Button
-                  type="submit"
-                  disabled={creating}
-                  className="flex-1"
-                >
-                  {creating ? (
-                    <>
-                      <CircleNotch size={16} weight="bold" className="animate-spin mr-2" />
-                      Creating...
-                    </>
-                  ) : (
-                    'Create Collection'
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setShowCreateModal(false)
-                    setCreateError('')
-                    setNewCollectionData({ name: '', description: '', isActive: true })
-                  }}
-                  disabled={creating}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    type="submit"
+                    disabled={creating}
+                    className="flex-1 gap-2 bg-[#FF3131] hover:bg-[#E02828]"
+                  >
+                    {creating ? (
+                      <>
+                        <CircleNotch size={16} weight="bold" className="animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      'Create Collection'
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowCreateModal(false)
+                      setCreateError('')
+                      setNewCollectionData({ name: '', description: '', isActive: true })
+                    }}
+                    disabled={creating}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </AdminLayout>
   )
 }

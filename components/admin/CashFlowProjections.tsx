@@ -545,7 +545,7 @@ export default function CashFlowProjections({
               formatter={(value) => <span className="text-white/70 text-sm">{value}</span>}
             />
             <Area
-              type="monotone"
+              type="linear"
               dataKey="revenue"
               name="Revenue"
               stroke="#10B981"
@@ -555,7 +555,7 @@ export default function CashFlowProjections({
             />
             {showExpenses && (
               <Area
-                type="monotone"
+                type="linear"
                 dataKey="expenses"
                 name="Expenses"
                 stroke="#EF4444"
@@ -565,7 +565,7 @@ export default function CashFlowProjections({
               />
             )}
             <Area
-              type="monotone"
+              type="linear"
               dataKey="netCashFlow"
               name="Net Cash Flow"
               stroke="#8B5CF6"

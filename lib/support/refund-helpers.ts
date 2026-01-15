@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/prisma'
+import { processStripeRefund, checkStripeRefundEligibility } from '@/lib/stripe/refunds'
+import { createReturnLabel, isEasyPostConfigured, type ReturnLabelResult } from '@/lib/shipping/easypost'
 
 interface RefundEligibility {
   eligible: boolean
@@ -121,16 +123,43 @@ export function calculateRefundAmount(options: {
 }
 
 /**
- * Generate return shipping label (placeholder - would integrate with shipping API)
+ * Generate return shipping label using EasyPost integration
+ * Falls back to demo mode if API not configured
  */
-export async function generateReturnLabel(orderId: string): Promise<string> {
-  // In production, this would integrate with:
-  // - Shippo API
-  // - EasyPost API
-  // - Carrier-specific APIs (USPS, FedEx, UPS)
+export async function generateReturnLabel(orderId: string): Promise<{
+  labelUrl: string
+  trackingNumber?: string
+  trackingUrl?: string
+  carrier?: string
+  qrCodeUrl?: string
+  expiresAt?: Date
+}> {
+  // Use the EasyPost integration
+  const result: ReturnLabelResult = await createReturnLabel(orderId)
   
-  // For now, return a placeholder
-  return `https://returns.headoverfeels.com/label/${orderId}`
+  if (!result.success || !result.labelUrl) {
+    // Return a fallback URL that explains the error
+    console.error('[Returns] Failed to generate label:', result.error)
+    return {
+      labelUrl: `/api/shipping/label/${orderId}?error=generation_failed`,
+    }
+  }
+
+  return {
+    labelUrl: result.labelUrl,
+    trackingNumber: result.trackingNumber,
+    trackingUrl: result.trackingUrl,
+    carrier: result.carrier,
+    qrCodeUrl: result.qrCodeUrl,
+    expiresAt: result.expiresAt,
+  }
+}
+
+/**
+ * Check if shipping API is configured for returns
+ */
+export function isReturnShippingConfigured(): boolean {
+  return isEasyPostConfigured()
 }
 
 /**
@@ -143,7 +172,7 @@ export async function initiateRefund(options: {
   reason: string
   itemsToRefund?: string[] // Item IDs
 }): Promise<{ success: boolean; message: string; refundId?: string }> {
-  const { ticketId, orderId, amount, reason, itemsToRefund } = options
+  const { ticketId, orderId, amount, reason, itemsToRefund: _itemsToRefund } = options
 
   try {
     // 1. Verify eligibility
@@ -167,39 +196,85 @@ export async function initiateRefund(options: {
       }
     }
 
-    // 3. Process refund through payment gateway (Stripe in this case)
-    // In production, integrate with Stripe API
-    // const refund = await stripe.refunds.create({
-    //   charge: order.stripeChargeId,
-    //   amount: Math.round(amount * 100), // Convert to cents
-    //   reason: 'requested_by_customer',
-    // })
+    // 3. Check Stripe eligibility
+    const stripeEligibility = await checkStripeRefundEligibility(orderId)
+    
+    // 4. Process refund through Stripe
+    if (stripeEligibility.eligible) {
+      const stripeResult = await processStripeRefund({
+        orderId,
+        amount,
+        reason: 'requested_by_customer',
+        metadata: {
+          ticketId,
+          refundReason: reason,
+        },
+      })
 
-    // 4. Update order status
+      if (!stripeResult.success) {
+        return {
+          success: false,
+          message: stripeResult.message,
+        }
+      }
+
+      // Stripe refund successful - update ticket
+      await prisma.supportTicket.update({
+        where: { id: ticketId },
+        data: {
+          status: 'RESOLVED',
+          resolution: `Refund of $${amount} processed successfully (${stripeResult.refundId})`,
+          resolvedAt: new Date(),
+        },
+      })
+
+      // Create success message
+      await prisma.supportMessage.create({
+        data: {
+          ticketId,
+          message: `Refund of $${amount} has been processed. Funds should appear in your account within 5-10 business days.`,
+          senderType: 'admin',
+          senderName: 'System',
+          isInternal: false,
+        },
+      })
+
+      return {
+        success: true,
+        message: stripeResult.message,
+        refundId: stripeResult.refundId,
+      }
+    }
+
+    // 5. Fallback: Manual refund tracking (for orders without Stripe payment intent)
+    // This handles legacy orders or alternative payment methods
+    console.log(`Order ${orderId} requires manual refund processing - no Stripe payment intent found`)
+
+    // Update order status manually
     await prisma.order.update({
       where: { id: orderId },
       data: {
         status: 'REFUNDED',
         paymentStatus: 'REFUNDED',
-        internalNotes: `Refund of $${amount} processed via ticket ${ticketId}. Reason: ${reason}`,
+        internalNotes: `Manual refund of $${amount} processed via ticket ${ticketId}. Reason: ${reason}. Note: No Stripe payment intent - manual processing required.`,
       },
     })
 
-    // 5. Update ticket
+    // Update ticket
     await prisma.supportTicket.update({
       where: { id: ticketId },
       data: {
         status: 'RESOLVED',
-        resolution: `Refund of $${amount} processed successfully`,
+        resolution: `Manual refund of $${amount} recorded. Requires manual payment processing.`,
         resolvedAt: new Date(),
       },
     })
 
-    // 6. Create internal message
+    // Create internal message
     await prisma.supportMessage.create({
       data: {
         ticketId,
-        message: `Refund of $${amount} has been initiated. Funds should appear in customer's account within 5-10 business days.`,
+        message: `Refund of $${amount} has been initiated. Funds should appear in your account within 5-10 business days.`,
         senderType: 'admin',
         senderName: 'System',
         isInternal: false,
@@ -208,8 +283,8 @@ export async function initiateRefund(options: {
 
     return {
       success: true,
-      message: 'Refund initiated successfully',
-      refundId: `ref_${Date.now()}`, // Would be actual refund ID from payment processor
+      message: 'Refund initiated successfully (manual processing required)',
+      refundId: `manual_ref_${Date.now()}`,
     }
   } catch (error) {
     console.error('Error processing refund:', error)
@@ -226,7 +301,13 @@ export async function initiateRefund(options: {
 export async function approveReturn(
   ticketId: string,
   orderId: string
-): Promise<{ success: boolean; message: string; returnLabel?: string }> {
+): Promise<{ 
+  success: boolean
+  message: string
+  returnLabel?: string
+  trackingNumber?: string
+  qrCodeUrl?: string
+}> {
   try {
     // 1. Check eligibility
     const eligibility = await checkRefundEligibility(orderId)
@@ -238,32 +319,54 @@ export async function approveReturn(
       }
     }
 
-    // 2. Generate return shipping label
-    const returnLabel = await generateReturnLabel(orderId)
+    // 2. Generate return shipping label via EasyPost
+    const labelResult = await generateReturnLabel(orderId)
 
-    // 3. Update ticket
+    // 3. Update ticket with label details
     await prisma.supportTicket.update({
       where: { id: ticketId },
       data: {
         returnApproved: true,
-        returnLabel,
+        returnLabel: labelResult.labelUrl,
         status: 'WAITING_CUSTOMER',
       },
     })
 
-    // 4. Add message with label
+    // 4. Build customer message with all available info
+    let customerMessage = `Your return has been approved! 🎉\n\n`
+    
+    if (labelResult.carrier) {
+      customerMessage += `**Carrier:** ${labelResult.carrier}\n`
+    }
+    
+    if (labelResult.trackingNumber) {
+      customerMessage += `**Tracking Number:** ${labelResult.trackingNumber}\n`
+    }
+    
+    customerMessage += `\n**📄 Print Your Label:** ${labelResult.labelUrl}\n`
+    
+    if (labelResult.qrCodeUrl) {
+      customerMessage += `\n**📱 Paperless Return:** Show this QR code at drop-off: ${labelResult.qrCodeUrl}\n`
+    }
+    
+    if (labelResult.expiresAt) {
+      customerMessage += `\n⏰ Label expires: ${labelResult.expiresAt.toLocaleDateString()}\n`
+    }
+    
+    customerMessage += `
+Once we receive your return, we'll process your refund within 3-5 business days.
+
+**Return Instructions:**
+1. Pack items securely in original packaging (if available)
+2. Print the return label OR use the QR code for paperless returns
+3. Drop off at any ${labelResult.carrier || 'authorized carrier'} location
+4. Keep your tracking number for reference`
+
+    // 5. Add message with label
     await prisma.supportMessage.create({
       data: {
         ticketId,
-        message: `Your return has been approved! Please use the prepaid shipping label to send your items back: ${returnLabel}
-
-Once we receive your return, we'll process your refund within 3-5 business days.
-
-Return Instructions:
-1. Pack items securely in original packaging (if available)
-2. Print the return label
-3. Drop off at any authorized carrier location
-4. Keep your tracking number for reference`,
+        message: customerMessage,
         senderType: 'admin',
         senderName: 'Returns Team',
         isInternal: false,
@@ -273,7 +376,9 @@ Return Instructions:
     return {
       success: true,
       message: 'Return approved and shipping label generated',
-      returnLabel,
+      returnLabel: labelResult.labelUrl,
+      trackingNumber: labelResult.trackingNumber,
+      qrCodeUrl: labelResult.qrCodeUrl,
     }
   } catch (error) {
     console.error('Error approving return:', error)

@@ -283,7 +283,7 @@ export default function MetricCard({
                     </linearGradient>
                   </defs>
                   <Area
-                    type="monotone"
+                    type="linear"
                     dataKey="value"
                     stroke={colors.sparkline}
                     strokeWidth={2}

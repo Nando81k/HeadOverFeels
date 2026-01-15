@@ -6,11 +6,12 @@ import { ProductRecommendation } from './ProductCarousel'
 
 interface ProductCardProps {
   product: ProductRecommendation
+  sourceProductId?: string  // The product that triggered this recommendation
   trackingType?: string
   onClick?: () => void
 }
 
-export function ProductCard({ product, trackingType, onClick }: ProductCardProps) {
+export function ProductCard({ product, sourceProductId, trackingType, onClick }: ProductCardProps) {
   const images = JSON.parse(product.images as string) as string[]
   const mainImage = images[0] || '/placeholder-product.jpg'
   
@@ -19,15 +20,39 @@ export function ProductCard({ product, trackingType, onClick }: ProductCardProps
     ? Math.round(((product.compareAtPrice! - product.price) / product.compareAtPrice!) * 100)
     : 0
 
-  const handleClick = () => {
+  const handleClick = async () => {
     onClick?.()
-    // Track recommendation click if needed
-    if (trackingType) {
-      // TODO: Implement click tracking API call
-      console.log('Recommendation clicked:', {
-        productId: product.id,
-        trackingType,
-      })
+    
+    // Track recommendation click
+    if (sourceProductId && trackingType) {
+      try {
+        await fetch('/api/recommendations/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event: 'click',
+            sourceProductId,
+            targetProductId: product.id,
+            type: trackingType.toUpperCase(),
+          }),
+        })
+        
+        // Store click in sessionStorage for conversion attribution
+        const clicks = JSON.parse(sessionStorage.getItem('recommendation_clicks') || '[]')
+        clicks.push({
+          sourceProductId,
+          targetProductId: product.id,
+          type: trackingType.toUpperCase(),
+          timestamp: Date.now(),
+        })
+        // Keep only last 20 clicks, expire after 7 days
+        const recentClicks = clicks.filter(
+          (c: { timestamp: number }) => Date.now() - c.timestamp < 7 * 24 * 60 * 60 * 1000
+        ).slice(-20)
+        sessionStorage.setItem('recommendation_clicks', JSON.stringify(recentClicks))
+      } catch (error) {
+        console.error('Failed to track recommendation click:', error)
+      }
     }
   }
 

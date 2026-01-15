@@ -60,12 +60,33 @@ const STATUS_ICONS = {
   CANCELLED: Warning,
 }
 
+// Modern status colors matching the site's tier color system
 const STATUS_COLORS = {
-  PENDING: 'bg-gray-100 text-gray-700 border-gray-200',
-  PROCESSING: 'bg-gray-100 text-gray-700 border-gray-200',
-  SHIPPED: 'bg-green-50 text-green-600 border-green-200',
-  DELIVERED: 'bg-green-50 text-green-600 border-green-200',
-  CANCELLED: 'bg-red-50 text-red-600 border-red-200',
+  PENDING: {
+    gradient: 'from-amber-500 via-orange-500 to-amber-600',
+    iconBg: 'bg-amber-400/30',
+    badge: 'bg-amber-100 text-amber-800 border-amber-200',
+  },
+  PROCESSING: {
+    gradient: 'from-blue-500 via-blue-600 to-indigo-700',
+    iconBg: 'bg-blue-400/30',
+    badge: 'bg-blue-100 text-blue-800 border-blue-200',
+  },
+  SHIPPED: {
+    gradient: 'from-emerald-500 via-green-500 to-teal-600',
+    iconBg: 'bg-emerald-400/30',
+    badge: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  },
+  DELIVERED: {
+    gradient: 'from-purple-500 via-violet-500 to-purple-700',
+    iconBg: 'bg-purple-400/30',
+    badge: 'bg-purple-100 text-purple-800 border-purple-200',
+  },
+  CANCELLED: {
+    gradient: 'from-rose-500 via-red-500 to-rose-600',
+    iconBg: 'bg-rose-400/30',
+    badge: 'bg-rose-100 text-rose-800 border-rose-200',
+  },
 }
 
 export default function OrderTrackingPage() {
@@ -102,10 +123,10 @@ export default function OrderTrackingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center">
         <div className="text-center">
-          <CircleNotch size={48} weight="bold" className="animate-spin text-red-600 mx-auto mb-4" />
-          <p className="text-gray-500 font-mono text-sm uppercase tracking-wide">Loading Order...</p>
+          <CircleNotch size={48} weight="bold" className="animate-spin text-black mx-auto mb-4" />
+          <p className="text-black/50 font-medium text-sm">Loading Order...</p>
         </div>
       </div>
     )
@@ -113,14 +134,16 @@ export default function OrderTrackingPage() {
 
   if (error || !order) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center py-12 px-4">
-        <div className="max-w-2xl w-full bg-white rounded-lg p-8 text-center border border-gray-200">
-          <Warning size={64} weight="bold" className="text-red-600 mx-auto mb-4" />
-          <h1 className="text-2xl font-black mb-2 text-black uppercase tracking-tight">Order Not Found</h1>
-          <p className="text-gray-500 mb-6">
-            {error || 'We couldn\'t find an order with this ID. Please check your order confirmation email.'}
+      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center py-12 px-4">
+        <div className="max-w-md w-full bg-white rounded-2xl p-8 text-center shadow-sm border border-black/5">
+          <div className="w-16 h-16 bg-rose-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Warning size={32} weight="fill" className="text-rose-600" />
+          </div>
+          <h1 className="text-2xl font-bold mb-2 text-black">Order Not Found</h1>
+          <p className="text-black/50 mb-6">
+            {error || "We couldn't find an order with this ID. Please check your order confirmation email."}
           </p>
-          <Button asChild className="bg-black hover:bg-gray-900 text-white font-black uppercase tracking-wide">
+          <Button asChild className="bg-black hover:bg-black/90 text-white font-medium rounded-xl px-6 py-3">
             <Link href="/products">Continue Shopping</Link>
           </Button>
         </div>
@@ -129,7 +152,7 @@ export default function OrderTrackingPage() {
   }
 
   const StatusIcon = STATUS_ICONS[order.status as keyof typeof STATUS_ICONS] || Clock
-  const statusColor = STATUS_COLORS[order.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.PENDING
+  const statusColors = STATUS_COLORS[order.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.PENDING
 
   // Helper function to get product image
   const getProductImage = (item: OrderItem): string => {
@@ -229,86 +252,91 @@ export default function OrderTrackingPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-white py-6 px-4 text-black">
+    <div className="min-h-screen bg-[#FAF8F5] py-8 px-4 text-black">
       <div className="max-w-7xl mx-auto">
-        {/* Back Button & Header */}
-        <div className="mb-6">
-          <Link 
-            href="/profile"
-            className="inline-flex items-center gap-2 text-neutral-400 hover:text-white transition-colors mb-4 group"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256" className="group-hover:-translate-x-1 transition-transform">
-              <path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"></path>
-            </svg>
-            <span className="font-bold text-sm uppercase tracking-wider">Back to Profile</span>
-          </Link>
+        {/* Back Button */}
+        <Link 
+          href="/profile"
+          className="inline-flex items-center gap-2 text-black/50 hover:text-black transition-colors mb-6 group"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256" className="group-hover:-translate-x-1 transition-transform">
+            <path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"></path>
+          </svg>
+          <span className="font-medium text-sm">Back to Profile</span>
+        </Link>
+
+        {/* Order Header Card - Modern Gradient Style */}
+        <div className={`bg-linear-to-br ${statusColors.gradient} rounded-2xl p-6 text-white shadow-xl relative overflow-hidden mb-6`}>
+          {/* Decorative elements */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-xl" />
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-lg" />
           
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-black">
-                    ORDER
-                  </h1>
-                  <div className="px-4 py-2 bg-gray-100 rounded-lg border border-gray-200">
-                    <span className="text-2xl font-mono font-black text-black">#{order.orderNumber}</span>
-                  </div>
+          <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <div className={`w-12 h-12 ${statusColors.iconBg} rounded-xl flex items-center justify-center`}>
+                  <StatusIcon size={24} weight="fill" className="text-white" />
                 </div>
-                <p className="text-gray-600 font-medium">{order.customerEmail}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Placed {new Date(order.createdAt).toLocaleDateString('en-US', {
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit'
-                  })}
-                </p>
+                <div>
+                  <p className="text-white/70 text-sm font-medium">Order</p>
+                  <h1 className="text-2xl md:text-3xl font-bold">#{order.orderNumber}</h1>
+                </div>
               </div>
-              <div className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-black tracking-wider border ${statusColor}`}>
-                <StatusIcon className="w-5 h-5" weight="bold" />
-                <span className="uppercase text-sm">{order.status}</span>
-              </div>
+              <p className="text-white/80 text-sm">{order.customerEmail}</p>
+              <p className="text-white/60 text-xs mt-1">
+                Placed {new Date(order.createdAt).toLocaleDateString('en-US', {
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit'
+                })}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`px-4 py-2 rounded-xl text-sm font-semibold border ${statusColors.badge}`}>
+                {order.status}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Main Content - Redesigned Layout */}
+        {/* Main Content - Modern Layout */}
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Left Sidebar - Timeline */}
           <div className="lg:col-span-1">
-            <div className="sticky top-6 space-y-6">
+            <div className="sticky top-6 space-y-4">
               {/* Timeline */}
-              <div className="relative bg-white rounded-lg p-6 border border-gray-200 overflow-hidden">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
-                    <Clock size={20} weight="bold" className="text-gray-700" />
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-black/5">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center">
+                    <Clock size={20} weight="fill" className="text-black/60" />
                   </div>
-                  <h2 className="font-black text-xl text-black tracking-tight uppercase">Timeline</h2>
+                  <h2 className="font-bold text-lg text-black">Order Timeline</h2>
                 </div>
 
                 <div className="relative">
-                  <div className="absolute left-[15px] top-8 bottom-8 w-0.5 bg-gray-200" />
+                  <div className="absolute left-[15px] top-4 bottom-4 w-0.5 bg-black/10" />
 
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     {timelineStages.map((stage) => {
                       const Icon = stage.icon
                       return (
                         <div key={stage.label} className="relative flex items-start gap-4">
                           <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center z-10 transition-all duration-300 ${
                             stage.completed 
-                              ? 'bg-black text-white scale-110' 
-                              : 'bg-gray-100 text-gray-600 border border-gray-200'
+                              ? 'bg-black text-white' 
+                              : 'bg-black/5 text-black/40'
                           }`}>
-                            <Icon className="w-4 h-4" weight="bold" />
+                            <Icon className="w-4 h-4" weight="fill" />
                           </div>
 
                           <div className="flex-1 pt-1">
-                            <p className={`font-bold text-sm mb-1 ${stage.completed ? 'text-black' : 'text-gray-600'} tracking-wide uppercase`}>
+                            <p className={`font-semibold text-sm ${stage.completed ? 'text-black' : 'text-black/40'}`}>
                               {stage.label}
                             </p>
                             {stage.completed && stage.date && (
-                              <p className="text-xs text-gray-500 font-medium">
+                              <p className="text-xs text-black/50 mt-0.5">
                                 {new Date(stage.date).toLocaleDateString('en-US', {
                                   month: 'short',
                                   day: 'numeric',
@@ -318,6 +346,10 @@ export default function OrderTrackingPage() {
                               </p>
                             )}
                           </div>
+                          
+                          {stage.completed && (
+                            <CheckCircle size={16} weight="fill" className="text-emerald-500 mt-1" />
+                          )}
                         </div>
                       )
                     })}
@@ -326,23 +358,21 @@ export default function OrderTrackingPage() {
               </div>
 
               {/* Shipping Address */}
-              <div className="relative bg-neutral-900 rounded-2xl shadow-2xl p-6 border border-neutral-800 overflow-hidden">
-                <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-500/10 blur-3xl" />
-                
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-black/5">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-linear-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/50">
-                    <MapPin size={20} weight="bold" className="text-white" />
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                    <MapPin size={20} weight="fill" className="text-blue-600" />
                   </div>
-                  <h2 className="font-black text-xl text-white tracking-tight uppercase">Shipping</h2>
+                  <h2 className="font-bold text-lg text-black">Shipping Address</h2>
                 </div>
                 
-                <div className="text-sm text-neutral-300 bg-neutral-800/50 rounded-xl p-4 space-y-1 border border-neutral-700">
-                  <p className="font-black text-white text-base mb-2">
+                <div className="text-sm text-black/60 bg-black/2 rounded-xl p-4 border border-black/5">
+                  <p className="font-semibold text-black mb-2">
                     {order.shippingAddress.firstName} {order.shippingAddress.lastName}
                   </p>
-                  <p className="font-medium">{order.shippingAddress.address1}</p>
-                  {order.shippingAddress.address2 && <p className="font-medium">{order.shippingAddress.address2}</p>}
-                  <p className="font-medium">
+                  <p>{order.shippingAddress.address1}</p>
+                  {order.shippingAddress.address2 && <p>{order.shippingAddress.address2}</p>}
+                  <p>
                     {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.postalCode}
                   </p>
                 </div>
@@ -350,76 +380,74 @@ export default function OrderTrackingPage() {
 
               {/* Tracking Info */}
               {order.trackingNumber && (
-                <div className="relative bg-neutral-900 rounded-2xl shadow-2xl p-6 border border-neutral-800 overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/10 blur-3xl" />
-                  
+                <div className="bg-white rounded-2xl p-5 shadow-sm border border-black/5">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-linear-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg shadow-pink-500/50">
-                      <Package size={20} weight="bold" className="text-white" />
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                      <Truck size={20} weight="fill" className="text-emerald-600" />
                     </div>
-                    <h2 className="font-black text-xl text-black tracking-tight uppercase">Tracking</h2>
+                    <h2 className="font-bold text-lg text-black">Tracking Info</h2>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="bg-black/2 rounded-xl p-3 border border-black/5">
+                      <p className="text-xs text-black/50 mb-1">Tracking Number</p>
+                      <p className="font-mono text-sm font-semibold text-black">{order.trackingNumber}</p>
                     </div>
 
-                    <div className="space-y-3">
-                      <div className="relative bg-gray-50 rounded-xl p-3 border border-gray-200 overflow-hidden">
-                        <p className="text-xs text-gray-500 mb-1 font-bold uppercase tracking-wider">Tracking #</p>
-                        <p className="font-mono text-base font-black text-black">{order.trackingNumber}</p>
+                    {order.carrier && (
+                      <div className="bg-black/2 rounded-xl p-3 border border-black/5">
+                        <p className="text-xs text-black/50 mb-1">Carrier</p>
+                        <p className="text-sm font-semibold text-black">{order.carrier}</p>
                       </div>
+                    )}
 
-                      {order.carrier && (
-                        <div className="relative bg-gray-50 rounded-xl p-3 border border-gray-200 overflow-hidden">
-                          <p className="text-xs text-gray-500 mb-1 font-bold uppercase tracking-wider">Carrier</p>
-                          <p className="text-base font-black text-black">{order.carrier}</p>
-                        </div>
-                      )}
-
-                      {order.estimatedDelivery && (
-                        <div className="relative bg-gray-50 rounded-xl p-3 border border-gray-200 overflow-hidden">
-                          <p className="text-xs text-gray-500 mb-1 font-bold uppercase tracking-wider">Est. Delivery</p>
-                          <p className="text-base font-black text-black">
-                            {new Date(order.estimatedDelivery).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {order.trackingUrl && (
-                      <a
-                        href={order.trackingUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center gap-2 w-full mt-4 px-6 py-3 bg-black text-white rounded-lg transition-all text-sm font-black tracking-wider uppercase border border-gray-200"
-                      >
-                        <ArrowSquareOut size={18} weight="bold" />
-                        Track Package
-                      </a>
+                    {order.estimatedDelivery && (
+                      <div className="bg-black/2 rounded-xl p-3 border border-black/5">
+                        <p className="text-xs text-black/50 mb-1">Estimated Delivery</p>
+                        <p className="text-sm font-semibold text-black">
+                          {new Date(order.estimatedDelivery).toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </p>
+                      </div>
                     )}
                   </div>
+
+                  {order.trackingUrl && (
+                    <a
+                      href={order.trackingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 w-full mt-4 px-4 py-3 bg-black text-white rounded-xl transition-all text-sm font-medium hover:bg-black/90"
+                    >
+                      <ArrowSquareOut size={18} weight="bold" />
+                      Track Package
+                    </a>
+                  )}
+                </div>
               )}
             </div>
           </div>
 
           {/* Right Column - Order Items & Summary */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4">
             {/* Order Items */}
-            <div className="relative bg-white rounded-lg p-6 border border-gray-200 overflow-hidden">
-              <div className="flex items-center justify-between mb-6">
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-black/5">
+              <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
-                    <Package size={20} weight="bold" className="text-gray-700" />
+                  <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center">
+                    <Package size={20} weight="fill" className="text-black/60" />
                   </div>
-                  <h2 className="font-black text-xl text-black tracking-tight uppercase">Items</h2>
+                  <h2 className="font-bold text-lg text-black">Order Items</h2>
                 </div>
-                <span className="px-3 py-1 rounded-lg bg-gray-100 border border-gray-200 text-black font-black text-sm">
-                  {order.items.length}
+                <span className="px-3 py-1 rounded-lg bg-black/5 text-black/60 font-semibold text-sm">
+                  {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
                 </span>
               </div>
               
-              <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                 {order.items.map((item) => {
                   const variantInfo = item.variantDetails ? JSON.parse(item.variantDetails) : null
                   const productSlug = item.product?.slug || ''
@@ -430,18 +458,18 @@ export default function OrderTrackingPage() {
                     imageUrl !== '/placeholder-product.jpg'
                   
                   return (
-                    <div key={item.id} className="group relative">
+                    <div key={item.id} className="group">
                       <Link 
                         href={productSlug ? `/products/${productSlug}` : '#'}
-                        className="flex gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-gray-300 transition-all duration-300"
+                        className="flex gap-4 p-4 bg-black/2 rounded-xl border border-black/5 hover:border-black/10 hover:bg-black/4 transition-all duration-200"
                       >
                         {/* Product Image */}
-                        <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-gray-50 shrink-0 border border-gray-200 group-hover:border-gray-300 transition-all flex items-center justify-center">
+                        <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-white shrink-0 border border-black/5 flex items-center justify-center">
                           {hasValidImage && typeof imageUrl === 'string' ? (
                             <img
                               src={imageUrl}
                               alt={item.productName}
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                               loading="lazy"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement
@@ -456,26 +484,26 @@ export default function OrderTrackingPage() {
                               }}
                             />
                           ) : (
-                            <Package size={32} className="text-gray-400" />
+                            <Package size={28} className="text-black/20" />
                           )}
                         </div>
                         
                         {/* Product Details */}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-black group-hover:text-gray-800 transition-colors line-clamp-2 mb-2">
+                          <h3 className="font-semibold text-black group-hover:text-black/80 transition-colors line-clamp-2 text-sm mb-2">
                             {item.productName}
                           </h3>
                           
                           {/* Variant Information */}
                           {(variantInfo || item.productVariant) && (
-                            <div className="flex flex-wrap gap-2 mb-2">
+                            <div className="flex flex-wrap gap-1.5 mb-2">
                               {(variantInfo?.size || item.productVariant?.size) && (
-                                <span className="text-xs px-2 py-1 rounded-md bg-gray-100 text-gray-700 font-bold border border-gray-200">
+                                <span className="text-xs px-2 py-0.5 rounded-md bg-white text-black/60 font-medium border border-black/10">
                                   {variantInfo?.size || item.productVariant?.size}
                                 </span>
                               )}
                               {(variantInfo?.color || item.productVariant?.color) && (
-                                <span className="text-xs px-2 py-1 rounded-md bg-gray-100 text-gray-700 font-bold border border-gray-200">
+                                <span className="text-xs px-2 py-0.5 rounded-md bg-white text-black/60 font-medium border border-black/10">
                                   {variantInfo?.color || item.productVariant?.color}
                                 </span>
                               )}
@@ -483,11 +511,11 @@ export default function OrderTrackingPage() {
                           )}
                           
                           {/* Quantity & Price */}
-                            <div className="flex items-center justify-between mt-3">
-                            <span className="text-sm text-gray-600 font-medium">
-                              Qty: <span className="text-black font-black">{item.quantity}</span>
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-xs text-black/50">
+                              Qty: <span className="text-black font-semibold">{item.quantity}</span>
                             </span>
-                            <span className="text-lg font-black text-black">
+                            <span className="text-base font-bold text-black">
                               ${(item.price * item.quantity).toFixed(2)}
                             </span>
                           </div>
@@ -500,60 +528,62 @@ export default function OrderTrackingPage() {
             </div>
 
             {/* Price Summary */}
-            <div className="relative bg-white rounded-lg p-6 border border-gray-200 overflow-hidden">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256" className="text-gray-700">
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-black/5">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256" className="text-black/60">
                     <path d="M200,168a8,8,0,0,1-8,8H136v16a8,8,0,0,1-16,0V176H64a8,8,0,0,1,0-16h56V144a8,8,0,0,1,16,0v16h56A8,8,0,0,1,200,168Zm-72-40a8,8,0,0,0,8-8V104h56a8,8,0,0,0,0-16H136V72a8,8,0,0,0-16,0V88H64a8,8,0,0,0,0,16h56v16A8,8,0,0,0,128,128Zm104,0A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"></path>
                   </svg>
                 </div>
-                <h2 className="font-black text-xl text-black tracking-tight uppercase">Summary</h2>
+                <h2 className="font-bold text-lg text-black">Order Summary</h2>
               </div>
 
               <div className="space-y-3">
-                <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                  <span className="text-gray-600 font-medium">Subtotal</span>
-                  <span className="font-black text-black text-lg">${order.subtotal.toFixed(2)}</span>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-black/50 text-sm">Subtotal</span>
+                  <span className="font-semibold text-black">${order.subtotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                  <span className="text-gray-600 font-medium">Shipping</span>
-                  <span className="font-black text-black text-lg">
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-black/50 text-sm">Shipping</span>
+                  <span className="font-semibold text-black">
                     {order.shipping === 0 ? (
-                      <span className="text-green-600 font-black">FREE</span>
+                      <span className="text-emerald-600">FREE</span>
                     ) : (
                       `$${order.shipping.toFixed(2)}`
                     )}
                   </span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                  <span className="text-gray-600 font-medium">Tax</span>
-                  <span className="font-black text-black text-lg">${order.tax.toFixed(2)}</span>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-black/50 text-sm">Tax</span>
+                  <span className="font-semibold text-black">${order.tax.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between items-center pt-4 mt-2">
-                  <span className="text-black font-black text-xl uppercase tracking-wider">Total</span>
-                  <span className="font-black text-black text-2xl">
-                    ${order.total.toFixed(2)}
-                  </span>
+                <div className="border-t border-black/10 pt-4 mt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-black font-bold text-lg">Total</span>
+                    <span className="font-bold text-black text-xl">
+                      ${order.total.toFixed(2)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Help Section */}
-            <div className="relative bg-gray-50 rounded-lg p-6 border border-gray-200 overflow-hidden">
-              <div className="relative z-10 text-center">
-                <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256" className="text-gray-700">
+            <div className="bg-black/2 rounded-2xl p-5 border border-black/5">
+              <div className="text-center">
+                <div className="w-12 h-12 rounded-xl bg-black/5 flex items-center justify-center mx-auto mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256" className="text-black/50">
                     <path d="M140,180a12,12,0,1,1-12-12A12,12,0,0,1,140,180ZM128,72c-22.06,0-40,16.15-40,36v4a8,8,0,0,0,16,0v-4c0-11,10.77-20,24-20s24,9,24,20-10.77,20-24,20a8,8,0,0,0-8,8v8a8,8,0,0,0,16,0v-.72c18.24-3.35,32-17.9,32-35.28C168,88.15,150.06,72,128,72Zm104,56A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"></path>
                   </svg>
                 </div>
-                <h3 className="font-black text-lg mb-2 text-black uppercase tracking-wide">Need Help?</h3>
-                <p className="text-gray-600 mb-4 text-sm">Questions about your order?</p>
-                <div className="flex flex-col gap-2">
-                  <Button asChild className="bg-black text-white font-black uppercase tracking-wider">
+                <h3 className="font-bold text-base mb-1 text-black">Need Help?</h3>
+                <p className="text-black/50 mb-4 text-sm">Questions about your order?</p>
+                <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                  <Button asChild className="bg-black text-white font-medium rounded-xl hover:bg-black/90">
                     <Link href="/contact">Contact Us</Link>
                   </Button>
-                  <Button asChild variant="outline" className="border-2 border-gray-200 text-black hover:bg-gray-100 font-black uppercase tracking-wider">
-                    <Link href="/products">Shop More</Link>
+                  <Button asChild variant="outline" className="border border-black/10 text-black hover:bg-black/5 font-medium rounded-xl">
+                    <Link href="/products">Continue Shopping</Link>
                   </Button>
                 </div>
               </div>

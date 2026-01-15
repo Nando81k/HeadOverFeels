@@ -29,6 +29,30 @@ export async function GET(request: NextRequest) {
       where.isActive = isActive === 'true'
     }
 
+    const limit = parseInt(searchParams.get('limit') || '0', 10) || 0
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
+
+    if (limit > 0) {
+      const total = await prisma.reward.count({ where })
+      const items = await prisma.reward.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: {
+          sortOrder: 'asc',
+        },
+        include: {
+          _count: {
+            select: {
+              redemptions: true,
+            },
+          },
+        },
+      })
+
+      return NextResponse.json({ items, total, page, pageCount: Math.max(1, Math.ceil(total / limit)) })
+    }
+
     const rewards = await prisma.reward.findMany({
       where,
       orderBy: {

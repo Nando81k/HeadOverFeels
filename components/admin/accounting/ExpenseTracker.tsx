@@ -418,12 +418,16 @@ interface ExpenseModalProps {
 }
 
 function ExpenseModal({ expense, categories, onClose, onSave }: ExpenseModalProps) {
+  // Find the Uncategorized category to use as default
+  const uncategorizedCategory = categories.find(c => c.name === 'Uncategorized' || c.name.toLowerCase() === 'uncategorized')
+  const defaultCategoryId = expense?.categoryId || uncategorizedCategory?.id || categories[0]?.id || ''
+
   const [formData, setFormData] = useState({
     description: expense?.description || '',
     amount: expense?.amount?.toString() || '',
     date: expense?.date ? expense.date.split('T')[0] : new Date().toISOString().split('T')[0],
     vendor: expense?.vendor || '',
-    categoryId: expense?.categoryId || '',
+    categoryId: defaultCategoryId,
     status: expense?.status || 'RECORDED',
     isTaxDeductible: expense?.isTaxDeductible || false,
     isRecurring: expense?.isRecurring || false,
@@ -436,6 +440,10 @@ function ExpenseModal({ expense, categories, onClose, onSave }: ExpenseModalProp
     e.preventDefault()
     if (!formData.description || !formData.amount) {
       setError('Description and amount are required')
+      return
+    }
+    if (!formData.categoryId) {
+      setError('Please select a category')
       return
     }
 
@@ -453,7 +461,7 @@ function ExpenseModal({ expense, categories, onClose, onSave }: ExpenseModalProp
         body: JSON.stringify({
           ...formData,
           amount: parseFloat(formData.amount),
-          categoryId: formData.categoryId || null
+          categoryId: formData.categoryId
         })
       })
 
@@ -562,16 +570,20 @@ function ExpenseModal({ expense, categories, onClose, onSave }: ExpenseModalProp
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Category</label>
+              <label className={labelClass}>Category *</label>
               <select
                 value={formData.categoryId}
                 onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
                 className={selectClass}
+                required
               >
-                <option value="">Uncategorized</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
+                {categories.length === 0 ? (
+                  <option value="">No categories available</option>
+                ) : (
+                  categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))
+                )}
               </select>
             </div>
             <div>

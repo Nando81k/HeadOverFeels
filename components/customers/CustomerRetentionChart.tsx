@@ -291,7 +291,7 @@ export default function CustomerRetentionChart({
             <Legend content={<CustomLegend />} />
             <Area
               yAxisId="left"
-              type="monotone"
+              type="linear"
               dataKey="newCustomers"
               stroke="#60a5fa"
               strokeWidth={2}
@@ -302,7 +302,7 @@ export default function CustomerRetentionChart({
             />
             <Area
               yAxisId="left"
-              type="monotone"
+              type="linear"
               dataKey="returningCustomers"
               stroke="#34d399"
               strokeWidth={2}
@@ -313,7 +313,7 @@ export default function CustomerRetentionChart({
             />
             <Line
               yAxisId="right"
-              type="monotone"
+              type="linear"
               dataKey="retentionRate"
               stroke="#a78bfa"
               strokeWidth={2}
@@ -360,7 +360,7 @@ export default function CustomerRetentionChart({
             <Legend content={<CustomLegend />} />
             <Line
               yAxisId="left"
-              type="monotone"
+              type="linear"
               dataKey="newCustomers"
               stroke="#60a5fa"
               strokeWidth={2}
@@ -372,7 +372,7 @@ export default function CustomerRetentionChart({
             />
             <Line
               yAxisId="left"
-              type="monotone"
+              type="linear"
               dataKey="returningCustomers"
               stroke="#34d399"
               strokeWidth={2}
@@ -384,7 +384,7 @@ export default function CustomerRetentionChart({
             />
             <Line
               yAxisId="right"
-              type="monotone"
+              type="linear"
               dataKey="retentionRate"
               stroke="#a78bfa"
               strokeWidth={2}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getActiveMultiplierEvent } from '@/lib/loyalty/service'
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,6 +21,9 @@ export async function GET(request: NextRequest) {
         loyaltyTier: true,
       },
     })
+    
+    // Fetch active multiplier event
+    const activeEvent = await getActiveMultiplierEvent(sessionId)
 
     if (!customer) {
       return NextResponse.json(
@@ -103,7 +107,17 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       currentTier: customer.loyaltyTier,
-      nextTier,
+      tierName: customer.loyaltyTier?.name || 'Friend',
+      tierSlug: customer.loyaltyTier?.slug || 'friend',
+      pointMultiplier: customer.loyaltyTier?.pointMultiplier || 1,
+      nextTier: nextTier ? {
+        name: nextTier.name,
+        pointsNeeded: Number(nextTier.minAnnualSpend) - annualSpend,
+      } : null,
+      activeEvent: activeEvent ? {
+        name: activeEvent.eventName,
+        multiplier: activeEvent.multiplier,
+      } : null,
       points: customer.currentPoints,
       annualSpend: annualSpend,
       recentActivity: recentActivity.map((activity) => ({
