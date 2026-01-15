@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Flame } from '@phosphor-icons/react'
@@ -27,6 +27,57 @@ export function TrendingProducts({ limit = 8, categoryId }: TrendingProductsProp
   const [products, setProducts] = useState<TrendingProduct[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Track impressions for trending products
+  const trackImpressions = useCallback(async (productIds: string[]) => {
+    if (productIds.length === 0) return
+    try {
+      // For trending, we use a special "TRENDING" source ID since there's no source product
+      await fetch('/api/recommendations/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'batch_impression',
+          sourceProductId: 'TRENDING_HOMEPAGE', // Special identifier for trending section
+          targetProductIds: productIds,
+          type: 'TRENDING',
+        }),
+      })
+    } catch (error) {
+      console.error('Failed to track trending impressions:', error)
+    }
+  }, [])
+
+  // Track click on trending product
+  const handleProductClick = async (productId: string) => {
+    try {
+      await fetch('/api/recommendations/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'click',
+          sourceProductId: 'TRENDING_HOMEPAGE',
+          targetProductId: productId,
+          type: 'TRENDING',
+        }),
+      })
+      
+      // Store click for conversion attribution
+      const clicks = JSON.parse(sessionStorage.getItem('recommendation_clicks') || '[]')
+      clicks.push({
+        sourceProductId: 'TRENDING_HOMEPAGE',
+        targetProductId: productId,
+        type: 'TRENDING',
+        timestamp: Date.now(),
+      })
+      const recentClicks = clicks.filter(
+        (c: { timestamp: number }) => Date.now() - c.timestamp < 7 * 24 * 60 * 60 * 1000
+      ).slice(-20)
+      sessionStorage.setItem('recommendation_clicks', JSON.stringify(recentClicks))
+    } catch (error) {
+      console.error('Failed to track trending click:', error)
+    }
+  }
+
   useEffect(() => {
     async function fetchTrendingProducts() {
       try {
@@ -40,7 +91,11 @@ export function TrendingProducts({ limit = 8, categoryId }: TrendingProductsProp
         const data = await response.json()
         
         if (data.success) {
-          setProducts(data.data.recommendations || [])
+          const recommendations = data.data.recommendations || []
+          setProducts(recommendations)
+          
+          // Track impressions when products are loaded
+          trackImpressions(recommendations.map((p: TrendingProduct) => p.id))
         }
       } catch (err) {
         console.error('Error fetching trending products:', err)
@@ -50,7 +105,7 @@ export function TrendingProducts({ limit = 8, categoryId }: TrendingProductsProp
     }
 
     fetchTrendingProducts()
-  }, [limit, categoryId])
+  }, [limit, categoryId, trackImpressions])
 
   if (loading) {
     return (
@@ -95,6 +150,7 @@ export function TrendingProducts({ limit = 8, categoryId }: TrendingProductsProp
               <Link
                 key={product.id}
                 href={`/products/${product.slug}`}
+                onClick={() => handleProductClick(product.id)}
                 className="group relative bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all"
               >
                 {index < 3 && (

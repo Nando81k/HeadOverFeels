@@ -88,9 +88,29 @@ export async function GET(
       })
     )
 
+    // Get points earned for this order
+    let pointsEarned = 0
+    if (order.customerId) {
+      const pointsTransaction = await prisma.pointsTransaction.findFirst({
+        where: {
+          orderId: id,
+          customerId: order.customerId,
+          type: 'PURCHASE',
+          points: { gt: 0 },
+        },
+        select: {
+          points: true,
+        },
+      })
+      if (pointsTransaction) {
+        pointsEarned = pointsTransaction.points
+      }
+    }
+
     const enrichedOrder = {
       ...order,
       items: enrichedItems,
+      pointsEarned,
     }
 
     return NextResponse.json({ data: enrichedOrder })

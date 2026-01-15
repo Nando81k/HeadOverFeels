@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth/context'
 import { calculateTierProgress, TIER_HIERARCHY } from '@/lib/loyalty/tier-progress'
-import { Sparkle, Gift, Heart, Truck, Lightning, Users, Download, Package, ArrowLeft, CircleNotch, Lock, CheckCircle, Warning, TrendUp, Medal, X, Copy, Check, Confetti, Star, Clock, CalendarBlank } from '@phosphor-icons/react'
+import { Sparkle, Gift, Heart, Truck, Lightning, Users, Download, Package, ArrowLeft, CircleNotch, Lock, CheckCircle, Warning, TrendUp, Medal, X, Copy, Check, Confetti, Star } from '@phosphor-icons/react'
 import Link from 'next/link'
 
 interface Reward {
@@ -288,12 +288,12 @@ export default function RewardsPage() {
 
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-black flex items-center justify-center">
-              <Sparkle size={24} weight="fill" className="text-white" />
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-14 h-14 bg-black rounded-2xl flex items-center justify-center">
+              <Sparkle size={28} weight="fill" className="text-white" />
             </div>
             <div>
-              <h1 className="text-4xl font-black text-black">
+              <h1 className="text-3xl font-bold text-black">
                 Rewards Catalog
               </h1>
               <p className="text-black/60">
@@ -302,120 +302,140 @@ export default function RewardsPage() {
             </div>
           </div>
 
-          {/* Points Balance */}
-          <div className="bg-white rounded-none border border-black/10 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-sm text-black/60 mb-1">Your Care Points</p>
-                <p className="text-3xl font-bold text-black">
-                  {customerPoints.toLocaleString()}
-                </p>
-                {/* Current Tier Button */}
-                <button
-                  onClick={() => setShowTierModal(true)}
-                  className="mt-2 inline-flex items-center gap-2 text-sm text-black hover:bg-black/5 px-3 py-1.5 rounded-none font-medium transition-all duration-200 border border-black/10"
-                >
-                  <Medal size={16} weight="fill" />
-                  {user.loyaltyTier?.name || 'Head'} Tier
-                </button>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-black/60 mb-1">Points Multiplier</p>
-                <div className="flex items-center justify-end gap-2">
-                  <p className="text-2xl font-bold text-black">
-                    {user.loyaltyTier?.pointMultiplier || 1}x
-                  </p>
-                </div>
-                <p className="text-xs text-black/40 mt-1">
-                  on every purchase
-                </p>
-              </div>
-            </div>
+          {/* Points Balance Card - Matching Profile Page Style */}
+          {user.loyaltyTier && (() => {
+            const tierColors: Record<string, { gradient: string; iconBg: string; progressBg: string; progressFill: string; badge: string }> = {
+              head: {
+                gradient: 'from-blue-500 via-blue-600 to-indigo-700',
+                iconBg: 'bg-blue-400/30',
+                progressBg: 'bg-blue-400/30',
+                progressFill: 'bg-blue-300',
+                badge: 'bg-blue-400/30',
+              },
+              heart: {
+                gradient: 'from-pink-500 via-rose-500 to-pink-600',
+                iconBg: 'bg-pink-400/30',
+                progressBg: 'bg-pink-400/30',
+                progressFill: 'bg-pink-300',
+                badge: 'bg-pink-400/30',
+              },
+              mind: {
+                gradient: 'from-emerald-500 via-green-500 to-teal-600',
+                iconBg: 'bg-emerald-400/30',
+                progressBg: 'bg-emerald-400/30',
+                progressFill: 'bg-emerald-300',
+                badge: 'bg-emerald-400/30',
+              },
+              overdrive: {
+                gradient: 'from-purple-500 via-violet-500 to-purple-700',
+                iconBg: 'bg-purple-400/30',
+                progressBg: 'bg-purple-400/30',
+                progressFill: 'bg-purple-300',
+                badge: 'bg-purple-400/30',
+              },
+            }
+            const currentTierColors = tierColors[user.loyaltyTier.slug] || tierColors.head
+            const tierProgress = calculateTierProgress(user.loyaltyTier.slug, user.annualPointsEarned ?? 0)
+            
+            return (
+              <div className={`bg-linear-to-br ${currentTierColors.gradient} rounded-2xl p-6 text-white shadow-xl relative overflow-hidden`}>
+                {/* Decorative elements */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-xl" />
+                
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <Medal size={24} weight="bold" className="text-white/80" />
+                      <div>
+                        <span className="text-xs font-medium uppercase tracking-wider text-white/70">Loyalty Tier</span>
+                        <h2 className="text-3xl font-bold leading-tight">{user.loyaltyTier.name}</h2>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowTierModal(true)}
+                      className={`px-4 py-1.5 ${currentTierColors.badge} backdrop-blur-sm rounded-full text-sm font-semibold hover:bg-white/30 transition-colors`}
+                    >
+                      {user.loyaltyTier.pointMultiplier}x Points
+                    </button>
+                  </div>
 
-            {/* Tier Progress or Start Earning Message */}
-            {user.loyaltyTier && (() => {
-              const tierProgress = calculateTierProgress(
-                user.loyaltyTier.slug,
-                user.annualPointsEarned ?? 0
-              )
-              
-              // If user has 0 points, show encouraging message
-              if ((user.annualPointsEarned ?? 0) === 0 && customerPoints === 0) {
-                return (
-                  <div className="border-t border-black/10 pt-4">
-                    <div className="flex items-center gap-3 bg-black/5 p-4 rounded-none">
-                      <div className="w-10 h-10 bg-black/10 rounded-full flex items-center justify-center">
-                        <Sparkle size={20} weight="fill" className="text-black/60" />
+                  {/* Stats Row */}
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className={`flex-1 ${currentTierColors.iconBg} backdrop-blur-sm rounded-xl p-4`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Sparkle size={14} weight="fill" className="text-white/80" />
+                        <span className="text-[10px] uppercase tracking-wider text-white/70">Available Points</span>
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-black">Start earning points today!</p>
-                        <p className="text-xs text-black/60">
-                          Make your first purchase to earn Care Points and unlock exclusive rewards.
-                        </p>
-                      </div>
-                      <Link
-                        href="/products"
-                        className="shrink-0 bg-black text-white text-xs font-medium px-4 py-2 hover:bg-black/90 transition-colors"
-                      >
-                        Shop Now
-                      </Link>
+                      <p className="text-2xl font-bold">{customerPoints.toLocaleString()}</p>
                     </div>
-                  </div>
-                )
-              }
-              
-              return !tierProgress.isMaxTier ? (
-                <div className="border-t border-black/10 pt-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <TrendUp size={16} weight="bold" className="text-black/60" />
-                      <p className="text-xs text-black/60 uppercase tracking-wide">
-                        Progress to {tierProgress.nextTier?.name}
-                      </p>
+                    <div className={`flex-1 ${currentTierColors.iconBg} backdrop-blur-sm rounded-xl p-4`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Gift size={14} weight="bold" className="text-white/80" />
+                        <span className="text-[10px] uppercase tracking-wider text-white/70">Annual Earned</span>
+                      </div>
+                      <p className="text-2xl font-bold">{(user.annualPointsEarned ?? 0).toLocaleString()}</p>
                     </div>
                     <button
                       onClick={() => setShowTierModal(true)}
-                      className="text-xs text-black hover:bg-black/5 px-3 py-1.5 rounded-none font-medium transition-all duration-200 border border-black/10"
+                      className="flex items-center justify-center gap-2 bg-white/20 backdrop-blur-sm text-white px-5 py-4 rounded-xl font-medium hover:bg-white/30 transition-colors text-sm whitespace-nowrap"
                     >
-                      View Details
+                      View Tiers
+                      <TrendUp size={16} weight="bold" />
                     </button>
                   </div>
-                  
-                  <div className="mb-2">
-                    <div className="h-2 bg-black/10 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-black rounded-full transition-all duration-500"
-                        style={{ width: `${tierProgress.progressPercentage}%` }}
-                      />
+
+                  {/* Tier Progress */}
+                  {(user.annualPointsEarned ?? 0) === 0 && customerPoints === 0 ? (
+                    <div className={`${currentTierColors.iconBg} backdrop-blur-sm rounded-xl p-4`}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                          <Sparkle size={20} weight="fill" className="text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">Start earning points today!</p>
+                          <p className="text-xs text-white/70">Make purchases to earn Care Points and unlock rewards.</p>
+                        </div>
+                        <Link
+                          href="/products"
+                          className="shrink-0 bg-white/20 hover:bg-white/30 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors"
+                        >
+                          Shop Now
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <p className="text-sm text-[#6B6B6B]">
-                    Earn <span className="font-semibold text-[#1A1A1A]">{tierProgress.pointsNeeded.toLocaleString()}</span> more points to unlock{' '}
-                    {tierProgress.nextTier?.pointMultiplier}x points
-                  </p>
-                </div>
-              ) : (
-                <div className="border-t border-[#E5DDD5] pt-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Medal size={20} weight="bold" className="text-[#1A1A1A]" />
-                      <p className="text-sm font-medium text-[#1A1A1A]">
-                        Max tier reached!
+                  ) : !tierProgress.isMaxTier ? (
+                    <div>
+                      <div className="flex items-center justify-between text-xs mb-2">
+                        <span className="text-white/70 flex items-center gap-1">
+                          <TrendUp size={12} weight="bold" />
+                          Next: {tierProgress.nextTier?.name}
+                        </span>
+                        <span className="text-white/90 font-medium">{tierProgress.pointsNeeded.toLocaleString()} pts away</span>
+                      </div>
+                      <div className={`h-2 ${currentTierColors.progressBg} rounded-full overflow-hidden`}>
+                        <div
+                          className={`h-full ${currentTierColors.progressFill} rounded-full transition-all duration-500`}
+                          style={{ width: `${tierProgress.progressPercentage}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-white/70 mt-2">
+                        Earn {tierProgress.pointsNeeded.toLocaleString()} more points to unlock {tierProgress.nextTier?.pointMultiplier}x points
                       </p>
                     </div>
-                    <button
-                      onClick={() => setShowTierModal(true)}
-                      className="text-xs text-[#1A1A1A] hover:bg-[#F5F1EB] px-3 py-1.5 rounded-lg font-medium transition-all duration-200 hover:shadow-sm"
-                    >
-                      View All Tiers
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm text-white/80">
+                      <Medal size={16} weight="fill" />
+                      <span>You&apos;ve reached the highest tier! 🎉</span>
+                    </div>
+                  )}
                 </div>
-              )
-            })()}
-          </div>
+              </div>
+            )
+          })()}
         </div>
+
+
 
         {/* Category Filter */}
         <div className="mb-8 overflow-x-auto">
@@ -428,10 +448,10 @@ export default function RewardsPage() {
                 <button
                   key={category.value}
                   onClick={() => setSelectedCategory(category.value)}
-                  className={`flex items-center gap-2 px-4 py-2.5 font-medium transition-all duration-200 whitespace-nowrap border ${
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all duration-200 whitespace-nowrap border ${
                     isSelected
-                      ? `${colors.activeBg} text-white border-transparent`
-                      : `bg-white ${colors.iconColor} border-gray-200 hover:border-gray-300`
+                      ? `${colors.activeBg} text-white border-transparent shadow-md`
+                      : `bg-white ${colors.iconColor} border-gray-200 hover:border-gray-300 hover:shadow-sm`
                   }`}
                 >
                   <Icon className="w-4 h-4" weight={isSelected ? 'fill' : 'bold'} />
@@ -445,10 +465,10 @@ export default function RewardsPage() {
         {/* Rewards Grid */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <CircleNotch size={24} weight="bold" className="animate-spin text-[#6B6B6B]" />
+            <CircleNotch size={24} weight="bold" className="animate-spin text-black/40" />
           </div>
         ) : rewards.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-none border border-black/10">
+          <div className="text-center py-12 bg-white rounded-2xl border border-black/10">
             <Sparkle size={48} weight="fill" className="text-black/10 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-black mb-2">
               No rewards found
@@ -467,16 +487,16 @@ export default function RewardsPage() {
               return (
                 <div
                   key={reward.id}
-                  className={`bg-white border border-gray-200 p-6 transition-all duration-200 hover:shadow-lg hover:border-gray-300 ${
+                  className={`bg-white rounded-2xl border border-gray-200 p-6 transition-all duration-200 hover:shadow-lg hover:border-gray-300 ${
                     !canRedeem ? 'opacity-60' : ''
                   }`}
                 >
                   {/* Header */}
                   <div className="flex items-start justify-between mb-4">
-                    <div className={`w-12 h-12 ${colors.iconBg} flex items-center justify-center`}>
+                    <div className={`w-12 h-12 rounded-xl ${colors.iconBg} flex items-center justify-center`}>
                       <Icon className={`w-6 h-6 ${colors.iconColor}`} weight="fill" />
                     </div>
-                    <span className={`px-3 py-1.5 text-xs font-semibold ${colors.badge}`}>
+                    <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${colors.badge}`}>
                       {rewardTypeLabels[reward.rewardType as keyof typeof rewardTypeLabels]}
                     </span>
                   </div>
@@ -490,7 +510,7 @@ export default function RewardsPage() {
                   </p>
 
                   {/* Points Cost */}
-                  <div className={`flex items-center gap-2 mb-4 p-3 ${colors.iconBg}`}>
+                  <div className={`flex items-center gap-2 mb-4 p-3 rounded-xl ${colors.iconBg}`}>
                     <Sparkle size={18} weight="fill" className={colors.iconColor} />
                     <span className={`text-2xl font-bold ${colors.iconColor}`}>
                       {reward.pointsCost.toLocaleString()}
@@ -500,21 +520,21 @@ export default function RewardsPage() {
 
                   {/* Status Indicators */}
                   {!reward.meetsTierRequirement && reward.minTierRequired && (
-                    <div className="flex items-center gap-2 mb-3 text-sm text-amber-600 bg-amber-50 p-2.5">
+                    <div className="flex items-center gap-2 mb-3 text-sm text-amber-600 bg-amber-50 p-2.5 rounded-lg">
                       <Lock size={16} weight="bold" />
                       <span>Requires {reward.minTierRequired} tier or higher</span>
                     </div>
                   )}
 
                   {!reward.canAfford && reward.meetsTierRequirement && (
-                    <div className="flex items-center gap-2 mb-3 text-sm text-rose-600 bg-rose-50 p-2.5">
+                    <div className="flex items-center gap-2 mb-3 text-sm text-rose-600 bg-rose-50 p-2.5 rounded-lg">
                       <Warning size={16} weight="bold" />
                       <span>Need {(reward.pointsCost - customerPoints).toLocaleString()} more points</span>
                     </div>
                   )}
 
                   {reward.canAfford && reward.meetsTierRequirement && (
-                    <div className="flex items-center gap-2 mb-3 text-sm text-emerald-600 bg-emerald-50 p-2.5">
+                    <div className="flex items-center gap-2 mb-3 text-sm text-emerald-600 bg-emerald-50 p-2.5 rounded-lg">
                       <CheckCircle size={16} weight="fill" />
                       <span className="font-medium">You can redeem this!</span>
                     </div>
@@ -524,7 +544,7 @@ export default function RewardsPage() {
                   <button
                     onClick={() => handleRedeem(reward.id)}
                     disabled={!canRedeem || redeemingRewardId === reward.id}
-                    className={`w-full py-3.5 font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
+                    className={`w-full py-3.5 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
                       canRedeem
                         ? `${colors.activeBg} text-white hover:shadow-lg hover:opacity-90`
                         : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -556,14 +576,14 @@ export default function RewardsPage() {
         )}
 
         {/* Info Section */}
-        <div className="mt-12 bg-white rounded-none border border-black/10 p-6">
+        <div className="mt-12 bg-white rounded-2xl border border-black/10 p-6">
           <h3 className="text-lg font-semibold text-black mb-4">
             How to Earn More Points
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 bg-black/5 rounded-none flex items-center justify-center shrink-0">
-                <Gift size={16} weight="bold" className="text-black" />
+              <div className="w-10 h-10 bg-black/5 rounded-xl flex items-center justify-center shrink-0">
+                <Gift size={18} weight="bold" className="text-black" />
               </div>
               <div>
                 <p className="font-medium text-black mb-1">Make Purchases</p>
@@ -573,8 +593,8 @@ export default function RewardsPage() {
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 bg-black/5 rounded-none flex items-center justify-center shrink-0">
-                <Users size={16} weight="bold" className="text-black" />
+              <div className="w-10 h-10 bg-black/5 rounded-xl flex items-center justify-center shrink-0">
+                <Users size={18} weight="bold" className="text-black" />
               </div>
               <div>
                 <p className="font-medium text-black mb-1">Refer Friends</p>
@@ -584,8 +604,8 @@ export default function RewardsPage() {
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 bg-black/5 rounded-none flex items-center justify-center shrink-0">
-                <Sparkle size={16} weight="fill" className="text-black" />
+              <div className="w-10 h-10 bg-black/5 rounded-xl flex items-center justify-center shrink-0">
+                <Sparkle size={18} weight="fill" className="text-black" />
               </div>
               <div>
                 <p className="font-medium text-black mb-1">Special Events</p>
@@ -598,198 +618,202 @@ export default function RewardsPage() {
         </div>
       </div>
 
-      {/* Tier Details Modal */}
+      {/* Tier Details Modal - Modern Design */}
       {showTierModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-none max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-[#FAF8F5] rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             {/* Modal Header */}
-            <div className="sticky top-0 bg-white border-b border-black/10 p-6 flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-[#1A1A1A]">Loyalty Tiers</h2>
-                <p className="text-sm text-[#6B6B6B] mt-1">
-                  Unlock exclusive benefits as you shop
-                </p>
+            <div className="sticky top-0 bg-[#FAF8F5] border-b border-black/5 px-6 py-5 flex items-center justify-between rounded-t-3xl">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center">
+                  <Medal size={24} weight="fill" className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-black">Loyalty Tiers</h2>
+                  <p className="text-sm text-black/50">
+                    Unlock exclusive benefits as you shop
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setShowTierModal(false)}
-                className="w-10 h-10 flex items-center justify-center rounded-none hover:bg-black/5 transition-colors border border-black/10"
+                className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-black/5 transition-colors"
               >
                 <X size={20} weight="bold" className="text-black/60" />
               </button>
             </div>
 
-            {/* Tier Cards - Horizontal Layout */}
+            {/* Tier Cards - Matching Profile Page Style */}
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {TIER_HIERARCHY.map((tier, index) => {
                 const isCurrentTier = user?.loyaltyTier?.slug === tier.slug
+                const isNextTier = user?.loyaltyTier && index === TIER_HIERARCHY.findIndex(t => t.slug === user.loyaltyTier?.slug) + 1
                 
-                // Pastel colors for emotional health themes
-                const tierColors = {
+                // Gradient colors matching the profile page loyalty card
+                const tierGradients: Record<string, { gradient: string; iconBg: string; progressBg: string; progressFill: string }> = {
                   head: {
-                    bg: 'bg-linear-to-br from-blue-100 to-blue-50',
-                    iconBg: 'bg-blue-200/50',
-                    iconColor: 'text-blue-600',
-                    textColor: 'text-blue-900',
-                    mutedText: 'text-blue-700',
-                    bullet: 'bg-blue-600',
-                    border: 'border-blue-200',
-                    badge: 'bg-blue-200 text-blue-800'
+                    gradient: 'from-blue-500 via-blue-600 to-indigo-700',
+                    iconBg: 'bg-blue-400/30',
+                    progressBg: 'bg-blue-400/30',
+                    progressFill: 'bg-blue-300',
                   },
                   heart: {
-                    bg: 'bg-linear-to-br from-pink-100 to-pink-50',
-                    iconBg: 'bg-pink-200/50',
-                    iconColor: 'text-pink-600',
-                    textColor: 'text-pink-900',
-                    mutedText: 'text-pink-700',
-                    bullet: 'bg-pink-600',
-                    border: 'border-pink-200',
-                    badge: 'bg-pink-200 text-pink-800'
+                    gradient: 'from-pink-500 via-rose-500 to-pink-600',
+                    iconBg: 'bg-pink-400/30',
+                    progressBg: 'bg-pink-400/30',
+                    progressFill: 'bg-pink-300',
                   },
                   mind: {
-                    bg: 'bg-linear-to-br from-green-100 to-green-50',
-                    iconBg: 'bg-green-200/50',
-                    iconColor: 'text-green-600',
-                    textColor: 'text-green-900',
-                    mutedText: 'text-green-700',
-                    bullet: 'bg-green-600',
-                    border: 'border-green-200',
-                    badge: 'bg-green-200 text-green-800'
+                    gradient: 'from-emerald-500 via-green-500 to-teal-600',
+                    iconBg: 'bg-emerald-400/30',
+                    progressBg: 'bg-emerald-400/30',
+                    progressFill: 'bg-emerald-300',
                   },
                   overdrive: {
-                    bg: 'bg-linear-to-br from-purple-100 to-purple-50',
-                    iconBg: 'bg-purple-200/50',
-                    iconColor: 'text-purple-600',
-                    textColor: 'text-purple-900',
-                    mutedText: 'text-purple-700',
-                    bullet: 'bg-purple-600',
-                    border: 'border-purple-200',
-                    badge: 'bg-purple-200 text-purple-800'
+                    gradient: 'from-purple-500 via-violet-500 to-purple-700',
+                    iconBg: 'bg-purple-400/30',
+                    progressBg: 'bg-purple-400/30',
+                    progressFill: 'bg-purple-300',
                   }
                 }
                 
-                const colors = tierColors[tier.slug as keyof typeof tierColors]
-                const tierBgClass = isCurrentTier
-                  ? 'bg-linear-to-br from-[#1A1A1A] to-[#2B2B2B] text-white shadow-lg'
-                  : `${colors.bg} border ${colors.border}`
+                const gradientColors = tierGradients[tier.slug as keyof typeof tierGradients]
 
                 return (
                   <div
                     key={tier.slug}
-                    className={`rounded-xl p-5 ${tierBgClass} transition-all flex flex-col h-full`}
+                    className={`rounded-2xl p-5 transition-all flex flex-col h-full relative overflow-hidden ${
+                      isCurrentTier 
+                        ? `bg-linear-to-br ${gradientColors.gradient} text-white shadow-xl ring-2 ring-black/20` 
+                        : 'bg-white border border-black/10 hover:shadow-md'
+                    }`}
                   >
-                    {/* Header */}
-                    <div className="mb-4">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
-                        isCurrentTier ? 'bg-white/20' : colors.iconBg
-                      }`}>
-                        <Medal className={`w-6 h-6 ${isCurrentTier ? 'text-white' : colors.iconColor}`} />
-                      </div>
-                      <h3 className={`text-xl font-bold mb-1 ${isCurrentTier ? 'text-white' : colors.textColor}`}>
-                        {tier.name}
-                      </h3>
-                      {isCurrentTier && (
-                        <span className="inline-block px-2 py-0.5 bg-white/20 rounded-full text-xs font-medium mb-2">
-                          Current
-                        </span>
-                      )}
-                      <p className={`text-xs ${isCurrentTier ? 'text-white/75' : colors.mutedText}`}>
-                        {tier.minAnnualPoints === 0 
-                          ? 'Starting tier'
-                          : `${tier.minAnnualPoints.toLocaleString()}+ points/year`
-                        }
-                      </p>
-                    </div>
-
-                    {/* Tier Benefits */}
-                    <div className="space-y-2 grow">
-                      <div className={`flex items-start gap-2 ${isCurrentTier ? 'text-white' : colors.textColor}`}>
-                        <div className={`w-1 h-1 rounded-full mt-1.5 shrink-0 ${isCurrentTier ? 'bg-white' : colors.bullet}`}></div>
-                        <p className="text-xs font-medium">
-                          {tier.pointMultiplier}x points
-                        </p>
-                      </div>
-                      
-                      {tier.slug === 'heart' && (
-                        <>
-                          <div className={`flex items-start gap-2 ${isCurrentTier ? 'text-white' : colors.textColor}`}>
-                            <div className={`w-1 h-1 rounded-full mt-1.5 shrink-0 ${isCurrentTier ? 'bg-white' : colors.bullet}`}></div>
-                            <p className="text-xs">Free shipping</p>
-                          </div>
-                          <div className={`flex items-start gap-2 ${isCurrentTier ? 'text-white' : colors.textColor}`}>
-                            <div className={`w-1 h-1 rounded-full mt-1.5 shrink-0 ${isCurrentTier ? 'bg-white' : colors.bullet}`}></div>
-                            <p className="text-xs">Birthday bonus</p>
-                          </div>
-                        </>
-                      )}
-
-                      {tier.slug === 'mind' && (
-                        <>
-                          <div className={`flex items-start gap-2 ${isCurrentTier ? 'text-white' : colors.textColor}`}>
-                            <div className={`w-1 h-1 rounded-full mt-1.5 shrink-0 ${isCurrentTier ? 'bg-white' : colors.bullet}`}></div>
-                            <p className="text-xs">Free shipping</p>
-                          </div>
-                          <div className={`flex items-start gap-2 ${isCurrentTier ? 'text-white' : colors.textColor}`}>
-                            <div className={`w-1 h-1 rounded-full mt-1.5 shrink-0 ${isCurrentTier ? 'bg-white' : colors.bullet}`}></div>
-                            <p className="text-xs">Early drop access</p>
-                          </div>
-                          <div className={`flex items-start gap-2 ${isCurrentTier ? 'text-white' : colors.textColor}`}>
-                            <div className={`w-1 h-1 rounded-full mt-1.5 shrink-0 ${isCurrentTier ? 'bg-white' : colors.bullet}`}></div>
-                            <p className="text-xs">Birthday bonus</p>
-                          </div>
-                          <div className={`flex items-start gap-2 ${isCurrentTier ? 'text-white' : colors.textColor}`}>
-                            <div className={`w-1 h-1 rounded-full mt-1.5 shrink-0 ${isCurrentTier ? 'bg-white' : colors.bullet}`}></div>
-                            <p className="text-xs">Exclusive rewards</p>
-                          </div>
-                        </>
-                      )}
-
-                      {tier.slug === 'overdrive' && (
-                        <>
-                          <div className={`flex items-start gap-2 ${isCurrentTier ? 'text-white' : colors.textColor}`}>
-                            <div className={`w-1 h-1 rounded-full mt-1.5 shrink-0 ${isCurrentTier ? 'bg-white' : colors.bullet}`}></div>
-                            <p className="text-xs">Free shipping</p>
-                          </div>
-                          <div className={`flex items-start gap-2 ${isCurrentTier ? 'text-white' : colors.textColor}`}>
-                            <div className={`w-1 h-1 rounded-full mt-1.5 shrink-0 ${isCurrentTier ? 'bg-white' : colors.bullet}`}></div>
-                            <p className="text-xs">Early drop access</p>
-                          </div>
-                          <div className={`flex items-start gap-2 ${isCurrentTier ? 'text-white' : colors.textColor}`}>
-                            <div className={`w-1 h-1 rounded-full mt-1.5 shrink-0 ${isCurrentTier ? 'bg-white' : colors.bullet}`}></div>
-                            <p className="text-xs">Birthday bonus</p>
-                          </div>
-                          <div className={`flex items-start gap-2 ${isCurrentTier ? 'text-white' : colors.textColor}`}>
-                            <div className={`w-1 h-1 rounded-full mt-1.5 shrink-0 ${isCurrentTier ? 'bg-white' : colors.bullet}`}></div>
-                            <p className="text-xs">Exclusive rewards</p>
-                          </div>
-                          <div className={`flex items-start gap-2 ${isCurrentTier ? 'text-white' : colors.textColor}`}>
-                            <div className={`w-1 h-1 rounded-full mt-1.5 shrink-0 ${isCurrentTier ? 'bg-white' : colors.bullet}`}></div>
-                            <p className="text-xs">VIP support</p>
-                          </div>
-                          <div className={`flex items-start gap-2 ${isCurrentTier ? 'text-white' : colors.textColor}`}>
-                            <div className={`w-1 h-1 rounded-full mt-1.5 shrink-0 ${isCurrentTier ? 'bg-white' : colors.bullet}`}></div>
-                            <p className="text-xs">Surprise gifts</p>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Progress Indicator for Current and Next Tier */}
-                    {!isCurrentTier && user?.loyaltyTier && index === TIER_HIERARCHY.findIndex(t => t.slug === user.loyaltyTier?.slug) + 1 && (
-                      <div className={`mt-3 pt-3 border-t ${colors.border}`}>
-                        <p className={`text-xs ${colors.mutedText} mb-1.5`}>
-                          {(tier.minAnnualPoints - (user.annualPointsEarned ?? 0)).toLocaleString()} more points
-                        </p>
-                        <div className={`h-1.5 ${colors.iconBg} rounded-full overflow-hidden`}>
-                          <div
-                            className={`h-full bg-linear-to-r ${colors.iconColor.replace('text-', 'from-')} ${colors.bullet.replace('bg-', 'to-')} rounded-full transition-all duration-500`}
-                            style={{ 
-                              width: `${Math.min(100, ((user.annualPointsEarned ?? 0) / tier.minAnnualPoints) * 100)}%` 
-                            }}
-                          />
-                        </div>
-                      </div>
+                    {/* Decorative element for current tier */}
+                    {isCurrentTier && (
+                      <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-xl" />
                     )}
+                    
+                    <div className="relative">
+                      {/* Header */}
+                      <div className="mb-4">
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
+                          isCurrentTier ? gradientColors.iconBg : 'bg-black/5'
+                        }`}>
+                          <Medal className={`w-6 h-6 ${isCurrentTier ? 'text-white' : 'text-black/60'}`} weight="fill" />
+                        </div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className={`text-xl font-bold ${isCurrentTier ? 'text-white' : 'text-black'}`}>
+                            {tier.name}
+                          </h3>
+                          {isCurrentTier && (
+                            <span className="px-2 py-0.5 bg-white/20 rounded-full text-[10px] font-semibold uppercase tracking-wide">
+                              Current
+                            </span>
+                          )}
+                        </div>
+                        <p className={`text-xs ${isCurrentTier ? 'text-white/70' : 'text-black/50'}`}>
+                          {tier.minAnnualPoints === 0 
+                            ? 'Starting tier'
+                            : `${tier.minAnnualPoints.toLocaleString()}+ points/year`
+                          }
+                        </p>
+                      </div>
+
+                      {/* Points Multiplier Badge */}
+                      <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg mb-4 ${
+                        isCurrentTier ? gradientColors.iconBg : 'bg-black/5'
+                      }`}>
+                        <Sparkle size={14} weight="fill" className={isCurrentTier ? 'text-white' : 'text-black/60'} />
+                        <span className={`text-sm font-bold ${isCurrentTier ? 'text-white' : 'text-black'}`}>
+                          {tier.pointMultiplier}x Points
+                        </span>
+                      </div>
+
+                      {/* Tier Benefits */}
+                      <div className="space-y-2 grow">
+                        {tier.slug === 'head' && (
+                          <div className={`flex items-center gap-2 text-xs ${isCurrentTier ? 'text-white/80' : 'text-black/60'}`}>
+                            <CheckCircle size={14} weight="fill" className={isCurrentTier ? 'text-white' : 'text-emerald-500'} />
+                            <span>Base point earning</span>
+                          </div>
+                        )}
+                        
+                        {tier.slug === 'heart' && (
+                          <>
+                            <div className={`flex items-center gap-2 text-xs ${isCurrentTier ? 'text-white/80' : 'text-black/60'}`}>
+                              <CheckCircle size={14} weight="fill" className={isCurrentTier ? 'text-white' : 'text-emerald-500'} />
+                              <span>Free shipping</span>
+                            </div>
+                            <div className={`flex items-center gap-2 text-xs ${isCurrentTier ? 'text-white/80' : 'text-black/60'}`}>
+                              <CheckCircle size={14} weight="fill" className={isCurrentTier ? 'text-white' : 'text-emerald-500'} />
+                              <span>Birthday bonus points</span>
+                            </div>
+                          </>
+                        )}
+
+                        {tier.slug === 'mind' && (
+                          <>
+                            <div className={`flex items-center gap-2 text-xs ${isCurrentTier ? 'text-white/80' : 'text-black/60'}`}>
+                              <CheckCircle size={14} weight="fill" className={isCurrentTier ? 'text-white' : 'text-emerald-500'} />
+                              <span>Free shipping</span>
+                            </div>
+                            <div className={`flex items-center gap-2 text-xs ${isCurrentTier ? 'text-white/80' : 'text-black/60'}`}>
+                              <CheckCircle size={14} weight="fill" className={isCurrentTier ? 'text-white' : 'text-emerald-500'} />
+                              <span>Early drop access</span>
+                            </div>
+                            <div className={`flex items-center gap-2 text-xs ${isCurrentTier ? 'text-white/80' : 'text-black/60'}`}>
+                              <CheckCircle size={14} weight="fill" className={isCurrentTier ? 'text-white' : 'text-emerald-500'} />
+                              <span>Exclusive rewards</span>
+                            </div>
+                          </>
+                        )}
+
+                        {tier.slug === 'overdrive' && (
+                          <>
+                            <div className={`flex items-center gap-2 text-xs ${isCurrentTier ? 'text-white/80' : 'text-black/60'}`}>
+                              <CheckCircle size={14} weight="fill" className={isCurrentTier ? 'text-white' : 'text-emerald-500'} />
+                              <span>Free shipping</span>
+                            </div>
+                            <div className={`flex items-center gap-2 text-xs ${isCurrentTier ? 'text-white/80' : 'text-black/60'}`}>
+                              <CheckCircle size={14} weight="fill" className={isCurrentTier ? 'text-white' : 'text-emerald-500'} />
+                              <span>Early drop access</span>
+                            </div>
+                            <div className={`flex items-center gap-2 text-xs ${isCurrentTier ? 'text-white/80' : 'text-black/60'}`}>
+                              <CheckCircle size={14} weight="fill" className={isCurrentTier ? 'text-white' : 'text-emerald-500'} />
+                              <span>VIP support</span>
+                            </div>
+                            <div className={`flex items-center gap-2 text-xs ${isCurrentTier ? 'text-white/80' : 'text-black/60'}`}>
+                              <CheckCircle size={14} weight="fill" className={isCurrentTier ? 'text-white' : 'text-emerald-500'} />
+                              <span>Surprise gifts</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Progress Indicator for Next Tier */}
+                      {isNextTier && user?.loyaltyTier && (
+                        <div className="mt-4 pt-4 border-t border-black/10">
+                          <div className="flex items-center justify-between text-xs mb-2">
+                            <span className="text-black/50 flex items-center gap-1">
+                              <TrendUp size={12} weight="bold" />
+                              Your progress
+                            </span>
+                            <span className="text-black font-medium">
+                              {(tier.minAnnualPoints - (user.annualPointsEarned ?? 0)).toLocaleString()} pts away
+                            </span>
+                          </div>
+                          <div className="h-2 bg-black/10 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full bg-linear-to-r ${gradientColors.gradient} rounded-full transition-all duration-500`}
+                              style={{ 
+                                width: `${Math.min(100, ((user.annualPointsEarned ?? 0) / tier.minAnnualPoints) * 100)}%` 
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )
               })}
@@ -797,10 +821,10 @@ export default function RewardsPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="sticky bottom-0 bg-white border-t border-black/10 p-6">
+            <div className="sticky bottom-0 bg-[#FAF8F5] border-t border-black/5 px-6 py-4 rounded-b-3xl">
               <button
                 onClick={() => setShowTierModal(false)}
-                className="w-full bg-black text-white py-3 rounded-none font-medium hover:bg-black/90 transition-colors"
+                className="w-full bg-black text-white py-3 rounded-xl font-medium hover:bg-black/90 transition-colors"
               >
                 Close
               </button>
@@ -812,15 +836,15 @@ export default function RewardsPage() {
       {/* Redemption Success Modal */}
       {showSuccessModal && redemptionResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-none max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-300">
+          <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-300 shadow-2xl">
             {/* Success Header */}
-            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-8 text-center text-white relative overflow-hidden">
+            <div className="bg-linear-to-br from-emerald-500 to-emerald-600 p-8 text-center text-white relative overflow-hidden rounded-t-2xl">
               <div className="absolute inset-0 opacity-20">
                 <Confetti size={200} weight="fill" className="absolute -top-10 -left-10 rotate-12" />
                 <Confetti size={150} weight="fill" className="absolute -bottom-5 -right-5 -rotate-12" />
               </div>
               <div className="relative">
-                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <CheckCircle size={40} weight="fill" className="text-white" />
                 </div>
                 <h2 className="text-2xl font-bold mb-2">Reward Redeemed!</h2>
@@ -850,18 +874,18 @@ export default function RewardsPage() {
 
               {/* Coupon Code (if applicable) */}
               {redemptionResult.redemption?.couponCode && (
-                <div className="mt-4 p-4 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-lg">
+                <div className="mt-4 p-4 bg-linear-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl">
                   <div className="flex items-center gap-2 mb-2">
                     <Gift size={18} weight="fill" className="text-amber-600" />
                     <span className="text-sm font-medium text-amber-900">Your Coupon Code</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <code className="flex-1 bg-white px-4 py-3 rounded-lg font-mono text-lg font-bold text-center tracking-wider border border-amber-200">
+                    <code className="flex-1 bg-white px-4 py-3 rounded-xl font-mono text-lg font-bold text-center tracking-wider border border-amber-200">
                       {redemptionResult.redemption.couponCode}
                     </code>
                     <button
                       onClick={() => copyToClipboard(redemptionResult.redemption?.couponCode || '')}
-                      className="p-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+                      className="p-3 bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-colors"
                       title="Copy to clipboard"
                     >
                       {copiedCode ? <Check size={20} weight="bold" /> : <Copy size={20} weight="bold" />}
@@ -891,7 +915,7 @@ export default function RewardsPage() {
             <div className="p-6 pt-0 space-y-3">
               <Link
                 href="/products"
-                className="block w-full bg-black text-white py-3 rounded-none font-medium hover:bg-black/90 transition-colors text-center"
+                className="block w-full bg-black text-white py-3 rounded-xl font-medium hover:bg-black/90 transition-colors text-center"
               >
                 Shop Now
               </Link>
@@ -901,7 +925,7 @@ export default function RewardsPage() {
                   setRedemptionResult(null)
                   setCopiedCode(false)
                 }}
-                className="w-full bg-white text-black py-3 rounded-none font-medium border border-black/10 hover:bg-black/5 transition-colors"
+                className="w-full bg-white text-black py-3 rounded-xl font-medium border border-black/10 hover:bg-black/5 transition-colors"
               >
                 Continue Browsing Rewards
               </button>
@@ -913,10 +937,10 @@ export default function RewardsPage() {
       {/* Error Modal */}
       {showErrorModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-none max-w-md w-full overflow-hidden">
+          <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl">
             {/* Error Header */}
-            <div className="bg-gradient-to-br from-rose-500 to-rose-600 p-6 text-center text-white">
-              <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+            <div className="bg-linear-to-br from-rose-500 to-rose-600 p-6 text-center text-white rounded-t-2xl">
+              <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-3">
                 <Warning size={32} weight="fill" className="text-white" />
               </div>
               <h2 className="text-xl font-bold mb-1">Redemption Failed</h2>
@@ -932,7 +956,7 @@ export default function RewardsPage() {
                   setShowErrorModal(false)
                   setErrorMessage('')
                 }}
-                className="w-full bg-black text-white py-3 rounded-none font-medium hover:bg-black/90 transition-colors"
+                className="w-full bg-black text-white py-3 rounded-xl font-medium hover:bg-black/90 transition-colors"
               >
                 Try Again
               </button>

@@ -10,11 +10,13 @@ export interface CartItem {
 
 export interface AppliedCoupon {
   code: string
-  redemptionId: string
+  redemptionId?: string // For loyalty coupons
+  promotionId?: string  // For marketing promotions
   discountType: 'fixed' | 'percentage' | 'free_shipping' | 'perk'
   discountAmount: number
   description: string
   rewardName: string
+  isAutoApplied?: boolean // True if auto-applied promotion
 }
 
 interface CartState {

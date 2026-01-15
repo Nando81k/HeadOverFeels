@@ -21,7 +21,7 @@ export interface PopupContent {
 export interface PopupTemplateProps {
   content: PopupContent
   onClose: () => void
-  onAction: (data?: { email?: string }) => void
+  onAction: (data?: { email?: string }) => Promise<{ promoCode?: string; discountDescription?: string; message?: string } | void> | void
   variantId?: string
   previewMode?: boolean
 }
@@ -54,6 +54,8 @@ export function EmailCaptureModal({ content, onClose, onAction, previewMode }: P
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [promoResult, setPromoResult] = useState<{ promoCode?: string; discountDescription?: string; message?: string } | null>(null)
   
   const {
     heading = 'Get 10% Off Your First Order',
@@ -67,14 +69,23 @@ export function EmailCaptureModal({ content, onClose, onAction, previewMode }: P
     successMessage = 'Thanks for subscribing! Check your email for your discount code.'
   } = content
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email || !email.includes('@')) {
       setError('Please enter a valid email')
       return
     }
-    setSubmitted(true)
-    onAction({ email })
+    
+    setLoading(true)
+    try {
+      const result = await onAction({ email })
+      setPromoResult(result || null)
+      setSubmitted(true)
+    } catch {
+      setSubmitted(true)
+    } finally {
+      setLoading(false)
+    }
   }
   
   return (
@@ -111,16 +122,43 @@ export function EmailCaptureModal({ content, onClose, onAction, previewMode }: P
         {/* Content */}
         <div className="p-8">
           {submitted ? (
-            <div className="text-center py-8">
+            <div className="text-center py-4">
               <div 
                 className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
                 style={{ backgroundColor: buttonColor }}
               >
                 <Envelope size={32} weight="bold" color={textColor} />
               </div>
-              <p style={{ color: textColor }} className="text-lg font-medium">
-                {successMessage}
-              </p>
+              
+              {promoResult?.promoCode ? (
+                <>
+                  <p style={{ color: textColor }} className="text-lg font-medium mb-4">
+                    🎉 Here&apos;s your exclusive code!
+                  </p>
+                  <div 
+                    className="bg-white/10 border-2 border-dashed border-white/30 rounded-lg p-4 mb-4"
+                  >
+                    <p className="text-xs uppercase tracking-wide opacity-60 mb-1" style={{ color: textColor }}>
+                      Your Code
+                    </p>
+                    <p className="text-2xl font-bold tracking-widest font-mono" style={{ color: textColor }}>
+                      {promoResult.promoCode}
+                    </p>
+                    {promoResult.discountDescription && (
+                      <p className="text-sm mt-2" style={{ color: buttonColor }}>
+                        {promoResult.discountDescription}
+                      </p>
+                    )}
+                  </div>
+                  <p style={{ color: textColor }} className="text-sm opacity-80">
+                    {promoResult.message || 'We\'ve also sent this code to your email!'}
+                  </p>
+                </>
+              ) : (
+                <p style={{ color: textColor }} className="text-lg font-medium">
+                  {promoResult?.message || successMessage}
+                </p>
+              )}
             </div>
           ) : (
             <>
@@ -156,10 +194,11 @@ export function EmailCaptureModal({ content, onClose, onAction, previewMode }: P
                 </div>
                 <button
                   type="submit"
-                  className="w-full py-3 font-semibold transition-opacity hover:opacity-90"
+                  disabled={loading}
+                  className="w-full py-3 font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
                   style={{ backgroundColor: buttonColor, color: textColor }}
                 >
-                  {buttonText}
+                  {loading ? 'Please wait...' : buttonText}
                 </button>
               </form>
               

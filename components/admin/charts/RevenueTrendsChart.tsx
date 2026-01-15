@@ -44,7 +44,7 @@ export function RevenueTrendsChart({ data }: RevenueTrendsChartProps) {
         />
         <Legend />
         <Line 
-          type="monotone" 
+          type="linear" 
           dataKey="revenue" 
           stroke="#FF3131" 
           strokeWidth={2}

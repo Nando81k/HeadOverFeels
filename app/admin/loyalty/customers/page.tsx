@@ -1,623 +1,423 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import {
-  ArrowLeft,
-  MagnifyingGlass,
-  Users,
-  Crown,
-  Coins,
-  PencilSimple,
-  Plus,
-  Minus,
-  Faders,
-  CaretDown,
-  X,
-  Check,
-  CaretLeft,
-  CaretRight,
-} from '@phosphor-icons/react'
+import { Users, MagnifyingGlass, CircleNotch, Star, ArrowUp, ArrowDown, X, Funnel } from '@phosphor-icons/react'
+import { AdminLayout } from '@/components/admin/AdminLayout'
+import { LoyaltyNav } from '@/components/admin/LoyaltyNav'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
-interface Customer {
+interface LoyaltyCustomer {
   id: string
-  email: string
   name: string | null
-  currentPoints: number
-  lifetimePoints: number
-  annualPointsEarned: number
-  totalSpent: number
-  tier: {
-    id: string
-    name: string
-  } | null
-  orderCount: number
-  transactionCount: number
-  redemptionCount: number
+  email: string
+  loyaltyPoints: number
+  loyaltyTier: string | null
+  lifetimeValue: number
+  totalOrders: number
   createdAt: string
+  lastOrderAt: string | null
 }
 
-interface Tier {
-  id: string
-  name: string
+interface ApiResponse {
+  customers: LoyaltyCustomer[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
 }
 
-interface CustomerData {
-  data: Customer[]
-  pagination: {
-    page: number
-    limit: number
-    total: number
-    pages: number
-    hasMore: boolean
-  }
-  tiers: Tier[]
+const tierColors: Record<string, string> = {
+  head: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  heart: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+  mind: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
+  overdrive: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
 }
 
-export default function AdminCustomersPage() {
-  const router = useRouter()
-  const [customerData, setCustomerData] = useState<CustomerData | null>(null)
+const tierOptions = [
+  { value: '', label: 'All Tiers' },
+  { value: 'head', label: 'Head' },
+  { value: 'heart', label: 'Heart' },
+  { value: 'mind', label: 'Mind' },
+  { value: 'overdrive', label: 'Overdrive' },
+]
+
+export default function LoyaltyCustomersPage() {
+  const [customers, setCustomers] = useState<LoyaltyCustomer[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  
-  // Filters
   const [search, setSearch] = useState('')
-  const [selectedTier, setSelectedTier] = useState('')
-  const [sortBy, setSortBy] = useState('currentPoints')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [tierFilter, setTierFilter] = useState('')
   const [page, setPage] = useState(1)
-  
-  // Modal state
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
-  const [modalMode, setModalMode] = useState<'points' | 'tier' | null>(null)
-  const [pointsAmount, setPointsAmount] = useState('')
-  const [pointsReason, setPointsReason] = useState('')
-  const [newTierId, setNewTierId] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [totalPages, setTotalPages] = useState(1)
+  const [total, setTotal] = useState(0)
 
-  const fetchCustomers = useCallback(async () => {
+  // Modal state
+  const [showAdjustModal, setShowAdjustModal] = useState(false)
+  const [showTierModal, setShowTierModal] = useState(false)
+  const [selectedCustomer, setSelectedCustomer] = useState<LoyaltyCustomer | null>(null)
+  const [pointsAdjustment, setPointsAdjustment] = useState(0)
+  const [adjustmentReason, setAdjustmentReason] = useState('')
+  const [newTier, setNewTier] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const loadCustomers = useCallback(async () => {
+    setLoading(true)
     try {
-      setLoading(true)
       const params = new URLSearchParams({
         page: page.toString(),
-        pageSize: '20',
-        sortBy,
-        sortOrder,
+        limit: '20',
+        ...(search && { search }),
+        ...(tierFilter && { tier: tierFilter }),
       })
       
-      if (search) params.set('search', search)
-      if (selectedTier) params.set('tier', selectedTier)
-
       const response = await fetch(`/api/admin/loyalty/customers?${params}`)
-      
-      if (!response.ok) {
-        if (response.status === 401) {
-          router.push('/admin/login')
-          return
-        }
-        throw new Error('Failed to fetch customers')
+      if (response.ok) {
+        const data: ApiResponse = await response.json()
+        setCustomers(data.customers)
+        setTotalPages(data.totalPages)
+        setTotal(data.total)
       }
-
-      const data = await response.json()
-      setCustomerData(data)
     } catch (err) {
-      console.error('Error fetching customers:', err)
-      setError('Failed to load customers')
+      console.error('Failed to load customers:', err)
     } finally {
       setLoading(false)
     }
-  }, [page, search, selectedTier, sortBy, sortOrder, router])
+  }, [page, search, tierFilter])
 
   useEffect(() => {
-    const debounce = setTimeout(fetchCustomers, 300)
-    return () => clearTimeout(debounce)
-  }, [fetchCustomers])
-
-  const openPointsModal = (customer: Customer) => {
-    setEditingCustomer(customer)
-    setModalMode('points')
-    setPointsAmount('')
-    setPointsReason('')
-  }
-
-  const openTierModal = (customer: Customer) => {
-    setEditingCustomer(customer)
-    setModalMode('tier')
-    setNewTierId(customer.tier?.id || '')
-  }
-
-  const closeModal = () => {
-    setEditingCustomer(null)
-    setModalMode(null)
-    setPointsAmount('')
-    setPointsReason('')
-    setNewTierId('')
-  }
+    loadCustomers()
+  }, [loadCustomers])
 
   const handleAdjustPoints = async () => {
-    if (!editingCustomer || !pointsAmount) return
-
+    if (!selectedCustomer || !pointsAdjustment) return
+    
+    setIsSubmitting(true)
     try {
-      setSaving(true)
-      const response = await fetch('/api/admin/loyalty/customers', {
+      const response = await fetch(`/api/admin/loyalty/customers/${selectedCustomer.id}/points`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customerId: editingCustomer.id,
-          action: 'adjustPoints',
-          points: parseInt(pointsAmount),
-          reason: pointsReason || undefined,
+          amount: pointsAdjustment,
+          reason: adjustmentReason || 'Manual adjustment',
         }),
       })
-
-      if (!response.ok) {
-        throw new Error('Failed to adjust points')
+      
+      if (response.ok) {
+        setShowAdjustModal(false)
+        setPointsAdjustment(0)
+        setAdjustmentReason('')
+        setSelectedCustomer(null)
+        loadCustomers()
       }
-
-      await fetchCustomers()
-      closeModal()
     } catch (err) {
-      console.error('Error adjusting points:', err)
-      setError('Failed to adjust points')
+      console.error('Failed to adjust points:', err)
     } finally {
-      setSaving(false)
+      setIsSubmitting(false)
     }
   }
 
   const handleChangeTier = async () => {
-    if (!editingCustomer || !newTierId) return
-
+    if (!selectedCustomer || !newTier) return
+    
+    setIsSubmitting(true)
     try {
-      setSaving(true)
-      const response = await fetch('/api/admin/loyalty/customers', {
-        method: 'POST',
+      const response = await fetch(`/api/admin/loyalty/customers/${selectedCustomer.id}/tier`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerId: editingCustomer.id,
-          action: 'changeTier',
-          tierId: newTierId,
-        }),
+        body: JSON.stringify({ tier: newTier }),
       })
-
-      if (!response.ok) {
-        throw new Error('Failed to change tier')
+      
+      if (response.ok) {
+        setShowTierModal(false)
+        setNewTier('')
+        setSelectedCustomer(null)
+        loadCustomers()
       }
-
-      await fetchCustomers()
-      closeModal()
     } catch (err) {
-      console.error('Error changing tier:', err)
-      setError('Failed to change tier')
+      console.error('Failed to change tier:', err)
     } finally {
-      setSaving(false)
+      setIsSubmitting(false)
     }
   }
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Never'
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount)
   }
 
-  const getTierColor = (tierName: string | null) => {
-    const colorMap: Record<string, string> = {
-      Head: 'bg-gray-100 text-gray-800',
-      Heart: 'bg-purple-100 text-purple-800',
-      Mind: 'bg-blue-100 text-blue-800',
-      Overdrive: 'bg-yellow-100 text-yellow-800',
-    }
-    return colorMap[tierName || ''] || 'bg-gray-100 text-gray-600'
-  }
-
-  if (loading && !customerData) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-      </div>
-    )
+  const formatDate = (date: string | null) => {
+    if (!date) return 'Never'
+    return new Date(date).toLocaleDateString()
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link 
-                href="/admin/loyalty"
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <Users className="w-6 h-6 text-purple-600" weight="fill" />
-                  Customer Management
-                </h1>
-                <p className="text-gray-500 mt-1">View and manage customer loyalty status</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <AdminLayout
+      title="Loyalty Customers"
+      subtitle={`${total} customers enrolled in the program`}
+    >
+      <div className="space-y-6">
+        {/* Navigation Tabs */}
+        <LoyaltyNav />
+        
         {/* Filters */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="flex flex-wrap gap-4 items-center">
-            {/* Search */}
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <MagnifyingGlass size={18} weight="bold" className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
                 <input
                   type="text"
-                  placeholder="Search by name or email..."
                   value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by name or email..."
+                  className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none"
                 />
               </div>
-            </div>
-
-            {/* Tier Filter */}
-            <div className="relative">
-              <select
-                value={selectedTier}
-                onChange={(e) => { setSelectedTier(e.target.value); setPage(1) }}
-                className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              >
-                <option value="">All Tiers</option>
-                {customerData?.tiers.map(tier => (
-                  <option key={tier.id} value={tier.id}>{tier.name}</option>
-                ))}
-              </select>
-              <CaretDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
-            </div>
-
-            {/* Sort */}
-            <div className="flex items-center gap-2">
-              <Faders className="text-gray-400 w-4 h-4" />
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="appearance-none bg-white border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              >
-                <option value="currentPoints">Current Points</option>
-                <option value="lifetimePoints">Lifetime Points</option>
-                <option value="totalSpent">Total Spent</option>
-                <option value="createdAt">Join Date</option>
-              </select>
-              <button
-                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                {sortOrder === 'desc' ? '↓' : '↑'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <p className="text-red-800">{error}</p>
-            <button 
-              onClick={() => setError(null)}
-              className="text-red-600 hover:text-red-800 text-sm underline mt-1"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {/* Customers Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="text-left text-sm font-medium text-gray-500 px-4 py-3">Customer</th>
-                  <th className="text-left text-sm font-medium text-gray-500 px-4 py-3">Tier</th>
-                  <th className="text-right text-sm font-medium text-gray-500 px-4 py-3">Current Points</th>
-                  <th className="text-right text-sm font-medium text-gray-500 px-4 py-3">Lifetime Points</th>
-                  <th className="text-right text-sm font-medium text-gray-500 px-4 py-3">Total Spent</th>
-                  <th className="text-center text-sm font-medium text-gray-500 px-4 py-3">Orders</th>
-                  <th className="text-left text-sm font-medium text-gray-500 px-4 py-3">Joined</th>
-                  <th className="text-center text-sm font-medium text-gray-500 px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {customerData?.data.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="text-center py-12 text-gray-500">
-                      <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                      <p>No customers found</p>
-                    </td>
-                  </tr>
-                ) : (
-                  customerData?.data.map((customer) => (
-                    <tr key={customer.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <div>
-                          <p className="font-medium text-gray-900">{customer.name || 'No Name'}</p>
-                          <p className="text-sm text-gray-500">{customer.email}</p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {customer.tier ? (
-                          <span className={`px-2 py-1 text-xs rounded-full font-medium ${getTierColor(customer.tier.name)}`}>
-                            {customer.tier.name}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400 text-sm">No Tier</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="font-semibold text-purple-600">
-                          {customer.currentPoints.toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-600">
-                        {customer.lifetimePoints.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-600">
-                        ${customer.totalSpent.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-center text-gray-600">
-                        {customer.orderCount}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
-                        {formatDate(customer.createdAt)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => openPointsModal(customer)}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                            title="Adjust Points"
-                          >
-                            <Coins className="w-5 h-5" weight="fill" />
-                          </button>
-                          <button
-                            onClick={() => openTierModal(customer)}
-                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                            title="Change Tier"
-                          >
-                            <Crown className="w-5 h-5" weight="fill" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {customerData && customerData.pagination.pages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-              <p className="text-sm text-gray-500">
-                Showing {((page - 1) * customerData.pagination.limit) + 1} to {Math.min(page * customerData.pagination.limit, customerData.pagination.total)} of {customerData.pagination.total} customers
-              </p>
+              
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage(Math.max(1, page - 1))}
-                  disabled={page === 1}
-                  className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                <Funnel size={18} weight="bold" className="text-white/40" />
+                <select
+                  value={tierFilter}
+                  onChange={(e) => setTierFilter(e.target.value)}
+                  className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-white/30 focus:outline-none"
                 >
-                  <CaretLeft className="w-4 h-4" />
-                </button>
-                <span className="text-sm text-gray-600">
-                  Page {page} of {customerData.pagination.pages}
-                </span>
-                <button
-                  onClick={() => setPage(Math.min(customerData.pagination.pages, page + 1))}
-                  disabled={page === customerData.pagination.pages}
-                  className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <CaretRight className="w-4 h-4" />
-                </button>
+                  {tierOptions.map(tier => (
+                    <option key={tier.value} value={tier.value} className="bg-neutral-900">{tier.label}</option>
+                  ))}
+                </select>
               </div>
             </div>
-          )}
-        </div>
+          </CardContent>
+        </Card>
+
+        {/* Customer Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users size={20} weight="bold" />
+              Customers
+            </CardTitle>
+            <CardDescription>Manage loyalty members and their points</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center h-40">
+                <CircleNotch size={32} weight="bold" className="animate-spin text-white/30" />
+              </div>
+            ) : customers.length === 0 ? (
+              <div className="text-center py-12 text-white/50">
+                <Users size={48} weight="light" className="mx-auto mb-4 opacity-50" />
+                <p>No customers found</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/10">
+                      <th className="text-left py-3 px-2 text-sm font-medium text-white/50">Customer</th>
+                      <th className="text-left py-3 px-2 text-sm font-medium text-white/50">Tier</th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-white/50">Points</th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-white/50">Orders</th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-white/50">Lifetime Value</th>
+                      <th className="text-left py-3 px-2 text-sm font-medium text-white/50">Last Order</th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-white/50">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customers.map(customer => (
+                      <tr key={customer.id} className="border-b border-white/5 hover:bg-white/5">
+                        <td className="py-3 px-2">
+                          <div>
+                            <p className="font-medium text-white">{customer.name || 'Unknown'}</p>
+                            <p className="text-sm text-white/50">{customer.email}</p>
+                          </div>
+                        </td>
+                        <td className="py-3 px-2">
+                          {customer.loyaltyTier ? (
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full border ${tierColors[customer.loyaltyTier] || 'bg-white/10 text-white/70 border-white/20'}`}>
+                              {customer.loyaltyTier}
+                            </span>
+                          ) : (
+                            <span className="text-white/30 text-sm">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-2 text-right">
+                          <span className="font-mono text-white">{customer.loyaltyPoints.toLocaleString()}</span>
+                        </td>
+                        <td className="py-3 px-2 text-right text-white/70">{customer.totalOrders}</td>
+                        <td className="py-3 px-2 text-right text-white/70">{formatCurrency(customer.lifetimeValue)}</td>
+                        <td className="py-3 px-2 text-white/50 text-sm">{formatDate(customer.lastOrderAt)}</td>
+                        <td className="py-3 px-2 text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedCustomer(customer)
+                                setShowAdjustModal(true)
+                              }}
+                              className="gap-1"
+                            >
+                              <ArrowUp size={14} weight="bold" className="text-green-400" />
+                              <ArrowDown size={14} weight="bold" className="text-red-400" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedCustomer(customer)
+                                setNewTier(customer.loyaltyTier || '')
+                                setShowTierModal(true)
+                              }}
+                            >
+                              <Star size={14} weight="bold" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/10">
+                <p className="text-sm text-white/50">
+                  Page {page} of {totalPages}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Points Adjustment Modal */}
-      {modalMode === 'points' && editingCustomer && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <Coins className="w-5 h-5 text-green-600" weight="fill" />
-                Adjust Points
-              </h3>
-              <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X className="w-5 h-5" />
+      {/* Adjust Points Modal */}
+      {showAdjustModal && selectedCustomer && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-neutral-900 rounded-xl border border-white/10 p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Adjust Points</h3>
+              <button onClick={() => setShowAdjustModal(false)} className="text-white/50 hover:text-white">
+                <X size={20} />
               </button>
             </div>
             
-            <div className="p-6">
-              <p className="text-gray-600 mb-4">
-                Adjusting points for <strong>{editingCustomer.name || editingCustomer.email}</strong>
-              </p>
-              <p className="text-sm text-gray-500 mb-6">
-                Current balance: <span className="font-semibold text-purple-600">{editingCustomer.currentPoints.toLocaleString()} points</span>
-              </p>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Points Amount
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setPointsAmount(prev => {
-                        const val = parseInt(prev) || 0
-                        return String(val >= 0 ? -Math.abs(val || 100) : val)
-                      })}
-                      className={`px-4 py-2 rounded-lg border ${
-                        parseInt(pointsAmount) < 0 
-                          ? 'bg-red-100 border-red-300 text-red-700' 
-                          : 'border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      <Minus weight="bold" />
-                    </button>
-                    <input
-                      type="number"
-                      value={pointsAmount}
-                      onChange={(e) => setPointsAmount(e.target.value)}
-                      placeholder="Enter amount"
-                      className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    />
-                    <button
-                      onClick={() => setPointsAmount(prev => {
-                        const val = parseInt(prev) || 0
-                        return String(val <= 0 ? Math.abs(val || 100) : val)
-                      })}
-                      className={`px-4 py-2 rounded-lg border ${
-                        parseInt(pointsAmount) > 0 
-                          ? 'bg-green-100 border-green-300 text-green-700' 
-                          : 'border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      <Plus weight="bold" />
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Reason (optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={pointsReason}
-                    onChange={(e) => setPointsReason(e.target.value)}
-                    placeholder="e.g., Customer service gesture"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
-
-                {pointsAmount && (
-                  <div className={`p-4 rounded-lg ${parseInt(pointsAmount) >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
-                    <p className={`text-sm font-medium ${parseInt(pointsAmount) >= 0 ? 'text-green-800' : 'text-red-800'}`}>
-                      New balance will be: {(editingCustomer.currentPoints + parseInt(pointsAmount || '0')).toLocaleString()} points
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-3 p-6 border-t border-gray-200">
-              <button
-                onClick={closeModal}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAdjustPoints}
-                disabled={!pointsAmount || saving}
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {saving ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Check weight="bold" />
-                    Apply
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tier Change Modal */}
-      {modalMode === 'tier' && editingCustomer && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <Crown className="w-5 h-5 text-purple-600" weight="fill" />
-                Change Tier
-              </h3>
-              <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            <p className="text-white/70 mb-4">
+              Adjusting points for <span className="text-white font-medium">{selectedCustomer.name || selectedCustomer.email}</span>
+            </p>
+            <p className="text-sm text-white/50 mb-4">
+              Current balance: <span className="font-mono text-white">{selectedCustomer.loyaltyPoints.toLocaleString()}</span> points
+            </p>
             
-            <div className="p-6">
-              <p className="text-gray-600 mb-4">
-                Changing tier for <strong>{editingCustomer.name || editingCustomer.email}</strong>
-              </p>
-              <p className="text-sm text-gray-500 mb-6">
-                Current tier: <span className={`font-semibold px-2 py-0.5 rounded-full ${editingCustomer.tier ? getTierColor(editingCustomer.tier.name) : 'bg-gray-100 text-gray-600'}`}>
-                  {editingCustomer.tier?.name || 'None'}
-                </span>
-              </p>
-
+            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select New Tier
-                </label>
-                <div className="space-y-2">
-                  {customerData?.tiers.map(tier => (
-                    <button
-                      key={tier.id}
-                      onClick={() => setNewTierId(tier.id)}
-                      className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                        newTierId === tier.id 
-                          ? 'border-purple-500 bg-purple-50' 
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${getTierColor(tier.name)}`}>
-                        {tier.name}
-                      </span>
-                      {newTierId === tier.id && (
-                        <Check className="w-5 h-5 text-purple-600" weight="bold" />
-                      )}
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-sm font-medium text-white/70 mb-2">Points (+ to add, - to remove)</label>
+                <input
+                  type="number"
+                  value={pointsAdjustment || ''}
+                  onChange={(e) => setPointsAdjustment(parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none"
+                  placeholder="e.g., 100 or -50"
+                />
               </div>
-            </div>
-
-            <div className="flex gap-3 p-6 border-t border-gray-200">
-              <button
-                onClick={closeModal}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleChangeTier}
-                disabled={!newTierId || newTierId === editingCustomer.tier?.id || saving}
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {saving ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Check weight="bold" />
-                    Apply
-                  </>
-                )}
-              </button>
+              
+              <div>
+                <label className="block text-sm font-medium text-white/70 mb-2">Reason</label>
+                <input
+                  type="text"
+                  value={adjustmentReason}
+                  onChange={(e) => setAdjustmentReason(e.target.value)}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none"
+                  placeholder="e.g., Customer appreciation bonus"
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-2">
+                <Button
+                  onClick={handleAdjustPoints}
+                  disabled={!pointsAdjustment || isSubmitting}
+                  className="bg-[#FF3131] hover:bg-[#E02828] flex-1"
+                >
+                  {isSubmitting ? <CircleNotch size={18} className="animate-spin" /> : 'Apply'}
+                </Button>
+                <Button variant="outline" onClick={() => setShowAdjustModal(false)}>
+                  Cancel
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       )}
-    </div>
+
+      {/* Change Tier Modal */}
+      {showTierModal && selectedCustomer && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-neutral-900 rounded-xl border border-white/10 p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Change Tier</h3>
+              <button onClick={() => setShowTierModal(false)} className="text-white/50 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <p className="text-white/70 mb-4">
+              Update tier for <span className="text-white font-medium">{selectedCustomer.name || selectedCustomer.email}</span>
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-white/70 mb-2">New Tier</label>
+                <select
+                  value={newTier}
+                  onChange={(e) => setNewTier(e.target.value)}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-white/30 focus:outline-none"
+                >
+                  <option value="" className="bg-neutral-900">Select tier...</option>
+                  <option value="head" className="bg-neutral-900">Head</option>
+                  <option value="heart" className="bg-neutral-900">Heart</option>
+                  <option value="mind" className="bg-neutral-900">Mind</option>
+                  <option value="overdrive" className="bg-neutral-900">Overdrive</option>
+                </select>
+              </div>
+              
+              <div className="flex gap-3 pt-2">
+                <Button
+                  onClick={handleChangeTier}
+                  disabled={!newTier || isSubmitting}
+                  className="bg-[#FF3131] hover:bg-[#E02828] flex-1"
+                >
+                  {isSubmitting ? <CircleNotch size={18} className="animate-spin" /> : 'Update Tier'}
+                </Button>
+                <Button variant="outline" onClick={() => setShowTierModal(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </AdminLayout>
   )
 }

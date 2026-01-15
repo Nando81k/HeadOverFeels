@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { ProductCard } from '@/components/recommendations/ProductCard'
 
@@ -22,6 +22,7 @@ export interface ProductRecommendation {
 interface ProductCarouselProps {
   products: ProductRecommendation[]
   title: string
+  sourceProductId?: string  // The product that triggered these recommendations
   trackingType?: string
   onProductClick?: (productId: string) => void
 }
@@ -29,6 +30,7 @@ interface ProductCarouselProps {
 export function ProductCarousel({
   products,
   title,
+  sourceProductId,
   trackingType = 'general',
   onProductClick,
 }: ProductCarouselProps) {
@@ -46,6 +48,26 @@ export function ProductCarousel({
     )
   }
 
+  // Track batch impressions when products are first displayed
+  const trackImpressions = useCallback(async () => {
+    if (!sourceProductId || products.length === 0) return
+
+    try {
+      await fetch('/api/recommendations/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'batch_impression',
+          sourceProductId,
+          targetProductIds: products.map(p => p.id),
+          type: trackingType.toUpperCase(),
+        }),
+      })
+    } catch (error) {
+      console.error('Failed to track impressions:', error)
+    }
+  }, [sourceProductId, products, trackingType])
+
   useEffect(() => {
     checkScrollability()
     const container = scrollContainerRef.current
@@ -54,11 +76,14 @@ export function ProductCarousel({
     container.addEventListener('scroll', checkScrollability)
     window.addEventListener('resize', checkScrollability)
 
+    // Track impressions on mount
+    trackImpressions()
+
     return () => {
       container.removeEventListener('scroll', checkScrollability)
       window.removeEventListener('resize', checkScrollability)
     }
-  }, [products])
+  }, [products, trackImpressions])
 
   const scroll = (direction: 'left' | 'right') => {
     const container = scrollContainerRef.current
@@ -120,6 +145,7 @@ export function ProductCarousel({
             >
               <ProductCard
                 product={product}
+                sourceProductId={sourceProductId}
                 trackingType={trackingType}
                 onClick={() => onProductClick?.(product.id)}
               />

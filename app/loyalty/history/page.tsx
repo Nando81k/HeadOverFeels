@@ -19,7 +19,7 @@ interface Redemption {
   createdAt: string
 }
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { label: string; icon: typeof Clock; color: string; bg: string }> = {
   PENDING: {
     label: 'Pending',
     icon: Clock,
@@ -46,6 +46,14 @@ const STATUS_CONFIG = {
   },
 }
 
+// Default status config for unknown statuses
+const DEFAULT_STATUS_CONFIG = {
+  label: 'Unknown',
+  icon: Clock,
+  color: 'text-black/60',
+  bg: 'bg-black/5',
+}
+
 export default function RedemptionHistory() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
@@ -67,8 +75,9 @@ export default function RedemptionHistory() {
     try {
       const response = await fetch('/api/loyalty/redemptions')
       if (response.ok) {
-        const data = await response.json()
-        setRedemptions(data)
+        const result = await response.json()
+        // Handle paginated response structure
+        setRedemptions(result.data || [])
       }
     } catch (error) {
       console.error('Failed to fetch redemptions:', error)
@@ -127,7 +136,7 @@ export default function RedemptionHistory() {
         ) : (
           <div className="space-y-4">
             {redemptions.map((redemption) => {
-              const statusConfig = STATUS_CONFIG[redemption.status]
+              const statusConfig = STATUS_CONFIG[redemption.status] || DEFAULT_STATUS_CONFIG
               const StatusIcon = statusConfig.icon
 
               return (

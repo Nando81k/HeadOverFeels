@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { PointsTransactionType } from '@prisma/client'
 import { sendTierUpgradeEmail, sendReferralSuccessEmail, getTierColor } from '@/lib/email/loyalty'
+import { notifyPointsEarned, notifyTierUpgrade } from '@/lib/notifications/service'
 
 /**
  * Loyalty Service
@@ -85,7 +86,53 @@ export async function awardPoints(
     data: updateData,
   })
 
+  // Create in-app notification for points earned (only for positive points)
+  if (finalPoints > 0 && type !== 'EXPIRATION' && type !== 'REDEMPTION') {
+    try {
+      // Format a friendly reason based on transaction type
+      const reason = getPointsReasonText(type, description)
+      await notifyPointsEarned(customerId, finalPoints, reason, metadata?.orderId)
+    } catch (err) {
+      // Don't fail the transaction if notification fails
+      console.error('Failed to create points notification:', err)
+    }
+  }
+
   return transaction
+}
+
+/**
+ * Get a friendly reason text for points earned
+ */
+function getPointsReasonText(type: PointsTransactionType, description: string): string {
+  switch (type) {
+    case 'PURCHASE':
+      return 'from your purchase'
+    case 'ACCOUNT_CREATION':
+      return 'for joining our community'
+    case 'FIRST_PURCHASE':
+      return 'for your first purchase'
+    case 'REVIEW':
+      return 'for writing a review'
+    case 'SOCIAL_FOLLOW':
+      return 'for following us on social media'
+    case 'SOCIAL_SHARE':
+      return 'for sharing on social media'
+    case 'UGC_UPLOAD':
+      return 'for sharing your photos'
+    case 'BIRTHDAY':
+      return 'as a birthday gift'
+    case 'REFERRAL_GIVE':
+      return 'for referring a friend'
+    case 'REFERRAL_RECEIVE':
+      return 'as a referral bonus'
+    case 'ADMIN_ADJUSTMENT':
+      return 'from admin adjustment'
+    case 'TIER_BONUS':
+      return 'as a tier bonus'
+    default:
+      return description || 'from an activity'
+  }
 }
 
 /**
@@ -400,6 +447,30 @@ export async function updateCustomerTier(customerId: string) {
         'TIER_BONUS',
         `🎉 Welcome to ${newTier.name} tier! Enjoy your new perks!`
       )
+      
+      // Send in-app tier upgrade notification
+      try {
+        const benefits: string[] = []
+        if (newTier.pointMultiplier > 1) benefits.push(`${newTier.pointMultiplier}x points`)
+        if (newTier.freeShipping) benefits.push('Free shipping')
+        if (newTier.earlyDropAccess) benefits.push('Early drop access')
+        
+        // Parse perks JSON if available
+        if (newTier.perks) {
+          try {
+            const perksData = JSON.parse(newTier.perks) as Record<string, boolean>
+            if (perksData.careBox) benefits.push('Exclusive Care Box')
+            if (perksData.engravedItem) benefits.push('Engraved items')
+            if (perksData.customItem) benefits.push('Custom items')
+          } catch {
+            // Ignore JSON parse errors
+          }
+        }
+        
+        await notifyTierUpgrade(customerId, newTier.name, benefits)
+      } catch (notifyError) {
+        console.error('Failed to create tier upgrade notification:', notifyError)
+      }
       
       // Send tier upgrade email notification
       if (customer.email && previousTier) {

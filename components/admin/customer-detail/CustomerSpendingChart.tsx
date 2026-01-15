@@ -197,7 +197,7 @@ export default function CustomerSpendingChart({
               />
             )}
             <Area
-              type="monotone"
+              type="linear"
               dataKey="spending"
               stroke="#34d399"
               strokeWidth={2}

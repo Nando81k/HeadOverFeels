@@ -247,7 +247,7 @@ export default function RevenueChart({
                   iconType="circle"
                 />
                 <Area
-                  type="monotone"
+                  type="linear"
                   dataKey="revenue"
                   name="Revenue"
                   stroke="#a855f7"
@@ -258,7 +258,7 @@ export default function RevenueChart({
                 />
                 {showOrders && (
                   <Area
-                    type="monotone"
+                    type="linear"
                     dataKey="orders"
                     name="Orders"
                     stroke="#60a5fa"
@@ -291,7 +291,7 @@ export default function RevenueChart({
                   iconType="circle"
                 />
                 <Line
-                  type="monotone"
+                  type="linear"
                   dataKey="revenue"
                   name="Revenue"
                   stroke="#a855f7"
@@ -303,7 +303,7 @@ export default function RevenueChart({
                 />
                 {showOrders && (
                   <Line
-                    type="monotone"
+                    type="linear"
                     dataKey="orders"
                     name="Orders"
                     stroke="#60a5fa"

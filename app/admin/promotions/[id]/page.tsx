@@ -15,6 +15,8 @@ import {
   Info,
   ChartLine
 } from '@phosphor-icons/react'
+import { AdminLayout } from '@/components/admin/AdminLayout'
+import { Button } from '@/components/ui/button'
 
 type PromotionType = 'PERCENTAGE' | 'FIXED_AMOUNT' | 'FREE_SHIPPING' | 'BOGO' | 'BUY_X_GET_Y'
 
@@ -165,64 +167,64 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
   
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin w-8 h-8 border-2 border-[#FF3131] border-t-transparent rounded-full" />
-      </div>
+      <AdminLayout title="Edit Promotion" subtitle="Loading...">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin w-8 h-8 border-2 border-[#FF3131] border-t-transparent rounded-full" />
+        </div>
+      </AdminLayout>
     )
   }
   
   if (error && !formData.name) {
     return (
-      <div className="p-8">
-        <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3">
+      <AdminLayout title="Edit Promotion" subtitle="Error">
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg">
           {error}
         </div>
         <Link href="/admin/promotions" className="text-[#FF3131] mt-4 inline-block">
           ← Back to Promotions
         </Link>
-      </div>
+      </AdminLayout>
     )
   }
   
   return (
-    <div className="p-8 max-w-4xl">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <Link
-          href="/admin/promotions"
-          className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-        >
-          <ArrowLeft size={24} />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-white">Edit Promotion</h1>
-          <p className="text-zinc-400 mt-1">{formData.name}</p>
-        </div>
-        
-        {/* Usage Stats */}
-        <div className="bg-zinc-900/50 border border-zinc-800 px-4 py-2 flex items-center gap-3">
-          <ChartLine size={20} className="text-zinc-500" />
-          <div>
-            <p className="text-sm text-zinc-500">Total Uses</p>
-            <p className="text-xl font-bold text-white">
-              {formData.usageCount}
-              {formData.usageLimit && (
-                <span className="text-zinc-500 text-sm"> / {formData.usageLimit}</span>
-              )}
-            </p>
+    <AdminLayout
+      title="Edit Promotion"
+      subtitle={formData.name}
+      headerActions={
+        <div className="flex items-center gap-3">
+          <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-lg flex items-center gap-3">
+            <ChartLine size={20} className="text-white/40" />
+            <div>
+              <p className="text-xs text-white/40">Total Uses</p>
+              <p className="text-lg font-bold text-white">
+                {formData.usageCount}
+                {formData.usageLimit && (
+                  <span className="text-white/40 text-sm"> / {formData.usageLimit}</span>
+                )}
+              </p>
+            </div>
           </div>
+          <Link href="/admin/promotions">
+            <Button variant="outline" className="border-white/10">
+              <ArrowLeft size={16} weight="bold" className="mr-2" />
+              Back
+            </Button>
+          </Link>
         </div>
-      </div>
+      }
+    >
       
       {error && (
-        <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 mb-6">
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 mb-6 rounded-lg">
           {error}
         </div>
       )}
       
-      <form onSubmit={handleSubmit} className="space-y-8">
+      <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl">
         {/* Basic Info */}
-        <section className="bg-zinc-900/50 border border-zinc-800 p-6">
+        <section className="bg-white/5 border border-white/10 rounded-xl p-6">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Info size={20} />
             Basic Information
@@ -230,7 +232,7 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
           
           <div className="grid gap-4">
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
+              <label className="block text-sm font-medium text-white/70 mb-2">
                 Promotion Name *
               </label>
               <input
@@ -239,12 +241,12 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="e.g., Summer Sale 20% Off"
-                className="w-full bg-zinc-800 border border-zinc-700 px-4 py-2 text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#FF3131]"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder:text-white/30 focus:outline-none focus:border-[#FF3131]/50"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
+              <label className="block text-sm font-medium text-white/70 mb-2">
                 Description (optional)
               </label>
               <textarea
@@ -252,14 +254,14 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Internal notes about this promotion..."
                 rows={2}
-                className="w-full bg-zinc-800 border border-zinc-700 px-4 py-2 text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#FF3131] resize-none"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder:text-white/30 focus:outline-none focus:border-[#FF3131]/50 resize-none"
               />
             </div>
           </div>
         </section>
         
         {/* Promotion Type */}
-        <section className="bg-zinc-900/50 border border-zinc-800 p-6">
+        <section className="bg-white/5 border border-white/10 rounded-xl p-6">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Tag size={20} />
             Discount Type
@@ -275,17 +277,17 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
                   key={option.value}
                   type="button"
                   onClick={() => setFormData(prev => ({ ...prev, type: option.value as PromotionType }))}
-                  className={`p-4 text-left border transition-colors ${
+                  className={`p-4 text-left border rounded-lg transition-colors ${
                     isSelected 
                       ? 'bg-[#FF3131]/10 border-[#FF3131] text-white' 
-                      : 'bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:border-zinc-600'
+                      : 'bg-white/5 border-white/10 text-white/70 hover:border-white/20'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <Icon size={24} weight={isSelected ? 'fill' : 'regular'} />
                     <div>
                       <p className="font-medium">{option.label}</p>
-                      <p className="text-xs text-zinc-500">{option.description}</p>
+                      <p className="text-xs text-white/40">{option.description}</p>
                     </div>
                   </div>
                 </button>
@@ -295,7 +297,7 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
           
           {(formData.type === 'PERCENTAGE' || formData.type === 'FIXED_AMOUNT') && (
             <div className="mt-4">
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
+              <label className="block text-sm font-medium text-white/70 mb-2">
                 {formData.type === 'PERCENTAGE' ? 'Percentage Off' : 'Amount Off ($)'}
               </label>
               <div className="relative w-48">
@@ -306,9 +308,9 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
                   max={formData.type === 'PERCENTAGE' ? 100 : undefined}
                   value={formData.value}
                   onChange={(e) => setFormData(prev => ({ ...prev, value: Number(e.target.value) }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 px-4 py-2 text-white focus:outline-none focus:border-[#FF3131]"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#FF3131]/50"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500">
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40">
                   {formData.type === 'PERCENTAGE' ? '%' : 'USD'}
                 </span>
               </div>
@@ -317,7 +319,7 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
         </section>
         
         {/* Code Section */}
-        <section className="bg-zinc-900/50 border border-zinc-800 p-6">
+        <section className="bg-white/5 border border-white/10 rounded-xl p-6">
           <h2 className="text-lg font-semibold text-white mb-4">Promo Code</h2>
           
           <label className="flex items-center gap-3 mb-4 cursor-pointer">
@@ -325,18 +327,18 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
               type="checkbox"
               checked={formData.autoApply}
               onChange={(e) => setFormData(prev => ({ ...prev, autoApply: e.target.checked }))}
-              className="w-5 h-5 bg-zinc-800 border-zinc-700 rounded focus:ring-[#FF3131] focus:ring-offset-0"
+              className="w-5 h-5 bg-white/5 border-white/10 rounded accent-[#FF3131]"
             />
             <div>
               <p className="text-white font-medium">Auto-apply discount</p>
-              <p className="text-xs text-zinc-500">Automatically applied when conditions are met (no code needed)</p>
+              <p className="text-xs text-white/40">Automatically applied when conditions are met (no code needed)</p>
             </div>
           </label>
           
           {!formData.autoApply && (
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                <label className="block text-sm font-medium text-white/70 mb-2">
                   Discount Code *
                 </label>
                 <input
@@ -345,13 +347,13 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
                   value={formData.code}
                   onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
                   placeholder="e.g., SUMMER20"
-                  className="w-full bg-zinc-800 border border-zinc-700 px-4 py-2 text-white font-mono placeholder:text-zinc-500 focus:outline-none focus:border-[#FF3131] uppercase"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white font-mono placeholder:text-white/30 focus:outline-none focus:border-[#FF3131]/50 uppercase"
                 />
               </div>
               <button
                 type="button"
                 onClick={generateCode}
-                className="self-end px-4 py-2 bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 transition-colors"
+                className="self-end px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white/70 hover:bg-white/10 transition-colors"
               >
                 Generate
               </button>
@@ -360,7 +362,7 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
         </section>
         
         {/* Conditions */}
-        <section className="bg-zinc-900/50 border border-zinc-800 p-6">
+        <section className="bg-white/5 border border-white/10 rounded-xl p-6">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <ShoppingBag size={20} />
             Conditions
@@ -368,7 +370,7 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
           
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
+              <label className="block text-sm font-medium text-white/70 mb-2">
                 Minimum Purchase ($)
               </label>
               <input
@@ -381,12 +383,12 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
                   minPurchase: e.target.value ? Number(e.target.value) : null 
                 }))}
                 placeholder="No minimum"
-                className="w-full bg-zinc-800 border border-zinc-700 px-4 py-2 text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#FF3131]"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder:text-white/30 focus:outline-none focus:border-[#FF3131]/50"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
+              <label className="block text-sm font-medium text-white/70 mb-2">
                 Maximum Discount ($)
               </label>
               <input
@@ -399,12 +401,12 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
                   maxDiscount: e.target.value ? Number(e.target.value) : null 
                 }))}
                 placeholder="No maximum"
-                className="w-full bg-zinc-800 border border-zinc-700 px-4 py-2 text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#FF3131]"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder:text-white/30 focus:outline-none focus:border-[#FF3131]/50"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
+              <label className="block text-sm font-medium text-white/70 mb-2">
                 Usage Limit (total uses)
               </label>
               <input
@@ -416,7 +418,7 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
                   usageLimit: e.target.value ? Number(e.target.value) : null 
                 }))}
                 placeholder="Unlimited"
-                className="w-full bg-zinc-800 border border-zinc-700 px-4 py-2 text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#FF3131]"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder:text-white/30 focus:outline-none focus:border-[#FF3131]/50"
               />
             </div>
           </div>
@@ -427,9 +429,9 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
                 type="checkbox"
                 checked={formData.excludeSaleItems}
                 onChange={(e) => setFormData(prev => ({ ...prev, excludeSaleItems: e.target.checked }))}
-                className="w-5 h-5 bg-zinc-800 border-zinc-700 rounded"
+                className="w-5 h-5 bg-white/5 border-white/10 rounded accent-[#FF3131]"
               />
-              <span className="text-zinc-300">Exclude sale items</span>
+              <span className="text-white/70">Exclude sale items</span>
             </label>
             
             <label className="flex items-center gap-3 cursor-pointer">
@@ -437,24 +439,24 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
                 type="checkbox"
                 checked={formData.firstTimeOnly}
                 onChange={(e) => setFormData(prev => ({ ...prev, firstTimeOnly: e.target.checked }))}
-                className="w-5 h-5 bg-zinc-800 border-zinc-700 rounded"
+                className="w-5 h-5 bg-white/5 border-white/10 rounded accent-[#FF3131]"
               />
-              <span className="text-zinc-300">First-time customers only</span>
+              <span className="text-white/70">First-time customers only</span>
             </label>
           </div>
         </section>
         
         {/* Targeting */}
-        <section className="bg-zinc-900/50 border border-zinc-800 p-6">
+        <section className="bg-white/5 border border-white/10 rounded-xl p-6">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Users size={20} />
             Targeting (Optional)
           </h2>
-          <p className="text-sm text-zinc-500 mb-4">Leave empty to apply to all products and customers</p>
+          <p className="text-sm text-white/40 mb-4">Leave empty to apply to all products and customers</p>
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
+              <label className="block text-sm font-medium text-white/70 mb-2">
                 Specific Products
               </label>
               <select
@@ -464,17 +466,17 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
                   ...prev,
                   productIds: Array.from(e.target.selectedOptions, o => o.value)
                 }))}
-                className="w-full bg-zinc-800 border border-zinc-700 px-4 py-2 text-white focus:outline-none focus:border-[#FF3131] min-h-[100px]"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#FF3131]/50 min-h-[100px]"
               >
                 {products.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id} className="bg-neutral-900">{p.name}</option>
                 ))}
               </select>
-              <p className="text-xs text-zinc-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
+              <p className="text-xs text-white/40 mt-1">Hold Ctrl/Cmd to select multiple</p>
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
+              <label className="block text-sm font-medium text-white/70 mb-2">
                 Specific Collections
               </label>
               <select
@@ -484,10 +486,10 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
                   ...prev,
                   collectionIds: Array.from(e.target.selectedOptions, o => o.value)
                 }))}
-                className="w-full bg-zinc-800 border border-zinc-700 px-4 py-2 text-white focus:outline-none focus:border-[#FF3131] min-h-[100px]"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#FF3131]/50 min-h-[100px]"
               >
                 {collections.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id} value={c.id} className="bg-neutral-900">{c.name}</option>
                 ))}
               </select>
             </div>
@@ -495,7 +497,7 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
         </section>
         
         {/* Schedule */}
-        <section className="bg-zinc-900/50 border border-zinc-800 p-6">
+        <section className="bg-white/5 border border-white/10 rounded-xl p-6">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Calendar size={20} />
             Schedule
@@ -503,7 +505,7 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
           
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
+              <label className="block text-sm font-medium text-white/70 mb-2">
                 Start Date *
               </label>
               <input
@@ -511,12 +513,12 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
                 required
                 value={formData.startDate}
                 onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
-                className="w-full bg-zinc-800 border border-zinc-700 px-4 py-2 text-white focus:outline-none focus:border-[#FF3131]"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#FF3131]/50"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
+              <label className="block text-sm font-medium text-white/70 mb-2">
                 End Date (optional)
               </label>
               <input
@@ -524,7 +526,7 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
                 value={formData.endDate}
                 onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
                 min={formData.startDate}
-                className="w-full bg-zinc-800 border border-zinc-700 px-4 py-2 text-white focus:outline-none focus:border-[#FF3131]"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#FF3131]/50"
               />
             </div>
           </div>
@@ -534,32 +536,31 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
               type="checkbox"
               checked={formData.isActive}
               onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
-              className="w-5 h-5 bg-zinc-800 border-zinc-700 rounded"
+              className="w-5 h-5 bg-white/5 border-white/10 rounded accent-[#FF3131]"
             />
             <div>
-              <p className="text-zinc-300">Active</p>
-              <p className="text-xs text-zinc-500">Uncheck to deactivate this promotion</p>
+              <p className="text-white/70">Active</p>
+              <p className="text-xs text-white/40">Uncheck to deactivate this promotion</p>
             </div>
           </label>
         </section>
         
         {/* Submit */}
         <div className="flex justify-end gap-3">
-          <Link
-            href="/admin/promotions"
-            className="px-6 py-2 border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors"
-          >
-            Cancel
+          <Link href="/admin/promotions">
+            <Button variant="outline" className="border-white/10">
+              Cancel
+            </Button>
           </Link>
-          <button
+          <Button
             type="submit"
             disabled={saving}
-            className="px-6 py-2 bg-[#FF3131] text-white font-semibold hover:bg-[#FF3131]/90 transition-colors disabled:opacity-50"
+            className="bg-[#FF3131] hover:bg-[#E02828]"
           >
             {saving ? 'Saving...' : 'Save Changes'}
-          </button>
+          </Button>
         </div>
       </form>
-    </div>
+    </AdminLayout>
   )
 }

@@ -49,7 +49,8 @@ export async function POST(request: NextRequest) {
               where: { id: orderId },
               data: { 
                 status: 'CONFIRMED',
-                paymentStatus: 'PAID'
+                paymentStatus: 'PAID',
+                stripePaymentIntentId: paymentIntent.id, // Store for refunds
               },
               include: {
                 items: {

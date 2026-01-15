@@ -32,10 +32,51 @@ model AdminUser {
   // AI conversations
   aiConversations  AiConversation[]
   
+  // Audit logs created by this admin
+  auditLogs        AdminAuditLog[]
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
   @@map("admin_users")
+}
+
+// ===== ADMIN AUDIT LOGGING =====
+model AdminAuditLog {
+  id          String          @id @default(cuid())
+  
+  // Who performed the action
+  adminId     String
+  admin       AdminUser       @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  adminEmail  String          // Snapshot for historical reference
+  adminName   String          // Snapshot for historical reference
+  
+  // What action was performed
+  action      AuditAction
+  category    AuditCategory
+  
+  // Target of the action
+  targetId    String?         // ID of affected entity (order, product, customer, etc.)
+  targetType  String?         // Type: "order", "product", "customer", "inventory", etc.
+  targetLabel String?         // Human-readable label: "Order #1234", "Product: Cool Shirt"
+  
+  // Details
+  description String          // Human-readable description of action
+  changes     String?         // JSON: { before: {...}, after: {...} } for tracking changes
+  metadata    String?         // JSON: Additional context (IP address, user agent, etc.)
+  
+  // Security tracking
+  ipAddress   String?
+  userAgent   String?
+  
+  createdAt   DateTime        @default(now())
+  
+  @@index([adminId])
+  @@index([action])
+  @@index([category])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
 }
 
 // ===== PRODUCTS =====
@@ -104,6 +145,7 @@ model Product {
   sourceRecommendations ProductRecommendation[] @relation("SourceProduct")
   targetRecommendations ProductRecommendation[] @relation("TargetProduct")
   avatarItems    AvatarItem[]
+  backInStockNotifications BackInStockNotification[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -176,6 +218,7 @@ model ProductVariant {
   cartItems  CartItem[]
   cartReservations CartReservation[]
   wishlistItems WishlistItem[]
+  backInStockNotifications BackInStockNotification[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -237,10 +280,123 @@ model Customer {
   accounts      Account[]
   sessions      Session[]
   
+  // Gift Card relations
+  purchasedGiftCards  GiftCard[]            @relation("GiftCardPurchaser")
+  redeemedGiftCards   GiftCard[]            @relation("GiftCardRedeemer")
+  giftCardTransactions GiftCardTransaction[]
+  
+  // Back-in-Stock Notifications
+  backInStockNotifications BackInStockNotification[]
+  
+  // Customer Notifications
+  notifications     CustomerNotification[]
+  notificationPreferences NotificationPreference?
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
   @@map("customers")
+}
+
+// ===== CUSTOMER NOTIFICATIONS =====
+model CustomerNotification {
+  id          String               @id @default(cuid())
+  customerId  String
+  customer    Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // Notification content
+  type        NotificationType
+  title       String
+  message     String
+  
+  // Link to related entity (optional)
+  linkUrl     String?              // Where to navigate when clicked
+  linkLabel   String?              // "View Order", "Check Points", etc.
+  
+  // Metadata for rich notifications (JSON)
+  // e.g., { pointsEarned: 50, orderNumber: "HOF-12345", tierName: "Supporter" }
+  metadata    String?
+  
+  // Status
+  isRead      Boolean              @default(false)
+  readAt      DateTime?
+  
+  // Email/push preferences (was this sent externally?)
+  emailSent   Boolean              @default(false)
+  pushSent    Boolean              @default(false)
+  
+  createdAt   DateTime             @default(now())
+  
+  @@index([customerId, isRead])
+  @@index([customerId, createdAt])
+  @@index([type])
+  @@map("customer_notifications")
+}
+
+model NotificationPreference {
+  id          String    @id @default(cuid())
+  customerId  String    @unique
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // In-App Notifications (notification center)
+  inAppPointsEarned     Boolean @default(true)
+  inAppTierUpdates      Boolean @default(true)
+  inAppOrderUpdates     Boolean @default(true)
+  inAppPromotions       Boolean @default(true)
+  inAppDropAlerts       Boolean @default(true)
+  inAppRewardReminders  Boolean @default(true)
+  
+  // Email Notifications
+  emailPointsEarned     Boolean @default(false)  // Off by default (can be noisy)
+  emailTierUpdates      Boolean @default(true)
+  emailOrderUpdates     Boolean @default(true)
+  emailPromotions       Boolean @default(true)
+  emailDropAlerts       Boolean @default(true)
+  emailRewardReminders  Boolean @default(true)
+  emailPointsExpiring   Boolean @default(true)
+  emailBirthdayBonus    Boolean @default(true)
+  
+  // SMS Notifications (requires smsOptIn on Customer)
+  smsOrderUpdates       Boolean @default(true)
+  smsDropAlerts         Boolean @default(false)  // Off by default
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@map("notification_preferences")
+}
+
+// ===== NEWSLETTER SUBSCRIBERS (Non-Customers) =====
+model NewsletterSubscriber {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  
+  // Source tracking
+  source        String?   // "footer", "popup", "checkout", "landing_page"
+  sourceDetails String?   // Additional context (popup name, page URL)
+  
+  // Status
+  isActive      Boolean   @default(true)
+  
+  // Verification
+  isVerified    Boolean   @default(false)
+  verifiedAt    DateTime?
+  
+  // Unsubscribe tracking
+  unsubscribedAt DateTime?
+  unsubscribeReason String?
+  
+  // Campaign tracking
+  utmSource     String?
+  utmMedium     String?
+  utmCampaign   String?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@index([email])
+  @@index([isActive])
+  @@map("newsletter_subscribers")
 }
 
 // ===== OAUTH ACCOUNTS (for Social Login) =====
@@ -446,6 +602,8 @@ model Order {
   // Payment
   paymentMethod String?
   paymentStatus PaymentStatus @default(PENDING)
+  stripePaymentIntentId String?  // Stripe Payment Intent ID for refunds
+  stripeRefundId        String?  // Stripe Refund ID if refunded
   
   // Fulfillment
   shippingMethod    String?
@@ -470,6 +628,11 @@ model Order {
   
   // Support tickets
   supportTickets SupportTicket[]
+  
+  // Gift cards
+  giftCardsApplied    OrderGiftCard[]        // Gift cards used in this order
+  purchasedGiftCards  GiftCard[]             @relation("GiftCardPurchaseOrder")
+  giftCardTransactions GiftCardTransaction[]
   
   // Notes
   notes         String?
@@ -763,6 +926,47 @@ model ProductRecommendation {
   @@index([sourceProductId, type])
   @@index([score])
   @@map("product_recommendations")
+}
+
+// ===== BACK-IN-STOCK NOTIFICATIONS =====
+model BackInStockNotification {
+  id              String   @id @default(cuid())
+  
+  // Product or variant being watched
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  variantId       String?  // Optional - if watching a specific variant
+  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  
+  // Subscriber info
+  email           String   // Email to notify
+  customerId      String?  // Optional - if logged in customer
+  customer        Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  
+  // Status
+  status          BackInStockStatus @default(PENDING)
+  notifiedAt      DateTime?  // When notification was sent
+  
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  expiresAt       DateTime?  // Optional expiration
+  
+  @@unique([productId, variantId, email])
+  @@index([status])
+  @@index([productId, status])
+  @@index([variantId, status])
+  @@index([customerId])
+  @@map("back_in_stock_notifications")
+}
+
+enum BackInStockStatus {
+  PENDING     // Waiting for product to come back
+  NOTIFIED    // Notification sent
+  PURCHASED   // Customer purchased after notification
+  EXPIRED     // Notification expired
+  CANCELLED   // Customer cancelled subscription
 }
 
 // ===== LOYALTY & REWARDS SYSTEM =====
@@ -1215,6 +1419,28 @@ model AdminAvailability {
 }
 
 // ===== ENUMS =====
+enum NotificationType {
+  POINTS_EARNED         // Earned care points from purchase/action
+  POINTS_EXPIRING       // Points about to expire
+  TIER_UPGRADE          // Customer moved to higher tier
+  TIER_DOWNGRADE        // Customer tier reduced (annual reset)
+  ORDER_CONFIRMED       // Order placed successfully
+  ORDER_SHIPPED         // Order shipped with tracking
+  ORDER_DELIVERED       // Order delivered
+  ORDER_REFUNDED        // Refund processed
+  REWARD_AVAILABLE      // New reward unlocked at tier
+  REWARD_REMINDER       // Reminder about available rewards
+  PROMO_NEW             // New promotion available
+  DROP_REMINDER         // Limited drop coming soon
+  DROP_LIVE             // Limited drop is now live
+  BIRTHDAY_BONUS        // Birthday bonus awarded
+  REFERRAL_BONUS        // Referral bonus earned
+  REVIEW_REQUEST        // Ask for product review
+  BACK_IN_STOCK         // Product back in stock
+  WISHLIST_SALE         // Wishlist item on sale
+  GENERAL               // General system notification
+}
+
 enum ChatSessionStatus {
   WAITING   // Customer waiting for admin
   ACTIVE    // Admin connected, chat in progress
@@ -1270,6 +1496,48 @@ enum RecommendationType {
   TRENDING         // Currently trending
   PERSONALIZED     // Based on user history
   BEST_SELLERS     // Top selling in category
+}
+
+// ===== AUDIT LOGGING ENUMS =====
+enum AuditAction {
+  // Create actions
+  CREATE
+  // Read/View actions (for sensitive data access)
+  VIEW
+  // Update actions
+  UPDATE
+  // Delete actions
+  DELETE
+  // Status changes
+  STATUS_CHANGE
+  // Special actions
+  LOGIN
+  LOGOUT
+  EXPORT
+  IMPORT
+  REFUND
+  RESTOCK
+  ASSIGN
+  APPROVE
+  REJECT
+  BULK_UPDATE
+}
+
+enum AuditCategory {
+  ORDER
+  PRODUCT
+  INVENTORY
+  CUSTOMER
+  SUPPORT_TICKET
+  REFUND
+  PROMOTION
+  DROP
+  COLLECTION
+  SETTINGS
+  AUTHENTICATION
+  LOYALTY
+  FINANCIAL
+  SYSTEM
 }
 
 enum AdminRole {
@@ -1724,8 +1992,16 @@ model Promotion {
   endDate         DateTime?       // null = no end date
   isActive        Boolean         @default(true)
   
+  // Stacking & Profit Protection
+  stackable       Boolean         @default(false)  // Can combine with other promos?
+  maxDiscountPercent Float?       // Cap total discount at X% of order (e.g., 50 = max 50% off)
+  excludeFromLoyalty Boolean      @default(false)  // Exclude from loyalty point multipliers
+  
   // Tracking
   totalDiscountGiven Float        @default(0) // Sum of all discounts applied
+  
+  // Related popups that deliver this promo code
+  popups          MarketingPopup[]
   
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
@@ -1773,6 +2049,10 @@ model MarketingPopup {
   isActive        Boolean         @default(true)
   priority        Int             @default(0) // Higher = shown first if multiple match
   
+  // Linked Promotion (optional - for delivering promo codes)
+  promotionId     String?
+  promotion       Promotion?      @relation(fields: [promotionId], references: [id], onDelete: SetNull)
+  
   // A/B Testing
   variants        PopupVariant[]
   
@@ -1783,6 +2063,7 @@ model MarketingPopup {
   updatedAt       DateTime        @updatedAt
   
   @@index([isActive, startDate, endDate])
+  @@index([promotionId])
   @@map("marketing_popups")
 }
 
@@ -1865,4 +2146,121 @@ enum PopupFrequency {
   ONCE_PER_DAY        // Show once per day
   ONCE_EVER           // Show once ever (localStorage)
   ALWAYS              // Show every time conditions are met
+}
+
+// ===== GIFT CARDS =====
+model GiftCard {
+  id              String          @id @default(cuid())
+  
+  // Gift card code (unique identifier for redemption)
+  code            String          @unique
+  
+  // Value tracking
+  initialBalance  Float           // Original amount
+  currentBalance  Float           // Remaining balance
+  
+  // Currency
+  currency        String          @default("USD")
+  
+  // Status
+  status          GiftCardStatus  @default(ACTIVE)
+  
+  // Validity
+  expiresAt       DateTime?       // Optional expiration date
+  
+  // Purchase info
+  purchasedById   String?         // Customer who purchased
+  purchasedBy     Customer?       @relation("GiftCardPurchaser", fields: [purchasedById], references: [id], onDelete: SetNull)
+  purchaseOrderId String?         // Order in which it was purchased
+  purchaseOrder   Order?          @relation("GiftCardPurchaseOrder", fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  
+  // Recipient info (for gifting)
+  recipientEmail  String?
+  recipientName   String?
+  senderName      String?
+  personalMessage String?
+  
+  // Redemption tracking
+  redeemedById    String?         // Customer who redeemed
+  redeemedBy      Customer?       @relation("GiftCardRedeemer", fields: [redeemedById], references: [id], onDelete: SetNull)
+  
+  // Transactions
+  transactions    GiftCardTransaction[]
+  
+  // Used in orders (for order-level tracking)
+  appliedToOrders OrderGiftCard[]
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  @@index([code])
+  @@index([status])
+  @@index([purchasedById])
+  @@index([redeemedById])
+  @@map("gift_cards")
+}
+
+model GiftCardTransaction {
+  id              String                    @id @default(cuid())
+  
+  giftCardId      String
+  giftCard        GiftCard                  @relation(fields: [giftCardId], references: [id], onDelete: Cascade)
+  
+  // Transaction details
+  type            GiftCardTransactionType
+  amount          Float                     // Positive for credits, negative for debits
+  balanceAfter    Float                     // Balance after this transaction
+  
+  // Reference to order (if applicable)
+  orderId         String?
+  order           Order?                    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  
+  // Description
+  description     String?
+  
+  // Performed by
+  customerId      String?
+  customer        Customer?                 @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  
+  createdAt       DateTime                  @default(now())
+  
+  @@index([giftCardId])
+  @@index([orderId])
+  @@map("gift_card_transactions")
+}
+
+// Junction table for orders using multiple gift cards
+model OrderGiftCard {
+  id              String    @id @default(cuid())
+  
+  orderId         String
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  giftCardId      String
+  giftCard        GiftCard  @relation(fields: [giftCardId], references: [id], onDelete: Cascade)
+  
+  amountApplied   Float     // Amount from this gift card applied to order
+  
+  createdAt       DateTime  @default(now())
+  
+  @@unique([orderId, giftCardId])
+  @@index([orderId])
+  @@index([giftCardId])
+  @@map("order_gift_cards")
+}
+
+enum GiftCardStatus {
+  ACTIVE          // Can be used
+  DEPLETED        // Balance is zero
+  EXPIRED         // Past expiration date
+  DISABLED        // Manually disabled (fraud, etc.)
+  PENDING         // Not yet activated (e.g., pending payment)
+}
+
+enum GiftCardTransactionType {
+  INITIAL_LOAD    // Initial balance when card is created/purchased
+  REDEMPTION      // Used for purchase
+  REFUND          // Refunded back to card
+  ADJUSTMENT      // Manual adjustment by admin
+  EXPIRATION      // Expired balance write-off
 }

@@ -7,7 +7,7 @@ import { Navigation } from '@/components/layout/Navigation'
 import { productApi, Product } from '@/lib/api/products'
 import { ProductCard } from '@/components/products/ProductCard'
 import { ProductFilters, FilterState } from '@/components/products/ProductFilters'
-import { CircleNotch, Faders, ArrowRight } from '@phosphor-icons/react'
+import { CircleNotch, Faders, ArrowRight, X } from '@phosphor-icons/react'
 
 function ProductsContent() {
   const searchParams = useSearchParams()
@@ -196,48 +196,91 @@ function ProductsContent() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 lg:px-12 py-6 lg:py-8">
-        {/* Top Bar: Filters Button + Sort */}
-        <div className="flex items-center justify-between mb-6 pb-4 border-b border-black/10">
-          {/* Left: Filters Button */}
+        {/* Top Bar: Filters Button + Results Count */}
+        <div className="flex items-center justify-between mb-8 pb-6 border-b border-black/5">
+          {/* Left: Filters Button with Badge */}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-3 px-6 py-3 text-sm font-bold text-white bg-black hover:bg-black/90 rounded-none transition-all uppercase tracking-wider"
+            className="group relative flex items-center gap-3 px-6 py-3.5 text-sm font-bold text-white bg-black hover:bg-black/90 transition-all uppercase tracking-wider shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 hover:-translate-y-0.5"
           >
-            <Faders size={20} weight="bold" />
+            <Faders size={20} weight="bold" className="transition-transform group-hover:rotate-12" />
             <span>Filter & Sort</span>
+            {(filters.search || filters.sizes.length > 0 || filters.inStockOnly || filters.priceRange[1] < 500) && (
+              <span className="absolute -top-2 -right-2 w-6 h-6 bg-white text-black rounded-full flex items-center justify-center text-xs font-black shadow-md">
+                {[filters.search, filters.sizes.length > 0, filters.inStockOnly, filters.priceRange[1] < 500].filter(Boolean).length}
+              </span>
+            )}
           </button>
 
-          {/* Right: View Toggle or Additional Actions */}
+          {/* Right: Results Count */}
           <div className="flex items-center gap-4">
-            <span className="text-sm text-black/60 font-medium">
-              Showing {loading ? '...' : filteredProducts.length} items
+            <span className="text-sm text-black/50 font-medium tracking-wide">
+              {loading ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-black/20 border-t-black/60 rounded-full animate-spin" />
+                  Loading...
+                </span>
+              ) : (
+                <span>
+                  <span className="font-bold text-black">{filteredProducts.length}</span> {filteredProducts.length === 1 ? 'product' : 'products'}
+                </span>
+              )}
             </span>
           </div>
         </div>
 
-        {/* Filters Overlay - Triggered by Button */}
-        {showFilters && (
-          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowFilters(false)}>
-            <div 
-              className="absolute inset-y-0 left-0 w-80 bg-white overflow-y-auto border-r border-black/10"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-6">
-                {/* Close button */}
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-black text-black">Filters</h2>
-                  <button
-                    onClick={() => setShowFilters(false)}
-                    className="text-black/60 hover:text-black text-2xl leading-none"
-                  >
-                    ✕
-                  </button>
+        {/* Filters Overlay - Premium Slide-in Panel */}
+        <div 
+          className={`fixed inset-0 z-50 transition-all duration-300 ${showFilters ? 'visible' : 'invisible'}`}
+        >
+          {/* Backdrop */}
+          <div 
+            className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${showFilters ? 'opacity-100' : 'opacity-0'}`}
+            onClick={() => setShowFilters(false)}
+          />
+          
+          {/* Panel */}
+          <div 
+            className={`absolute inset-y-0 left-0 w-[340px] max-w-[85vw] bg-white shadow-2xl transition-transform duration-300 ease-out ${showFilters ? 'translate-x-0' : '-translate-x-full'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Panel Header */}
+            <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-black text-black tracking-tight">Filters</h2>
+                  <p className="text-xs text-black/40 mt-0.5">Refine your search</p>
                 </div>
-                <ProductFilters onFilterChange={setFilters} />
+                <button
+                  onClick={() => setShowFilters(false)}
+                  className="w-10 h-10 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/5 transition-all rounded-full"
+                >
+                  <X size={22} weight="bold" />
+                </button>
               </div>
             </div>
+            
+            {/* Panel Content */}
+            <div className="p-6 overflow-y-auto h-[calc(100vh-82px)]">
+              <ProductFilters 
+                onFilterChange={(newFilters) => {
+                  setFilters(newFilters)
+                }} 
+                initialFilters={filters}
+              />
+            </div>
+            
+            {/* Panel Footer - Apply Button */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-white/90 border-t border-black/5">
+              <button
+                onClick={() => setShowFilters(false)}
+                className="w-full py-4 bg-black text-white font-bold uppercase tracking-wider text-sm hover:bg-black/90 transition-all shadow-lg"
+              >
+                View Results ({filteredProducts.length})
+              </button>
+            </div>
           </div>
-        )}
+        </div>
 
         {/* Products Grid - Full Width */}
         <div>

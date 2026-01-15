@@ -58,10 +58,13 @@ export function PopupManager({ page }: PopupManagerProps) {
   // Don't render popups on admin pages
   const isAdminPage = pathname?.startsWith('/admin')
   
+  // Only show popups on the home page
+  const isHomePage = pathname === '/'
+  
   // Fetch active popups on mount
   useEffect(() => {
-    // Skip fetching for admin pages
-    if (isAdminPage) return
+    // Skip fetching for admin pages or non-home pages
+    if (isAdminPage || !isHomePage) return
     
     const fetchPopups = async () => {
       try {
@@ -116,7 +119,7 @@ export function PopupManager({ page }: PopupManagerProps) {
     }
     
     fetchPopups()
-  }, [currentPage, isAdminPage])
+  }, [currentPage, isAdminPage, isHomePage])
   
   // Get visitor type from session
   const getVisitorType = () => {
@@ -221,19 +224,47 @@ export function PopupManager({ page }: PopupManagerProps) {
   }, [visiblePopup, trackEvent])
   
   // Handle email submission
-  const handleEmailSubmit = useCallback(async (email: string) => {
+  const handleEmailSubmit = useCallback(async (email: string): Promise<{ promoCode?: string; discountDescription?: string; message?: string } | void> => {
     if (visiblePopup) {
       trackEvent(visiblePopup, 'conversion')
       
-      // Store email in drop notification or newsletter
+      // Try to claim promo code for this popup (will also save email)
       try {
-        await fetch('/api/drop-notifications', {
+        const response = await fetch('/api/popups/claim-code', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
+          body: JSON.stringify({ 
+            popupId: visiblePopup.id,
+            email 
+          })
         })
+        
+        const data = await response.json()
+        
+        if (data.hasPromo && data.promoCode) {
+          // Return promo info for display
+          return {
+            promoCode: data.promoCode,
+            discountDescription: data.discountDescription,
+            message: data.message,
+          }
+        }
+        
+        // No promo linked, but email was saved
+        return { message: data.message || 'Thank you for signing up!' }
       } catch (error) {
-        console.error('Failed to save email:', error)
+        console.error('Failed to claim promo code:', error)
+        
+        // Fallback: just save the email directly
+        try {
+          await fetch('/api/drop-notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          })
+        } catch {
+          console.error('Failed to save email')
+        }
       }
     }
   }, [visiblePopup, trackEvent])
@@ -381,8 +412,8 @@ export function PopupManager({ page }: PopupManagerProps) {
     }
   }
   
-  // Don't render anything on admin pages
-  if (isAdminPage) return null
+  // Don't render anything on admin pages or non-home pages
+  if (isAdminPage || !isHomePage) return null
   
   return (
     <AnimatePresence>

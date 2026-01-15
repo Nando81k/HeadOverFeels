@@ -66,6 +66,7 @@ export function SimilarProducts({ productId, limit = 6 }: SimilarProductsProps) 
     <ProductCarousel
       products={products}
       title="You Might Also Like"
+      sourceProductId={productId}
       trackingType="similar"
     />
   )

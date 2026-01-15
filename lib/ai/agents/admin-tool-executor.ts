@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { AdminContext } from './admin-agent'
+import { createAuditLogger, AuditAction, AuditCategory } from '@/lib/audit'
+import { processStripeRefund, checkStripeRefundEligibility } from '@/lib/stripe/refunds'
+import { sendOrderStatusEmail, sendRefundEmail } from '@/lib/email/order-status'
 
 /**
  * Execute admin-facing tools
@@ -229,6 +232,7 @@ async function updateOrderStatus(args: Record<string, unknown>, context: AdminCo
     return { error: 'Order not found' }
   }
 
+  const previousStatus = order.status
   const updateData: Record<string, unknown> = {
     status: status as string,
   }
@@ -241,22 +245,44 @@ async function updateOrderStatus(args: Record<string, unknown>, context: AdminCo
     data: updateData,
   })
 
-  // TODO: Add audit logging when adminAuditLog model is created
+  // Audit logging for order status change
+  const auditLogger = createAuditLogger({
+    adminId: context.adminId,
+    adminEmail: context.adminEmail,
+    adminName: context.adminName,
+  })
+  await auditLogger.logOrder(
+    AuditAction.STATUS_CHANGE,
+    order.id,
+    `Updated order status from ${previousStatus} to ${status}`,
+    {
+      orderNumber: order.orderNumber,
+      changes: {
+        before: { status: previousStatus },
+        after: { status, trackingNumber, trackingUrl },
+      },
+    }
+  )
 
   // TODO: Send notification email if requested
   if (sendNotification) {
-    // Would integrate with email service here
+    // Send email notification for status change
+    const emailResult = await sendOrderStatusEmail(order.id, status as string)
+    if (!emailResult.success) {
+      console.warn(`Failed to send status email for order ${order.orderNumber}:`, emailResult.error)
+    }
   }
 
   return {
     success: true,
-    message: `Order ${order.orderNumber} status updated to ${status}`,
+    message: `Order ${order.orderNumber} status updated to ${status}${sendNotification ? ' (notification sent)' : ''}`,
     order: {
       id: updated.id,
       orderNumber: updated.orderNumber,
       status: updated.status,
       trackingNumber: updated.trackingNumber,
     },
+    notificationSent: !!sendNotification,
   }
 }
 
@@ -278,20 +304,55 @@ async function processRefund(args: Record<string, unknown>, context: AdminContex
     ? Number(amount) 
     : order.total
 
-  // Update order status and add refund note
-  const refundNote = `Refund processed: $${refundAmount.toFixed(2)} - Reason: ${reason || 'Not specified'} - By: ${context.adminName} - Date: ${new Date().toISOString()}`
+  const previousStatus = order.status
+
+  // Try to process refund through Stripe if eligible
+  let stripeRefundId: string | undefined
+  let stripeRefundStatus: string = 'MANUAL'
   
-  await prisma.order.update({
-    where: { id: order.id },
-    data: { 
-      status: refundAmount >= order.total ? 'REFUNDED' : order.status,
-      internalNotes: order.internalNotes 
-        ? `${order.internalNotes}\n\n${refundNote}` 
-        : refundNote,
-    },
-  })
+  const stripeEligibility = await checkStripeRefundEligibility(order.id)
+  
+  if (stripeEligibility.eligible) {
+    const stripeResult = await processStripeRefund({
+      orderId: order.id,
+      amount: refundAmount,
+      reason: 'requested_by_customer',
+      metadata: {
+        adminId: context.adminId,
+        adminEmail: context.adminEmail,
+        refundReason: reason as string || 'Admin refund',
+      },
+    })
+
+    if (stripeResult.success) {
+      stripeRefundId = stripeResult.refundId
+      stripeRefundStatus = 'STRIPE_PROCESSED'
+    } else {
+      // Log Stripe failure but continue with manual tracking
+      console.warn(`Stripe refund failed for order ${order.orderNumber}: ${stripeResult.message}`)
+      stripeRefundStatus = `STRIPE_FAILED: ${stripeResult.error}`
+    }
+  } else {
+    console.log(`Order ${order.orderNumber} not eligible for Stripe refund: ${stripeEligibility.reason}`)
+  }
+
+  // Update order status if Stripe didn't already update it
+  if (!stripeRefundId) {
+    const refundNote = `Refund processed: $${refundAmount.toFixed(2)} - Reason: ${reason || 'Not specified'} - By: ${context.adminName} - Date: ${new Date().toISOString()} - Status: ${stripeRefundStatus}`
+    
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { 
+        status: refundAmount >= order.total ? 'REFUNDED' : order.status,
+        internalNotes: order.internalNotes 
+          ? `${order.internalNotes}\n\n${refundNote}` 
+          : refundNote,
+      },
+    })
+  }
 
   // Restore inventory if items specified
+  const restoredItems: string[] = []
   if (items && Array.isArray(items)) {
     for (const itemId of items) {
       const orderItem = order.items.find(i => i.id === itemId)
@@ -300,22 +361,61 @@ async function processRefund(args: Record<string, unknown>, context: AdminContex
           where: { id: orderItem.productVariantId },
           data: { inventory: { increment: orderItem.quantity } },
         })
+        restoredItems.push(itemId as string)
       }
     }
   }
 
-  // TODO: Add audit logging when adminAuditLog model is created
-  // TODO: Integrate with Stripe refund API for actual payment refund
+  // Audit logging for refund
+  const auditLogger = createAuditLogger({
+    adminId: context.adminId,
+    adminEmail: context.adminEmail,
+    adminName: context.adminName,
+  })
+  await auditLogger.logRefund(
+    AuditAction.REFUND,
+    order.id,
+    `Processed refund of $${refundAmount.toFixed(2)} for order ${order.orderNumber}`,
+    {
+      orderNumber: order.orderNumber,
+      amount: refundAmount,
+      changes: {
+        before: { status: previousStatus },
+        after: { 
+          status: refundAmount >= order.total ? 'REFUNDED' : previousStatus,
+          refundAmount,
+          reason: reason || 'Not specified',
+          stripeRefundId: stripeRefundId || null,
+          stripeRefundStatus,
+        },
+      },
+      metadata: {
+        restoredItems,
+        isFullRefund: refundAmount >= order.total,
+        stripeProcessed: !!stripeRefundId,
+      },
+    }
+  )
+
+  // Send refund notification email
+  const emailResult = await sendRefundEmail(order.id, refundAmount, reason as string || undefined)
+  if (!emailResult.success) {
+    console.warn(`Failed to send refund email for order ${order.orderNumber}:`, emailResult.error)
+  }
 
   return {
     success: true,
-    message: `Refund of $${refundAmount.toFixed(2)} processed for order ${order.orderNumber}`,
+    message: stripeRefundId 
+      ? `Stripe refund of $${refundAmount.toFixed(2)} processed for order ${order.orderNumber}`
+      : `Refund of $${refundAmount.toFixed(2)} recorded for order ${order.orderNumber} (manual processing may be required)`,
     refund: {
       amount: refundAmount,
       orderNumber: order.orderNumber,
-      status: 'PROCESSED',
+      status: stripeRefundId ? 'STRIPE_PROCESSED' : 'MANUAL_REQUIRED',
+      stripeRefundId: stripeRefundId || null,
       reason: reason as string || 'Not specified',
     },
+    emailSent: emailResult.success,
   }
 }
 
@@ -717,7 +817,25 @@ async function adjustLoyaltyPoints(args: Record<string, unknown>, context: Admin
     },
   })
 
-  // TODO: Add audit logging when adminAuditLog model is created
+  // Audit logging for loyalty points adjustment
+  const auditLogger = createAuditLogger({
+    adminId: context.adminId,
+    adminEmail: context.adminEmail,
+    adminName: context.adminName,
+  })
+  await auditLogger.logCustomer(
+    AuditAction.UPDATE,
+    customer.id,
+    `${pointsChange > 0 ? 'Added' : 'Deducted'} ${Math.abs(pointsChange)} loyalty points`,
+    {
+      customerEmail: customer.email,
+      changes: {
+        before: { currentPoints: customer.currentPoints, lifetimePoints: customer.lifetimePoints },
+        after: { currentPoints: newCurrentPoints, lifetimePoints: newLifetimePoints },
+      },
+      metadata: { reason: reason || 'Admin adjustment' },
+    }
+  )
 
   return {
     success: true,
@@ -969,7 +1087,28 @@ async function updateInventory(args: Record<string, unknown>, context: AdminCont
     data: { inventory: newInventory },
   })
 
-  // TODO: Add audit logging when adminAuditLog model is created
+  // Audit logging for inventory update
+  const auditLogger = createAuditLogger({
+    adminId: context.adminId,
+    adminEmail: context.adminEmail,
+    adminName: context.adminName,
+  })
+  await auditLogger.logInventory(
+    AuditAction.RESTOCK,
+    variant.id,
+    `Updated inventory from ${previousInventory} to ${newInventory}`,
+    {
+      sku: variant.sku,
+      changes: {
+        before: { inventory: previousInventory },
+        after: { inventory: newInventory },
+      },
+      metadata: { 
+        reason: reason || 'Inventory update',
+        productName: variant.product?.name,
+      },
+    }
+  )
 
   return {
     success: true,

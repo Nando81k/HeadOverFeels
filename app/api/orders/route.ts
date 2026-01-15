@@ -40,6 +40,7 @@ const CreateOrderSchema = z.object({
   sessionId: z.string().optional(),
   couponCode: z.string().optional(),
   redemptionId: z.string().optional(),
+  promotionId: z.string().optional(), // For marketing promotions
 })
 
 // POST /api/orders - Create a new order
@@ -261,6 +262,17 @@ export async function POST(request: NextRequest) {
           },
           data: {
             isActive: false,
+          },
+        })
+      }
+
+      // 9. Update promotion usage tracking if promotionId provided
+      if (validatedData.promotionId) {
+        await tx.promotion.update({
+          where: { id: validatedData.promotionId },
+          data: {
+            usedCount: { increment: 1 },
+            totalDiscountGiven: { increment: validatedData.discount },
           },
         })
       }

@@ -248,7 +248,7 @@ export default function CustomerAcquisitionChart({
               iconType="circle"
             />
             <Area
-              type="monotone"
+              type="linear"
               dataKey="totalCustomers"
               name="Total Customers"
               stroke="#818cf8"
@@ -259,7 +259,7 @@ export default function CustomerAcquisitionChart({
               animationEasing="ease-out"
             />
             <Area
-              type="monotone"
+              type="linear"
               dataKey="newCustomers"
               name="New Customers"
               stroke="#34d399"
