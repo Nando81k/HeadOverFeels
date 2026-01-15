@@ -39,7 +39,7 @@
     "lucide-react": "^0.546.0",
     "material-symbols": "^0.39.1",
     "nanoid": "^5.1.6",
-    "next": "16.0.0",
+    "next": "16.0.10",
     "next-auth": "^5.0.0-beta.30",
     "next-cloudinary": "^6.16.2",
     "openai": "^6.8.0",
