@@ -6,6 +6,7 @@ import { Toaster } from 'sonner'
 import { ReactNode } from 'react'
 import { ReggieProvider } from '@/components/ai/ReggieProvider'
 import { PopupManager } from '@/components/marketing/PopupManager'
+import { CookieConsent } from '@/components/ui/CookieConsent'
 
 export function Providers({ children }: { children: ReactNode }) {
   console.log('✅ Providers component loaded')
@@ -31,6 +32,8 @@ export function Providers({ children }: { children: ReactNode }) {
         <ReggieProvider />
         {/* Marketing Popups for Storefront */}
         <PopupManager />
+        {/* Cookie Consent Banner */}
+        <CookieConsent />
       </AuthProvider>
     </SessionProvider>
   )
