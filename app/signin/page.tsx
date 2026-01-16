@@ -106,7 +106,7 @@ function SignInContent() {
       <Navigation />
       <div className="min-h-screen bg-[#FAF8F5]">
         {/* Hero Header */}
-        <section className="relative bg-black pt-32 pb-16 -mt-24">
+        <section className="relative bg-black pt-40 pb-16 -mt-24">
           {/* Grain overlay */}
           <div 
             className="absolute inset-0 opacity-[0.03] pointer-events-none"

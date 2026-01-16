@@ -86,7 +86,7 @@ export default function WishlistPage() {
       <>
         <Navigation />
         <div className="min-h-screen bg-[#FAF8F5]">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-40 pb-20">
             <div className="flex flex-col items-center justify-center min-h-[60vh]">
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -112,7 +112,7 @@ export default function WishlistPage() {
         <Navigation />
         <div className="min-h-screen bg-[#FAF8F5]">
           {/* Hero Header */}
-          <section className="relative bg-black pt-32 pb-20 -mt-24">
+          <section className="relative bg-black pt-40 pb-20 -mt-24">
             {/* Grain overlay */}
             <div 
               className="absolute inset-0 opacity-[0.03] pointer-events-none"
@@ -222,7 +222,7 @@ export default function WishlistPage() {
       <Navigation />
       <div className="min-h-screen bg-[#FAF8F5]">
         {/* Hero Header */}
-        <section className="relative bg-black pt-32 pb-20 -mt-24">
+        <section className="relative bg-black pt-40 pb-20 -mt-24">
           {/* Grain overlay */}
           <div 
             className="absolute inset-0 opacity-[0.03] pointer-events-none"
