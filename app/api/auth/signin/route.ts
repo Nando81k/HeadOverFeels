@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { checkRateLimit, rateLimitResponse, getClientIdentifier, RATE_LIMITS } from '@/lib/security/rateLimit'
+import { createSessionToken } from '@/lib/auth/session'
 
 const signinSchema = z.object({
   email: z.string().email('Invalid email address').max(255, 'Email too long'),
@@ -90,6 +91,21 @@ export async function POST(request: NextRequest) {
     })
     
     response.cookies.set('auth_session', customer.id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
+    })
+
+    // Create JWT token for Edge-compatible auth (admin checks in middleware)
+    const token = await createSessionToken({
+      userId: customer.id,
+      email: customer.email,
+      isAdmin: customer.isAdmin,
+    })
+    
+    response.cookies.set('auth_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

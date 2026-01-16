@@ -6,8 +6,9 @@ export async function POST() {
     message: 'Signed out successfully' 
   })
   
-  // Clear the session cookie
+  // Clear all auth cookies
   response.cookies.delete('auth_session')
+  response.cookies.delete('auth_token')
 
   return response
 }

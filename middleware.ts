@@ -1,12 +1,25 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { securityHeaders, checkRateLimit, getClientIp, validateOrigin } from '@/lib/security/middleware'
+import { jwtVerify } from 'jose'
 
 // Rate limit configurations
 const RATE_LIMITS = {
   auth: { maxRequests: 5, windowMs: 15 * 60 * 1000 },
   api: { maxRequests: 100, windowMs: 60 * 1000 },
   admin: { maxRequests: 60, windowMs: 60 * 1000 },
+}
+
+// JWT verification for Edge Runtime
+async function verifyAuthToken(token: string): Promise<{ userId: string; email: string; isAdmin: boolean } | null> {
+  try {
+    const secret = process.env.AUTH_SECRET || 'default-secret-change-in-production'
+    const secretKey = new TextEncoder().encode(secret)
+    const { payload } = await jwtVerify(token, secretKey)
+    return payload as { userId: string; email: string; isAdmin: boolean }
+  } catch {
+    return null
+  }
 }
 
 export async function middleware(request: NextRequest) {
@@ -57,33 +70,26 @@ export async function middleware(request: NextRequest) {
   
   // ============ ADMIN ROUTE PROTECTION ============
   if (pathname.startsWith('/admin')) {
-    const sessionId = request.cookies.get('auth_session')?.value
+    const authToken = request.cookies.get('auth_token')?.value
 
     console.log('🔍 Middleware Debug:')
     console.log('   Path:', pathname)
-    console.log('   Session ID:', sessionId)
+    console.log('   Has auth_token:', !!authToken)
 
-    // No session - redirect to signin
-    if (!sessionId) {
-      console.log('   ❌ No session found - redirecting to signin')
+    // No token - redirect to signin
+    if (!authToken) {
+      console.log('   ❌ No auth token found - redirecting to signin')
       const url = new URL('/signin', request.url)
       url.searchParams.set('redirect', pathname)
       return NextResponse.redirect(url)
     }
 
     try {
-      // Call API route to check admin status (Edge Runtime compatible)
-      const apiUrl = new URL('/api/auth/check-admin', request.url)
-      const response = await fetch(apiUrl, {
-        headers: {
-          Cookie: `auth_session=${sessionId}`,
-        },
-      })
+      // Verify JWT token directly in Edge Runtime (no API call needed)
+      const session = await verifyAuthToken(authToken)
+      console.log('   Session verified:', session ? { userId: session.userId, isAdmin: session.isAdmin } : null)
 
-      const data = await response.json()
-      console.log('   Admin check response:', data)
-
-      if (!response.ok || !data.isAdmin) {
+      if (!session || !session.isAdmin) {
         // Not an admin - redirect to home
         console.log('   ❌ Not an admin - redirecting to home')
         const url = new URL('/', request.url)
