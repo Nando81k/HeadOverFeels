@@ -5,67 +5,80 @@ import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 
-export const authConfig: NextAuthConfig = {
-  providers: [
-    // Google OAuth
+// Build providers array conditionally based on available env vars
+const providers: NextAuthConfig['providers'] = [];
+
+// Only add Google OAuth if credentials are configured
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  providers.push(
     Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       allowDangerousEmailAccountLinking: true,
-    }),
-    
-    // GitHub OAuth
+    })
+  );
+}
+
+// Only add GitHub OAuth if credentials are configured
+if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+  providers.push(
     GitHub({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
       allowDangerousEmailAccountLinking: true,
-    }),
-    
-    // Email/Password credentials (existing system)
-    Credentials({
-      name: 'credentials',
-      credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null;
-        }
+    })
+  );
+}
 
-        const email = credentials.email as string;
-        const password = credentials.password as string;
+// Email/Password credentials (always available)
+providers.push(
+  Credentials({
+    name: 'credentials',
+    credentials: {
+      email: { label: 'Email', type: 'email' },
+      password: { label: 'Password', type: 'password' },
+    },
+    async authorize(credentials) {
+      if (!credentials?.email || !credentials?.password) {
+        return null;
+      }
 
-        const customer = await prisma.customer.findUnique({
-          where: { email },
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            password: true,
-            isAdmin: true,
-          },
-        });
+      const email = credentials.email as string;
+      const password = credentials.password as string;
 
-        if (!customer || !customer.password) {
-          return null;
-        }
+      const customer = await prisma.customer.findUnique({
+        where: { email },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          password: true,
+          isAdmin: true,
+        },
+      });
 
-        const passwordMatch = await bcrypt.compare(password, customer.password);
+      if (!customer || !customer.password) {
+        return null;
+      }
 
-        if (!passwordMatch) {
-          return null;
-        }
+      const passwordMatch = await bcrypt.compare(password, customer.password);
 
-        return {
-          id: customer.id,
-          email: customer.email,
-          name: customer.name,
-          isAdmin: customer.isAdmin,
-        };
-      },
-    }),
-  ],
+      if (!passwordMatch) {
+        return null;
+      }
+
+      return {
+        id: customer.id,
+        email: customer.email,
+        name: customer.name,
+        isAdmin: customer.isAdmin,
+      };
+    },
+  })
+);
+
+export const authConfig: NextAuthConfig = {
+  providers,
   
   pages: {
     signIn: '/signin',
