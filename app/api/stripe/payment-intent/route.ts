@@ -16,6 +16,15 @@ const createPaymentIntentSchema = z.object({
 // POST /api/stripe/payment-intent - Create payment intent
 export async function POST(request: NextRequest) {
   try {
+    // Check if Stripe is configured
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('STRIPE_SECRET_KEY is not configured')
+      return NextResponse.json(
+        { error: 'Payment processing is not configured. Please contact support.' },
+        { status: 503 }
+      )
+    }
+
     const body = await request.json()
     const { amount, currency, metadata } = createPaymentIntentSchema.parse(body)
 
@@ -41,6 +50,17 @@ export async function POST(request: NextRequest) {
         { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
+    }
+
+    // Check for Stripe-specific errors
+    if (error instanceof Error) {
+      // Stripe authentication error
+      if (error.message.includes('Invalid API Key') || error.message.includes('authentication')) {
+        return NextResponse.json(
+          { error: 'Payment service configuration error. Please contact support.' },
+          { status: 503 }
+        )
+      }
     }
 
     return NextResponse.json(
