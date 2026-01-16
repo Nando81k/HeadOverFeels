@@ -100,6 +100,17 @@ export function useOrderPolling(options: UseOrderPollingOptions = {}): UseOrderP
   
   const lastKnownOrderIdRef = useRef<string | null>(null);
   const isFirstFetchRef = useRef(true);
+  const isMutedRef = useRef(isMuted);
+  const onNewOrdersRef = useRef(onNewOrders);
+
+  // Keep refs in sync with state/props
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
+
+  useEffect(() => {
+    onNewOrdersRef.current = onNewOrders;
+  }, [onNewOrders]);
 
   // Load mute preference from localStorage
   useEffect(() => {
@@ -178,13 +189,13 @@ export function useOrderPolling(options: UseOrderPollingOptions = {}): UseOrderP
         if (newOrders.length > 0) {
           setNewOrderCount(prev => prev + newOrders.length);
           
-          // Play notification sound if not muted
-          if (!isMuted) {
+          // Play notification sound if not muted (use ref to avoid dependency)
+          if (!isMutedRef.current) {
             playNotificationSound();
           }
           
-          // Callback for custom handling
-          onNewOrders?.(newOrders.length, newOrders);
+          // Callback for custom handling (use ref to avoid dependency)
+          onNewOrdersRef.current?.(newOrders.length, newOrders);
         }
       }
 
@@ -201,7 +212,7 @@ export function useOrderPolling(options: UseOrderPollingOptions = {}): UseOrderP
     } finally {
       setIsPolling(false);
     }
-  }, [enabled, isMuted, onNewOrders]);
+  }, [enabled]); // Only depend on enabled - use refs for isMuted and onNewOrders
 
   // Initial check and polling interval
   useEffect(() => {

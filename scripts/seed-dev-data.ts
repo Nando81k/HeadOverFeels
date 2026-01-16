@@ -18,19 +18,37 @@ const generateFakeCustomers = async (count: number) => {
   const firstNames = ['Emma', 'Liam', 'Olivia', 'Noah', 'Ava', 'Ethan', 'Sophia', 'Mason', 'Isabella', 'William'];
   const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez'];
   const hashedPassword = await bcrypt.hash('testpassword123', 10);
+  const adminPassword = await bcrypt.hash('admin123', 10);
   
-  return Array.from({ length: count }, (_, i) => ({
+  // Create dedicated admin user first
+  const adminUser = {
+    id: 'dev-admin',
+    email: 'admin@dev.local',
+    name: 'Dev Admin',
+    password: adminPassword,
+    isAdmin: true,
+    totalSpent: 0,
+    totalOrders: 0,
+    lifetimePoints: 0,
+    currentPoints: 0,
+    newsletter: false,
+  };
+  
+  // Create regular test customers
+  const customers = Array.from({ length: count }, (_, i) => ({
     id: `fake-customer-${i + 1}`,
     email: `testuser${i + 1}@fake.headoverfeels.dev`,
     name: `${firstNames[i % firstNames.length]} ${lastNames[i % lastNames.length]}`,
     password: hashedPassword,
-    isAdmin: i === 0,
+    isAdmin: false,
     totalSpent: Math.floor(Math.random() * 1000),
     totalOrders: Math.floor(Math.random() * 10),
     lifetimePoints: Math.floor(Math.random() * 5000),
     currentPoints: Math.floor(Math.random() * 1000),
     newsletter: Math.random() > 0.3,
   }));
+  
+  return [adminUser, ...customers];
 };
 
 const generateFakeCategories = () => [
@@ -207,28 +225,29 @@ async function main() {
 
   console.log('🌱 Seeding development database with fake data...\n');
 
-  // Create admin user
-  console.log('👤 Creating admin user...');
-  const adminPassword = await bcrypt.hash('adminpassword123', 10);
+  // Create admin user (for AdminUser table - legacy)
+  console.log('👤 Creating admin user in AdminUser table (legacy)...');
+  const adminUserPassword = await bcrypt.hash('adminpassword123', 10);
   await prisma.adminUser.create({
     data: {
       id: 'dev-admin-1',
       email: 'admin@fake.headoverfeels.dev',
-      name: 'Dev Admin',
-      password: adminPassword,
+      name: 'Dev Admin (Legacy)',
+      password: adminUserPassword,
       role: 'SUPER_ADMIN' as AdminRole,
       isActive: true,
     },
   });
-  console.log('   ✓ Admin: admin@fake.headoverfeels.dev / adminpassword123\n');
+  console.log('   ✓ Legacy AdminUser created\n');
 
-  // Create customers
+  // Create customers (including the real admin user)
   console.log('👥 Creating fake customers...');
   const customers = await generateFakeCustomers(10);
   for (const customer of customers) {
     await prisma.customer.create({ data: customer });
   }
   console.log(`   ✓ Created ${customers.length} test customers`);
+  console.log('   ✓ Admin: admin@dev.local / admin123');
   console.log('   ✓ Test user: testuser1@fake.headoverfeels.dev / testpassword123\n');
 
   // Create categories
@@ -269,13 +288,13 @@ async function main() {
   console.log('═══════════════════════════════════════════════════════');
   console.log('\n📋 Summary:');
   console.log('   • 1 admin user');
-  console.log(`   • ${customers.length} test customers`);
+  console.log(`   • ${customers.length} test customers (including admin)`);
   console.log(`   • ${categories.length} categories`);
   console.log(`   • ${products.length} products`);
   console.log(`   • ${variants.length} product variants`);
   console.log(`   • ${orders.length} orders`);
   console.log('\n🔐 Test Credentials:');
-  console.log('   Admin:    admin@fake.headoverfeels.dev / adminpassword123');
+  console.log('   Admin:    admin@dev.local / admin123');
   console.log('   Customer: testuser1@fake.headoverfeels.dev / testpassword123');
   console.log('');
 }

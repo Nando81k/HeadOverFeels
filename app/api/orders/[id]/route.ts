@@ -143,7 +143,7 @@ export async function PATCH(
     // Get current order state to check for status changes
     const currentOrder = await prisma.order.findUnique({
       where: { id },
-      select: { status: true },
+      select: { status: true, trackingNumber: true },
     })
 
     if (!currentOrder) {
@@ -160,14 +160,28 @@ export async function PATCH(
     if (body.paymentStatus) allowedUpdates.paymentStatus = body.paymentStatus
     if (body.trackingNumber !== undefined) allowedUpdates.trackingNumber = body.trackingNumber
     if (body.shippingMethod) allowedUpdates.shippingMethod = body.shippingMethod
+    if (body.carrier) allowedUpdates.carrier = body.carrier
     if (body.notes !== undefined) allowedUpdates.notes = body.notes
     if (body.internalNotes !== undefined) allowedUpdates.internalNotes = body.internalNotes
 
+    // Auto-update status to SHIPPED when tracking number is added
+    const isAddingTracking = body.trackingNumber && !currentOrder.trackingNumber
+    const currentStatus = body.status || currentOrder.status
+    const shouldAutoShip = isAddingTracking && 
+      ['PENDING', 'CONFIRMED', 'PROCESSING'].includes(currentStatus)
+    
+    if (shouldAutoShip) {
+      allowedUpdates.status = 'SHIPPED'
+      allowedUpdates.shippedAt = new Date()
+      console.log(`Auto-updating order ${id} to SHIPPED (tracking number added)`)
+    }
+
     // Set timestamps based on status changes
-    if (body.status === 'SHIPPED' && !allowedUpdates.shippedAt) {
+    const finalStatus = allowedUpdates.status as string | undefined
+    if (finalStatus === 'SHIPPED' && !allowedUpdates.shippedAt) {
       allowedUpdates.shippedAt = new Date()
     }
-    if (body.status === 'DELIVERED' && !allowedUpdates.deliveredAt) {
+    if (finalStatus === 'DELIVERED' && !allowedUpdates.deliveredAt) {
       allowedUpdates.deliveredAt = new Date()
     }
 
@@ -187,12 +201,14 @@ export async function PATCH(
       },
     })
 
-    // Send shipping notification if order was just shipped
-    if (
+    // Send shipping notification if order was just shipped (manually or auto)
+    const wasJustShipped = (
       currentOrder.status !== 'SHIPPED' &&
-      body.status === 'SHIPPED' &&
+      (finalStatus === 'SHIPPED' || shouldAutoShip) &&
       order.trackingNumber
-    ) {
+    )
+    
+    if (wasJustShipped && order.trackingNumber) {
       try {
         await sendShippingNotification({
           to: order.customerEmail,

@@ -107,15 +107,25 @@ export async function PATCH(
 
     const isFirstTimeTracking = !currentOrder.trackingNumber
 
+    // Generate carrier tracking URL
+    const carrierUrls: Record<string, string> = {
+      USPS: `https://tools.usps.com/go/TrackConfirmAction?tLabels=${trackingNumber}`,
+      FedEx: `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`,
+      UPS: `https://www.ups.com/track?tracknum=${trackingNumber}`,
+      DHL: `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`,
+    }
+    const trackingUrl = carrierUrls[carrier] || `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/order/track/${id}`
+
     // Update order with tracking information
     const updatedOrder = await prisma.order.update({
       where: { id },
       data: {
         trackingNumber,
         carrier,
+        trackingUrl, // Save the tracking URL
         estimatedDelivery: estimatedDelivery ? new Date(estimatedDelivery) : null,
         shippedAt: isFirstTimeTracking ? new Date() : undefined, // Set shippedAt only on first tracking
-        status: 'CONFIRMED', // Update status to CONFIRMED when tracking added
+        status: 'SHIPPED', // Update status to SHIPPED when tracking added
       },
       include: {
         items: {
@@ -134,17 +144,7 @@ export async function PATCH(
     // Send tracking email if requested
     if (sendEmail && isFirstTimeTracking) {
       try {
-        const trackingUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/orders/${updatedOrder.id}/track`
-        
-        // Get carrier tracking URL
-        const carrierUrls: Record<string, string> = {
-          USPS: `https://tools.usps.com/go/TrackConfirmAction?tLabels=${trackingNumber}`,
-          FedEx: `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`,
-          UPS: `https://www.ups.com/track?tracknum=${trackingNumber}`,
-          DHL: `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`,
-        }
-
-        const carrierTrackingUrl = carrierUrls[carrier] || trackingUrl
+        const orderTrackingPageUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/order/track/${updatedOrder.id}`
 
         await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL || 'orders@headoverfeels.com',
@@ -186,9 +186,9 @@ export async function PATCH(
                     </div>
 
                     <div style="text-align: center;">
-                      <a href="${carrierTrackingUrl}" class="button">Track Your Package</a>
+                      <a href="${trackingUrl}" class="button">Track Your Package</a>
                       <br>
-                      <a href="${trackingUrl}" style="color: #667eea; font-size: 14px;">View Order Status</a>
+                      <a href="${orderTrackingPageUrl}" style="color: #667eea; font-size: 14px;">View Order Status</a>
                     </div>
 
                     <div class="items">

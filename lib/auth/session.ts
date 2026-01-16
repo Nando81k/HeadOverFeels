@@ -29,7 +29,7 @@ export async function createSessionToken(payload: Omit<SessionPayload, 'exp'>): 
 export async function verifySessionToken(token: string): Promise<SessionPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getSecretKey())
-    return payload as SessionPayload
+    return payload as unknown as SessionPayload
   } catch (error) {
     console.error('Session verification failed:', error)
     return null
