@@ -71,22 +71,33 @@ export async function middleware(request: NextRequest) {
   // ============ ADMIN ROUTE PROTECTION ============
   if (pathname.startsWith('/admin')) {
     const authToken = request.cookies.get('auth_token')?.value
+    const authSession = request.cookies.get('auth_session')?.value
 
     console.log('🔍 Middleware Debug:')
     console.log('   Path:', pathname)
     console.log('   Has auth_token:', !!authToken)
+    console.log('   Has auth_session:', !!authSession)
 
-    // No token - redirect to signin
-    if (!authToken) {
-      console.log('   ❌ No auth token found - redirecting to signin')
+    // No tokens at all - redirect to signin
+    if (!authToken && !authSession) {
+      console.log('   ❌ No auth tokens found - redirecting to signin')
       const url = new URL('/signin', request.url)
+      url.searchParams.set('redirect', pathname)
+      return NextResponse.redirect(url)
+    }
+
+    // Has old session but no JWT token - redirect to refresh session
+    // This happens for users who logged in before JWT was implemented
+    if (!authToken && authSession) {
+      console.log('   ⚠️ Has old session, needs JWT refresh - redirecting to session refresh')
+      const url = new URL('/api/auth/refresh-session', request.url)
       url.searchParams.set('redirect', pathname)
       return NextResponse.redirect(url)
     }
 
     try {
       // Verify JWT token directly in Edge Runtime (no API call needed)
-      const session = await verifyAuthToken(authToken)
+      const session = await verifyAuthToken(authToken!)
       console.log('   Session verified:', session ? { userId: session.userId, isAdmin: session.isAdmin } : null)
 
       if (!session || !session.isAdmin) {
