@@ -24,7 +24,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
+    console.log('Signup request body:', JSON.stringify(body))
+    
     const validatedData = signupSchema.parse(body)
+    console.log('Validated data:', JSON.stringify(validatedData))
 
     // Check if user already exists (don't reveal whether email exists)
     const existingCustomer = await prisma.customer.findUnique({
@@ -58,7 +61,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Create the customer
-    const customer = await prisma.customer.create({
+    const newCustomer = await prisma.customer.create({
       data: {
         email: validatedData.email,
         password: hashedPassword,
@@ -68,29 +71,26 @@ export async function POST(request: NextRequest) {
       },
       select: {
         id: true,
-        email: true,
-        name: true,
-        createdAt: true,
       },
     })
 
     // Award welcome points (50 points for account creation)
     try {
-      await awardAccountCreationPoints(customer.id)
-      console.log(`Awarded welcome points to customer ${customer.id}`)
+      await awardAccountCreationPoints(newCustomer.id)
+      console.log(`Awarded welcome points to customer ${newCustomer.id}`)
     } catch (loyaltyError) {
       // Log error but don't fail signup
-      console.error(`Failed to award welcome points to customer ${customer.id}:`, loyaltyError)
+      console.error(`Failed to award welcome points to customer ${newCustomer.id}:`, loyaltyError)
     }
 
     // Award referral welcome bonus if they signed up with a referral code (+100 points)
     if (referrerId) {
       try {
-        await awardReferralWelcomeBonus(customer.id, referrerId)
-        console.log(`Awarded referral welcome bonus to customer ${customer.id}`)
+        await awardReferralWelcomeBonus(newCustomer.id, referrerId)
+        console.log(`Awarded referral welcome bonus to customer ${newCustomer.id}`)
       } catch (referralBonusError) {
         // Log error but don't fail signup
-        console.error(`Failed to award referral welcome bonus to customer ${customer.id}:`, referralBonusError)
+        console.error(`Failed to award referral welcome bonus to customer ${newCustomer.id}:`, referralBonusError)
       }
     }
 
@@ -107,13 +107,50 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Fetch the full customer data with loyalty tier (after points were awarded)
+    const customer = await prisma.customer.findUnique({
+      where: { id: newCustomer.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        birthday: true,
+        newsletter: true,
+        smsOptIn: true,
+        isAdmin: true,
+        createdAt: true,
+        // Loyalty fields
+        currentPoints: true,
+        lifetimePoints: true,
+        annualPointsEarned: true,
+        totalSpent: true,
+        totalOrders: true,
+        annualSpend: true,
+        loyaltyTier: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            description: true,
+            minAnnualPoints: true,
+            minAnnualSpend: true,
+            pointMultiplier: true,
+            freeShipping: true,
+            earlyDropAccess: true,
+            perks: true,
+          },
+        },
+      },
+    })
+
     // Create session cookie
     const response = NextResponse.json({ 
       data: customer,
       message: 'Account created successfully' 
     })
     
-    response.cookies.set('auth_session', customer.id, {
+    response.cookies.set('auth_session', newCustomer.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -124,21 +161,20 @@ export async function POST(request: NextRequest) {
     return response
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.log('Validation error:', JSON.stringify(error.issues))
       return NextResponse.json(
-        { error: error.issues[0].message },
+        { error: error.issues[0].message, issues: error.issues },
         { status: 400 }
       )
     }
 
     console.error('Signup error:', error)
-    // Return more detailed error (temporarily showing in production for debugging)
+    // Return more detailed error for debugging
     const errorMessage = error instanceof Error ? error.message : 'Failed to create account'
-    const errorStack = error instanceof Error ? error.stack : undefined
     return NextResponse.json(
       { 
         error: 'Failed to create account',
         details: errorMessage,
-        stack: process.env.NODE_ENV === 'development' ? errorStack : undefined
       },
       { status: 500 }
     )

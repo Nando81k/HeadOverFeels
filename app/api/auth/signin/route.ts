@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = signinSchema.parse(body)
 
-    // Find the customer
+    // Find the customer with full data including loyalty tier
     const customer = await prisma.customer.findUnique({
       where: { email: validatedData.email },
       select: {
@@ -31,7 +31,33 @@ export async function POST(request: NextRequest) {
         email: true,
         name: true,
         password: true,
+        phone: true,
+        birthday: true,
+        newsletter: true,
+        smsOptIn: true,
+        isAdmin: true,
         createdAt: true,
+        // Loyalty fields
+        currentPoints: true,
+        lifetimePoints: true,
+        annualPointsEarned: true,
+        totalSpent: true,
+        totalOrders: true,
+        annualSpend: true,
+        loyaltyTier: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            description: true,
+            minAnnualPoints: true,
+            minAnnualSpend: true,
+            pointMultiplier: true,
+            freeShipping: true,
+            earlyDropAccess: true,
+            perks: true,
+          },
+        },
       },
     })
 
@@ -55,8 +81,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create session cookie
-    const { password, ...customerData } = customer
+    // Create session cookie - exclude password from response
+    const { password: _password, ...customerData } = customer
     
     const response = NextResponse.json({ 
       data: customerData,
