@@ -218,30 +218,31 @@ export function Navigation() {
           {/* Center - Logo */}
           <Link 
             href="/" 
-            className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3 transition-all duration-300 hover:opacity-80"
+            className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 md:gap-3 transition-all duration-300 hover:opacity-80"
           >
             <Image
               src="/assets/head-over-feels-logo.png"
               alt="Head Over Feels Logo"
               width={100}
               height={100}
-              className="object-contain hidden sm:block"
+              className="object-contain hidden md:block"
             />
             <span 
-              className="text-2xl sm:text-3xl md:text-4xl text-transparent" 
+              className="text-lg sm:text-xl md:text-2xl lg:text-4xl text-transparent whitespace-nowrap" 
               style={{ 
                 fontFamily: "'Harlow Solid Italic', 'Harlow', sans-serif",
                 WebkitTextStroke: '1px #1A1A1A'
               }}
             >
-              Head Over Feels
+              <span className="hidden sm:inline">Head Over Feels</span>
+              <span className="sm:hidden">HOF</span>
             </span>
             <Image
               src="/assets/head-over-feels-logo.png"
               alt="Head Over Feels Logo"
               width={100}
               height={100}
-              className="object-contain hidden sm:block"
+              className="object-contain hidden md:block"
             />
           </Link>
 
@@ -311,90 +312,129 @@ export function Navigation() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu - Full Screen Overlay */}
       <AnimatePresence>
         {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-t border-black/5 overflow-hidden"
-          >
-            <div className="px-4 py-6 space-y-1">
-              {/* Rewards - Mobile */}
-              {user && userPoints !== null && (
-                <Link
-                  href="/loyalty/rewards"
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="md:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            
+            {/* Menu Panel */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="md:hidden fixed inset-y-0 right-0 w-[85%] max-w-sm bg-white z-50 shadow-2xl overflow-y-auto"
+            >
+              {/* Close Button */}
+              <div className="sticky top-0 bg-white border-b border-black/5 px-4 py-4 flex items-center justify-between">
+                <span className="text-lg font-bold text-black">Menu</span>
+                <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-black/5 transition-colors"
+                  className="p-2 -mr-2 rounded-full text-black/70 hover:text-black hover:bg-black/5 transition-all"
                 >
-                  <div className="flex items-center gap-2">
-                    <Medal size={20} weight="fill" className="text-black" />
-                    <span className="text-sm font-medium text-black/60">Rewards</span>
-                  </div>
-                  <span className="text-sm font-bold text-black">{userPoints.toLocaleString()} pts</span>
-                </Link>
-              )}
-              
-              {/* Shop Section */}
-              <div className="space-y-1">
-                <Link
-                  href="/products"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`block px-4 py-3 rounded-xl text-base font-medium transition-colors ${
-                    isShopActive
-                      ? 'bg-black text-white'
-                      : 'text-black hover:bg-black/5'
-                  }`}
-                >
-                  All Products
-                </Link>
-                
-                {/* Categories */}
-                <div className="pl-4 space-y-1">
-                  {categories.map((category) => {
-                    const Icon = category.icon
-                    return (
-                      <Link
-                        key={category.href}
-                        href={category.href}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-black/60 hover:text-black hover:bg-black/5 transition-colors"
-                      >
-                        <Icon size={18} weight="bold" />
-                        {category.label}
-                      </Link>
-                    )
-                  })}
-                </div>
+                  <X size={24} weight="bold" />
+                </button>
               </div>
               
-              {navLinks.map(link => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`block px-4 py-3 rounded-xl text-base font-medium transition-colors ${
-                    isActive(link.href)
-                      ? 'bg-black text-white'
-                      : 'text-black hover:bg-black/5'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
-              
-              {!authLoading && (
-                <Link
-                  href={user ? "/profile" : "/signin"}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block px-4 py-3 rounded-xl text-base font-medium text-black hover:bg-black/5 transition-colors"
-                >
-                  {user ? 'Profile' : 'Sign In'}
-                </Link>
-              )}
-            </div>
-          </motion.div>
+              <div className="px-4 py-6 space-y-2">
+                {/* User Section - Show points if logged in */}
+                {user && userPoints !== null && (
+                  <Link
+                    href="/loyalty/rewards"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-black to-black/90 text-white mb-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                        <Medal size={20} weight="fill" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-white/70">Your Rewards</p>
+                        <p className="text-lg font-bold">{userPoints.toLocaleString()} pts</p>
+                      </div>
+                    </div>
+                    <ShoppingCart size={20} weight="bold" className="text-white/50" />
+                  </Link>
+                )}
+                
+                {/* Shop Section */}
+                <div className="space-y-1">
+                  <Link
+                    href="/products"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-4 px-4 py-4 rounded-xl text-base font-semibold transition-all ${
+                      isShopActive
+                        ? 'bg-black text-white'
+                        : 'text-black hover:bg-black/5 active:bg-black/10'
+                    }`}
+                  >
+                    <ShoppingCart size={22} weight="bold" />
+                    All Products
+                  </Link>
+                  
+                  {/* Categories - Indented */}
+                  <div className="ml-4 space-y-1">
+                    {categories.map((category) => {
+                      const Icon = category.icon
+                      return (
+                        <Link
+                          key={category.href}
+                          href={category.href}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-black/60 hover:text-black hover:bg-black/5 active:bg-black/10 transition-all"
+                        >
+                          <Icon size={18} weight="bold" />
+                          {category.label}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+                
+                {/* Divider */}
+                <div className="h-px bg-black/10 my-4" />
+                
+                {/* Other Nav Links */}
+                {navLinks.map(link => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-4 px-4 py-4 rounded-xl text-base font-semibold transition-all ${
+                      isActive(link.href)
+                        ? 'bg-black text-white'
+                        : 'text-black hover:bg-black/5 active:bg-black/10'
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+                
+                {/* Divider */}
+                <div className="h-px bg-black/10 my-4" />
+                
+                {/* Profile / Sign In */}
+                {!authLoading && (
+                  <Link
+                    href={user ? "/profile" : "/signin"}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-4 px-4 py-4 rounded-xl text-base font-semibold text-black hover:bg-black/5 active:bg-black/10 transition-all"
+                  >
+                    <User size={22} weight="bold" />
+                    {user ? 'My Profile' : 'Sign In'}
+                  </Link>
+                )}
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </nav>

@@ -71,8 +71,10 @@ export default function WishlistPage() {
       const images = JSON.parse(imagesJson)
       if (Array.isArray(images) && images.length > 0) {
         const firstImage = images[0]
-        if (firstImage?.url && (firstImage.url.startsWith('/') || firstImage.url.startsWith('http'))) {
-          return firstImage.url
+        // Handle both string URLs and {url: string} objects
+        const url = typeof firstImage === 'string' ? firstImage : firstImage?.url
+        if (url && (url.startsWith('/') || url.startsWith('http'))) {
+          return url
         }
       }
       return '/placeholder-product.jpg'

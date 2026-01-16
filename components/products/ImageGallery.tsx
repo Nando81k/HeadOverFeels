@@ -20,6 +20,13 @@ interface ImageGalleryProps {
 }
 
 export function ImageGallery({ images, productName }: ImageGalleryProps) {
+  // Create a stable key from images to detect changes and reset state
+  const imagesKey = JSON.stringify(images?.map(img => img?.url) || [])
+  
+  return <ImageGalleryInner key={imagesKey} images={images} productName={productName} />
+}
+
+function ImageGalleryInner({ images, productName }: ImageGalleryProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isZooming, setIsZooming] = useState(false)
   const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 })

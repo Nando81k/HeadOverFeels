@@ -206,33 +206,33 @@ export default function LoyaltyDashboardPage() {
               </div>
               <div className="flex justify-between mt-2 text-sm text-black/60">
                 <span>$0</span>
-                <span>${loyaltyData.nextTier.minAnnualSpend.toLocaleString()}</span>
+                <span>${loyaltyData.nextTier?.minAnnualSpend?.toLocaleString() ?? '0'}</span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-4 bg-black/5">
                 <p className="text-2xl font-bold text-black">
-                  {loyaltyData.nextTier.pointMultiplier}x
+                  {loyaltyData.nextTier?.pointMultiplier ?? 1}x
                 </p>
                 <p className="text-xs text-black/60 mt-1">Points Multiplier</p>
               </div>
-              {loyaltyData.nextTier.freeShipping && (
+              {loyaltyData.nextTier?.freeShipping && (
                 <div className="text-center p-4 bg-black/5">
                   <p className="text-2xl font-bold text-black">✓</p>
                   <p className="text-xs text-black/60 mt-1">Free Shipping</p>
                 </div>
               )}
-              {loyaltyData.nextTier.earlyDropAccess && (
+              {loyaltyData.nextTier?.earlyDropAccess && (
                 <div className="text-center p-4 bg-black/5">
                   <p className="text-2xl font-bold text-black">✓</p>
                   <p className="text-xs text-black/60 mt-1">Early Drop Access</p>
                 </div>
               )}
-              {loyaltyData.nextTier.perks.length > 0 && (
+              {(loyaltyData.nextTier?.perks?.length ?? 0) > 0 && (
                 <div className="text-center p-4 bg-black/5">
                   <p className="text-2xl font-bold text-black">
-                    +{loyaltyData.nextTier.perks.length}
+                    +{loyaltyData.nextTier?.perks?.length ?? 0}
                   </p>
                   <p className="text-xs text-black/60 mt-1">Special Perks</p>
                 </div>

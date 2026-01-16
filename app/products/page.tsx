@@ -229,7 +229,7 @@ function ProductsContent() {
           </div>
         </div>
 
-        {/* Filters Overlay - Premium Slide-in Panel */}
+        {/* Filters Overlay - Bottom Sheet on Mobile, Side Panel on Desktop */}
         <div 
           className={`fixed inset-0 z-50 transition-all duration-300 ${showFilters ? 'visible' : 'invisible'}`}
         >
@@ -239,13 +239,26 @@ function ProductsContent() {
             onClick={() => setShowFilters(false)}
           />
           
-          {/* Panel */}
+          {/* Panel - Bottom sheet on mobile, side panel on lg+ */}
           <div 
-            className={`absolute inset-y-0 left-0 w-[340px] max-w-[85vw] bg-white shadow-2xl transition-transform duration-300 ease-out ${showFilters ? 'translate-x-0' : '-translate-x-full'}`}
+            className={`absolute transition-transform duration-300 ease-out bg-white shadow-2xl
+              /* Mobile: Bottom sheet */
+              inset-x-0 bottom-0 max-h-[85vh] rounded-t-3xl lg:rounded-none
+              /* Desktop: Side panel */
+              lg:inset-y-0 lg:left-0 lg:right-auto lg:w-[340px] lg:max-h-full lg:max-w-[85vw]
+              ${showFilters 
+                ? 'translate-y-0 lg:translate-y-0 lg:translate-x-0' 
+                : 'translate-y-full lg:translate-y-0 lg:-translate-x-full'
+              }`}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Drag Handle - Mobile only */}
+            <div className="lg:hidden flex justify-center pt-3 pb-1">
+              <div className="w-12 h-1.5 bg-black/20 rounded-full" />
+            </div>
+
             {/* Panel Header */}
-            <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-5">
+            <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-4 lg:py-5">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-black text-black tracking-tight">Filters</h2>
@@ -261,7 +274,7 @@ function ProductsContent() {
             </div>
             
             {/* Panel Content */}
-            <div className="p-6 overflow-y-auto h-[calc(100vh-82px)]">
+            <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 140px)' }}>
               <ProductFilters 
                 onFilterChange={(newFilters) => {
                   setFilters(newFilters)
@@ -271,7 +284,10 @@ function ProductsContent() {
             </div>
             
             {/* Panel Footer - Apply Button */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-white/90 border-t border-black/5">
+            <div 
+              className="sticky bottom-0 p-4 bg-gradient-to-t from-white via-white to-white/90 border-t border-black/5"
+              style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
+            >
               <button
                 onClick={() => setShowFilters(false)}
                 className="w-full py-4 bg-black text-white font-bold uppercase tracking-wider text-sm hover:bg-black/90 transition-all shadow-lg"

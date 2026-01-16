@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { TableSkeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { OrderMobileCard } from '@/components/admin/OrderMobileCard';
 import { toast } from '@/lib/toast';
 import { ShoppingCart, Download, Funnel, X, SpeakerHigh, SpeakerSlash, ArrowsClockwise, CaretUp, CaretDown, CheckSquare, Square, MagnifyingGlass, CurrencyDollar } from '@phosphor-icons/react';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
@@ -775,7 +776,39 @@ export default function AdminOrdersPage() {
             />
           ) : (
             <>
-              <div className="overflow-x-auto">
+              {/* Mobile Cards View */}
+              <div className="lg:hidden">
+                {/* Mobile bulk select header */}
+                <div className="flex items-center justify-between px-4 py-3 bg-white/5 border-b border-white/10">
+                  <button
+                    onClick={toggleSelectAll}
+                    className="flex items-center gap-2 text-sm text-white/70"
+                  >
+                    {selectedOrders.size === orders.length && orders.length > 0 ? (
+                      <CheckSquare size={20} weight="fill" className="text-[#FF3131]" />
+                    ) : (
+                      <Square size={20} weight="regular" />
+                    )}
+                    <span>{selectedOrders.size > 0 ? `${selectedOrders.size} selected` : 'Select all'}</span>
+                  </button>
+                  <span className="text-xs text-white/40">{orders.length} orders</span>
+                </div>
+                
+                {/* Mobile cards list */}
+                <div className="divide-y divide-white/10">
+                  {orders.map((order) => (
+                    <OrderMobileCard
+                      key={order.id}
+                      order={order}
+                      isSelected={selectedOrders.has(order.id)}
+                      onSelect={() => toggleSelectOrder(order.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-white/5 border-b border-white/10">
                     <tr>

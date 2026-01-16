@@ -379,15 +379,15 @@ function CartItemRow({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -100 }}
       transition={{ delay: index * 0.05 }}
-      className="p-6"
+      className="p-4 sm:p-6"
     >
-      <div className="grid grid-cols-12 gap-4 items-center">
+      <div className="grid grid-cols-12 gap-3 sm:gap-4 items-center">
         {/* Product Info */}
         <div className="col-span-12 md:col-span-6">
-          <div className="flex gap-4">
+          <div className="flex gap-3 sm:gap-4">
             <Link 
               href={`/products/${product.slug}`}
-              className="relative w-20 h-20 bg-black/5 overflow-hidden shrink-0 group"
+              className="relative w-20 h-20 sm:w-24 sm:h-24 bg-black/5 overflow-hidden shrink-0 group"
             >
               {imageUrl ? (
                 <Image
@@ -405,11 +405,11 @@ function CartItemRow({
             <div className="flex-1 min-w-0">
               <Link 
                 href={`/products/${product.slug}`}
-                className="font-bold text-black hover:text-black/70 transition-colors line-clamp-2"
+                className="font-bold text-black hover:text-black/70 transition-colors line-clamp-2 text-sm sm:text-base"
               >
                 {product.name}
               </Link>
-              <div className="flex flex-wrap gap-2 mt-2">
+              <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
                 {variant.size && (
                   <span className="text-xs font-medium px-2 py-1 bg-black/5 text-black/70">
                     {variant.size}
@@ -421,32 +421,32 @@ function CartItemRow({
                   </span>
                 )}
               </div>
-              <p className="text-xs text-black/40 mt-1 font-mono">SKU: {variant.sku}</p>
+              <p className="hidden sm:block text-xs text-black/40 mt-1 font-mono">SKU: {variant.sku}</p>
               
               {/* Mobile price */}
-              <p className="md:hidden text-lg font-black text-black mt-2">${price.toFixed(2)}</p>
+              <p className="md:hidden text-base sm:text-lg font-black text-black mt-2">${price.toFixed(2)}</p>
             </div>
           </div>
         </div>
 
-        {/* Quantity */}
+        {/* Quantity - improved touch targets */}
         <div className="col-span-6 md:col-span-2">
           <div className="flex items-center justify-start md:justify-center">
             <div className="inline-flex items-center border border-black/10 overflow-hidden">
               <button
                 onClick={() => onUpdateQuantity(product.id, variant.id, quantity - 1)}
-                className="w-8 h-8 flex items-center justify-center hover:bg-black/5 transition-colors text-black/70 hover:text-black"
+                className="w-10 h-10 sm:w-8 sm:h-8 flex items-center justify-center hover:bg-black/5 active:bg-black/10 transition-colors text-black/70 hover:text-black"
                 aria-label="Decrease quantity"
               >
-                <Minus size={14} weight="bold" />
+                <Minus size={16} weight="bold" />
               </button>
-              <span className="w-10 text-center text-sm font-bold text-black">{quantity}</span>
+              <span className="w-10 sm:w-10 text-center text-sm font-bold text-black">{quantity}</span>
               <button
                 onClick={() => onUpdateQuantity(product.id, variant.id, quantity + 1)}
-                className="w-8 h-8 flex items-center justify-center hover:bg-black/5 transition-colors text-black/70 hover:text-black"
+                className="w-10 h-10 sm:w-8 sm:h-8 flex items-center justify-center hover:bg-black/5 active:bg-black/10 transition-colors text-black/70 hover:text-black"
                 aria-label="Increase quantity"
               >
-                <Plus size={14} weight="bold" />
+                <Plus size={16} weight="bold" />
               </button>
             </div>
           </div>
@@ -459,14 +459,14 @@ function CartItemRow({
 
         {/* Total */}
         <div className="col-span-6 md:col-span-2 text-right">
-          <div className="flex items-center justify-end gap-3">
-            <span className="font-black text-black">${subtotal.toFixed(2)}</span>
+          <div className="flex items-center justify-end gap-2 sm:gap-3">
+            <span className="font-black text-black text-sm sm:text-base">${subtotal.toFixed(2)}</span>
             <button
               onClick={() => onRemove(product.id, variant.id)}
-              className="w-8 h-8 flex items-center justify-center hover:bg-black/5 text-black/40 hover:text-black transition-colors"
+              className="w-10 h-10 sm:w-8 sm:h-8 flex items-center justify-center hover:bg-black/5 active:bg-red-50 text-black/40 hover:text-black active:text-red-500 transition-colors rounded-lg"
               aria-label="Remove item"
             >
-              <X size={16} weight="bold" />
+              <X size={18} weight="bold" />
             </button>
           </div>
         </div>

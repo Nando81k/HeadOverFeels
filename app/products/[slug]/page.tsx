@@ -31,11 +31,13 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     }
   }
 
-  // Parse images for OG
+  // Parse images for OG - images are stored as flat arrays of URL strings
   let images: string[] = []
   try {
     const parsed = JSON.parse(product.images || '[]')
-    images = parsed.map((img: { url: string }) => img.url).slice(0, 4)
+    images = parsed.map((img: string | { url: string }) => 
+      typeof img === 'string' ? img : img.url
+    ).slice(0, 4)
   } catch {
     images = []
   }
@@ -101,11 +103,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound()
   }
 
-  // Parse images for schema
+  // Parse images for schema - images are stored as flat arrays of URL strings
   let images: string[] = []
   try {
     const parsed = JSON.parse(product.images || '[]')
-    images = parsed.map((img: { url: string }) => img.url)
+    images = parsed.map((img: string | { url: string }) => 
+      typeof img === 'string' ? img : img.url
+    )
   } catch {
     images = []
   }

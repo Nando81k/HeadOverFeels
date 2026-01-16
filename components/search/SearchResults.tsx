@@ -36,11 +36,15 @@ export function SearchResults({
     )
   }
 
-  // Parse images helper
+  // Parse images helper - handle both flat string arrays and object arrays
   const getFirstImage = (images: string): string => {
     try {
       const parsed = JSON.parse(images)
-      return Array.isArray(parsed) ? parsed[0] : parsed
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const firstImg = parsed[0]
+        return (typeof firstImg === 'string' ? firstImg : firstImg?.url) || '/placeholder-product.jpg'
+      }
+      return '/placeholder-product.jpg'
     } catch {
       return images || '/placeholder-product.jpg'
     }

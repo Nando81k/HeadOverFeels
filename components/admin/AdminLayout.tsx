@@ -1,5 +1,6 @@
 import { AdminSidebar } from './AdminSidebar'
 import { AdminHeader } from './AdminHeader'
+import { AdminMobileNav } from './AdminMobileNav'
 import { CommandPalette } from '@/components/ui/CommandPalette'
 import AdminReggie from './AdminReggie'
 
@@ -31,8 +32,10 @@ export function AdminLayout({
       {/* Command Palette */}
       <CommandPalette isAdmin />
       
-      {/* Sidebar */}
-      <AdminSidebar pendingOrders={pendingOrders} />
+      {/* Sidebar - Hidden on mobile */}
+      <div className="hidden lg:block">
+        <AdminSidebar pendingOrders={pendingOrders} />
+      </div>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 relative z-10">
@@ -43,11 +46,14 @@ export function AdminLayout({
           actions={headerActions}
         />
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-auto p-6">
+        {/* Page Content - Add bottom padding for mobile nav */}
+        <main className="flex-1 overflow-auto p-4 lg:p-6 pb-24 lg:pb-6">
           {children}
         </main>
       </div>
+      
+      {/* Mobile Bottom Navigation */}
+      <AdminMobileNav />
       
       {/* Reggie AI Assistant */}
       <AdminReggie />

@@ -437,9 +437,9 @@ export default function RewardsPage() {
 
 
 
-        {/* Category Filter */}
-        <div className="mb-8 overflow-x-auto">
-          <div className="flex gap-2 pb-2">
+        {/* Category Filter - Horizontal scroll on mobile */}
+        <div className="mb-8 -mx-4 sm:mx-0">
+          <div className="flex gap-2 px-4 sm:px-0 pb-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
             {categories.map((category) => {
               const Icon = category.icon
               const colors = getCategoryColors(category.value)
@@ -448,14 +448,14 @@ export default function RewardsPage() {
                 <button
                   key={category.value}
                   onClick={() => setSelectedCategory(category.value)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all duration-200 whitespace-nowrap border ${
+                  className={`flex items-center gap-2 px-4 py-3 sm:py-2.5 rounded-xl font-medium transition-all duration-200 whitespace-nowrap border snap-start active:scale-95 ${
                     isSelected
                       ? `${colors.activeBg} text-white border-transparent shadow-md`
                       : `bg-white ${colors.iconColor} border-gray-200 hover:border-gray-300 hover:shadow-sm`
                   }`}
                 >
                   <Icon className="w-4 h-4" weight={isSelected ? 'fill' : 'bold'} />
-                  {category.label}
+                  <span className="text-sm sm:text-base">{category.label}</span>
                 </button>
               )
             })}
@@ -478,7 +478,7 @@ export default function RewardsPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {rewards.map((reward) => {
               const Icon = rewardTypeIcons[reward.rewardType as keyof typeof rewardTypeIcons] || Gift
               const colors = rewardTypeColors[reward.rewardType as keyof typeof rewardTypeColors] || defaultColors

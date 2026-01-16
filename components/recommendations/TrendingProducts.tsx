@@ -142,8 +142,17 @@ export function TrendingProducts({ limit = 8, categoryId }: TrendingProductsProp
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {products.map((product, index) => {
-            const images = JSON.parse(product.images as string) as string[]
-            const mainImage = images[0] || '/placeholder-product.jpg'
+            // Parse images - handle both flat string arrays and object arrays
+            let mainImage = '/placeholder-product.jpg'
+            try {
+              const images = JSON.parse(product.images as string)
+              if (images && images.length > 0) {
+                const firstImg = images[0]
+                mainImage = (typeof firstImg === 'string' ? firstImg : firstImg?.url) || '/placeholder-product.jpg'
+              }
+            } catch {
+              // Use placeholder
+            }
             const hasDiscount = product.compareAtPrice && product.compareAtPrice > product.price
 
             return (

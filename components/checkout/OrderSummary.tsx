@@ -30,12 +30,14 @@ export function OrderSummary({ shippingCost, selectedShippingMethod, loyaltyTier
         {items.map((item) => {
           const price = item.variant.price || item.product.price
           
-          // Parse images
+          // Parse images - handle both flat string arrays and object arrays
           let imageUrl = '/placeholder-product.jpg'
           try {
             const images = JSON.parse(item.product.images)
-            if (images && images.length > 0 && images[0].url) {
-              imageUrl = images[0].url || '/placeholder-product.jpg'
+            if (images && images.length > 0) {
+              const firstImg = images[0]
+              // Handle both string URLs and {url: string} objects
+              imageUrl = (typeof firstImg === 'string' ? firstImg : firstImg?.url) || '/placeholder-product.jpg'
             }
           } catch {
             // Use placeholder

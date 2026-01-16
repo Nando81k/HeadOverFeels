@@ -9,6 +9,7 @@ import { useCartStore } from '@/lib/store/cart'
 import { ImageGallery } from '@/components/products/ImageGallery'
 import { VariantSelector } from '@/components/products/VariantSelector'
 import { WishlistButton } from '@/components/wishlist/WishlistButton'
+import { MobileAddToCartBar } from '@/components/products/MobileAddToCartBar'
 import { Button } from '@/components/ui/button'
 import UnifiedReviewSection from '@/components/products/UnifiedReviewSection'
 import { SimilarProducts } from '@/components/recommendations/SimilarProducts'
@@ -103,18 +104,33 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
   }
 
   // Parse images - use variant images if available, otherwise product images
+  // Images are stored as flat arrays of URL strings
   let images: Array<{ url: string; alt?: string }> = []
   try {
+    // Helper to parse images from JSON string to array of objects
+    const parseImageArray = (imagesStr: string | undefined): Array<{ url: string; alt?: string }> => {
+      if (!imagesStr) return []
+      const parsed = JSON.parse(imagesStr)
+      if (Array.isArray(parsed)) {
+        return parsed.map((img: string | { url: string }) => ({
+          url: typeof img === 'string' ? img : img.url,
+          alt: undefined
+        })).filter(img => img.url && img.url.trim() !== '')
+      }
+      return []
+    }
+
     // Check if selected variant has images
     if (selectedVariant?.images) {
-      const variantParsed = JSON.parse(selectedVariant.images)
-      images = variantParsed && variantParsed.length > 0 ? variantParsed : []
+      const variantImages = parseImageArray(selectedVariant.images)
+      if (variantImages.length > 0) {
+        images = variantImages
+      }
     }
     
     // Fallback to product images if no variant images
     if (images.length === 0 && product.images) {
-      const parsed = JSON.parse(product.images)
-      images = parsed && parsed.length > 0 ? parsed : []
+      images = parseImageArray(product.images)
     }
   } catch {
     images = []
@@ -339,6 +355,18 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
           </div>
         )}
       </div>
+
+      {/* Mobile Sticky Add to Cart Bar */}
+      <MobileAddToCartBar
+        price={displayPrice}
+        compareAtPrice={product.compareAtPrice}
+        inStock={inStock}
+        selectedVariant={selectedVariant}
+        quantity={quantity}
+        onQuantityChange={setQuantity}
+        onAddToCart={handleAddToCart}
+        showAddedMessage={showAddedMessage}
+      />
     </div>
   )
 }
