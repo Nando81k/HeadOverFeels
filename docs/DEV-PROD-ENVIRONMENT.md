@@ -1,0 +1,217 @@
+# Development vs Production Environment Setup
+
+This guide explains how to work with separate development and production environments.
+
+## Overview
+
+| Environment | Database | Data | Purpose |
+|-------------|----------|------|---------|
+| **Development** | Local PostgreSQL / Neon Dev Branch | Fake test data | Feature development, testing |
+| **Production** | PostgreSQL (Neon/Vercel) | Real customer data | Live site |
+
+## Quick Start
+
+### Option 1: Use Neon Database Branching (Recommended)
+
+Neon allows you to create instant database branches - a copy of your production schema with no data or with a snapshot.
+
+1. **Create a dev branch in Neon Dashboard:**
+   - Go to your Neon project → Branches → Create Branch
+   - Name it `development`
+   - Choose "Empty" or "Copy data" (if you want structure)
+
+2. **Update `.env.development`:**
+   ```bash
+   DATABASE_URL="postgresql://[user]:[password]@[dev-branch-host]/[dbname]"
+   ```
+
+3. **Seed with fake data:**
+   ```bash
+   npm run db:seed:dev
+   ```
+
+### Option 2: Local PostgreSQL
+
+1. **Install PostgreSQL:**
+   ```bash
+   brew install postgresql@15
+   brew services start postgresql@15
+   ```
+
+2. **Create a dev database:**
+   ```bash
+   createdb headoverfeels_dev
+   ```
+
+3. **Update `.env.development`:**
+   ```bash
+   DATABASE_URL="postgresql://localhost:5432/headoverfeels_dev"
+   ```
+
+4. **Push schema and seed:**
+   ```bash
+   npm run db:push:dev
+   npm run db:seed:dev
+   ```
+
+## Available Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server |
+| `npm run dev:fresh` | Reset dev DB and start fresh |
+| `npm run db:push:dev` | Push schema to dev database |
+| `npm run db:seed:dev` | Seed dev database with fake data |
+| `npm run db:reset:dev` | Clear and reseed dev database |
+| `npm run db:studio:dev` | Open Prisma Studio for dev DB |
+| `npm run db:studio:prod` | Open Prisma Studio for prod DB |
+
+## Test Credentials (Development Only)
+
+All fake accounts use `@fake.headoverfeels.dev` domain to prevent accidental real operations.
+
+```
+Admin Account:
+  Email: admin@fake.headoverfeels.dev
+  Password: adminpassword123
+
+Test Customer Account:
+  Email: testuser1@fake.headoverfeels.dev
+  Password: testpassword123
+```
+
+## How It Works
+
+### Environment Files
+
+- **`.env.development`** - Loaded automatically by `next dev`
+- **`.env`** or **`.env.production`** - Used for production builds
+- **Vercel Environment Variables** - Used in deployed production
+
+Next.js automatically loads `.env.development` when running `next dev`.
+
+### Database Separation
+
+```
+Development (Local/Neon Branch):
+  DATABASE_URL="postgresql://localhost:5432/headoverfeels_dev"
+  # OR
+  DATABASE_URL="postgresql://[neon-dev-branch-connection-string]"
+  
+Production (Vercel/Neon Main):
+  DATABASE_URL="postgresql://[neon-production-connection-string]"
+```
+
+### Fake Data
+
+The development seed script (`scripts/seed-dev-data.ts`) creates:
+- 1 admin user (dev-admin-1)
+- 10 test customers (fake-customer-*)
+- 5 categories (cat-*)
+- 11 products (fake-product-*)
+- ~130 product variants (fake-variant-*)
+- 25 sample orders (fake-order-*)
+
+All IDs are prefixed with `fake-`, `dev-`, or `cat-` so they're easily identifiable and won't conflict with production data.
+
+## Workflow
+
+### Feature Development
+
+1. **Start with fresh dev environment:**
+   ```bash
+   npm run dev:fresh
+   ```
+
+2. **Make your changes** - all data is fake, safe to experiment
+
+3. **Test thoroughly** - no risk to production data
+
+4. **Push to GitHub** - Vercel auto-deploys to production
+
+### Adding More Test Data
+
+Edit `scripts/seed-dev-data.ts` and add your test scenarios:
+
+```typescript
+// Add more products, orders, etc.
+const generateFakeProducts = () => {
+  const products = [
+    // Add your test products here
+    { name: 'Test Product', slug: 'dev-test-product', price: 99.99, categoryId: 'cat-hoodies' },
+  ];
+  ...
+};
+```
+
+Then reseed:
+```bash
+npm run db:seed:dev
+```
+
+## Production Safety
+
+Production is completely isolated:
+- Vercel uses environment variables from Vercel dashboard
+- Production uses main Neon database branch
+- The seed script only deletes records with `fake-`, `dev-`, or `cat-` prefixes
+- Real customer data is never touched
+
+## Git Branching Strategy
+
+For larger features, consider using feature branches:
+
+```bash
+# Create feature branch
+git checkout -b feature/new-feature
+
+# Develop and test with fake data
+npm run dev:fresh
+
+# When ready, merge to main
+git checkout main
+git merge feature/new-feature
+git push  # Triggers Vercel production deploy
+```
+
+## Troubleshooting
+
+### "Cannot find module 'dotenv-cli'"
+
+Install it:
+```bash
+npm install -D dotenv-cli
+```
+
+### Database Connection Issues
+
+Check your `.env.development` has the correct connection string:
+```bash
+# Test connection
+dotenv -e .env.development -- npx prisma db pull
+```
+
+### Schema Out of Sync
+
+After changing `prisma/schema.prisma`:
+```bash
+# For dev (just pushes schema, no migration)
+npm run db:push:dev
+
+# For production (creates migration)
+npx prisma migrate dev --name your_change
+```
+
+### Need to Start Fresh
+
+```bash
+# Nuclear option - deletes everything and reseeds
+npm run db:reset:dev
+```
+
+## Important Notes
+
+⚠️ **Never commit `.env` files** - they contain secrets  
+⚠️ **Dev emails use `@fake.headoverfeels.dev`** - prevents real emails  
+⚠️ **Production is untouched by dev commands** - safe to experiment  
+⚠️ **Fake data IDs are prefixed** - won't conflict with production
