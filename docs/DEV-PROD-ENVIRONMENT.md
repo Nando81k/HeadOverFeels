@@ -6,52 +6,57 @@ This guide explains how to work with separate development and production environ
 
 | Environment | Database | Data | Purpose |
 |-------------|----------|------|---------|
-| **Development** | Local PostgreSQL / Neon Dev Branch | Fake test data | Feature development, testing |
-| **Production** | PostgreSQL (Neon/Vercel) | Real customer data | Live site |
+| **Development** | Local PostgreSQL 17 | Fake test data | Feature development, testing |
+| **Production** | PostgreSQL (Neon) | Real customer data | Live site |
 
-## Quick Start
+## Current Setup
 
-### Option 1: Use Neon Database Branching (Recommended)
+The project uses a **file-swap approach** for environment switching:
 
-Neon allows you to create instant database branches - a copy of your production schema with no data or with a snapshot.
+- **`.env`** - Currently active environment (copy from `.env.development` or `.env.production`)
+- **`.env.development`** - Development config (local PostgreSQL)  
+- **`.env.production`** - Production config (Neon PostgreSQL)
 
-1. **Create a dev branch in Neon Dashboard:**
-   - Go to your Neon project → Branches → Create Branch
-   - Name it `development`
-   - Choose "Empty" or "Copy data" (if you want structure)
+### Switch to Development
+```bash
+cp .env.development .env
+```
 
-2. **Update `.env.development`:**
+### Switch to Production
+```bash
+cp .env.production .env
+```
+
+## Quick Start - Development
+
+### Local PostgreSQL (Already Configured)
+
+The project is already set up with local PostgreSQL 17:
+
+- **Database:** `headoverfeels_dev`
+- **User:** `postgres`
+- **Password:** `devpassword123`
+- **Port:** `5432`
+
+1. **Ensure PostgreSQL is running:**
    ```bash
-   DATABASE_URL="postgresql://[user]:[password]@[dev-branch-host]/[dbname]"
+   pg_isready -h localhost -p 5432
    ```
 
-3. **Seed with fake data:**
+2. **Switch to dev environment:**
    ```bash
-   npm run db:seed:dev
+   cp .env.development .env
    ```
 
-### Option 2: Local PostgreSQL
-
-1. **Install PostgreSQL:**
+3. **Reset/seed database (if needed):**
    ```bash
-   brew install postgresql@15
-   brew services start postgresql@15
+   npx prisma db push
+   npx tsx scripts/seed-dev-data.ts
    ```
 
-2. **Create a dev database:**
+4. **Start dev server:**
    ```bash
-   createdb headoverfeels_dev
-   ```
-
-3. **Update `.env.development`:**
-   ```bash
-   DATABASE_URL="postgresql://localhost:5432/headoverfeels_dev"
-   ```
-
-4. **Push schema and seed:**
-   ```bash
-   npm run db:push:dev
-   npm run db:seed:dev
+   npm run dev
    ```
 
 ## Available Scripts
@@ -83,21 +88,6 @@ Test Customer Account:
 ## How It Works
 
 ### Environment Files
-
-- **`.env.development`** - Loaded automatically by `next dev`
-- **`.env`** or **`.env.production`** - Used for production builds
-- **Vercel Environment Variables** - Used in deployed production
-
-Next.js automatically loads `.env.development` when running `next dev`.
-
-### Database Separation
-
-```
-Development (Local/Neon Branch):
-  DATABASE_URL="postgresql://localhost:5432/headoverfeels_dev"
-  # OR
-  DATABASE_URL="postgresql://[neon-dev-branch-connection-string]"
-  
 Production (Vercel/Neon Main):
   DATABASE_URL="postgresql://[neon-production-connection-string]"
 ```

@@ -8,7 +8,7 @@
  * WARNING: This script will clear existing data in the development database!
  */
 
-import { PrismaClient, AdminRole, OrderStatus, PaymentStatus } from '@prisma/client';
+import { PrismaClient, AdminRole, OrderStatus, PaymentStatus, AddressType } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -122,38 +122,69 @@ const generateProductVariants = (products: ReturnType<typeof generateFakeProduct
   return variants;
 };
 
-const generateFakeOrders = (customerIds: string[], products: ReturnType<typeof generateFakeProducts>) => {
+const generateFakeOrders = async (customerIds: string[], products: ReturnType<typeof generateFakeProducts>) => {
   const statuses: OrderStatus[] = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'];
-  const paymentStatuses: PaymentStatus[] = ['UNPAID', 'PAID', 'REFUNDED'];
+  const paymentStatuses: PaymentStatus[] = ['PENDING', 'PAID', 'FAILED', 'REFUNDED'];
+  const orders = [];
 
-  return Array.from({ length: 25 }, (_, i) => {
+  for (let i = 0; i < 25; i++) {
     const subtotal = Math.floor(Math.random() * 200) + 50;
     const tax = subtotal * 0.08;
     const shipping = subtotal > 100 ? 0 : 9.99;
     const isPaid = i < 20;
+    const customerId = customerIds[Math.floor(Math.random() * customerIds.length)];
+    const customerIndex = customerIds.indexOf(customerId) + 1;
     
-    return {
+    // Create addresses for this order
+    const shippingAddress = await prisma.address.create({
+      data: {
+        id: `fake-ship-addr-${i + 1}`,
+        customerId,
+        firstName: 'Test',
+        lastName: `Customer${customerIndex}`,
+        address1: `${Math.floor(Math.random() * 9999)} Test Street`,
+        city: 'Test City',
+        state: 'CA',
+        postalCode: '90210',
+        country: 'US',
+        type: 'SHIPPING',
+      }
+    });
+    
+    const billingAddress = await prisma.address.create({
+      data: {
+        id: `fake-bill-addr-${i + 1}`,
+        customerId,
+        firstName: 'Test',
+        lastName: `Customer${customerIndex}`,
+        address1: `${Math.floor(Math.random() * 9999)} Billing Ave`,
+        city: 'Test City',
+        state: 'CA',
+        postalCode: '90210',
+        country: 'US',
+        type: 'BILLING',
+      }
+    });
+    
+    orders.push({
       id: `fake-order-${i + 1}`,
       orderNumber: `DEV-${String(100000 + i)}`,
-      customerId: customerIds[Math.floor(Math.random() * customerIds.length)],
+      customerId,
+      customerEmail: `testuser${customerIndex}@fake.headoverfeels.dev`,
       status: statuses[Math.floor(Math.random() * statuses.length)],
       paymentStatus: isPaid ? 'PAID' as PaymentStatus : paymentStatuses[Math.floor(Math.random() * paymentStatuses.length)],
       subtotal,
       tax,
-      shippingCost: shipping,
+      shipping,
       discount: Math.random() > 0.7 ? subtotal * 0.1 : 0,
       total: subtotal + tax + shipping,
-      shippingAddress: JSON.stringify({
-        name: 'Test Customer',
-        street: `${Math.floor(Math.random() * 9999)} Test Street`,
-        city: 'Test City',
-        state: 'CA',
-        zip: '90210',
-        country: 'US',
-      }),
+      shippingAddressId: shippingAddress.id,
+      billingAddressId: billingAddress.id,
       createdAt: new Date(Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000)),
-    };
-  });
+    });
+  }
+  
+  return orders;
 };
 
 async function main() {
@@ -163,6 +194,7 @@ async function main() {
   try {
     await prisma.orderItem.deleteMany({ where: { orderId: { startsWith: 'fake-' } } });
     await prisma.order.deleteMany({ where: { id: { startsWith: 'fake-' } } });
+    await prisma.address.deleteMany({ where: { id: { startsWith: 'fake-' } } });
     await prisma.productVariant.deleteMany({ where: { id: { startsWith: 'fake-' } } });
     await prisma.product.deleteMany({ where: { id: { startsWith: 'fake-' } } });
     await prisma.category.deleteMany({ where: { id: { startsWith: 'cat-' } } });
@@ -226,7 +258,7 @@ async function main() {
   // Create orders
   console.log('🧾 Creating orders...');
   const customerIds = customers.map(c => c.id);
-  const orders = generateFakeOrders(customerIds, products);
+  const orders = await generateFakeOrders(customerIds, products);
   for (const order of orders) {
     await prisma.order.create({ data: order });
   }

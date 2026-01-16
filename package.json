@@ -12,12 +12,13 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "postinstall": "prisma generate",
-    "db:push:dev": "dotenv -e .env.development -- npx prisma db push",
-    "db:seed:dev": "dotenv -e .env.development -- npx tsx scripts/seed-dev-data.ts",
-    "db:reset:dev": "rm -f prisma/dev.db && npm run db:push:dev && npm run db:seed:dev",
-    "db:studio:dev": "dotenv -e .env.development -- npx prisma studio",
-    "db:studio:prod": "npx prisma studio",
-    "sync:prod-to-dev": "npm run db:reset:dev"
+    "db:push:dev": "npx prisma db push",
+    "db:seed:dev": "npx tsx scripts/seed-dev-data.ts",
+    "db:reset:dev": "npm run db:push:dev && npm run db:seed:dev",
+    "db:studio:dev": "npx prisma studio",
+    "db:studio:prod": "cp .env.production .env && npx prisma studio",
+    "env:dev": "cp .env.development .env && echo 'Switched to DEVELOPMENT environment'",
+    "env:prod": "cp .env.production .env && echo 'Switched to PRODUCTION environment'"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
