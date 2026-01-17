@@ -328,7 +328,7 @@ function ConfirmationContent() {
                       Create an account to start earning points on every purchase and unlock exclusive rewards.
                     </p>
                     <Link
-                      href={`/register?email=${encodeURIComponent(order.customerEmail)}&redirect=/loyalty/rewards`}
+                      href={`/signin?tab=signup&email=${encodeURIComponent(order.customerEmail)}&redirect=/loyalty/rewards`}
                       className="inline-flex items-center gap-2 px-5 py-2.5 bg-black text-white text-sm rounded-full font-semibold hover:bg-black/80 transition-all"
                     >
                       Create Account

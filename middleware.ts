@@ -5,7 +5,7 @@ import { jwtVerify } from 'jose'
 
 // Rate limit configurations
 const RATE_LIMITS = {
-  auth: { maxRequests: 5, windowMs: 15 * 60 * 1000 },
+  auth: { maxRequests: process.env.NODE_ENV === 'development' ? 20 : 5, windowMs: 15 * 60 * 1000 },
   api: { maxRequests: 100, windowMs: 60 * 1000 },
   admin: { maxRequests: 60, windowMs: 60 * 1000 },
 }

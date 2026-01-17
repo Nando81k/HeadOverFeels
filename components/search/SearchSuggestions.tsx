@@ -1,14 +1,17 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { Clock, TrendUp, X, SquaresFour } from '@phosphor-icons/react'
+import { Clock, TrendUp, X, SquaresFour, Fire } from '@phosphor-icons/react'
 import { Category } from './useSearch'
+import { Product } from '@/lib/api/products'
 
 interface SearchSuggestionsProps {
   recentSearches: string[]
   trendingSearches: string[]
   categories: Category[]
+  featuredProducts: Product[]
   onSearchClick: (search: string) => void
   onRemoveRecent: (search: string) => void
   onClearRecent: () => void
@@ -19,6 +22,7 @@ export function SearchSuggestions({
   recentSearches,
   trendingSearches,
   categories,
+  featuredProducts,
   onSearchClick,
   onRemoveRecent,
   onClearRecent,
@@ -127,6 +131,49 @@ export function SearchSuggestions({
                 className="block text-sm text-black/70 hover:text-black transition-colors py-1.5"
               >
                 {category.name}
+              </Link>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Featured Products */}
+      {featuredProducts.length > 0 && (
+        <motion.div variants={itemVariants} className="md:col-span-3 space-y-4 mt-8 pt-8 border-t border-black/10">
+          <div className="flex items-center gap-2">
+            <Fire size={16} className="text-amber-500" weight="fill" />
+            <h3 className="text-xs font-medium tracking-widest uppercase text-black/50">
+              Popular Products
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {featuredProducts.slice(0, 6).map((product) => (
+              <Link
+                key={product.id}
+                href={`/products/${product.id}`}
+                onClick={onClose}
+                className="group"
+              >
+                <div className="aspect-square rounded-2xl bg-black/5 overflow-hidden mb-2 relative">
+                  {product.images?.[0] ? (
+                    <Image
+                      src={product.images[0]}
+                      alt={product.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-black/20">
+                      <SquaresFour size={24} />
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs font-medium text-black/80 group-hover:text-black truncate">
+                  {product.name}
+                </p>
+                <p className="text-xs text-black/50">
+                  ${product.price.toFixed(2)}
+                </p>
               </Link>
             ))}
           </div>

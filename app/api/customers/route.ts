@@ -22,8 +22,10 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     
-    // Build where clause
-    const where: any = {};
+    // Build where clause - exclude admin accounts from customer list
+    const where: any = {
+      isAdmin: { not: true }
+    };
     
     // Search filter (name or email)
     if (search) {

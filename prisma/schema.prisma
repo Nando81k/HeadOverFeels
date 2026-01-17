@@ -184,6 +184,15 @@ model Customer {
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
   annualPointsEarned       Int                       @default(0)
+  // Email verification fields
+  emailVerified            DateTime?
+  emailVerificationToken   String?                   @unique
+  emailVerificationExpires DateTime?
+  // Password reset fields
+  passwordResetToken       String?                   @unique
+  passwordResetExpires     DateTime?
+  // Terms acceptance
+  termsAcceptedAt          DateTime?
   abandonedCarts           AbandonedCart[]
   accounts                 Account[]
   addresses                Address[]

@@ -20,8 +20,10 @@ export async function GET(request: NextRequest) {
     const sortBy = searchParams.get('sortBy') || 'currentPoints'
     const sortOrder = searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc'
 
-    // Build where clause
-    const where: Record<string, unknown> = {}
+    // Build where clause - exclude admin accounts from customer list
+    const where: Record<string, unknown> = {
+      isAdmin: { not: true }
+    }
     
     if (search) {
       where.OR = [

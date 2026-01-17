@@ -23,10 +23,13 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const validatedData = signinSchema.parse(body)
+    
+    // Normalize email to lowercase (emails are case-insensitive per RFC 5321)
+    const normalizedEmail = validatedData.email.toLowerCase()
 
     // Find the customer with full data including loyalty tier
     const customer = await prisma.customer.findUnique({
-      where: { email: validatedData.email },
+      where: { email: normalizedEmail },
       select: {
         id: true,
         email: true,
@@ -38,6 +41,7 @@ export async function POST(request: NextRequest) {
         smsOptIn: true,
         isAdmin: true,
         createdAt: true,
+        emailVerified: true,
         // Loyalty fields
         currentPoints: true,
         lifetimePoints: true,
@@ -82,12 +86,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check if email is verified - allow sign in but include verification status
+    const needsVerification = !customer.emailVerified && !customer.isAdmin
+
     // Create session cookie - exclude password from response
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _password, ...customerData } = customer
     
     const response = NextResponse.json({ 
       data: customerData,
-      message: 'Signed in successfully' 
+      message: needsVerification 
+        ? 'Signed in successfully. Please verify your email to earn 50 Care Points!'
+        : 'Signed in successfully',
+      requiresVerification: needsVerification,
     })
     
     response.cookies.set('auth_session', customer.id, {

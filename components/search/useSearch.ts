@@ -21,6 +21,7 @@ export interface UseSearchReturn {
   recentSearches: string[]
   categories: Category[]
   trendingSearches: string[]
+  featuredProducts: Product[]
   clearRecentSearches: () => void
   removeRecentSearch: (search: string) => void
   handleSearch: (searchQuery?: string) => void
@@ -41,6 +42,7 @@ export function useSearch(): UseSearchReturn {
   const [isLoading, setIsLoading] = useState(false)
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Load recent searches from localStorage
@@ -69,6 +71,22 @@ export function useSearch(): UseSearchReturn {
       }
     }
     fetchCategories()
+  }, [])
+
+  // Fetch featured products on mount
+  useEffect(() => {
+    const fetchFeaturedProducts = async () => {
+      try {
+        const response = await fetch('/api/products?limit=6&sort=popular')
+        if (response.ok) {
+          const data = await response.json()
+          setFeaturedProducts(data.data || [])
+        }
+      } catch (error) {
+        console.error('Failed to fetch featured products:', error)
+      }
+    }
+    fetchFeaturedProducts()
   }, [])
 
   // Search products with debounce
@@ -170,6 +188,7 @@ export function useSearch(): UseSearchReturn {
     recentSearches,
     categories,
     trendingSearches: TRENDING_SEARCHES,
+    featuredProducts,
     clearRecentSearches,
     removeRecentSearch,
     handleSearch,

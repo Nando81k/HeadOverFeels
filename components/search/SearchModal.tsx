@@ -24,6 +24,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     recentSearches,
     categories,
     trendingSearches,
+    featuredProducts,
     clearRecentSearches,
     removeRecentSearch,
     saveRecentSearch,
@@ -158,6 +159,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                     recentSearches={recentSearches}
                     trendingSearches={trendingSearches}
                     categories={categories}
+                    featuredProducts={featuredProducts}
                     onSearchClick={handleSuggestionClick}
                     onRemoveRecent={removeRecentSearch}
                     onClearRecent={clearRecentSearches}

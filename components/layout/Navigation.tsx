@@ -153,44 +153,48 @@ export function Navigation() {
                 <AnimatePresence>
                   {shopDropdownOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: 10 }}
+                      initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute top-full left-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-black/5 overflow-hidden z-50"
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className="absolute top-full left-0 pt-2 z-50"
                     >
-                      <div className="p-2">
-                        <Link
-                          href="/products"
-                          onClick={() => setShopDropdownOpen(false)}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-black hover:bg-black/5 transition-colors"
-                        >
-                          <span className="w-8 h-8 bg-black/5 rounded-lg flex items-center justify-center">
-                            <ShoppingCart size={16} weight="bold" />
-                          </span>
-                          All Products
-                        </Link>
-                        
-                        <div className="h-px bg-black/5 my-2" />
-                        
-                        <p className="px-3 py-1 text-[10px] font-medium tracking-wider text-black/40 uppercase">Categories</p>
-                        
-                        {categories.map((category) => {
-                          const Icon = category.icon
-                          return (
-                            <Link
-                              key={category.href}
-                              href={category.href}
-                              onClick={() => setShopDropdownOpen(false)}
-                              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-black/70 hover:text-black hover:bg-black/5 transition-colors"
-                            >
-                              <span className="w-8 h-8 bg-black/5 rounded-lg flex items-center justify-center">
-                                <Icon size={16} weight="bold" />
-                              </span>
-                              {category.label}
-                            </Link>
-                          )
-                        })}
+                      {/* Invisible bridge to prevent hover gap issues */}
+                      <div className="absolute -top-2 left-0 w-full h-2" />
+                      <div className="w-56 bg-white rounded-2xl shadow-2xl border border-black/10 overflow-hidden">
+                        <div className="p-2">
+                          <Link
+                            href="/products"
+                            onClick={() => setShopDropdownOpen(false)}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-black hover:bg-black/5 transition-colors"
+                          >
+                            <span className="w-8 h-8 bg-black/5 rounded-lg flex items-center justify-center">
+                              <ShoppingCart size={16} weight="bold" />
+                            </span>
+                            All Products
+                          </Link>
+                          
+                          <div className="h-px bg-black/5 my-2" />
+                          
+                          <p className="px-3 py-1 text-[10px] font-medium tracking-wider text-black/40 uppercase">Categories</p>
+                          
+                          {categories.map((category) => {
+                            const Icon = category.icon
+                            return (
+                              <Link
+                                key={category.href}
+                                href={category.href}
+                                onClick={() => setShopDropdownOpen(false)}
+                                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-black/70 hover:text-black hover:bg-black/5 transition-colors"
+                              >
+                                <span className="w-8 h-8 bg-black/5 rounded-lg flex items-center justify-center">
+                                  <Icon size={16} weight="bold" />
+                                </span>
+                                {category.label}
+                              </Link>
+                            )
+                          })}
+                        </div>
                       </div>
                     </motion.div>
                   )}

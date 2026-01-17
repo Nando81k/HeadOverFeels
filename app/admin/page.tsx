@@ -233,7 +233,7 @@ export default async function AdminDashboard() {
     
     // General stats
     prisma.product.count({ where: { isActive: true } }),
-    prisma.customer.count(),
+    prisma.customer.count({ where: { isAdmin: { not: true } } }), // Exclude admin accounts
     prisma.order.count({ where: { status: 'PENDING' } }),
     
     // Recent 5 orders
@@ -321,7 +321,10 @@ export default async function AdminDashboard() {
     
     // New customers this month
     prisma.customer.count({
-      where: { createdAt: { gte: getMonthStart() } }
+      where: { 
+        createdAt: { gte: getMonthStart() },
+        isAdmin: { not: true } // Exclude admin accounts
+      }
     }),
     
     // Pending reviews

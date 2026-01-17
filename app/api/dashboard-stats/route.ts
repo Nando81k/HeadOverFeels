@@ -22,7 +22,7 @@ export async function GET() {
         }
       }),
       prisma.product.count({ where: { isActive: true } }),
-      prisma.customer.count(),
+      prisma.customer.count({ where: { isAdmin: { not: true } } }), // Exclude admin accounts
       prisma.order.count({ where: { status: 'PENDING' } }),
     ]);
 

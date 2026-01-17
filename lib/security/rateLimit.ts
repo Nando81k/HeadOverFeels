@@ -88,8 +88,8 @@ export function rateLimitResponse(retryAfter: number) {
  * Common rate limit configurations
  */
 export const RATE_LIMITS = {
-  // Auth endpoints: 5 attempts per minute per IP
-  auth: { maxRequests: 5, windowMs: 60000 },
+  // Auth endpoints: 20 attempts per minute per IP in dev, 5 in production
+  auth: { maxRequests: process.env.NODE_ENV === 'development' ? 20 : 5, windowMs: 60000 },
   // API endpoints: 100 requests per minute per user
   api: { maxRequests: 100, windowMs: 60000 },
   // File uploads: 20 per minute per user

@@ -14,12 +14,18 @@ function SignInContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect') || '/'
-  const { signin, signup } = useAuth()
+  const initialTab = searchParams.get('tab') === 'signup' ? 'signup' : 'signin'
+  const initialEmail = searchParams.get('email') || ''
+  const { setUserData } = useAuth()
 
-  const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin')
+  const [activeTab, setActiveTab] = useState<'signin' | 'signup'>(initialTab)
   const [loading, setLoading] = useState(false)
   const [socialLoading, setSocialLoading] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+  const [requiresVerification, setRequiresVerification] = useState(false)
+  const [unverifiedEmail, setUnverifiedEmail] = useState('')
+  const [resendLoading, setResendLoading] = useState(false)
 
   // Sign in form state
   const [signinEmail, setSigninEmail] = useState('')
@@ -27,17 +33,64 @@ function SignInContent() {
 
   // Sign up form state
   const [signupName, setSignupName] = useState('')
-  const [signupEmail, setSignupEmail] = useState('')
+  const [signupEmail, setSignupEmail] = useState(initialEmail)
   const [signupPassword, setSignupPassword] = useState('')
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('')
+  const [termsAccepted, setTermsAccepted] = useState(false)
+
+  const handleResendVerification = async () => {
+    if (!unverifiedEmail) return
+    setResendLoading(true)
+    setError('')
+    
+    try {
+      const response = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: unverifiedEmail }),
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to resend verification email')
+      }
+      
+      setSuccessMessage('Verification email sent! Please check your inbox.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to resend verification email')
+    } finally {
+      setResendLoading(false)
+    }
+  }
 
   const handleSignin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setSuccessMessage('')
+    setRequiresVerification(false)
     setLoading(true)
 
     try {
-      await signin(signinEmail, signinPassword)
+      const response = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: signinEmail, password: signinPassword }),
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        if (data.requiresVerification) {
+          setRequiresVerification(true)
+          setUnverifiedEmail(data.email || signinEmail)
+          throw new Error('Please verify your email address before signing in')
+        }
+        throw new Error(data.error || 'Failed to sign in')
+      }
+      
+      // Update auth context with user data from response
+      setUserData(data.data)
       router.push(redirectTo)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in')
@@ -49,10 +102,17 @@ function SignInContent() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setSuccessMessage('')
 
     // Validation
     if (signupPassword !== signupConfirmPassword) {
       setError('Passwords do not match')
+      return
+    }
+
+    // Check terms acceptance
+    if (!termsAccepted) {
+      setError('You must agree to the Terms of Service and Privacy Policy')
       return
     }
 
@@ -80,8 +140,27 @@ function SignInContent() {
     setLoading(true)
 
     try {
-      await signup(signupEmail, signupPassword, signupName)
-      router.push(redirectTo)
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: signupEmail,
+          password: signupPassword,
+          name: signupName,
+          termsAccepted: true,
+        }),
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create account')
+      }
+      
+      // Account created - show verification message
+      setRequiresVerification(true)
+      setUnverifiedEmail(signupEmail)
+      setSuccessMessage('Account created! Please check your email to verify your account before signing in.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create account')
     } finally {
@@ -180,6 +259,8 @@ function SignInContent() {
                 onClick={() => {
                   setActiveTab('signin')
                   setError('')
+                  setSuccessMessage('')
+                  setRequiresVerification(false)
                 }}
                 className={`flex-1 py-4 text-sm font-bold tracking-wider uppercase transition-all ${
                   activeTab === 'signin'
@@ -193,6 +274,8 @@ function SignInContent() {
                 onClick={() => {
                   setActiveTab('signup')
                   setError('')
+                  setSuccessMessage('')
+                  setRequiresVerification(false)
                 }}
                 className={`flex-1 py-4 text-sm font-bold tracking-wider uppercase transition-all ${
                   activeTab === 'signup'
@@ -212,6 +295,37 @@ function SignInContent() {
                 className="mb-6 p-4 bg-red-50 border border-red-200"
               >
                 <p className="text-sm text-red-600 font-medium">{error}</p>
+                {requiresVerification && (
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={resendLoading}
+                    className="mt-2 text-sm text-red-700 underline hover:no-underline disabled:opacity-50"
+                  >
+                    {resendLoading ? 'Sending...' : 'Resend verification email'}
+                  </button>
+                )}
+              </motion.div>
+            )}
+
+            {/* Success Message */}
+            {successMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6 p-4 bg-green-50 border border-green-200"
+              >
+                <p className="text-sm text-green-600 font-medium">{successMessage}</p>
+                {requiresVerification && (
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={resendLoading}
+                    className="mt-2 text-sm text-green-700 underline hover:no-underline disabled:opacity-50"
+                  >
+                    {resendLoading ? 'Sending...' : 'Resend verification email'}
+                  </button>
+                )}
               </motion.div>
             )}
 
@@ -251,6 +365,14 @@ function SignInContent() {
                       className="w-full pl-12 pr-4 py-4 border border-black/10 focus:outline-none focus:border-black bg-[#FAF8F5] text-black font-medium transition-colors"
                       placeholder="••••••••"
                     />
+                  </div>
+                  <div className="mt-2 text-right">
+                    <Link
+                      href="/forgot-password"
+                      className="text-sm text-black/60 hover:text-black transition-colors underline"
+                    >
+                      Forgot your password?
+                    </Link>
                   </div>
                 </div>
 
@@ -393,6 +515,27 @@ function SignInContent() {
                       placeholder="••••••••"
                     />
                   </div>
+                </div>
+
+                {/* Terms and Conditions */}
+                <div className="flex items-start gap-3">
+                  <input
+                    id="terms-checkbox"
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="mt-1 w-4 h-4 border-black/20 text-black focus:ring-black focus:ring-offset-0 cursor-pointer"
+                  />
+                  <label htmlFor="terms-checkbox" className="text-sm text-black/70 cursor-pointer">
+                    I agree to the{' '}
+                    <Link href="/terms" className="text-black underline hover:no-underline">
+                      Terms of Service
+                    </Link>{' '}
+                    and{' '}
+                    <Link href="/privacy" className="text-black underline hover:no-underline">
+                      Privacy Policy
+                    </Link>
+                  </label>
                 </div>
 
                 <motion.button

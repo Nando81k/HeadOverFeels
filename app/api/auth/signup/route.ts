@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 import { z } from 'zod'
-import { awardAccountCreationPoints, awardReferralWelcomeBonus } from '@/lib/loyalty/service'
 import { checkRateLimit, rateLimitResponse, getClientIdentifier, RATE_LIMITS } from '@/lib/security/rateLimit'
 import { createSessionToken } from '@/lib/auth/session'
+import { sendVerificationEmail, sendWelcomeEmail } from '@/lib/email/auth'
 
 const signupSchema = z.object({
   email: z.string().email('Invalid email address').max(255, 'Email too long'),
   password: z.string().min(8, 'Password must be at least 8 characters').max(128, 'Password too long'),
   name: z.string().min(2, 'Name must be at least 2 characters').max(255, 'Name too long'),
   referralCode: z.string().optional(),
+  termsAccepted: z.boolean().refine((val) => val === true, {
+    message: 'You must agree to the Terms of Service and Privacy Policy',
+  }),
 })
 
 // POST /api/auth/signup - Register a new user
@@ -29,10 +33,13 @@ export async function POST(request: NextRequest) {
     
     const validatedData = signupSchema.parse(body)
     console.log('Validated data:', JSON.stringify(validatedData))
+    
+    // Normalize email to lowercase (emails are case-insensitive per RFC 5321)
+    const normalizedEmail = validatedData.email.toLowerCase()
 
     // Check if user already exists (don't reveal whether email exists)
     const existingCustomer = await prisma.customer.findUnique({
-      where: { email: validatedData.email },
+      where: { email: normalizedEmail },
     })
 
     if (existingCustomer) {
@@ -61,41 +68,32 @@ export async function POST(request: NextRequest) {
       where: { slug: 'head' },
     })
 
+    // Generate email verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex')
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+
     // Create the customer
     const newCustomer = await prisma.customer.create({
       data: {
-        email: validatedData.email,
+        email: normalizedEmail,
         password: hashedPassword,
         name: validatedData.name,
         referredBy: referrerId,
         loyaltyTierId: defaultTier?.id, // Assign default tier
+        termsAcceptedAt: new Date(),
+        emailVerificationToken: verificationToken,
+        emailVerificationExpires: verificationExpires,
       },
       select: {
         id: true,
         email: true,
         isAdmin: true,
+        name: true,
       },
     })
 
-    // Award welcome points (50 points for account creation)
-    try {
-      await awardAccountCreationPoints(newCustomer.id)
-      console.log(`Awarded welcome points to customer ${newCustomer.id}`)
-    } catch (loyaltyError) {
-      // Log error but don't fail signup
-      console.error(`Failed to award welcome points to customer ${newCustomer.id}:`, loyaltyError)
-    }
-
-    // Award referral welcome bonus if they signed up with a referral code (+100 points)
-    if (referrerId) {
-      try {
-        await awardReferralWelcomeBonus(newCustomer.id, referrerId)
-        console.log(`Awarded referral welcome bonus to customer ${newCustomer.id}`)
-      } catch (referralBonusError) {
-        // Log error but don't fail signup
-        console.error(`Failed to award referral welcome bonus to customer ${newCustomer.id}:`, referralBonusError)
-      }
-    }
+    // Note: Welcome points (50 points) are now awarded after email verification
+    // This incentivizes users to verify their email
 
     // Update referral code usage count
     if (referrerId && validatedData.referralCode) {
@@ -109,6 +107,27 @@ export async function POST(request: NextRequest) {
         console.error(`Failed to update referral code usage:`, referralError)
       }
     }
+
+    // Send verification email
+    try {
+      await sendVerificationEmail({
+        email: newCustomer.email,
+        name: newCustomer.name || '',
+        verificationToken,
+      })
+      console.log(`Verification email sent to ${newCustomer.email}`)
+    } catch (emailError) {
+      console.error(`Failed to send verification email to ${newCustomer.email}:`, emailError)
+      // Don't fail signup if email fails - they can request a new one
+    }
+
+    // Send welcome email (non-blocking)
+    sendWelcomeEmail({
+      email: newCustomer.email,
+      name: newCustomer.name || '',
+    }).catch(err => {
+      console.error(`Failed to send welcome email to ${newCustomer.email}:`, err)
+    })
 
     // Fetch the full customer data with loyalty tier (after points were awarded)
     const customer = await prisma.customer.findUnique({
@@ -147,13 +166,15 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Create session cookie
+    // Create session and auto-sign in the user
     const response = NextResponse.json({ 
       data: customer,
-      message: 'Account created successfully' 
+      message: 'Account created successfully! Please check your email to verify your account and earn 50 Care Points.',
+      requiresVerification: true,
     })
     
-    response.cookies.set('auth_session', newCustomer.id, {
+    // Set auth_session cookie (customer ID)
+    response.cookies.set('auth_session', customer!.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -161,11 +182,11 @@ export async function POST(request: NextRequest) {
       path: '/',
     })
 
-    // Create JWT token for Edge-compatible auth (admin checks in middleware)
+    // Create JWT token for Edge-compatible auth
     const token = await createSessionToken({
-      userId: newCustomer.id,
-      email: newCustomer.email,
-      isAdmin: newCustomer.isAdmin,
+      userId: customer!.id,
+      email: customer!.email,
+      isAdmin: customer!.isAdmin,
     })
     
     response.cookies.set('auth_token', token, {
