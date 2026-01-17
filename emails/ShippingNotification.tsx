@@ -117,39 +117,56 @@ export const ShippingNotificationEmail = ({
 
 export default ShippingNotificationEmail;
 
+// Brand Colors
+const brandColors = {
+  primary: '#FF3131',      // Red accent
+  background: '#F6F1EE',   // Cream background
+  tertiary: '#CDA09B',     // Rose/muted
+  black: '#000000',
+  white: '#FFFFFF',
+};
+
 // Styles
 const main = {
-  backgroundColor: '#f6f9fc',
+  backgroundColor: brandColors.background,
   fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
+    'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
 };
 
 const container = {
-  backgroundColor: '#ffffff',
+  backgroundColor: brandColors.white,
   margin: '0 auto',
-  padding: '20px 0 48px',
+  padding: '0',
   marginBottom: '64px',
   maxWidth: '600px',
+  borderRadius: '8px',
+  overflow: 'hidden',
+  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
 };
 
 const header = {
-  padding: '32px 32px 0',
+  backgroundColor: brandColors.black,
+  padding: '40px 32px',
   textAlign: 'center' as const,
 };
 
 const h1 = {
-  color: '#000000',
-  fontSize: '32px',
+  color: brandColors.white,
+  fontSize: '28px',
   fontWeight: 'bold' as const,
   margin: '0',
   padding: '0',
+  letterSpacing: '2px',
+  textTransform: 'uppercase' as const,
 };
 
 const tagline = {
-  color: '#666666',
-  fontSize: '14px',
-  margin: '8px 0 0',
+  color: brandColors.tertiary,
+  fontSize: '12px',
+  margin: '12px 0 0',
   padding: '0',
+  letterSpacing: '3px',
+  textTransform: 'uppercase' as const,
 };
 
 const content = {
@@ -157,7 +174,7 @@ const content = {
 };
 
 const h2 = {
-  color: '#000000',
+  color: brandColors.black,
   fontSize: '24px',
   fontWeight: 'bold' as const,
   margin: '32px 0 16px',
@@ -166,26 +183,27 @@ const h2 = {
 const text = {
   color: '#333333',
   fontSize: '16px',
-  lineHeight: '24px',
+  lineHeight: '26px',
   margin: '0 0 16px',
 };
 
 const orderBox = {
-  backgroundColor: '#f6f9fc',
-  padding: '16px 32px',
+  backgroundColor: brandColors.primary,
+  padding: '20px 32px',
   margin: '24px 0',
 };
 
 const orderNumberStyle = {
-  color: '#000000',
-  fontSize: '20px',
+  color: brandColors.white,
+  fontSize: '18px',
   fontWeight: 'bold' as const,
   margin: '0',
   textAlign: 'center' as const,
+  letterSpacing: '2px',
 };
 
 const trackingBox = {
-  backgroundColor: '#f0f4ff',
+  backgroundColor: brandColors.background,
   padding: '24px 32px',
   margin: '24px 0',
   borderRadius: '8px',
@@ -194,15 +212,15 @@ const trackingBox = {
 
 const trackingLabel = {
   color: '#666666',
-  fontSize: '14px',
+  fontSize: '12px',
   fontWeight: '600' as const,
   margin: '0 0 8px',
   textTransform: 'uppercase' as const,
-  letterSpacing: '0.5px',
+  letterSpacing: '1px',
 };
 
 const trackingNumberStyle = {
-  color: '#000000',
+  color: brandColors.black,
   fontSize: '24px',
   fontWeight: 'bold' as const,
   margin: '0 0 24px',
@@ -210,7 +228,7 @@ const trackingNumberStyle = {
 };
 
 const shippingMethodText = {
-  color: '#000000',
+  color: brandColors.black,
   fontSize: '18px',
   fontWeight: '600' as const,
   margin: '0',
@@ -223,19 +241,21 @@ const buttonContainer = {
 };
 
 const button = {
-  backgroundColor: '#000000',
+  backgroundColor: brandColors.primary,
   borderRadius: '6px',
-  color: '#ffffff',
+  color: brandColors.white,
   fontSize: '16px',
   fontWeight: 'bold' as const,
   textDecoration: 'none',
   textAlign: 'center' as const,
   display: 'inline-block',
-  padding: '12px 32px',
+  padding: '14px 36px',
+  letterSpacing: '1px',
+  textTransform: 'uppercase' as const,
 };
 
 const divider = {
-  borderColor: '#e6e6e6',
+  borderColor: brandColors.tertiary,
   margin: '32px 0',
 };
 
@@ -248,18 +268,19 @@ const helpText = {
 };
 
 const footer = {
-  padding: '32px 32px 0',
+  backgroundColor: brandColors.background,
+  padding: '32px',
   textAlign: 'center' as const,
 };
 
 const footerText = {
-  color: '#999999',
-  fontSize: '14px',
+  color: '#666666',
+  fontSize: '13px',
   lineHeight: '20px',
   margin: '8px 0',
 };
 
 const link = {
-  color: '#0066cc',
+  color: brandColors.primary,
   textDecoration: 'underline',
 };

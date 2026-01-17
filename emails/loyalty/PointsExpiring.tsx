@@ -153,38 +153,50 @@ export const PointsExpiringEmail = ({
 
 export default PointsExpiringEmail;
 
+// Brand Colors
+const brandColors = {
+  primary: '#FF3131',      // Red accent
+  background: '#F6F1EE',   // Cream background
+  tertiary: '#CDA09B',     // Rose/muted
+  black: '#000000',
+  white: '#FFFFFF',
+};
+
 // Styles
 const main = {
-  backgroundColor: '#f6f9fc',
-  fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif',
+  backgroundColor: brandColors.background,
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
 };
 
 const container = {
   margin: '0 auto',
-  padding: '20px 0 48px',
+  padding: '0',
   maxWidth: '600px',
+  borderRadius: '8px',
+  overflow: 'hidden',
+  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
 };
 
 const header = {
   textAlign: 'center' as const,
-  padding: '32px 24px',
-  backgroundColor: '#000000',
+  padding: '40px 32px',
+  backgroundColor: brandColors.black,
 };
 
 const h1 = {
-  color: '#ffffff',
-  fontSize: '32px',
-  fontWeight: '800',
+  color: brandColors.white,
+  fontSize: '28px',
+  fontWeight: 'bold',
   margin: '0 0 8px',
-  letterSpacing: '-0.5px',
+  letterSpacing: '2px',
+  textTransform: 'uppercase' as const,
 };
 
 const tagline = {
-  color: '#ffffff',
-  opacity: 0.8,
-  fontSize: '14px',
+  color: brandColors.tertiary,
+  fontSize: '12px',
   margin: '0',
-  letterSpacing: '2px',
+  letterSpacing: '3px',
   textTransform: 'uppercase' as const,
 };
 
@@ -199,45 +211,48 @@ const urgencyIcon = {
 };
 
 const urgencyTitle = {
-  color: '#ffffff',
+  color: brandColors.white,
   fontSize: '24px',
-  fontWeight: '800',
+  fontWeight: 'bold',
   margin: '0',
 };
 
 const content = {
-  backgroundColor: '#ffffff',
+  backgroundColor: brandColors.white,
   padding: '32px 40px',
 };
 
 const text = {
-  color: '#374151',
+  color: '#333333',
   fontSize: '16px',
   lineHeight: '26px',
   margin: '0 0 16px',
 };
 
 const h3 = {
-  color: '#111827',
-  fontSize: '18px',
-  fontWeight: '700',
+  color: brandColors.black,
+  fontSize: '16px',
+  fontWeight: 'bold',
   margin: '0 0 16px',
+  textTransform: 'uppercase' as const,
+  letterSpacing: '1px',
 };
 
 const h4 = {
-  color: '#6b7280',
+  color: '#666666',
   fontSize: '14px',
   fontWeight: '600',
   textTransform: 'uppercase' as const,
-  letterSpacing: '0.5px',
+  letterSpacing: '1px',
   margin: '0 0 12px',
 };
 
 const expiryBox = {
-  backgroundColor: '#fef3c7',
+  backgroundColor: brandColors.background,
   padding: '24px 32px',
   borderRadius: '8px',
   margin: '0 40px 24px',
+  border: `2px dashed ${brandColors.tertiary}`,
 };
 
 const expiryRow = {
@@ -254,32 +269,33 @@ const expiryItem = {
 const expiryDivider = {
   width: '1px',
   height: '48px',
-  backgroundColor: '#fbbf24',
+  backgroundColor: brandColors.tertiary,
 };
 
 const expiryLabel = {
-  color: '#92400e',
+  color: '#666666',
   fontSize: '12px',
   textTransform: 'uppercase' as const,
-  letterSpacing: '0.5px',
+  letterSpacing: '1px',
   margin: '0 0 4px',
+  fontWeight: '600',
 };
 
 const expiryAmount = {
   fontSize: '28px',
-  fontWeight: '800',
+  fontWeight: 'bold',
   margin: '0',
 };
 
 const expiryDate = {
-  color: '#92400e',
+  color: brandColors.primary,
   fontSize: '18px',
-  fontWeight: '700',
+  fontWeight: 'bold',
   margin: '0',
 };
 
 const currentPointsRow = {
-  borderTop: '1px solid #fbbf24',
+  borderTop: `1px solid ${brandColors.tertiary}`,
   paddingTop: '12px',
   display: 'flex',
   justifyContent: 'space-between',
@@ -287,20 +303,20 @@ const currentPointsRow = {
 };
 
 const currentPointsLabel = {
-  color: '#92400e',
+  color: '#666666',
   fontSize: '14px',
   margin: '0',
 };
 
 const currentPointsValue = {
-  color: '#78350f',
+  color: brandColors.primary,
   fontSize: '16px',
-  fontWeight: '700',
+  fontWeight: 'bold',
   margin: '0',
 };
 
 const suggestionsBox = {
-  backgroundColor: '#ffffff',
+  backgroundColor: brandColors.white,
   padding: '0 40px 24px',
 };
 
@@ -309,74 +325,76 @@ const rewardItem = {
   justifyContent: 'space-between',
   alignItems: 'center',
   padding: '12px 16px',
-  backgroundColor: '#f9fafb',
+  backgroundColor: brandColors.background,
   borderRadius: '6px',
   marginBottom: '8px',
 };
 
 const rewardName = {
-  color: '#374151',
+  color: '#333333',
   fontSize: '15px',
   fontWeight: '500',
   margin: '0',
 };
 
 const rewardCost = {
-  color: '#6b7280',
+  color: brandColors.primary,
   fontSize: '14px',
   fontWeight: '600',
   margin: '0',
 };
 
 const ctaSection = {
-  backgroundColor: '#ffffff',
+  backgroundColor: brandColors.white,
   padding: '8px 40px 32px',
   textAlign: 'center' as const,
 };
 
 const ctaButton = {
-  backgroundColor: '#000000',
+  backgroundColor: brandColors.primary,
   borderRadius: '6px',
-  color: '#ffffff',
-  fontSize: '16px',
-  fontWeight: '600',
+  color: brandColors.white,
+  fontSize: '15px',
+  fontWeight: 'bold',
   textDecoration: 'none',
   textAlign: 'center' as const,
   display: 'inline-block',
   padding: '14px 32px',
+  letterSpacing: '1px',
+  textTransform: 'uppercase' as const,
 };
 
 const ctaSubtext = {
-  color: '#6b7280',
+  color: '#666666',
   fontSize: '14px',
   margin: '16px 0 0',
 };
 
 const divider = {
-  borderColor: '#e5e7eb',
+  borderColor: brandColors.tertiary,
   margin: '0',
 };
 
 const infoBox = {
-  backgroundColor: '#f9fafb',
+  backgroundColor: brandColors.background,
   padding: '24px 40px',
 };
 
 const infoText = {
-  color: '#6b7280',
+  color: '#333333',
   fontSize: '14px',
   lineHeight: '20px',
   margin: '0 0 8px',
 };
 
 const footer = {
-  backgroundColor: '#ffffff',
+  backgroundColor: brandColors.background,
   padding: '32px 40px',
   textAlign: 'center' as const,
 };
 
 const footerText = {
-  color: '#6b7280',
+  color: '#333333',
   fontSize: '14px',
   margin: '0 0 16px',
 };
@@ -386,13 +404,13 @@ const footerLinks = {
 };
 
 const footerLink = {
-  color: '#000000',
+  color: brandColors.primary,
   fontSize: '14px',
   textDecoration: 'none',
 };
 
 const footerAddress = {
-  color: '#9ca3af',
+  color: '#999999',
   fontSize: '12px',
   margin: '0',
 };

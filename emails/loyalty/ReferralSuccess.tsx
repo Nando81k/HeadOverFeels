@@ -146,45 +146,57 @@ export const ReferralSuccessEmail = ({
 
 export default ReferralSuccessEmail;
 
+// Brand Colors
+const brandColors = {
+  primary: '#FF3131',      // Red accent
+  background: '#F6F1EE',   // Cream background
+  tertiary: '#CDA09B',     // Rose/muted
+  black: '#000000',
+  white: '#FFFFFF',
+};
+
 // Styles
 const main = {
-  backgroundColor: '#f6f9fc',
-  fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif',
+  backgroundColor: brandColors.background,
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
 };
 
 const container = {
   margin: '0 auto',
-  padding: '20px 0 48px',
+  padding: '0',
   maxWidth: '600px',
+  borderRadius: '8px',
+  overflow: 'hidden',
+  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
 };
 
 const header = {
   textAlign: 'center' as const,
-  padding: '32px 24px',
-  backgroundColor: '#000000',
+  padding: '40px 32px',
+  backgroundColor: brandColors.black,
 };
 
 const h1 = {
-  color: '#ffffff',
-  fontSize: '32px',
-  fontWeight: '800',
+  color: brandColors.white,
+  fontSize: '28px',
+  fontWeight: 'bold',
   margin: '0 0 8px',
-  letterSpacing: '-0.5px',
+  letterSpacing: '2px',
+  textTransform: 'uppercase' as const,
 };
 
 const tagline = {
-  color: '#ffffff',
-  opacity: 0.8,
-  fontSize: '14px',
+  color: brandColors.tertiary,
+  fontSize: '12px',
   margin: '0',
-  letterSpacing: '2px',
+  letterSpacing: '3px',
   textTransform: 'uppercase' as const,
 };
 
 const successBanner = {
   textAlign: 'center' as const,
   padding: '32px 24px',
-  backgroundColor: '#10b981',
+  background: `linear-gradient(135deg, ${brandColors.primary} 0%, #FF6B6B 100%)`,
 };
 
 const successEmoji = {
@@ -193,63 +205,65 @@ const successEmoji = {
 };
 
 const successTitle = {
-  color: '#ffffff',
+  color: brandColors.white,
   fontSize: '28px',
-  fontWeight: '800',
+  fontWeight: 'bold',
   margin: '0 0 4px',
 };
 
 const successSubtitle = {
-  color: '#ffffff',
+  color: brandColors.white,
   opacity: 0.9,
   fontSize: '16px',
   margin: '0',
 };
 
 const content = {
-  backgroundColor: '#ffffff',
+  backgroundColor: brandColors.white,
   padding: '32px 40px 24px',
 };
 
 const text = {
-  color: '#374151',
+  color: '#333333',
   fontSize: '16px',
   lineHeight: '26px',
   margin: '0 0 16px',
 };
 
 const h3 = {
-  color: '#111827',
-  fontSize: '18px',
-  fontWeight: '700',
+  color: brandColors.black,
+  fontSize: '16px',
+  fontWeight: 'bold',
   margin: '0 0 12px',
+  textTransform: 'uppercase' as const,
+  letterSpacing: '1px',
 };
 
 const h4 = {
-  color: '#6b7280',
+  color: '#666666',
   fontSize: '14px',
   fontWeight: '600',
   textTransform: 'uppercase' as const,
-  letterSpacing: '0.5px',
+  letterSpacing: '1px',
   margin: '0 0 16px',
   textAlign: 'center' as const,
 };
 
 const earningsBox = {
   padding: '0 40px 24px',
-  backgroundColor: '#ffffff',
+  backgroundColor: brandColors.white,
 };
 
 const earningsContent = {
-  backgroundColor: '#ecfdf5',
+  backgroundColor: brandColors.background,
   borderRadius: '12px',
   padding: '32px',
   textAlign: 'center' as const,
-  border: '2px solid #10b981',
+  border: `2px dashed ${brandColors.tertiary}`,
 };
 
 const earningsLabel = {
-  color: '#059669',
+  color: '#666666',
   fontSize: '12px',
   textTransform: 'uppercase' as const,
   letterSpacing: '2px',
@@ -258,27 +272,27 @@ const earningsLabel = {
 };
 
 const earningsAmount = {
-  color: '#047857',
+  color: brandColors.primary,
   fontSize: '52px',
-  fontWeight: '800',
+  fontWeight: 'bold',
   margin: '0',
   lineHeight: '1',
 };
 
 const earningsUnit = {
-  color: '#059669',
+  color: '#666666',
   fontSize: '16px',
   margin: '8px 0 0',
   fontWeight: '500',
 };
 
 const statsSection = {
-  backgroundColor: '#ffffff',
+  backgroundColor: brandColors.white,
   padding: '0 40px 24px',
 };
 
 const statsRow = {
-  backgroundColor: '#f9fafb',
+  backgroundColor: brandColors.background,
   borderRadius: '8px',
   padding: '20px',
   display: 'flex',
@@ -293,56 +307,58 @@ const statItem = {
 const statDivider = {
   width: '1px',
   height: '40px',
-  backgroundColor: '#e5e7eb',
+  backgroundColor: brandColors.tertiary,
 };
 
 const statValue = {
-  color: '#111827',
+  color: brandColors.primary,
   fontSize: '24px',
-  fontWeight: '800',
+  fontWeight: 'bold',
   margin: '0 0 4px',
 };
 
 const statLabel = {
-  color: '#6b7280',
+  color: '#666666',
   fontSize: '12px',
   textTransform: 'uppercase' as const,
-  letterSpacing: '0.5px',
+  letterSpacing: '1px',
   margin: '0',
 };
 
 const ctaSection = {
-  backgroundColor: '#ffffff',
+  backgroundColor: brandColors.white,
   padding: '0 40px 32px',
   textAlign: 'center' as const,
 };
 
 const ctaText = {
-  color: '#6b7280',
+  color: '#666666',
   fontSize: '15px',
   lineHeight: '24px',
   margin: '0 0 20px',
 };
 
 const ctaButton = {
-  backgroundColor: '#000000',
+  backgroundColor: brandColors.primary,
   borderRadius: '6px',
-  color: '#ffffff',
-  fontSize: '16px',
-  fontWeight: '600',
+  color: brandColors.white,
+  fontSize: '15px',
+  fontWeight: 'bold',
   textDecoration: 'none',
   textAlign: 'center' as const,
   display: 'inline-block',
   padding: '14px 32px',
+  letterSpacing: '1px',
+  textTransform: 'uppercase' as const,
 };
 
 const divider = {
-  borderColor: '#e5e7eb',
+  borderColor: brandColors.tertiary,
   margin: '0',
 };
 
 const howItWorksBox = {
-  backgroundColor: '#f9fafb',
+  backgroundColor: brandColors.background,
   padding: '24px 40px',
 };
 
@@ -358,8 +374,8 @@ const step = {
 };
 
 const stepNumber = {
-  backgroundColor: '#000000',
-  color: '#ffffff',
+  backgroundColor: brandColors.primary,
+  color: brandColors.white,
   width: '32px',
   height: '32px',
   borderRadius: '50%',
@@ -367,35 +383,36 @@ const stepNumber = {
   alignItems: 'center',
   justifyContent: 'center',
   fontSize: '14px',
-  fontWeight: '700',
+  fontWeight: 'bold',
   margin: '0 auto 8px',
 };
 
 const stepText = {
-  color: '#374151',
+  color: '#333333',
   fontSize: '13px',
   margin: '0',
   lineHeight: '18px',
 };
 
 const benefitNote = {
-  color: '#059669',
+  color: brandColors.primary,
   fontSize: '14px',
   textAlign: 'center' as const,
   margin: '0',
   padding: '12px 16px',
-  backgroundColor: '#ecfdf5',
+  backgroundColor: brandColors.white,
   borderRadius: '6px',
+  border: `1px solid ${brandColors.tertiary}`,
 };
 
 const footer = {
-  backgroundColor: '#ffffff',
+  backgroundColor: brandColors.background,
   padding: '32px 40px',
   textAlign: 'center' as const,
 };
 
 const footerText = {
-  color: '#6b7280',
+  color: '#333333',
   fontSize: '14px',
   margin: '0 0 16px',
 };
@@ -405,13 +422,13 @@ const footerLinks = {
 };
 
 const footerLink = {
-  color: '#000000',
+  color: brandColors.primary,
   fontSize: '14px',
   textDecoration: 'none',
 };
 
 const footerAddress = {
-  color: '#9ca3af',
+  color: '#999999',
   fontSize: '12px',
   margin: '0',
 };

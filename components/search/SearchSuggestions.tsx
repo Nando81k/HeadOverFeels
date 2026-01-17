@@ -7,6 +7,33 @@ import { Clock, TrendUp, X, SquaresFour, Fire } from '@phosphor-icons/react'
 import { Category } from './useSearch'
 import { Product } from '@/lib/api/products'
 
+// Helper to safely get first image from product
+function getProductImage(images: string | string[] | null | undefined): string | null {
+  if (!images) return null
+  
+  // If it's already an array
+  if (Array.isArray(images)) {
+    return images[0] || null
+  }
+  
+  // If it's a string, try to parse as JSON
+  if (typeof images === 'string') {
+    try {
+      const parsed = JSON.parse(images)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed[0]
+      }
+    } catch {
+      // If it's a valid URL string itself, return it
+      if (images.startsWith('http') || images.startsWith('/')) {
+        return images
+      }
+    }
+  }
+  
+  return null
+}
+
 interface SearchSuggestionsProps {
   recentSearches: string[]
   trendingSearches: string[]
@@ -147,17 +174,19 @@ export function SearchSuggestions({
             </h3>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {featuredProducts.slice(0, 6).map((product) => (
+            {featuredProducts.slice(0, 6).map((product) => {
+              const imageUrl = getProductImage(product.images)
+              return (
               <Link
                 key={product.id}
-                href={`/products/${product.id}`}
+                href={`/products/${product.slug}`}
                 onClick={onClose}
                 className="group"
               >
                 <div className="aspect-square rounded-2xl bg-black/5 overflow-hidden mb-2 relative">
-                  {product.images?.[0] ? (
+                  {imageUrl ? (
                     <Image
-                      src={product.images[0]}
+                      src={imageUrl}
                       alt={product.name}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -175,7 +204,7 @@ export function SearchSuggestions({
                   ${product.price.toFixed(2)}
                 </p>
               </Link>
-            ))}
+            )})}
           </div>
         </motion.div>
       )}

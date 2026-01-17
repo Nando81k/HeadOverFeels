@@ -33,10 +33,10 @@ interface Promotion {
   code: string | null
   type: PromotionType
   value: number
-  minPurchase: number | null
-  maxDiscount: number | null
-  usageLimit: number | null
-  usageCount: number
+  minimumPurchase: number | null
+  maxUsesTotal: number | null
+  maxUsesPerCustomer: number | null
+  usedCount: number
   isActive: boolean
   autoApply: boolean
   startDate: string
@@ -67,9 +67,9 @@ export default function PromotionsPage() {
   
   const fetchPromotions = async () => {
     try {
-      const res = await fetch('/api/promotions')
+      const res = await fetch('/api/promotions?includeExpired=true')
       const data = await res.json()
-      setPromotions(data.promotions || [])
+      setPromotions(data.data || [])
     } catch (error) {
       console.error('Failed to fetch promotions:', error)
       toast.error('Failed to load promotions')
@@ -121,7 +121,7 @@ export default function PromotionsPage() {
     if (!promo.isActive) return { label: 'Inactive', color: 'bg-white/10 text-white/50' }
     if (now < start) return { label: 'Scheduled', color: 'bg-blue-500/20 text-blue-400' }
     if (end && now > end) return { label: 'Expired', color: 'bg-red-500/20 text-red-400' }
-    if (promo.usageLimit && promo.usageCount >= promo.usageLimit) {
+    if (promo.maxUsesTotal && promo.usedCount >= promo.maxUsesTotal) {
       return { label: 'Limit Reached', color: 'bg-amber-500/20 text-amber-400' }
     }
     return { label: 'Active', color: 'bg-emerald-500/20 text-emerald-400' }
@@ -163,7 +163,7 @@ export default function PromotionsPage() {
   
   // Stats
   const activeCount = promotions.filter(p => getStatus(p).label === 'Active').length
-  const totalUsage = promotions.reduce((sum, p) => sum + p.usageCount, 0)
+  const totalUsage = promotions.reduce((sum, p) => sum + (p.usedCount || 0), 0)
   const hasActiveFilters = appliedSearchQuery || filterType !== 'all' || filterStatus !== 'all'
   
   return (
@@ -368,8 +368,8 @@ export default function PromotionsPage() {
                       >
                         <td className="p-4">
                           <p className="font-medium text-white">{promo.name}</p>
-                          {promo.minPurchase && (
-                            <p className="text-xs text-white/40">Min: ${promo.minPurchase}</p>
+                          {promo.minimumPurchase && (
+                            <p className="text-xs text-white/40">Min: ${promo.minimumPurchase}</p>
                           )}
                         </td>
                         <td className="p-4">
@@ -380,9 +380,6 @@ export default function PromotionsPage() {
                         </td>
                         <td className="p-4">
                           <span className="text-white font-medium">{formatValue(promo)}</span>
-                          {promo.maxDiscount && (
-                            <p className="text-xs text-white/40">Max: ${promo.maxDiscount}</p>
-                          )}
                         </td>
                         <td className="p-4">
                           {promo.code ? (
@@ -399,9 +396,9 @@ export default function PromotionsPage() {
                         </td>
                         <td className="p-4">
                           <span className="text-white">
-                            {promo.usageCount}
-                            {promo.usageLimit && (
-                              <span className="text-white/40"> / {promo.usageLimit}</span>
+                            {promo.usedCount || 0}
+                            {promo.maxUsesTotal && (
+                              <span className="text-white/40"> / {promo.maxUsesTotal}</span>
                             )}
                           </span>
                         </td>

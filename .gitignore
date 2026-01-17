@@ -45,3 +45,7 @@ prisma/dev.db-journal
 next-env.d.ts
 
 /app/generated/prisma
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md

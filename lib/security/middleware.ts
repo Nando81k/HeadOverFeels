@@ -30,8 +30,8 @@ export function securityHeaders(response: NextResponse): NextResponse {
     isDev
       ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'" // Allow hot reload in dev
       : "script-src 'self' 'unsafe-inline'", // Tighter in production
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.cdnfonts.com",
+    "font-src 'self' https://fonts.gstatic.com https://fonts.cdnfonts.com",
     "img-src 'self' data: https: blob:",
     "connect-src 'self' https://api.stripe.com https://api.cloudinary.com",
     "frame-src 'self' https://js.stripe.com",

@@ -133,45 +133,57 @@ export const BirthdayBonusEmail = ({
 
 export default BirthdayBonusEmail;
 
+// Brand Colors
+const brandColors = {
+  primary: '#FF3131',      // Red accent
+  background: '#F6F1EE',   // Cream background
+  tertiary: '#CDA09B',     // Rose/muted
+  black: '#000000',
+  white: '#FFFFFF',
+};
+
 // Styles
 const main = {
-  backgroundColor: '#f6f9fc',
-  fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif',
+  backgroundColor: brandColors.background,
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
 };
 
 const container = {
   margin: '0 auto',
-  padding: '20px 0 48px',
+  padding: '0',
   maxWidth: '600px',
+  borderRadius: '8px',
+  overflow: 'hidden',
+  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
 };
 
 const header = {
   textAlign: 'center' as const,
-  padding: '32px 24px',
-  backgroundColor: '#000000',
+  padding: '40px 32px',
+  backgroundColor: brandColors.black,
 };
 
 const h1 = {
-  color: '#ffffff',
-  fontSize: '32px',
-  fontWeight: '800',
+  color: brandColors.white,
+  fontSize: '28px',
+  fontWeight: 'bold',
   margin: '0 0 8px',
-  letterSpacing: '-0.5px',
+  letterSpacing: '2px',
+  textTransform: 'uppercase' as const,
 };
 
 const tagline = {
-  color: '#ffffff',
-  opacity: 0.8,
-  fontSize: '14px',
+  color: brandColors.tertiary,
+  fontSize: '12px',
   margin: '0',
-  letterSpacing: '2px',
+  letterSpacing: '3px',
   textTransform: 'uppercase' as const,
 };
 
 const birthdayBanner = {
   textAlign: 'center' as const,
   padding: '32px 24px',
-  background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #3b82f6 100%)',
+  background: `linear-gradient(135deg, ${brandColors.primary} 0%, #FF6B6B 100%)`,
 };
 
 const birthdayEmojis = {
@@ -180,50 +192,51 @@ const birthdayEmojis = {
 };
 
 const birthdayTitle = {
-  color: '#ffffff',
+  color: brandColors.white,
   fontSize: '36px',
-  fontWeight: '800',
+  fontWeight: 'bold',
   margin: '0',
-  textShadow: '0 2px 4px rgba(0,0,0,0.2)',
 };
 
 const content = {
-  backgroundColor: '#ffffff',
+  backgroundColor: brandColors.white,
   padding: '32px 40px 24px',
 };
 
 const greeting = {
-  color: '#374151',
+  color: '#333333',
   fontSize: '18px',
   fontWeight: '600',
   margin: '0 0 16px',
 };
 
 const text = {
-  color: '#374151',
+  color: '#333333',
   fontSize: '16px',
   lineHeight: '26px',
   margin: '0 0 16px',
 };
 
 const h3 = {
-  color: '#111827',
-  fontSize: '18px',
-  fontWeight: '700',
+  color: brandColors.black,
+  fontSize: '16px',
+  fontWeight: 'bold',
   margin: '0 0 12px',
+  textTransform: 'uppercase' as const,
+  letterSpacing: '1px',
 };
 
 const giftBox = {
-  backgroundColor: '#fef3c7',
+  backgroundColor: brandColors.background,
   borderRadius: '12px',
   padding: '32px',
   margin: '0 40px 24px',
   textAlign: 'center' as const,
-  border: '2px dashed #f59e0b',
+  border: `2px dashed ${brandColors.tertiary}`,
 };
 
 const giftLabel = {
-  color: '#92400e',
+  color: '#666666',
   fontSize: '12px',
   textTransform: 'uppercase' as const,
   letterSpacing: '2px',
@@ -232,25 +245,25 @@ const giftLabel = {
 };
 
 const giftAmount = {
-  color: '#78350f',
+  color: brandColors.primary,
   fontSize: '42px',
-  fontWeight: '800',
+  fontWeight: 'bold',
   margin: '0 0 8px',
 };
 
 const giftNote = {
-  color: '#92400e',
+  color: '#666666',
   fontSize: '14px',
   margin: '0',
 };
 
 const balanceBox = {
-  backgroundColor: '#ffffff',
+  backgroundColor: brandColors.white,
   padding: '0 40px 24px',
 };
 
 const balanceRow = {
-  backgroundColor: '#f3f4f6',
+  backgroundColor: brandColors.background,
   borderRadius: '8px',
   padding: '16px 24px',
   display: 'flex',
@@ -259,26 +272,26 @@ const balanceRow = {
 };
 
 const balanceLabel = {
-  color: '#6b7280',
+  color: '#666666',
   fontSize: '14px',
   margin: '0',
 };
 
 const balanceAmount = {
-  color: '#111827',
+  color: brandColors.primary,
   fontSize: '20px',
-  fontWeight: '700',
+  fontWeight: 'bold',
   margin: '0',
 };
 
 const suggestionsSection = {
-  backgroundColor: '#ffffff',
+  backgroundColor: brandColors.white,
   padding: '0 40px 32px',
   textAlign: 'center' as const,
 };
 
 const suggestionText = {
-  color: '#6b7280',
+  color: '#666666',
   fontSize: '15px',
   lineHeight: '24px',
   margin: '0 0 24px',
@@ -291,69 +304,73 @@ const buttonRow = {
 };
 
 const primaryButton = {
-  backgroundColor: '#000000',
+  backgroundColor: brandColors.primary,
   borderRadius: '6px',
-  color: '#ffffff',
+  color: brandColors.white,
   fontSize: '15px',
-  fontWeight: '600',
+  fontWeight: 'bold',
   textDecoration: 'none',
   textAlign: 'center' as const,
   display: 'inline-block',
   padding: '12px 24px',
+  letterSpacing: '1px',
+  textTransform: 'uppercase' as const,
 };
 
 const secondaryButton = {
-  backgroundColor: '#ffffff',
+  backgroundColor: brandColors.white,
   borderRadius: '6px',
-  color: '#000000',
+  color: brandColors.black,
   fontSize: '15px',
-  fontWeight: '600',
+  fontWeight: 'bold',
   textDecoration: 'none',
   textAlign: 'center' as const,
   display: 'inline-block',
   padding: '12px 24px',
-  border: '2px solid #000000',
+  border: `2px solid ${brandColors.black}`,
+  letterSpacing: '1px',
+  textTransform: 'uppercase' as const,
 };
 
 const divider = {
-  borderColor: '#e5e7eb',
+  borderColor: brandColors.tertiary,
   margin: '0',
 };
 
 const funFactsBox = {
-  backgroundColor: '#f0f9ff',
+  backgroundColor: brandColors.background,
   padding: '24px 40px',
   textAlign: 'center' as const,
 };
 
 const funFactTitle = {
-  color: '#0369a1',
+  color: brandColors.primary,
   fontSize: '14px',
   fontWeight: '600',
   margin: '0 0 8px',
 };
 
 const funFactText = {
-  color: '#0c4a6e',
+  color: '#333333',
   fontSize: '14px',
   lineHeight: '22px',
   margin: '0',
 };
 
 const footer = {
-  backgroundColor: '#ffffff',
+  backgroundColor: brandColors.background,
   padding: '32px 40px',
   textAlign: 'center' as const,
 };
 
 const footerText = {
-  color: '#374151',
+  color: '#333333',
   fontSize: '15px',
   margin: '0 0 16px',
 };
 
 const footerSignature = {
-  color: '#6b7280',
+  color: '#666666',
   fontSize: '14px',
   margin: '0 0 24px',
   lineHeight: '22px',
@@ -364,13 +381,13 @@ const footerLinks = {
 };
 
 const footerLink = {
-  color: '#000000',
+  color: brandColors.primary,
   fontSize: '14px',
   textDecoration: 'none',
 };
 
 const footerAddress = {
-  color: '#9ca3af',
+  color: '#999999',
   fontSize: '12px',
   margin: '0',
 };

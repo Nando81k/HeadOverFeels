@@ -42,6 +42,25 @@ export function PaymentForm({ amount, orderId, onSuccess, onError }: PaymentForm
         setErrorMessage(error.message || 'Payment failed')
         onError(error.message || 'Payment failed')
       } else {
+        // Payment succeeded - confirm the order and award points
+        try {
+          const confirmResponse = await fetch(`/api/orders/${orderId}/confirm-payment`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paymentIntentId: null }), // Could pass actual ID if available
+          })
+          
+          if (!confirmResponse.ok) {
+            console.error('Failed to confirm order, but payment succeeded')
+          } else {
+            const confirmData = await confirmResponse.json()
+            console.log('Order confirmed:', confirmData)
+          }
+        } catch (confirmError) {
+          // Don't fail payment success if confirmation fails
+          console.error('Error confirming order:', confirmError)
+        }
+        
         onSuccess()
       }
     } catch (err) {

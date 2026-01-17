@@ -90,30 +90,43 @@ export default function EditPromotionPage({ params }: { params: Promise<{ id: st
         
         if (!promoRes.ok) throw new Error('Promotion not found')
         
-        const promo = await promoRes.json()
+        const promoData = await promoRes.json()
+        const promo = promoData.data || promoData
         const productsData = await productsRes.json()
         const collectionsData = await collectionsRes.json()
         
         setProducts(productsData.products || [])
         setCollections(collectionsData.collections || [])
         
+        // Helper function to safely parse dates
+        const formatDate = (dateValue: string | Date | null | undefined): string => {
+          if (!dateValue) return ''
+          try {
+            const date = new Date(dateValue)
+            if (isNaN(date.getTime())) return ''
+            return date.toISOString().split('T')[0]
+          } catch {
+            return ''
+          }
+        }
+        
         setFormData({
-          name: promo.name,
+          name: promo.name || '',
           description: promo.description || '',
           code: promo.code || '',
-          type: promo.type,
-          value: promo.value,
-          minPurchase: promo.minPurchase,
-          maxDiscount: promo.maxDiscount,
-          usageLimit: promo.usageLimit,
-          usageCount: promo.usageCount,
-          isActive: promo.isActive,
-          autoApply: promo.autoApply,
-          startDate: new Date(promo.startDate).toISOString().split('T')[0],
-          endDate: promo.endDate ? new Date(promo.endDate).toISOString().split('T')[0] : '',
-          productIds: promo.productIds || [],
-          collectionIds: promo.collectionIds || [],
-          customerEmails: promo.customerEmails || [],
+          type: promo.type || 'PERCENTAGE',
+          value: promo.value || 0,
+          minPurchase: promo.minimumPurchase ?? promo.minPurchase ?? null,
+          maxDiscount: promo.maxUsesTotal ?? promo.maxDiscount ?? null,
+          usageLimit: promo.maxUsesTotal ?? promo.usageLimit ?? null,
+          usageCount: promo.usedCount ?? promo.usageCount ?? 0,
+          isActive: promo.isActive ?? true,
+          autoApply: promo.autoApply ?? false,
+          startDate: formatDate(promo.startDate) || new Date().toISOString().split('T')[0],
+          endDate: formatDate(promo.endDate),
+          productIds: promo.productIds ? (typeof promo.productIds === 'string' ? promo.productIds.split(',').filter(Boolean) : promo.productIds) : [],
+          collectionIds: promo.collectionIds ? (typeof promo.collectionIds === 'string' ? promo.collectionIds.split(',').filter(Boolean) : promo.collectionIds) : [],
+          customerEmails: promo.customerEmails ? (typeof promo.customerEmails === 'string' ? promo.customerEmails.split(',').filter(Boolean) : promo.customerEmails) : [],
           excludeSaleItems: promo.excludeSaleItems || false,
           firstTimeOnly: promo.firstTimeOnly || false
         })

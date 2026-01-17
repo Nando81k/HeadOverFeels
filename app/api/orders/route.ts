@@ -268,13 +268,19 @@ export async function POST(request: NextRequest) {
 
       // 9. Update promotion usage tracking if promotionId provided
       if (validatedData.promotionId) {
-        await tx.promotion.update({
+        // Check if promotion exists before updating
+        const promotion = await tx.promotion.findUnique({
           where: { id: validatedData.promotionId },
-          data: {
-            usedCount: { increment: 1 },
-            totalDiscountGiven: { increment: validatedData.discount },
-          },
         })
+        if (promotion) {
+          await tx.promotion.update({
+            where: { id: validatedData.promotionId },
+            data: {
+              usedCount: { increment: 1 },
+              totalDiscountGiven: { increment: validatedData.discount },
+            },
+          })
+        }
       }
 
       return order
