@@ -1,13 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Navigation } from '@/components/layout/Navigation'
 import { useAuth } from '@/lib/auth/context'
-import { User, Package, SignOut, CircleNotch, Medal, Sparkle, Gift, TrendUp, ArrowRight, Gear, ClockCounterClockwise, ShoppingBag, Star, Coins } from '@phosphor-icons/react'
+import { 
+  User, Package, SignOut, CircleNotch, Medal, Sparkle, Gift, TrendUp, 
+  ArrowRight, Gear, ClockCounterClockwise, ShoppingBag, Star, Coins, 
+  Confetti, Heart, CalendarBlank, Envelope, Crown, Lightning
+} from '@phosphor-icons/react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { calculateTierProgress } from '@/lib/loyalty/tier-progress'
+import { toast } from '@/lib/toast'
 
 interface PointsTransaction {
   id: string
@@ -30,13 +35,122 @@ interface Order {
   }[]
 }
 
+// Storage key for tracking points/tier changes
+const LOYALTY_CACHE_KEY = 'hof_loyalty_cache'
+
+interface LoyaltyCache {
+  points: number
+  tierSlug: string
+  lastVisit: number
+}
+
+// Tier configuration with colors
+const tierConfig: Record<string, { 
+  name: string
+  gradient: string
+  iconBg: string
+  progressBg: string
+  progressFill: string
+  badge: string
+  glow: string
+  emoji: string
+  multiplier: number
+  benefits: string[]
+}> = {
+  newcomer: {
+    name: 'Newcomer',
+    gradient: 'from-slate-400 via-slate-500 to-slate-600',
+    iconBg: 'bg-slate-400/30',
+    progressBg: 'bg-slate-400/30',
+    progressFill: 'bg-slate-300',
+    badge: 'bg-slate-400/30',
+    glow: 'shadow-slate-500/50',
+    emoji: '👋',
+    multiplier: 1.0,
+    benefits: [
+      'Earn 10 Care Points per $1 spent',
+      'Birthday surprise',
+      'Early sale access',
+    ],
+  },
+  friend: {
+    name: 'Friend',
+    gradient: 'from-blue-500 via-blue-600 to-indigo-700',
+    iconBg: 'bg-blue-400/30',
+    progressBg: 'bg-blue-400/30',
+    progressFill: 'bg-blue-300',
+    badge: 'bg-blue-400/30',
+    glow: 'shadow-blue-500/50',
+    emoji: '💙',
+    multiplier: 1.25,
+    benefits: [
+      'Earn 12.5 Care Points per $1 spent (1.25x)',
+      'Birthday bonus points',
+      'Early access to sales',
+      'Free shipping on orders $75+',
+    ],
+  },
+  bestie: {
+    name: 'Bestie',
+    gradient: 'from-pink-500 via-rose-500 to-pink-600',
+    iconBg: 'bg-pink-400/30',
+    progressBg: 'bg-pink-400/30',
+    progressFill: 'bg-pink-300',
+    badge: 'bg-pink-400/30',
+    glow: 'shadow-pink-500/50',
+    emoji: '💖',
+    multiplier: 1.5,
+    benefits: [
+      'Earn 15 Care Points per $1 spent (1.5x)',
+      'FREE shipping on all orders',
+      '24-hour early access to sales',
+      'Exclusive Bestie-only products',
+    ],
+  },
+  soulmate: {
+    name: 'Soulmate',
+    gradient: 'from-purple-500 via-violet-500 to-purple-700',
+    iconBg: 'bg-purple-400/30',
+    progressBg: 'bg-purple-400/30',
+    progressFill: 'bg-purple-300',
+    badge: 'bg-purple-400/30',
+    glow: 'shadow-purple-500/50',
+    emoji: '💜',
+    multiplier: 2.0,
+    benefits: [
+      'Earn 20 Care Points per $1 spent (2x)',
+      'FREE express shipping',
+      '48-hour early access to limited drops',
+      'Annual surprise gift',
+      'Priority support',
+    ],
+  },
+}
+
+const getTierConfig = (slug: string) => tierConfig[slug] || tierConfig.newcomer
+
 export default function ProfilePage() {
   const router = useRouter()
-  const { user, loading: authLoading, signout } = useAuth()
+  const { user, loading: authLoading, signout, refreshUser } = useAuth()
   const [orders, setOrders] = useState<Order[]>([])
   const [loadingOrders, setLoadingOrders] = useState(true)
   const [pointsHistory, setPointsHistory] = useState<PointsTransaction[]>([])
   const [loadingPoints, setLoadingPoints] = useState(true)
+  
+  // Animation states
+  const [shouldAnimatePoints, setShouldAnimatePoints] = useState(false)
+  const [shouldAnimateTier, setShouldAnimateTier] = useState(false)
+  const [previousTierSlug, setPreviousTierSlug] = useState<string | null>(null)
+  const [pointsGained, setPointsGained] = useState(0)
+  const [showCelebration, setShowCelebration] = useState(false)
+  const [showTierUpgradeModal, setShowTierUpgradeModal] = useState(false)
+  const [animatedProgress, setAnimatedProgress] = useState(0)
+  const [displayTierSlug, setDisplayTierSlug] = useState<string | null>(null)
+  const [tierTransitionPhase, setTierTransitionPhase] = useState<'idle' | 'filling' | 'celebrating' | 'resetting' | 'complete'>('idle')
+  const animationTriggeredRef = useRef(false)
+  const tierRefreshAttemptedRef = useRef(false)
+  const initialRefreshDoneRef = useRef(false)
+  const readyToCheckRef = useRef(false)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -44,9 +158,192 @@ export default function ProfilePage() {
     }
   }, [user, authLoading, router])
 
+  // Check for points/tier changes and trigger animations
+  const checkForLoyaltyChanges = useCallback(() => {
+    if (!user || !user.loyaltyTier || animationTriggeredRef.current) return
+    
+    const cacheKey = `${LOYALTY_CACHE_KEY}_${user.id}`
+    const cachedData = localStorage.getItem(cacheKey)
+    const currentTierSlug = user.loyaltyTier.slug
+    const currentPoints = user.currentPoints
+    
+    const annualPoints = user.annualPointsEarned ?? 0
+    let expectedTierSlug = 'newcomer'
+    if (annualPoints >= 7500) expectedTierSlug = 'soulmate'
+    else if (annualPoints >= 3000) expectedTierSlug = 'bestie'
+    else if (annualPoints >= 1000) expectedTierSlug = 'friend'
+    
+    if (cachedData) {
+      try {
+        const cache: LoyaltyCache = JSON.parse(cachedData)
+        
+        if (currentTierSlug !== cache.tierSlug) {
+          const gained = currentPoints - cache.points
+          setPointsGained(gained > 0 ? gained : 0)
+          setPreviousTierSlug(cache.tierSlug)
+          setDisplayTierSlug(cache.tierSlug)
+          setShouldAnimateTier(true)
+          setTierTransitionPhase('filling')
+          animationTriggeredRef.current = true
+          
+          setAnimatedProgress(0)
+          setTimeout(() => setAnimatedProgress(100), 100)
+          setTimeout(() => {
+            setTierTransitionPhase('celebrating')
+            setShowCelebration(true)
+          }, 1200)
+          setTimeout(() => {
+            setTierTransitionPhase('resetting')
+            setDisplayTierSlug(currentTierSlug)
+            setAnimatedProgress(0)
+          }, 2500)
+          setTimeout(() => {
+            setTierTransitionPhase('complete')
+            setShowCelebration(false)
+          }, 3200)
+          setTimeout(() => {
+            setShowTierUpgradeModal(true)
+          }, 3800)
+          
+        } else if (currentTierSlug !== expectedTierSlug && cache.tierSlug !== expectedTierSlug) {
+          if (!tierRefreshAttemptedRef.current) {
+            tierRefreshAttemptedRef.current = true
+            
+            fetch('/api/loyalty/refresh-tier', { method: 'POST' })
+              .then(res => res.json())
+              .then(async data => {
+                if (data.upgraded && data.newTier) {
+                  setPointsGained(0)
+                  setPreviousTierSlug(currentTierSlug)
+                  setDisplayTierSlug(currentTierSlug)
+                  setShouldAnimateTier(true)
+                  setTierTransitionPhase('filling')
+                  animationTriggeredRef.current = true
+                  
+                  setAnimatedProgress(0)
+                  setTimeout(() => setAnimatedProgress(100), 100)
+                  setTimeout(() => {
+                    setTierTransitionPhase('celebrating')
+                    setShowCelebration(true)
+                  }, 1200)
+                  setTimeout(() => {
+                    setTierTransitionPhase('resetting')
+                    setDisplayTierSlug(data.newTier)
+                    setAnimatedProgress(0)
+                  }, 2500)
+                  setTimeout(() => {
+                    setTierTransitionPhase('complete')
+                    setShowCelebration(false)
+                  }, 3200)
+                  setTimeout(() => {
+                    setShowTierUpgradeModal(true)
+                  }, 3800)
+                  
+                  const newCache: LoyaltyCache = {
+                    points: currentPoints,
+                    tierSlug: data.newTier,
+                    lastVisit: Date.now()
+                  }
+                  localStorage.setItem(cacheKey, JSON.stringify(newCache))
+                  await refreshUser()
+                }
+              })
+              .catch(() => {})
+            return
+          }
+        } else if (currentPoints > cache.points) {
+          const gained = currentPoints - cache.points
+          setPointsGained(gained)
+          setShouldAnimatePoints(true)
+          animationTriggeredRef.current = true
+          toast.success(`+${gained} Points Earned! 🌟`, `You now have ${currentPoints.toLocaleString()} total points.`)
+        }
+      } catch {
+        // Invalid cache
+      }
+    }
+    
+    const newCache: LoyaltyCache = {
+      points: user.currentPoints,
+      tierSlug: user.loyaltyTier.slug,
+      lastVisit: Date.now()
+    }
+    localStorage.setItem(cacheKey, JSON.stringify(newCache))
+  }, [user, refreshUser])
+
+  // Dev mode tier animation trigger
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return
+    
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'T' && e.shiftKey && user?.loyaltyTier) {
+        const tiers = ['newcomer', 'friend', 'bestie', 'soulmate']
+        const currentIndex = tiers.indexOf(user.loyaltyTier.slug)
+        const previousTier = currentIndex > 0 ? tiers[currentIndex - 1] : 'newcomer'
+        
+        setPreviousTierSlug(previousTier)
+        setDisplayTierSlug(previousTier)
+        setShouldAnimateTier(true)
+        setTierTransitionPhase('filling')
+        setPointsGained(100)
+        
+        setAnimatedProgress(0)
+        setTimeout(() => setAnimatedProgress(100), 100)
+        setTimeout(() => {
+          setTierTransitionPhase('celebrating')
+          setShowCelebration(true)
+        }, 1200)
+        setTimeout(() => {
+          setTierTransitionPhase('resetting')
+          setDisplayTierSlug(user.loyaltyTier!.slug)
+          setAnimatedProgress(0)
+        }, 2500)
+        setTimeout(() => {
+          setTierTransitionPhase('complete')
+          setShowCelebration(false)
+        }, 3200)
+        setTimeout(() => {
+          setShowTierUpgradeModal(true)
+        }, 3800)
+      }
+      
+      if (e.key === 'R' && e.shiftKey && user) {
+        const cacheKey = `${LOYALTY_CACHE_KEY}_${user.id}`
+        localStorage.removeItem(cacheKey)
+        toast.success('Cache Cleared', 'Refresh the page to test animation')
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [user])
+
+  // On mount, refresh user data to get latest points/tier
+  useEffect(() => {
+    const initializeLoyaltyCheck = async () => {
+      if (!user || authLoading || initialRefreshDoneRef.current) return
+      
+      initialRefreshDoneRef.current = true
+      
+      // Refresh user data to get the latest points and tier from server
+      await refreshUser()
+      
+      // Mark that we're ready to check - the user state will update and trigger the next effect
+      readyToCheckRef.current = true
+    }
+    
+    initializeLoyaltyCheck()
+  }, [user, authLoading, refreshUser])
+
+  // After user data updates and we're ready, check for loyalty changes
+  useEffect(() => {
+    if (user && !authLoading && readyToCheckRef.current && !animationTriggeredRef.current) {
+      checkForLoyaltyChanges()
+    }
+  }, [user, authLoading, checkForLoyaltyChanges])
+
   const fetchOrders = async () => {
     if (!user) return
-    
     try {
       const response = await fetch('/api/orders', {
         headers: {
@@ -58,8 +355,8 @@ export default function ProfilePage() {
         const data = await response.json()
         setOrders(data.data || [])
       }
-    } catch (error) {
-      console.error('Failed to fetch orders:', error)
+    } catch {
+      // Failed to fetch
     } finally {
       setLoadingOrders(false)
     }
@@ -67,15 +364,14 @@ export default function ProfilePage() {
 
   const fetchPointsHistory = async () => {
     if (!user) return
-    
     try {
       const response = await fetch('/api/loyalty/points-history?limit=5')
       if (response.ok) {
         const data = await response.json()
         setPointsHistory(data.data || [])
       }
-    } catch (error) {
-      console.error('Failed to fetch points history:', error)
+    } catch {
+      // Failed to fetch
     } finally {
       setLoadingPoints(false)
     }
@@ -89,6 +385,28 @@ export default function ProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
+  const tierProgress = useMemo(() => {
+    if (!user?.loyaltyTier) return null
+    return calculateTierProgress(user.loyaltyTier.slug, user.annualPointsEarned ?? 0)
+  }, [user?.loyaltyTier, user?.annualPointsEarned])
+
+  useEffect(() => {
+    if (tierProgress && shouldAnimatePoints && !shouldAnimateTier) {
+      setAnimatedProgress(0)
+      const timer = setTimeout(() => {
+        setAnimatedProgress(tierProgress.progressPercentage)
+      }, 500)
+      return () => clearTimeout(timer)
+    } else if (tierProgress && tierTransitionPhase === 'complete') {
+      const timer = setTimeout(() => {
+        setAnimatedProgress(tierProgress.progressPercentage)
+      }, 300)
+      return () => clearTimeout(timer)
+    } else if (tierProgress && !shouldAnimateTier && !shouldAnimatePoints) {
+      setAnimatedProgress(tierProgress.progressPercentage)
+    }
+  }, [tierProgress, shouldAnimatePoints, shouldAnimateTier, tierTransitionPhase])
+
   const handleSignout = async () => {
     await signout()
     router.push('/')
@@ -96,17 +414,16 @@ export default function ProfilePage() {
 
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <CircleNotch size={32} weight="bold" className="animate-spin text-black" />
       </div>
     )
   }
 
-  const tierProgress = user.loyaltyTier 
-    ? calculateTierProgress(user.loyaltyTier.slug, user.annualPointsEarned ?? 0)
-    : null
-
-  const recentOrders = orders.slice(0, 3)
+  const currentTierConfig = user.loyaltyTier ? getTierConfig(user.loyaltyTier.slug) : getTierConfig('newcomer')
+  const previousTierConfig = previousTierSlug ? getTierConfig(previousTierSlug) : null
+  const activeTierSlug = displayTierSlug || user.loyaltyTier?.slug || 'newcomer'
+  const activeTierConfig = getTierConfig(activeTierSlug)
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -117,371 +434,693 @@ export default function ProfilePage() {
     }
   }
 
-  // Tier-specific color themes
-  const getTierColors = (tierSlug: string) => {
-    const tierColors: Record<string, { gradient: string; iconBg: string; progressBg: string; progressFill: string; badge: string }> = {
-      head: {
-        gradient: 'from-blue-500 via-blue-600 to-indigo-700',
-        iconBg: 'bg-blue-400/30',
-        progressBg: 'bg-blue-400/30',
-        progressFill: 'bg-blue-300',
-        badge: 'bg-blue-400/30',
-      },
-      heart: {
-        gradient: 'from-pink-500 via-rose-500 to-pink-600',
-        iconBg: 'bg-pink-400/30',
-        progressBg: 'bg-pink-400/30',
-        progressFill: 'bg-pink-300',
-        badge: 'bg-pink-400/30',
-      },
-      mind: {
-        gradient: 'from-emerald-500 via-green-500 to-teal-600',
-        iconBg: 'bg-emerald-400/30',
-        progressBg: 'bg-emerald-400/30',
-        progressFill: 'bg-emerald-300',
-        badge: 'bg-emerald-400/30',
-      },
-      overdrive: {
-        gradient: 'from-purple-500 via-violet-500 to-purple-700',
-        iconBg: 'bg-purple-400/30',
-        progressBg: 'bg-purple-400/30',
-        progressFill: 'bg-purple-300',
-        badge: 'bg-purple-400/30',
-      },
+  const getTransactionIcon = (type: string) => {
+    switch (type) {
+      case 'PURCHASE': return <ShoppingBag size={16} weight="bold" className="text-emerald-600" />
+      case 'REVIEW': return <Star size={16} weight="fill" className="text-amber-500" />
+      case 'REDEMPTION': return <Gift size={16} weight="bold" className="text-purple-600" />
+      default: return <Sparkle size={16} weight="fill" className="text-blue-600" />
     }
-    return tierColors[tierSlug] || tierColors.head
   }
 
-  const currentTierColors = user.loyaltyTier ? getTierColors(user.loyaltyTier.slug) : getTierColors('head')
-
   return (
-    <div className="min-h-screen bg-[#FAF8F5]">
+    <div className="min-h-screen bg-white">
       <Navigation />
       
-      <div className="pt-24 pb-6 px-4 sm:px-8">
-        <div className="max-w-7xl mx-auto">
-          
-          {/* Compact Header */}
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between mb-5"
+      {/* Celebration Overlay */}
+      <AnimatePresence>
+        {showCelebration && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center">
-                <User size={32} weight="bold" className="text-white" />
+            {[...Array(20)].map((_, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 1, y: 0, x: 0, scale: 0 }}
+                animate={{ 
+                  opacity: [1, 1, 0],
+                  y: [0, -200 - Math.random() * 200],
+                  x: [(Math.random() - 0.5) * 400, (Math.random() - 0.5) * 600],
+                  scale: [0, 1, 0.5],
+                  rotate: [0, 360 * (Math.random() > 0.5 ? 1 : -1)]
+                }}
+                transition={{ duration: 2 + Math.random(), delay: Math.random() * 0.5, ease: "easeOut" }}
+                className="absolute"
+                style={{ top: '50%', left: '50%' }}
+              >
+                <Confetti 
+                  size={24 + Math.random() * 16} 
+                  weight="fill" 
+                  className={['text-pink-500', 'text-purple-500', 'text-yellow-400', 'text-blue-500', 'text-emerald-500'][Math.floor(Math.random() * 5)]}
+                />
+              </motion.div>
+            ))}
+            
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: [0, 1.2, 1], opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="bg-black text-white px-8 py-6 text-center shadow-2xl"
+            >
+              <motion.div animate={{ rotate: [0, -10, 10, -10, 0] }} transition={{ duration: 0.5, delay: 0.8 }}>
+                <Medal size={48} weight="fill" className="mx-auto mb-3 text-yellow-400" />
+              </motion.div>
+              <h3 className="text-2xl font-black mb-1">TIER UPGRADED!</h3>
+              <p className="text-white/70">Welcome to <span className="text-white font-bold">{user?.loyaltyTier?.name}</span></p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Tier Upgrade Modal */}
+      <AnimatePresence>
+        {showTierUpgradeModal && user?.loyaltyTier && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-100 flex items-center justify-center p-4"
+            onClick={() => setShowTierUpgradeModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              {[...Array(40)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: -20, x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 800) }}
+                  animate={{ 
+                    opacity: [0, 1, 1, 0],
+                    y: ['-5vh', '105vh'],
+                    rotate: [0, 360 * (Math.random() > 0.5 ? 2 : -2)],
+                  }}
+                  transition={{ duration: 3 + Math.random() * 2, delay: Math.random() * 2, repeat: Infinity, ease: "linear" }}
+                  className="absolute"
+                >
+                  <Confetti 
+                    size={16 + Math.random() * 20} 
+                    weight="fill" 
+                    className={['text-pink-400', 'text-purple-400', 'text-yellow-300', 'text-blue-400', 'text-emerald-400'][Math.floor(Math.random() * 5)]}
+                  />
+                </motion.div>
+              ))}
+            </div>
+            
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0, y: 50 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-lg bg-white shadow-2xl overflow-hidden"
+            >
+              <div className={`bg-linear-to-br ${currentTierConfig.gradient} p-8 text-white text-center relative overflow-hidden`}>
+                <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-xl" />
+                
+                <motion.div
+                  animate={{ y: [0, -10, 0], rotate: [0, -5, 5, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  className="relative z-10 mb-4"
+                >
+                  <div className="w-24 h-24 mx-auto bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                    <Medal size={56} weight="fill" className="text-yellow-300 drop-shadow-lg" />
+                  </div>
+                </motion.div>
+                
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="relative z-10">
+                  <p className="text-white/80 text-sm font-medium uppercase tracking-wider mb-2">🎊 Congratulations! 🎊</p>
+                  <h2 className="text-4xl font-black mb-2">You&apos;re Now {currentTierConfig.emoji}</h2>
+                  <h3 className="text-5xl font-black tracking-tight">{user.loyaltyTier.name}</h3>
+                </motion.div>
+              </div>
+              
+              <div className="p-6">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
+                  <h4 className="text-lg font-bold text-black mb-4 flex items-center gap-2">
+                    <Sparkle size={20} weight="fill" className="text-yellow-500" />
+                    Your New Benefits
+                  </h4>
+                  
+                  <div className="space-y-3">
+                    {currentTierConfig.benefits.map((benefit, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.4 + index * 0.1 }}
+                        className="flex items-start gap-3"
+                      >
+                        <div className={`w-6 h-6 bg-linear-to-br ${currentTierConfig.gradient} flex items-center justify-center shrink-0 mt-0.5`}>
+                          <Star size={12} weight="fill" className="text-white" />
+                        </div>
+                        <p className="text-black/80 text-sm">{benefit}</p>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+                
+                {pointsGained > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 }}
+                    className="mt-6 p-4 bg-emerald-50 border border-emerald-200"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-emerald-500 flex items-center justify-center">
+                        <Coins size={20} weight="fill" className="text-white" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-emerald-600 font-medium uppercase tracking-wider">Points Earned</p>
+                        <p className="text-2xl font-bold text-emerald-700">+{pointsGained.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+                
+                <motion.button
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.7 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowTierUpgradeModal(false)}
+                  className={`w-full mt-6 py-4 bg-linear-to-r ${currentTierConfig.gradient} text-white font-bold text-lg uppercase tracking-wider`}
+                >
+                  Start Earning {currentTierConfig.multiplier}x Points
+                </motion.button>
+                
+                <p className="text-center text-black/40 text-xs mt-4">Click anywhere to close</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Editorial Hero Section */}
+      <section className="pt-24 pb-12 px-4 sm:px-8 border-b border-black/10">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6"
+          >
+            <div className="flex items-start gap-6">
+              <div className="w-20 h-20 lg:w-24 lg:h-24 bg-black flex items-center justify-center shrink-0">
+                <User size={40} weight="bold" className="text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-black">
-                  {user.name || 'Welcome back'}
+                <p className="text-sm font-medium text-black/50 uppercase tracking-wider mb-2">My Account</p>
+                <h1 className="text-4xl lg:text-6xl font-black text-black tracking-tight">
+                  {user.name || 'Welcome'}
                 </h1>
-                <p className="text-sm text-black/50">{user.email}</p>
+                <p className="text-lg text-black/60 mt-2">{user.email}</p>
               </div>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               {user.isAdmin && (
                 <Link
                   href="/admin"
-                  className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full text-sm font-medium hover:bg-black/80 transition-colors"
+                  className="flex items-center gap-2 px-6 py-3 bg-black text-white text-sm font-bold uppercase tracking-wider hover:bg-black/80 transition-colors"
                 >
-                  <Gear size={16} weight="bold" />
-                  <span className="hidden sm:inline">Admin</span>
+                  <Gear size={18} weight="bold" />
+                  Admin
                 </Link>
               )}
               <button
                 onClick={handleSignout}
-                className="flex items-center gap-2 px-4 py-2 bg-black/5 text-black/70 rounded-full text-sm font-medium hover:bg-black/10 transition-colors"
+                className="flex items-center gap-2 px-6 py-3 border-2 border-black text-black text-sm font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
               >
-                <SignOut size={16} weight="bold" />
-                <span className="hidden sm:inline">Sign Out</span>
+                <SignOut size={18} weight="bold" />
+                Sign Out
               </button>
             </div>
           </motion.div>
+        </div>
+      </section>
 
-          {/* Main Grid - Optimized for single screen viewing */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            
-            {/* Row 1: Loyalty Card (7 cols) + Quick Stats (5 cols) */}
-            {user.loyaltyTier && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className={`lg:col-span-7 bg-gradient-to-br ${currentTierColors.gradient} rounded-2xl p-6 text-white shadow-xl relative overflow-hidden`}
-              >
-                {/* Decorative elements */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
-                
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <Medal size={24} weight="bold" className="text-white/80" />
-                      <div>
-                        <span className="text-xs font-medium uppercase tracking-wider text-white/70">Loyalty Tier</span>
-                        <h2 className="text-3xl font-bold leading-tight">{user.loyaltyTier.name}</h2>
-                      </div>
-                    </div>
-                    <span className={`px-4 py-1.5 ${currentTierColors.badge} backdrop-blur-sm rounded-full text-sm font-semibold`}>
-                      {user.loyaltyTier.pointMultiplier}x Points
-                    </span>
-                  </div>
-
-                  {/* Stats Row - Horizontal */}
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className={`flex-1 ${currentTierColors.iconBg} backdrop-blur-sm rounded-xl p-4`}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <Sparkle size={14} weight="fill" className="text-white/80" />
-                        <span className="text-[10px] uppercase tracking-wider text-white/70">Points</span>
-                      </div>
-                      <p className="text-2xl font-bold">{user.currentPoints.toLocaleString()}</p>
-                    </div>
-                    <div className={`flex-1 ${currentTierColors.iconBg} backdrop-blur-sm rounded-xl p-4`}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <Gift size={14} weight="bold" className="text-white/80" />
-                        <span className="text-[10px] uppercase tracking-wider text-white/70">Spent</span>
-                      </div>
-                      <p className="text-2xl font-bold">${user.totalSpent.toFixed(0)}</p>
-                    </div>
-                    <Link
-                      href="/loyalty/rewards"
-                      className="flex items-center justify-center gap-2 bg-white/20 backdrop-blur-sm text-white px-5 py-4 rounded-xl font-medium hover:bg-white/30 transition-colors text-sm whitespace-nowrap"
-                    >
-                      Rewards
-                      <ArrowRight size={16} weight="bold" />
-                    </Link>
-                  </div>
-
-                  {/* Tier Progress - Compact */}
-                  {tierProgress && !tierProgress.isMaxTier ? (
-                    <div>
-                      <div className="flex items-center justify-between text-xs mb-2">
-                        <span className="text-white/70 flex items-center gap-1">
-                          <TrendUp size={12} weight="bold" />
-                          Next: {tierProgress.nextTier?.name}
-                        </span>
-                        <span className="text-white/90 font-medium">{tierProgress.pointsNeeded.toLocaleString()} pts away</span>
-                      </div>
-                      <div className={`h-2 ${currentTierColors.progressBg} rounded-full overflow-hidden`}>
-                        <div
-                          className={`h-full ${currentTierColors.progressFill} rounded-full transition-all duration-500`}
-                          style={{ width: `${tierProgress.progressPercentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-sm text-white/80">
-                      <Medal size={16} weight="fill" />
-                      <span>You&apos;ve reached the highest tier! 🎉</span>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-
-            {/* Quick Stats - 5 columns, stacked 2x2 */}
+      {/* Loyalty Tier Card - Full Width Editorial Style */}
+      {user.loyaltyTier && (
+        <section className="py-8 px-4 sm:px-8">
+          <div className="max-w-7xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.12 }}
-              className={`${user.loyaltyTier ? 'lg:col-span-5' : 'lg:col-span-12'} grid grid-cols-2 gap-3`}
+              animate={{ 
+                opacity: 1, 
+                y: 0,
+                scale: tierTransitionPhase === 'celebrating' ? [1, 1.01, 1] : 1,
+              }}
+              transition={{ delay: 0.1, scale: { duration: 0.6 } }}
+              className={`relative overflow-hidden text-white transition-all duration-500 ${
+                tierTransitionPhase === 'celebrating' ? `shadow-2xl ${currentTierConfig.glow}` : ''
+              }`}
             >
-              <div className="bg-white rounded-xl p-4 border border-black/5">
-                <p className="text-[10px] uppercase tracking-wider text-black/40 mb-1">Member Since</p>
-                <p className="text-lg font-bold text-black">
-                  {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                </p>
-              </div>
-              <div className="bg-white rounded-xl p-4 border border-black/5">
-                <p className="text-[10px] uppercase tracking-wider text-black/40 mb-1">Total Orders</p>
-                <p className="text-lg font-bold text-black">{user.totalOrders || orders.length}</p>
-              </div>
-              <div className="bg-white rounded-xl p-4 border border-black/5">
-                <p className="text-[10px] uppercase tracking-wider text-black/40 mb-1">Lifetime Points</p>
-                <p className="text-lg font-bold text-black">{user.lifetimePoints?.toLocaleString() || 0}</p>
-              </div>
-              <div className="bg-white rounded-xl p-4 border border-black/5">
-                <p className="text-[10px] uppercase tracking-wider text-black/40 mb-1">Newsletter</p>
-                <p className="text-lg font-bold text-black">{user.newsletter ? '✓ Yes' : 'No'}</p>
+              {/* Background layers for smooth transition */}
+              <motion.div
+                initial={{ opacity: 1 }}
+                animate={{ opacity: tierTransitionPhase === 'resetting' || tierTransitionPhase === 'complete' ? 0 : 1 }}
+                transition={{ duration: 0.8 }}
+                className={`absolute inset-0 bg-linear-to-br ${previousTierConfig?.gradient || activeTierConfig.gradient}`}
+              />
+              <motion.div
+                initial={{ opacity: shouldAnimateTier ? 0 : 1 }}
+                animate={{ opacity: tierTransitionPhase === 'resetting' || tierTransitionPhase === 'complete' ? 1 : (shouldAnimateTier ? 0 : 1) }}
+                transition={{ duration: 0.8 }}
+                className={`absolute inset-0 bg-linear-to-br ${currentTierConfig.gradient}`}
+              />
+              
+              {/* Decorative elements */}
+              <motion.div 
+                animate={tierTransitionPhase === 'celebrating' ? { scale: [1, 1.5, 1], opacity: [0.1, 0.3, 0.1] } : {}}
+                transition={{ duration: 2 }}
+                className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" 
+              />
+              <motion.div 
+                className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl" 
+              />
+              
+              {/* Shimmer effect */}
+              <AnimatePresence>
+                {tierTransitionPhase === 'celebrating' && (
+                  <motion.div
+                    initial={{ x: '-100%', opacity: 0 }}
+                    animate={{ x: '200%', opacity: [0, 0.5, 0] }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 1.5 }}
+                    className="absolute inset-0 w-1/2 bg-linear-to-r from-transparent via-white/30 to-transparent skew-x-12"
+                  />
+                )}
+              </AnimatePresence>
+              
+              {/* Flash effect */}
+              <AnimatePresence>
+                {tierTransitionPhase === 'resetting' && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: [0, 0.8, 0] }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.6 }}
+                    className="absolute inset-0 bg-white"
+                  />
+                )}
+              </AnimatePresence>
+              
+              <div className="relative p-8 lg:p-12">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
+                  {/* Tier Info */}
+                  <div className="flex items-center gap-6">
+                    <motion.div
+                      animate={tierTransitionPhase === 'celebrating' ? { rotate: [0, -15, 15, -10, 10, 0], scale: [1, 1.3, 1] } : {}}
+                      transition={{ duration: 0.8 }}
+                      className={`w-20 h-20 ${activeTierConfig.iconBg} backdrop-blur-sm flex items-center justify-center`}
+                    >
+                      <Crown size={40} weight="fill" className="text-white" />
+                    </motion.div>
+                    <div>
+                      <p className="text-sm font-medium uppercase tracking-wider text-white/70 mb-1">Loyalty Tier</p>
+                      <AnimatePresence mode="wait">
+                        <motion.h2 
+                          key={activeTierSlug}
+                          initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -20, scale: 0.8 }}
+                          transition={{ duration: 0.5, type: "spring", stiffness: 200 }}
+                          className="text-4xl lg:text-5xl font-black"
+                        >
+                          {displayTierSlug ? getTierConfig(displayTierSlug).name : user.loyaltyTier.name}
+                        </motion.h2>
+                      </AnimatePresence>
+                      <AnimatePresence mode="wait">
+                        <motion.p 
+                          key={activeTierSlug}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="text-white/80 mt-1"
+                        >
+                          Earning {displayTierSlug ? getTierConfig(displayTierSlug).multiplier : currentTierConfig.multiplier}x points on every purchase
+                        </motion.p>
+                      </AnimatePresence>
+                    </div>
+                  </div>
+                  
+                  {/* Points & Stats */}
+                  <div className="flex items-center gap-6 lg:gap-8">
+                    <motion.div 
+                      animate={shouldAnimatePoints || tierTransitionPhase === 'celebrating' ? { scale: [1, 1.05, 1] } : {}}
+                      transition={{ duration: 0.5, delay: 0.3 }}
+                      className={`${activeTierConfig.iconBg} backdrop-blur-sm p-6 relative`}
+                    >
+                      <AnimatePresence>
+                        {(shouldAnimatePoints || shouldAnimateTier) && pointsGained > 0 && (
+                          <motion.div
+                            initial={{ opacity: 1, y: 0 }}
+                            animate={{ opacity: 0, y: -30 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 1.5, delay: 1 }}
+                            className="absolute top-2 right-2 text-sm font-bold text-green-300"
+                          >
+                            +{pointsGained.toLocaleString()}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                      <p className="text-xs uppercase tracking-wider text-white/70 mb-1">Available Points</p>
+                      <motion.p 
+                        animate={shouldAnimatePoints ? { scale: [1, 1.1, 1] } : {}}
+                        transition={{ duration: 0.4, delay: 0.5 }}
+                        className="text-4xl font-black"
+                      >
+                        {user.currentPoints.toLocaleString()}
+                      </motion.p>
+                    </motion.div>
+                    
+                    <div className={`${activeTierConfig.iconBg} backdrop-blur-sm p-6`}>
+                      <p className="text-xs uppercase tracking-wider text-white/70 mb-1">Total Spent</p>
+                      <p className="text-4xl font-black">${user.totalSpent.toFixed(0)}</p>
+                    </div>
+                    
+                    <Link
+                      href="/loyalty/rewards"
+                      className="flex items-center gap-3 bg-white text-black px-8 py-6 font-bold uppercase tracking-wider hover:bg-white/90 transition-colors"
+                    >
+                      Redeem Rewards
+                      <ArrowRight size={20} weight="bold" />
+                    </Link>
+                  </div>
+                </div>
+                
+                {/* Progress Bar */}
+                {tierProgress && !tierProgress.isMaxTier && (
+                  <div className="mt-8">
+                    <div className="flex items-center justify-between text-sm mb-3">
+                      <AnimatePresence mode="wait">
+                        <motion.span 
+                          key={shouldAnimateTier && tierTransitionPhase !== 'complete' ? 'upgrading' : 'normal'}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="text-white/80 flex items-center gap-2 font-medium"
+                        >
+                          <TrendUp size={16} weight="bold" />
+                          {tierTransitionPhase === 'filling' || tierTransitionPhase === 'celebrating' ? (
+                            <>Leveling up to {user.loyaltyTier.name}!</>
+                          ) : (
+                            <>Progress to {tierProgress.nextTier?.name}</>
+                          )}
+                        </motion.span>
+                      </AnimatePresence>
+                      <AnimatePresence mode="wait">
+                        <motion.span 
+                          key={tierTransitionPhase}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1, scale: shouldAnimatePoints && !shouldAnimateTier ? [1, 1.1, 1] : 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="text-white font-bold"
+                        >
+                          {tierTransitionPhase === 'filling' ? 'Reaching new tier...' : 
+                           tierTransitionPhase === 'celebrating' ? '🎉 Level up!' : 
+                           `${tierProgress.pointsNeeded.toLocaleString()} pts away`}
+                        </motion.span>
+                      </AnimatePresence>
+                    </div>
+                    <div className={`h-4 ${activeTierConfig.progressBg} overflow-hidden relative`}>
+                      <AnimatePresence>
+                        {(tierTransitionPhase === 'filling' || tierTransitionPhase === 'celebrating') && (
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: [0.3, 0.6, 0.3] }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                            className="absolute inset-0 bg-white/20"
+                          />
+                        )}
+                      </AnimatePresence>
+                      <motion.div
+                        initial={{ width: '0%' }}
+                        animate={{ width: `${animatedProgress}%` }}
+                        transition={{ 
+                          duration: tierTransitionPhase === 'filling' ? 1.0 : (shouldAnimatePoints ? 1.5 : 0.5),
+                          ease: tierTransitionPhase === 'filling' ? [0.34, 1.56, 0.64, 1] : "easeOut"
+                        }}
+                        className={`h-full ${activeTierConfig.progressFill} relative overflow-hidden`}
+                      >
+                        {(shouldAnimatePoints || tierTransitionPhase === 'filling') && (
+                          <motion.div
+                            initial={{ x: '-100%' }}
+                            animate={{ x: '200%' }}
+                            transition={{ duration: 1, delay: 1.5, repeat: 1 }}
+                            className="absolute inset-0 w-1/2 bg-linear-to-r from-transparent via-white/50 to-transparent"
+                          />
+                        )}
+                      </motion.div>
+                    </div>
+                  </div>
+                )}
+                
+                {tierProgress?.isMaxTier && (
+                  <div className="mt-8 flex items-center gap-3 text-white/90">
+                    <Lightning size={20} weight="fill" />
+                    <span className="font-medium">Maximum tier achieved! You&apos;re earning the highest rewards.</span>
+                  </div>
+                )}
               </div>
             </motion.div>
+          </div>
+        </section>
+      )}
 
-            {/* Row 2: Points History (5 cols) + Recent Orders (7 cols) */}
+      {/* Stats Grid */}
+      <section className="py-8 px-4 sm:px-8 border-b border-black/10">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+          >
+            <div className="border border-black/10 p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <CalendarBlank size={20} weight="bold" className="text-black/40" />
+                <p className="text-xs uppercase tracking-wider text-black/50">Member Since</p>
+              </div>
+              <p className="text-2xl lg:text-3xl font-black text-black">
+                {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+              </p>
+            </div>
+            <div className="border border-black/10 p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <Package size={20} weight="bold" className="text-black/40" />
+                <p className="text-xs uppercase tracking-wider text-black/50">Total Orders</p>
+              </div>
+              <p className="text-2xl lg:text-3xl font-black text-black">{user.totalOrders || orders.length}</p>
+            </div>
+            <div className="border border-black/10 p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <Sparkle size={20} weight="bold" className="text-black/40" />
+                <p className="text-xs uppercase tracking-wider text-black/50">Lifetime Points</p>
+              </div>
+              <p className="text-2xl lg:text-3xl font-black text-black">{user.lifetimePoints?.toLocaleString() || 0}</p>
+            </div>
+            <div className="border border-black/10 p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <Envelope size={20} weight="bold" className="text-black/40" />
+                <p className="text-xs uppercase tracking-wider text-black/50">Newsletter</p>
+              </div>
+              <p className="text-2xl lg:text-3xl font-black text-black">{user.newsletter ? 'Subscribed' : 'Not Subscribed'}</p>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Two Column Layout: Points History + Recent Orders */}
+      <section className="py-12 px-4 sm:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            {/* Points History */}
             {user.loyaltyTier && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
-                className="lg:col-span-5 bg-white rounded-2xl border border-black/5 overflow-hidden"
+                transition={{ delay: 0.2 }}
               >
-                <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
-                  <div className="flex items-center gap-2">
-                    <ClockCounterClockwise size={18} weight="bold" className="text-black/60" />
-                    <h3 className="font-bold text-base text-black">Points History</h3>
-                  </div>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl lg:text-3xl font-black text-black flex items-center gap-3">
+                    <ClockCounterClockwise size={28} weight="bold" />
+                    Points History
+                  </h2>
                   <Link
                     href="/loyalty/history"
-                    className="text-xs text-black/50 hover:text-black transition-colors flex items-center gap-1"
+                    className="text-sm font-bold uppercase tracking-wider text-black/60 hover:text-black transition-colors flex items-center gap-2"
                   >
-                    View all
-                    <ArrowRight size={12} />
+                    View All
+                    <ArrowRight size={16} />
                   </Link>
                 </div>
                 
                 {loadingPoints ? (
-                  <div className="flex items-center justify-center py-8">
-                    <CircleNotch size={20} weight="bold" className="animate-spin text-black/30" />
+                  <div className="flex items-center justify-center py-16 border border-black/10">
+                    <CircleNotch size={24} weight="bold" className="animate-spin text-black/30" />
                   </div>
                 ) : pointsHistory.length === 0 ? (
-                  <div className="text-center py-8 px-5">
-                    <Coins size={28} weight="light" className="text-black/20 mx-auto mb-2" />
-                    <p className="text-sm text-black/50">No points activity yet</p>
+                  <div className="text-center py-16 border border-black/10">
+                    <Coins size={40} weight="light" className="text-black/20 mx-auto mb-3" />
+                    <p className="text-black/50 font-medium">No points activity yet</p>
+                    <p className="text-sm text-black/40 mt-1">Start shopping to earn points!</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-black/5 max-h-[200px] overflow-y-auto">
-                    {pointsHistory.slice(0, 4).map((tx) => {
-                      const getIcon = () => {
-                        switch (tx.type) {
-                          case 'PURCHASE': return <ShoppingBag size={14} weight="bold" className="text-green-500" />
-                          case 'REVIEW': return <Star size={14} weight="fill" className="text-amber-500" />
-                          case 'REDEMPTION': return <Gift size={14} weight="bold" className="text-purple-500" />
-                          default: return <Sparkle size={14} weight="fill" className="text-blue-500" />
-                        }
-                      }
-                      return (
-                        <div key={tx.id} className="flex items-center justify-between px-5 py-3 hover:bg-black/[0.02] transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-black/5 rounded-lg flex items-center justify-center">
-                              {getIcon()}
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-black truncate max-w-[140px]">{tx.description}</p>
-                              <p className="text-[10px] text-black/40">
-                                {new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                              </p>
-                            </div>
+                  <div className="border border-black/10 divide-y divide-black/10">
+                    {pointsHistory.slice(0, 5).map((tx) => (
+                      <div key={tx.id} className="flex items-center justify-between p-5 hover:bg-black/2 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 bg-black/5 flex items-center justify-center">
+                            {getTransactionIcon(tx.type)}
                           </div>
-                          <span className={`font-bold text-sm ${tx.points > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            {tx.points > 0 ? '+' : ''}{tx.points}
-                          </span>
+                          <div>
+                            <p className="font-bold text-black">{tx.description}</p>
+                            <p className="text-sm text-black/50">
+                              {new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                            </p>
+                          </div>
                         </div>
-                      )
-                    })}
+                        <span className={`text-lg font-black ${tx.points > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                          {tx.points > 0 ? '+' : ''}{tx.points}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </motion.div>
             )}
-
-            {/* Recent Orders - 7 cols or full width */}
+            
+            {/* Recent Orders */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.18 }}
-              className={`${user.loyaltyTier ? 'lg:col-span-7' : 'lg:col-span-12'} bg-white rounded-2xl border border-black/5 overflow-hidden`}
+              transition={{ delay: 0.25 }}
+              className={!user.loyaltyTier ? 'lg:col-span-2' : ''}
             >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
-                <div className="flex items-center gap-2">
-                  <Package size={18} weight="bold" className="text-black" />
-                  <h2 className="text-base font-bold text-black">Recent Orders</h2>
-                </div>
-                {orders.length > 2 && (
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl lg:text-3xl font-black text-black flex items-center gap-3">
+                  <Package size={28} weight="bold" />
+                  Recent Orders
+                </h2>
+                {orders.length > 0 && (
                   <Link
                     href="/orders"
-                    className="text-xs text-black/50 hover:text-black transition-colors flex items-center gap-1"
+                    className="text-sm font-bold uppercase tracking-wider text-black/60 hover:text-black transition-colors flex items-center gap-2"
                   >
-                    View all
-                    <ArrowRight size={12} />
+                    View All
+                    <ArrowRight size={16} />
                   </Link>
                 )}
               </div>
-
+              
               {loadingOrders ? (
-                <div className="flex items-center justify-center py-10">
-                  <CircleNotch size={20} weight="bold" className="animate-spin text-black/30" />
+                <div className="flex items-center justify-center py-16 border border-black/10">
+                  <CircleNotch size={24} weight="bold" className="animate-spin text-black/30" />
                 </div>
               ) : orders.length === 0 ? (
-                <div className="text-center py-8 px-5">
-                  <Package size={32} weight="light" className="text-black/20 mx-auto mb-2" />
-                  <h3 className="text-base font-medium text-black mb-1">No orders yet</h3>
+                <div className="text-center py-16 border border-black/10">
+                  <ShoppingBag size={40} weight="light" className="text-black/20 mx-auto mb-3" />
+                  <p className="text-black/50 font-medium mb-4">No orders yet</p>
                   <Link
                     href="/products"
-                    className="inline-flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-black/80 transition-colors"
+                    className="inline-flex items-center gap-2 bg-black text-white px-6 py-3 font-bold uppercase tracking-wider hover:bg-black/80 transition-colors"
                   >
-                    Shop Now
-                    <ArrowRight size={14} />
+                    Start Shopping
+                    <ArrowRight size={16} />
                   </Link>
                 </div>
               ) : (
-                <div className="divide-y divide-black/5 max-h-[200px] overflow-y-auto">
-                  {recentOrders.slice(0, 3).map((order) => (
+                <div className="border border-black/10 divide-y divide-black/10">
+                  {orders.slice(0, 5).map((order) => (
                     <Link
                       key={order.id}
                       href={`/order/track/${order.id}`}
-                      className="flex items-center justify-between px-5 py-3.5 hover:bg-black/5 transition-colors"
+                      className="flex items-center justify-between p-5 hover:bg-black/2 transition-colors group"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(order.status)}`} />
+                      <div className="flex items-center gap-4">
+                        <div className={`w-3 h-3 ${getStatusColor(order.status)}`} />
                         <div>
-                          <p className="font-medium text-black text-sm">
-                            #{order.orderNumber}
-                          </p>
-                          <p className="text-xs text-black/50 truncate max-w-[180px]">
+                          <p className="font-bold text-black">Order #{order.orderNumber}</p>
+                          <p className="text-sm text-black/50 max-w-xs truncate">
                             {order.items.slice(0, 2).map(i => i.productName).join(', ')}
-                            {order.items.length > 2 && ` +${order.items.length - 2}`}
+                            {order.items.length > 2 && ` +${order.items.length - 2} more`}
                           </p>
                         </div>
                       </div>
                       <div className="text-right flex items-center gap-4">
                         <div>
-                          <p className="font-semibold text-black text-sm">${order.total.toFixed(2)}</p>
-                          <p className="text-[10px] text-black/40">
+                          <p className="font-black text-black">${order.total.toFixed(2)}</p>
+                          <p className="text-sm text-black/50">
                             {new Date(order.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </p>
                         </div>
-                        <ArrowRight size={16} className="text-black/30" />
+                        <ArrowRight size={20} className="text-black/30 group-hover:text-black transition-colors" />
                       </div>
                     </Link>
                   ))}
                 </div>
               )}
             </motion.div>
-
-            {/* Quick Actions - Row */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.22 }}
-              className="lg:col-span-12 grid grid-cols-4 gap-3"
-            >
-              <Link
-                href="/products"
-                className="flex items-center justify-center gap-2 bg-black text-white py-3 px-4 rounded-xl font-medium hover:bg-black/80 transition-colors text-sm"
-              >
-                Shop Now
-              </Link>
-              <Link
-                href="/wishlist"
-                className="flex items-center justify-center gap-2 bg-white text-black py-3 px-4 rounded-xl font-medium hover:bg-black/5 transition-colors text-sm border border-black/10"
-              >
-                Wishlist
-              </Link>
-              <Link
-                href="/profile/avatar"
-                className="flex items-center justify-center gap-2 bg-white text-black py-3 px-4 rounded-xl font-medium hover:bg-black/5 transition-colors text-sm border border-black/10"
-              >
-                Create Avatar
-              </Link>
-              <Link
-                href="/collections"
-                className="flex items-center justify-center gap-2 bg-white text-black py-3 px-4 rounded-xl font-medium hover:bg-black/5 transition-colors text-sm border border-black/10"
-              >
-                Collections
-              </Link>
-            </motion.div>
-
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* Quick Actions */}
+      <section className="py-12 px-4 sm:px-8 border-t border-black/10 bg-black/2">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-2xl lg:text-3xl font-black text-black mb-8">Quick Actions</h2>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+          >
+            <Link
+              href="/products"
+              className="flex items-center justify-center gap-3 bg-black text-white py-5 font-bold uppercase tracking-wider hover:bg-black/80 transition-colors"
+            >
+              <ShoppingBag size={20} weight="bold" />
+              Shop Now
+            </Link>
+            <Link
+              href="/wishlist"
+              className="flex items-center justify-center gap-3 border-2 border-black text-black py-5 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+            >
+              <Heart size={20} weight="bold" />
+              Wishlist
+            </Link>
+            <Link
+              href="/profile/avatar"
+              className="flex items-center justify-center gap-3 border-2 border-black text-black py-5 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+            >
+              <User size={20} weight="bold" />
+              Create Avatar
+            </Link>
+            <Link
+              href="/collections"
+              className="flex items-center justify-center gap-3 border-2 border-black text-black py-5 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+            >
+              <Star size={20} weight="bold" />
+              Collections
+            </Link>
+          </motion.div>
+        </div>
+      </section>
     </div>
   )
 }

@@ -4,9 +4,17 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { CircleNotch, ArrowLeft, Heart, Lock, ArrowRight, CheckCircle, XCircle } from '@phosphor-icons/react'
+import { 
+  CircleNotch, 
+  Lock, 
+  ArrowRight, 
+  CheckCircle, 
+  XCircle, 
+  Eye, 
+  EyeSlash,
+  Check
+} from '@phosphor-icons/react'
 import { Navigation } from '@/components/layout/Navigation'
-import { PasswordStrength } from '@/components/auth/PasswordStrength'
 
 function ResetPasswordContent() {
   const searchParams = useSearchParams()
@@ -20,6 +28,19 @@ function ResetPasswordContent() {
   const [tokenEmail, setTokenEmail] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
+  // Password requirements
+  const passwordRequirements = {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /[0-9]/.test(password),
+  }
+
+  const isPasswordValid = Object.values(passwordRequirements).every(Boolean)
+  const doPasswordsMatch = password === confirmPassword && confirmPassword.length > 0
 
   useEffect(() => {
     if (!token) {
@@ -57,28 +78,13 @@ function ResetPasswordContent() {
     e.preventDefault()
     setError('')
 
-    // Validate passwords match
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       return
     }
 
-    // Validate password requirements
-    const passwordChecks = {
-      length: password.length >= 8,
-      uppercase: /[A-Z]/.test(password),
-      lowercase: /[a-z]/.test(password),
-      number: /[0-9]/.test(password),
-    }
-
-    const unmetRequirements = []
-    if (!passwordChecks.length) unmetRequirements.push('at least 8 characters')
-    if (!passwordChecks.uppercase) unmetRequirements.push('an uppercase letter')
-    if (!passwordChecks.lowercase) unmetRequirements.push('a lowercase letter')
-    if (!passwordChecks.number) unmetRequirements.push('a number')
-
-    if (unmetRequirements.length > 0) {
-      setError(`Password must contain ${unmetRequirements.join(', ')}`)
+    if (!isPasswordValid) {
+      setError('Please ensure your password meets all requirements')
       return
     }
 
@@ -108,87 +114,45 @@ function ResetPasswordContent() {
   return (
     <>
       <Navigation />
-      <div className="min-h-screen bg-[#FAF8F5]">
-        {/* Hero Header */}
-        <section className="relative bg-black pt-40 pb-16 -mt-24">
-          <div 
-            className="absolute inset-0 opacity-[0.03] pointer-events-none"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-            }}
-          />
-          
-          <motion.div 
-            className="absolute top-28 left-8 w-16 h-16 border-l border-t border-white/10"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1, delay: 0.3 }}
-          />
-          <motion.div 
-            className="absolute top-28 right-8 w-16 h-16 border-r border-t border-white/10"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1, delay: 0.4 }}
-          />
-
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="text-center"
-            >
-              <Link
-                href="/signin"
-                className="inline-flex items-center gap-2 text-white/60 hover:text-white transition-colors text-sm font-medium mb-8"
-              >
-                <ArrowLeft size={16} weight="bold" />
-                Back to sign in
-              </Link>
-              
-              <div className="flex items-center justify-center gap-4 mb-4">
-                <div className="w-16 h-16 bg-white flex items-center justify-center">
-                  <Heart size={32} weight="fill" className="text-black" />
-                </div>
-              </div>
-              
-              <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-3">
-                Create New Password
-              </h1>
-              <p className="text-white/60 text-lg max-w-md mx-auto">
-                Enter your new password below
-              </p>
-            </motion.div>
-          </div>
-          
-          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#FAF8F5] to-transparent pointer-events-none" />
-        </section>
-
-        {/* Form Section */}
-        <div className="max-w-md mx-auto px-4 -mt-8 pb-16">
+      <div className="min-h-screen bg-[#FAF8F5] pt-28 pb-16">
+        <div className="max-w-md mx-auto px-4">
+          {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+            className="text-center mb-8"
+          >
+            <h1 className="text-3xl font-black text-black tracking-tight mb-2">
+              {success ? 'Password Reset!' : validatingToken ? 'Validating...' : !tokenValid ? 'Invalid Link' : 'Create New Password'}
+            </h1>
+            <p className="text-black/60">
+              {success 
+                ? 'You can now sign in with your new password' 
+                : validatingToken 
+                  ? 'Please wait while we verify your reset link'
+                  : !tokenValid 
+                    ? 'This link is invalid or has expired'
+                    : 'Enter your new password below'
+              }
+            </p>
+          </motion.div>
+
+          {/* Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
             className="bg-white border border-black/10 p-8"
           >
             {validatingToken ? (
-              <div className="text-center">
-                <div className="w-20 h-20 mx-auto mb-6 bg-black/5 rounded-full flex items-center justify-center">
-                  <CircleNotch size={40} weight="bold" className="text-black animate-spin" />
-                </div>
-                <h2 className="text-xl font-bold text-black mb-2">Validating link...</h2>
-                <p className="text-black/60">Please wait while we verify your reset link.</p>
+              <div className="text-center py-8">
+                <CircleNotch size={40} weight="bold" className="text-black animate-spin mx-auto" />
               </div>
             ) : success ? (
-              <div className="text-center">
-                <div className="w-20 h-20 mx-auto mb-6 bg-green-100 rounded-full flex items-center justify-center">
-                  <CheckCircle size={40} weight="fill" className="text-green-600" />
+              <div className="text-center py-4">
+                <div className="w-16 h-16 mx-auto mb-6 bg-emerald-100 rounded-full flex items-center justify-center">
+                  <CheckCircle size={32} weight="fill" className="text-emerald-600" />
                 </div>
-                <h2 className="text-xl font-bold text-black mb-2">Password Reset!</h2>
-                <p className="text-black/60 mb-8">
-                  Your password has been successfully reset. You can now sign in with your new password.
-                </p>
                 <Link
                   href="/signin"
                   className="inline-flex items-center gap-2 bg-black text-white px-8 py-4 font-bold text-sm uppercase tracking-wider hover:bg-black/80 transition-all"
@@ -198,12 +162,11 @@ function ResetPasswordContent() {
                 </Link>
               </div>
             ) : !tokenValid ? (
-              <div className="text-center">
-                <div className="w-20 h-20 mx-auto mb-6 bg-red-100 rounded-full flex items-center justify-center">
-                  <XCircle size={40} weight="fill" className="text-red-600" />
+              <div className="text-center py-4">
+                <div className="w-16 h-16 mx-auto mb-6 bg-red-100 rounded-full flex items-center justify-center">
+                  <XCircle size={32} weight="fill" className="text-red-600" />
                 </div>
-                <h2 className="text-xl font-bold text-black mb-2">Invalid Reset Link</h2>
-                <p className="text-black/60 mb-8">{error}</p>
+                <p className="text-black/60 mb-6 text-sm">{error}</p>
                 <Link
                   href="/forgot-password"
                   className="inline-flex items-center gap-2 bg-black text-white px-8 py-4 font-bold text-sm uppercase tracking-wider hover:bg-black/80 transition-all"
@@ -215,10 +178,8 @@ function ResetPasswordContent() {
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
                 {tokenEmail && (
-                  <div className="p-4 bg-black/5 border border-black/10 mb-6">
-                    <p className="text-sm text-black/70">
-                      Resetting password for: <strong>{tokenEmail}</strong>
-                    </p>
+                  <div className="p-3 bg-black/5 border border-black/10 text-sm text-black/70">
+                    Resetting password for: <strong className="text-black">{tokenEmail}</strong>
                   </div>
                 )}
 
@@ -226,9 +187,9 @@ function ResetPasswordContent() {
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="p-4 bg-red-50 border border-red-200"
+                    className="p-3 bg-red-50 border border-red-200 text-sm text-red-600 font-medium"
                   >
-                    <p className="text-sm text-red-600 font-medium">{error}</p>
+                    {error}
                   </motion.div>
                 )}
 
@@ -237,80 +198,119 @@ function ResetPasswordContent() {
                     New Password
                   </label>
                   <div className="relative">
-                    <Lock size={20} weight="bold" className="absolute left-4 top-1/2 -translate-y-1/2 text-black/30" />
+                    <Lock size={18} weight="bold" className="absolute left-4 top-1/2 -translate-y-1/2 text-black/30" />
                     <input
                       id="password"
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-12 pr-4 py-4 border border-black/10 focus:outline-none focus:border-black bg-[#FAF8F5] text-black font-medium transition-colors"
-                      placeholder="••••••••"
+                      className="w-full pl-11 pr-11 py-3 border border-black/10 focus:outline-none focus:border-black bg-[#FAF8F5] text-black font-medium transition-colors"
+                      placeholder="Enter new password"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-black/40 hover:text-black transition-colors"
+                    >
+                      {showPassword ? <EyeSlash size={18} weight="bold" /> : <Eye size={18} weight="bold" />}
+                    </button>
                   </div>
                   
+                  {/* Password Requirements */}
                   {password && (
-                    <div className="mt-4">
-                      <PasswordStrength password={password} showRequirements={true} />
+                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+                      {[
+                        { key: 'length', label: '8+ chars' },
+                        { key: 'uppercase', label: 'Uppercase' },
+                        { key: 'lowercase', label: 'Lowercase' },
+                        { key: 'number', label: 'Number' },
+                      ].map(({ key, label }) => (
+                        <span 
+                          key={key}
+                          className={`flex items-center gap-1 text-xs ${
+                            passwordRequirements[key as keyof typeof passwordRequirements] 
+                              ? 'text-emerald-600' 
+                              : 'text-black/40'
+                          }`}
+                        >
+                          <Check size={12} weight="bold" />
+                          {label}
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>
 
                 <div>
                   <label htmlFor="confirm-password" className="block text-xs font-bold text-black/70 uppercase tracking-wider mb-2">
-                    Confirm New Password
+                    Confirm Password
                   </label>
                   <div className="relative">
-                    <Lock size={20} weight="bold" className="absolute left-4 top-1/2 -translate-y-1/2 text-black/30" />
+                    <Lock size={18} weight="bold" className="absolute left-4 top-1/2 -translate-y-1/2 text-black/30" />
                     <input
                       id="confirm-password"
-                      type="password"
+                      type={showConfirmPassword ? 'text' : 'password'}
                       required
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full pl-12 pr-4 py-4 border border-black/10 focus:outline-none focus:border-black bg-[#FAF8F5] text-black font-medium transition-colors"
-                      placeholder="••••••••"
+                      className={`w-full pl-11 pr-11 py-3 border focus:outline-none bg-[#FAF8F5] text-black font-medium transition-colors ${
+                        confirmPassword && !doPasswordsMatch 
+                          ? 'border-red-300 focus:border-red-500' 
+                          : confirmPassword && doPasswordsMatch 
+                            ? 'border-emerald-300 focus:border-emerald-500'
+                            : 'border-black/10 focus:border-black'
+                      }`}
+                      placeholder="Confirm password"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-black/40 hover:text-black transition-colors"
+                    >
+                      {showConfirmPassword ? <EyeSlash size={18} weight="bold" /> : <Eye size={18} weight="bold" />}
+                    </button>
                   </div>
-                  {confirmPassword && password !== confirmPassword && (
-                    <p className="mt-2 text-sm text-red-600">Passwords do not match</p>
+                  {confirmPassword && (
+                    <p className={`mt-2 text-xs flex items-center gap-1 ${doPasswordsMatch ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {doPasswordsMatch ? <CheckCircle size={12} weight="fill" /> : <XCircle size={12} weight="fill" />}
+                      {doPasswordsMatch ? 'Passwords match' : 'Passwords do not match'}
+                    </p>
                   )}
                 </div>
 
                 <motion.button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !isPasswordValid || !doPasswordsMatch}
                   whileHover={{ scale: loading ? 1 : 1.01 }}
                   whileTap={{ scale: loading ? 1 : 0.99 }}
-                  className="w-full bg-black text-white py-4 font-bold text-sm uppercase tracking-wider hover:bg-black/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                  className="w-full bg-black text-white py-4 font-bold text-sm uppercase tracking-wider hover:bg-black/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {loading ? (
-                    <CircleNotch size={20} weight="bold" className="animate-spin" />
-                  ) : (
-                    <Lock size={20} weight="bold" />
-                  )}
+                    <CircleNotch size={18} weight="bold" className="animate-spin" />
+                  ) : null}
                   {loading ? 'Resetting...' : 'Reset Password'}
-                  {!loading && <ArrowRight size={16} weight="bold" />}
                 </motion.button>
               </form>
             )}
           </motion.div>
 
-          {/* Footer */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="mt-8 text-center"
-          >
-            <Link
-              href="/signin"
-              className="inline-flex items-center gap-2 text-sm text-black/50 hover:text-black transition-colors font-medium"
+          {/* Footer link */}
+          {!success && !validatingToken && tokenValid && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="text-center mt-6"
             >
-              <ArrowLeft size={16} weight="bold" />
-              Back to sign in
-            </Link>
-          </motion.div>
+              <Link
+                href="/signin"
+                className="text-sm text-black/50 hover:text-black transition-colors"
+              >
+                Remember your password? <span className="font-bold text-black">Sign in</span>
+              </Link>
+            </motion.div>
+          )}
         </div>
       </div>
     </>
@@ -321,9 +321,7 @@ export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center">
-        <div className="w-20 h-20 bg-black flex items-center justify-center">
-          <CircleNotch size={32} weight="bold" className="animate-spin text-white" />
-        </div>
+        <CircleNotch size={32} weight="bold" className="animate-spin text-black" />
       </div>
     }>
       <ResetPasswordContent />

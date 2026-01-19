@@ -1,5 +1,6 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+
+import { useState, useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Product } from '@/lib/api/products'
@@ -17,14 +18,11 @@ function isLightColor(hexColor: string): boolean {
 
 interface ProductCardProps {
   product: Product
-  badge?: string // optional top-left badge text (e.g. "#1 Seller")
+  badge?: string
 }
 
 export function ProductCard({ product, badge }: ProductCardProps) {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0)
-  const [isTransitioning, setIsTransitioning] = useState(false)
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
-  const [isHoveringCard, setIsHoveringCard] = useState(false)
 
   // Get unique colors with their variants (one per color)
   const colorVariants = useMemo(() => {
@@ -54,48 +52,23 @@ export function ProductCard({ product, badge }: ProductCardProps) {
     return []
   }
 
-  // Get images based on selected color variant or fall back to product images
-  const images = useMemo(() => {
-    // If a color is selected, use that variant's images
+  // Get the current image based on selected color
+  const currentImage = useMemo(() => {
+    // If a color is selected, use that variant's first image
     if (selectedColor) {
       const variant = colorVariants.find(v => v.color === selectedColor)
       if (variant?.images) {
         const variantImages = parseImages(variant.images)
-        if (variantImages.length > 0) return variantImages
+        if (variantImages.length > 0) return variantImages[0]
       }
     }
     
-    // Fall back to product images
+    // Fall back to first product image
     const productImages = parseImages(product.images)
-    if (productImages.length > 0) return productImages
+    if (productImages.length > 0) return productImages[0]
     
-    return ['/placeholder-product.jpg']
+    return '/placeholder-product.jpg'
   }, [selectedColor, colorVariants, product.images])
-
-  // Handle color selection and reset image index
-  const handleColorSelect = (color: string | null) => {
-    if (color !== selectedColor) {
-      setCurrentImageIndex(0)
-      setSelectedColor(color)
-    }
-  }
-
-  // Cycle through images every 3.5 seconds if there are multiple and hovering card
-  useEffect(() => {
-    if (images.length <= 1 || !isHoveringCard) return
-
-    const interval = setInterval(() => {
-      setIsTransitioning(true)
-      setTimeout(() => {
-        setCurrentImageIndex((prev) => (prev + 1) % images.length)
-        setIsTransitioning(false)
-      }, 300) // Fade out duration
-    }, 3500) // Change image every 3.5 seconds
-
-    return () => clearInterval(interval)
-  }, [images.length, isHoveringCard])
-
-  const currentImage = images[currentImageIndex] || '/placeholder-product.jpg'
 
   // Check if on sale
   const onSale = product.compareAtPrice && product.compareAtPrice > product.price
@@ -105,83 +78,69 @@ export function ProductCard({ product, badge }: ProductCardProps) {
   const inStock = totalStock > 0
 
   return (
-    <div 
-      className="group relative"
-      onMouseEnter={() => setIsHoveringCard(true)}
-      onMouseLeave={() => setIsHoveringCard(false)}
-    >
+    <div className="group relative">
       <Link href={`/products/${product.slug}`} className="block">
-        {/* Card Container - mirror BestSellers style */}
-        <div className="group relative bg-white border border-black/10 overflow-hidden transition-all duration-300 h-full flex flex-col hover:border-black/30 active:scale-[0.98]">
-          {/* Image Container - taller on mobile for better visuals */}
-          <div className="relative h-64 sm:h-80 overflow-hidden bg-black/2">
+        <div className="bg-white border border-black/10 overflow-hidden transition-all duration-300 h-full flex flex-col hover:border-black/30 active:scale-[0.98]">
+          {/* Image Container */}
+          <div className="relative aspect-square overflow-hidden bg-black/2">
             <Image
               src={currentImage}
               alt={product.name}
               fill
-              className={`object-cover transition-all duration-500 group-hover:scale-105 ${
-                isTransitioning ? 'opacity-0' : 'opacity-100'
-              }`}
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
               sizes="(max-width: 640px) 50vw, (max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
             />
 
-            {/* Image indicators - only show if multiple images */}
-            {images.length > 1 && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-                {images.map((_, idx) => (
-                  <div
-                    key={idx}
-                    className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                      idx === currentImageIndex 
-                        ? 'bg-black w-4' 
-                        : 'bg-black/30'
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
-
             {/* Badges - Top Left */}
-            <div className="absolute top-4 left-4 z-10 flex gap-2">
+            <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
               {badge && (
-                <span className="px-3 py-1 bg-black text-white text-xs font-black rounded-none uppercase tracking-widest">
+                <span className="px-3 py-1 bg-black text-white text-xs font-black uppercase tracking-widest">
                   {badge}
                 </span>
               )}
-              {product.category && (
-                <span className="px-3 py-1 bg-black/5 text-black/70 text-xs font-bold rounded-none uppercase border border-black/10">
-                  {product.category.name}
-                </span>
-              )}
               {onSale && (
-                <span className="px-3 py-1 bg-black text-white text-xs font-bold rounded-none uppercase tracking-widest">
+                <span className="px-3 py-1 bg-black text-white text-xs font-bold uppercase tracking-widest">
                   Sale
                 </span>
               )}
               {!inStock && (
-                <span className="px-3 py-1 bg-black text-white text-xs font-bold rounded-none uppercase tracking-widest">
+                <span className="px-3 py-1 bg-black text-white text-xs font-bold uppercase tracking-widest">
                   Sold Out
                 </span>
               )}
             </div>
+
+            {/* Category Badge - Top Right */}
+            {product.category && (
+              <div className="absolute top-4 right-4 z-10">
+                <span className="px-3 py-1 bg-white/90 backdrop-blur-sm text-black/70 text-xs font-bold uppercase border border-black/10">
+                  {product.category.name}
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Content - follow BestSellers ordering: title, short description, price */}
-          <div className="p-4 sm:p-6 flex-1 flex flex-col">
-            <h3 className="text-base sm:text-lg md:text-xl font-black text-black mb-2 sm:mb-3 line-clamp-2">
+          {/* Content */}
+          <div className="p-4 sm:p-5 flex-1 flex flex-col">
+            {/* Title */}
+            <h3 className="text-base sm:text-lg font-black text-black mb-2 line-clamp-2 tracking-tight">
               {product.name}
             </h3>
 
+            {/* Description - Hidden on mobile */}
             {product.description && (
-              <p className="text-xs sm:text-sm text-black/60 mb-3 sm:mb-4 line-clamp-2 flex-1 font-medium hidden sm:block">
+              <p className="text-sm text-black/60 mb-3 line-clamp-2 flex-1 font-medium hidden sm:block">
                 {product.description}
               </p>
             )}
 
-            {/* Color Swatches - show available colors */}
+            {/* Color Swatches */}
             {colorVariants.length > 1 && (
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {colorVariants.slice(0, 5).map((variant) => {
+              <div 
+                className="flex flex-wrap gap-2 mb-4"
+                onClick={(e) => e.preventDefault()}
+              >
+                {colorVariants.slice(0, 6).map((variant) => {
                   const isSelected = selectedColor === variant.color
                   return (
                     <button
@@ -189,59 +148,56 @@ export function ProductCard({ product, badge }: ProductCardProps) {
                       onClick={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
-                        handleColorSelect(isSelected ? null : variant.color || null)
-                      }}
-                      onMouseEnter={(e) => {
-                        e.preventDefault()
-                        handleColorSelect(variant.color || null)
-                      }}
-                      onMouseLeave={(e) => {
-                        e.preventDefault()
-                        if (!isSelected) handleColorSelect(null)
+                        setSelectedColor(isSelected ? null : variant.color || null)
                       }}
                       title={variant.color || undefined}
                       className={`
-                        relative w-6 h-6 rounded-full border transition-all
+                        relative w-7 h-7 border-2 transition-all
                         ${isSelected 
-                          ? 'border-black scale-110 ring-1 ring-black ring-offset-1' 
-                          : 'border-black/20 hover:border-black/40 hover:scale-105'
+                          ? 'border-black scale-110 ring-2 ring-black ring-offset-2' 
+                          : 'border-black/20 hover:border-black/50 hover:scale-105'
                         }
                       `}
                       style={{ backgroundColor: variant.colorHex || '#ccc' }}
                     >
                       {isSelected && variant.colorHex && (
                         <span className="absolute inset-0 flex items-center justify-center">
-                          <Check className="w-3 h-3" style={{ 
-                            color: isLightColor(variant.colorHex) ? '#000' : '#FFF'
-                          }} />
+                          <Check 
+                            className="w-3.5 h-3.5" 
+                            weight="bold"
+                            style={{ color: isLightColor(variant.colorHex) ? '#000' : '#FFF' }} 
+                          />
                         </span>
                       )}
                     </button>
                   )
                 })}
-                {colorVariants.length > 5 && (
-                  <span className="text-xs text-black/50 self-center ml-1">
-                    +{colorVariants.length - 5}
+                {colorVariants.length > 6 && (
+                  <span className="text-xs text-black/50 self-center ml-1 font-medium">
+                    +{colorVariants.length - 6}
                   </span>
                 )}
               </div>
             )}
 
-            {/* Price Section */}
-            <div className="flex items-baseline gap-2 sm:gap-3 mb-3 sm:mb-5">
-              <span className="text-lg sm:text-2xl font-black text-black">
+            {/* Price */}
+            <div className="flex items-baseline gap-3 mb-4">
+              <span className="text-xl sm:text-2xl font-black text-black">
                 ${product.price.toFixed(2)}
               </span>
               {product.compareAtPrice && product.compareAtPrice > product.price && (
-                <span className="text-xs sm:text-sm text-black/40 line-through font-semibold">
+                <span className="text-sm text-black/40 line-through font-semibold">
                   ${product.compareAtPrice.toFixed(2)}
                 </span>
               )}
             </div>
 
-            {/* Small CTA row to match BestSellers */}
-            <div className="inline-flex items-center gap-1.5 text-black font-bold text-xs uppercase tracking-widest group-hover:gap-3 transition-all">
-              <span>View</span>
+            {/* CTA */}
+            <div className="mt-auto">
+              <span className="inline-flex items-center gap-2 text-black font-bold text-xs uppercase tracking-widest group-hover:gap-3 transition-all">
+                View Product
+                <span className="transition-transform group-hover:translate-x-1">→</span>
+              </span>
             </div>
           </div>
         </div>

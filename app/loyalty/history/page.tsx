@@ -1,64 +1,121 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useAuth } from '@/lib/auth/context'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Calendar, Gift, Check, X, Clock, ArrowLeft, CircleNotch } from '@phosphor-icons/react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { 
+  Calendar, 
+  Gift, 
+  Check, 
+  X, 
+  Clock, 
+  ShoppingBag,
+  Star,
+  Users,
+  Sparkle,
+  ArrowUp,
+  ArrowDown,
+  Wallet,
+  TrendUp,
+  CaretDown,
+  FunnelSimple
+} from '@phosphor-icons/react'
+import { Navigation } from '@/components/layout/Navigation'
 
-type RedemptionStatus = 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED'
+type TransactionType = 'PURCHASE' | 'REDEMPTION' | 'REFERRAL' | 'BONUS' | 'WELCOME' | 'BIRTHDAY' | 'EXPIRED' | 'ADJUSTMENT'
 
-interface Redemption {
+interface Transaction {
   id: string
-  rewardName: string
-  rewardType: string
-  pointsSpent: number
-  status: RedemptionStatus
-  couponCode: string | null
-  usedAt: string | null
+  points: number
+  type: TransactionType
+  description: string
+  orderNumber: string | null
+  rewardName: string | null
+  expiresAt: string | null
+  isExpired: boolean
   createdAt: string
 }
 
-const STATUS_CONFIG: Record<string, { label: string; icon: typeof Clock; color: string; bg: string }> = {
-  PENDING: {
-    label: 'Pending',
-    icon: Clock,
+interface TransactionSummary {
+  totalEarned: number
+  totalSpent: number
+  byType: Array<{
+    type: string
+    total: number
+    count: number
+  }>
+}
+
+const TYPE_CONFIG: Record<TransactionType, { label: string; icon: typeof Star; color: string; bgColor: string }> = {
+  PURCHASE: {
+    label: 'Purchase',
+    icon: ShoppingBag,
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-50',
+  },
+  REDEMPTION: {
+    label: 'Redeemed',
+    icon: Gift,
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-50',
+  },
+  REFERRAL: {
+    label: 'Referral',
+    icon: Users,
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50',
+  },
+  BONUS: {
+    label: 'Bonus',
+    icon: Sparkle,
     color: 'text-amber-600',
-    bg: 'bg-amber-100',
+    bgColor: 'bg-amber-50',
   },
-  COMPLETED: {
-    label: 'Completed',
-    icon: Check,
-    color: 'text-green-600',
-    bg: 'bg-green-100',
+  WELCOME: {
+    label: 'Welcome',
+    icon: Star,
+    color: 'text-pink-600',
+    bgColor: 'bg-pink-50',
   },
-  CANCELLED: {
-    label: 'Cancelled',
-    icon: X,
-    color: 'text-red-600',
-    bg: 'bg-red-100',
+  BIRTHDAY: {
+    label: 'Birthday',
+    icon: Gift,
+    color: 'text-rose-600',
+    bgColor: 'bg-rose-50',
   },
   EXPIRED: {
     label: 'Expired',
-    icon: X,
-    color: 'text-black/60',
-    bg: 'bg-black/5',
+    icon: Clock,
+    color: 'text-gray-500',
+    bgColor: 'bg-gray-100',
+  },
+  ADJUSTMENT: {
+    label: 'Adjustment',
+    icon: TrendUp,
+    color: 'text-slate-600',
+    bgColor: 'bg-slate-50',
   },
 }
 
-// Default status config for unknown statuses
-const DEFAULT_STATUS_CONFIG = {
-  label: 'Unknown',
-  icon: Clock,
+const DEFAULT_TYPE_CONFIG = {
+  label: 'Points',
+  icon: Star,
   color: 'text-black/60',
-  bg: 'bg-black/5',
+  bgColor: 'bg-black/5',
 }
 
-export default function RedemptionHistory() {
+type FilterType = 'all' | 'earned' | 'spent'
+
+export default function PointsHistoryPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [redemptions, setRedemptions] = useState<Redemption[]>([])
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [summary, setSummary] = useState<TransactionSummary | null>(null)
+  const [filter, setFilter] = useState<FilterType>('all')
+  const [showFilterMenu, setShowFilterMenu] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -67,156 +124,374 @@ export default function RedemptionHistory() {
     }
 
     if (user) {
-      fetchRedemptions()
+      fetchTransactions()
     }
   }, [user, authLoading, router])
 
-  async function fetchRedemptions() {
+  async function fetchTransactions() {
     try {
-      const response = await fetch('/api/loyalty/redemptions')
+      const response = await fetch('/api/loyalty/transactions?limit=100')
       if (response.ok) {
         const result = await response.json()
-        // Handle paginated response structure
-        setRedemptions(result.data || [])
+        setTransactions(result.data || [])
+        setSummary(result.summary || null)
       }
     } catch (error) {
-      console.error('Failed to fetch redemptions:', error)
+      console.error('Failed to fetch transactions:', error)
     } finally {
       setLoading(false)
     }
   }
 
+  // Filter transactions based on selection
+  const filteredTransactions = useMemo(() => {
+    if (filter === 'all') return transactions
+    if (filter === 'earned') return transactions.filter(t => t.points > 0)
+    if (filter === 'spent') return transactions.filter(t => t.points < 0)
+    return transactions
+  }, [transactions, filter])
+
+  // Calculate running balance (from oldest to newest, then reverse for display)
+  const transactionsWithBalance = useMemo(() => {
+    // Sort by date ascending (oldest first) to calculate running balance
+    const sorted = [...filteredTransactions].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    )
+    
+    let runningBalance = 0
+    const withBalance = sorted.map(tx => {
+      runningBalance += tx.points
+      return {
+        ...tx,
+        balanceAfter: runningBalance,
+      }
+    })
+    
+    // Reverse to show newest first
+    return withBalance.reverse()
+  }, [filteredTransactions])
+
+  // Group transactions by month
+  const groupedTransactions = useMemo(() => {
+    const groups: Record<string, typeof transactionsWithBalance> = {}
+    
+    transactionsWithBalance.forEach(tx => {
+      const date = new Date(tx.createdAt)
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      const label = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+      
+      if (!groups[key]) {
+        groups[key] = []
+      }
+      groups[key].push({ ...tx, monthLabel: label })
+    })
+    
+    return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]))
+  }, [transactionsWithBalance])
+
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <CircleNotch size={32} weight="bold" className="animate-spin text-black" />
-      </div>
+      <>
+        <Navigation />
+        <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 bg-black flex items-center justify-center">
+              <Wallet size={28} weight="fill" className="text-white" />
+            </div>
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="absolute -inset-2 border-2 border-black/10 border-t-black"
+            />
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/40">Loading History</p>
+        </div>
+      </>
     )
   }
 
-  return (
-    <div className="min-h-screen bg-white pt-24 pb-16">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Back Button */}
-        <Link
-          href="/profile"
-          className="inline-flex items-center gap-2 text-black/60 hover:text-black transition-colors mb-6 group"
-        >
-          <ArrowLeft size={20} weight="bold" className="group-hover:-translate-x-1 transition-transform" />
-          <span className="font-medium">Back to Profile</span>
-        </Link>
+  const currentBalance = user?.currentPoints || 0
 
+  return (
+    <>
+      <Navigation />
+      <div className="min-h-screen bg-[#FAF8F5]">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-black flex items-center justify-center">
-              <Calendar size={24} weight="fill" className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-black text-black">Redemption History</h1>
-              <p className="text-black/60">View all your past reward redemptions</p>
-            </div>
+        <div className="bg-black pt-28 pb-12">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center"
+            >
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-white mb-6">
+                <Wallet size={32} weight="fill" className="text-black" />
+              </div>
+              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">
+                Points History
+              </h1>
+              <p className="text-white/60">Track your Care Points journey</p>
+            </motion.div>
           </div>
         </div>
 
-        {redemptions.length === 0 ? (
-          <div className="bg-white border border-black/10 p-12 text-center">
-            <Gift size={64} weight="bold" className="text-black/30 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-black mb-2">No Redemptions Yet</h3>
-            <p className="text-black/60 mb-6">
-              You haven&apos;t redeemed any rewards yet. Start shopping to earn points!
-            </p>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 pb-16">
+          {/* Stats Cards */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8"
+          >
+            {/* Current Balance */}
+            <div className="bg-white border border-black/10 p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-black flex items-center justify-center">
+                  <Wallet size={20} weight="fill" className="text-white" />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-black/40">Current Balance</span>
+              </div>
+              <p className="text-3xl font-black text-black">{currentBalance.toLocaleString()}</p>
+              <p className="text-xs text-black/50 mt-1">Care Points</p>
+            </div>
+
+            {/* Total Earned */}
+            <div className="bg-white border border-black/10 p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-emerald-50 flex items-center justify-center">
+                  <TrendUp size={20} weight="bold" className="text-emerald-600" />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-black/40">Total Earned</span>
+              </div>
+              <p className="text-3xl font-black text-emerald-600">+{(summary?.totalEarned || 0).toLocaleString()}</p>
+              <p className="text-xs text-black/50 mt-1">Lifetime points</p>
+            </div>
+
+            {/* Total Spent */}
+            <div className="bg-white border border-black/10 p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-purple-50 flex items-center justify-center">
+                  <Gift size={20} weight="bold" className="text-purple-600" />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-black/40">Total Redeemed</span>
+              </div>
+              <p className="text-3xl font-black text-purple-600">{(summary?.totalSpent || 0).toLocaleString()}</p>
+              <p className="text-xs text-black/50 mt-1">Points used</p>
+            </div>
+          </motion.div>
+
+          {/* Filter Bar */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white border border-black/10 p-4 mb-6 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <Calendar size={18} weight="bold" className="text-black/40" />
+              <span className="text-sm font-medium text-black/60">
+                {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {/* Filter Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowFilterMenu(!showFilterMenu)}
+                className="flex items-center gap-2 px-4 py-2 bg-black/5 hover:bg-black/10 transition-colors"
+              >
+                <FunnelSimple size={16} weight="bold" className="text-black/60" />
+                <span className="text-sm font-medium text-black">
+                  {filter === 'all' ? 'All Transactions' : filter === 'earned' ? 'Points Earned' : 'Points Spent'}
+                </span>
+                <CaretDown size={14} weight="bold" className={`text-black/40 transition-transform ${showFilterMenu ? 'rotate-180' : ''}`} />
+              </button>
+
+              <AnimatePresence>
+                {showFilterMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute right-0 top-full mt-2 bg-white border border-black/10 shadow-lg z-10 min-w-[180px]"
+                  >
+                    {[
+                      { value: 'all', label: 'All Transactions' },
+                      { value: 'earned', label: 'Points Earned' },
+                      { value: 'spent', label: 'Points Spent' },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => {
+                          setFilter(option.value as FilterType)
+                          setShowFilterMenu(false)
+                        }}
+                        className={`w-full text-left px-4 py-3 text-sm font-medium hover:bg-black/5 transition-colors flex items-center justify-between ${
+                          filter === option.value ? 'bg-black/5 text-black' : 'text-black/70'
+                        }`}
+                      >
+                        {option.label}
+                        {filter === option.value && <Check size={16} weight="bold" className="text-black" />}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+
+          {/* Transactions List */}
+          {filteredTransactions.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-white border border-black/10 p-12 text-center"
+            >
+              <div className="w-20 h-20 bg-black/5 flex items-center justify-center mx-auto mb-6">
+                <Calendar size={40} weight="bold" className="text-black/30" />
+              </div>
+              <h3 className="text-xl font-bold text-black mb-2">No Transactions Yet</h3>
+              <p className="text-black/60 mb-6">
+                Start shopping to earn Care Points and see your history here!
+              </p>
+              <Link
+                href="/products"
+                className="inline-block px-6 py-3 bg-black text-white font-semibold hover:bg-black/90 transition-colors"
+              >
+                Start Shopping
+              </Link>
+            </motion.div>
+          ) : (
+            <div className="space-y-8">
+              {groupedTransactions.map(([monthKey, monthTransactions], groupIndex) => (
+                <motion.div
+                  key={monthKey}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 + groupIndex * 0.1 }}
+                >
+                  {/* Month Header */}
+                  <div className="flex items-center gap-4 mb-4">
+                    <h2 className="text-sm font-black uppercase tracking-[0.15em] text-black/40">
+                      {(monthTransactions[0] as Transaction & { monthLabel: string }).monthLabel}
+                    </h2>
+                    <div className="flex-1 h-px bg-black/10" />
+                  </div>
+
+                  {/* Transactions */}
+                  <div className="bg-white border border-black/10 divide-y divide-black/5">
+                    {monthTransactions.map((tx, index) => {
+                      const typeConfig = TYPE_CONFIG[tx.type as TransactionType] || DEFAULT_TYPE_CONFIG
+                      const TypeIcon = typeConfig.icon
+                      const isPositive = tx.points > 0
+
+                      return (
+                        <motion.div
+                          key={tx.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.03 }}
+                          className="p-4 sm:p-5 hover:bg-black/[0.02] transition-colors"
+                        >
+                          <div className="flex items-center gap-4">
+                            {/* Icon */}
+                            <div className={`w-12 h-12 ${typeConfig.bgColor} flex items-center justify-center flex-shrink-0`}>
+                              <TypeIcon size={22} weight="bold" className={typeConfig.color} />
+                            </div>
+
+                            {/* Details */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                  <h3 className="font-bold text-black truncate">
+                                    {tx.description || typeConfig.label}
+                                  </h3>
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                                    <span className={`text-xs font-semibold ${typeConfig.color}`}>
+                                      {typeConfig.label}
+                                    </span>
+                                    <span className="text-xs text-black/40">
+                                      {new Date(tx.createdAt).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: 'numeric',
+                                        minute: '2-digit',
+                                      })}
+                                    </span>
+                                    {tx.orderNumber && (
+                                      <span className="text-xs text-black/40">
+                                        Order #{tx.orderNumber}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Points & Balance */}
+                                <div className="text-right flex-shrink-0">
+                                  <div className={`flex items-center gap-1 justify-end font-black text-lg ${
+                                    isPositive ? 'text-emerald-600' : 'text-black'
+                                  }`}>
+                                    {isPositive ? (
+                                      <ArrowUp size={16} weight="bold" />
+                                    ) : (
+                                      <ArrowDown size={16} weight="bold" />
+                                    )}
+                                    <span>{isPositive ? '+' : ''}{tx.points.toLocaleString()}</span>
+                                  </div>
+                                  <p className="text-xs text-black/40 mt-0.5">
+                                    Balance: <span className="font-semibold text-black/60">{tx.balanceAfter.toLocaleString()}</span>
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Expiration warning */}
+                              {tx.expiresAt && !tx.isExpired && (
+                                <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600">
+                                  <Clock size={12} weight="bold" />
+                                  <span>Expires {new Date(tx.expiresAt).toLocaleDateString()}</span>
+                                </div>
+                              )}
+                              {tx.isExpired && (
+                                <div className="mt-2 flex items-center gap-1.5 text-xs text-black/40">
+                                  <X size={12} weight="bold" />
+                                  <span>Expired</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {/* Bottom Actions */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="mt-12 flex flex-wrap justify-center gap-4"
+          >
             <Link
               href="/loyalty/rewards"
-              className="inline-block px-6 py-3 bg-black text-white font-semibold hover:bg-black/90 transition-colors"
+              className="px-6 py-3 bg-black text-white font-semibold hover:bg-black/90 transition-colors flex items-center gap-2"
             >
-              Browse Rewards
+              <Gift size={18} weight="bold" />
+              Redeem Rewards
             </Link>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {redemptions.map((redemption) => {
-              const statusConfig = STATUS_CONFIG[redemption.status] || DEFAULT_STATUS_CONFIG
-              const StatusIcon = statusConfig.icon
-
-              return (
-                <div
-                  key={redemption.id}
-                  className="bg-white border border-black/10 p-6 hover:border-black/20 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-4 flex-1">
-                      <div className="w-12 h-12 bg-black/5 flex items-center justify-center flex-shrink-0">
-                        <Gift size={24} weight="bold" className="text-black" />
-                      </div>
-                      
-                      <div className="flex-1">
-                        <h3 className="text-lg font-bold text-black mb-1">
-                          {redemption.rewardName}
-                        </h3>
-                        <p className="text-sm text-black/60 mb-2">
-                          {redemption.rewardType.replace('_', ' ')}
-                        </p>
-                        
-                        <div className="flex flex-wrap items-center gap-4 text-sm">
-                          <span className="text-black font-semibold">
-                            {redemption.pointsSpent.toLocaleString()} points
-                          </span>
-                          <span className="text-black/60">
-                            {new Date(redemption.createdAt).toLocaleDateString('en-US', {
-                              month: 'long',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}
-                          </span>
-                        </div>
-
-                        {redemption.couponCode && (
-                          <div className="mt-3 p-3 bg-black/5">
-                            <p className="text-xs text-black/60 mb-1">Coupon Code:</p>
-                            <code className="text-sm font-mono font-bold text-black">
-                              {redemption.couponCode}
-                            </code>
-                          </div>
-                        )}
-
-                        {redemption.usedAt && (
-                          <p className="text-xs text-black/60 mt-2">
-                            Used on {new Date(redemption.usedAt).toLocaleDateString()}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className={`px-3 py-1.5 ${statusConfig.bg} flex items-center gap-1.5 flex-shrink-0`}>
-                      <StatusIcon className={`w-4 h-4 ${statusConfig.color}`} />
-                      <span className={`text-xs font-semibold ${statusConfig.color}`}>
-                        {statusConfig.label}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Bottom Actions */}
-        <div className="mt-12 flex flex-wrap justify-center gap-4">
-          <Link
-            href="/loyalty/rewards"
-            className="px-6 py-3 bg-black text-white font-semibold hover:bg-black/90 transition-colors"
-          >
-            Browse More Rewards
-          </Link>
-          <Link
-            href="/loyalty/points"
-            className="px-6 py-3 bg-white border border-black/10 text-black font-semibold hover:bg-black/5 transition-colors"
-          >
-            View Points History
-          </Link>
+            <Link
+              href="/profile"
+              className="px-6 py-3 bg-white border border-black/10 text-black font-semibold hover:bg-black/5 transition-colors"
+            >
+              Back to Profile
+            </Link>
+          </motion.div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

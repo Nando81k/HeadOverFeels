@@ -8,10 +8,10 @@ export interface TierInfo {
 }
 
 export const TIER_HIERARCHY: TierInfo[] = [
-  { name: 'Head', slug: 'head', minAnnualPoints: 0, pointMultiplier: 1.0 },
-  { name: 'Heart', slug: 'heart', minAnnualPoints: 200, pointMultiplier: 1.25 },
-  { name: 'Mind', slug: 'mind', minAnnualPoints: 500, pointMultiplier: 1.5 },
-  { name: 'Overdrive', slug: 'overdrive', minAnnualPoints: 2000, pointMultiplier: 2.0 },
+  { name: 'Newcomer', slug: 'newcomer', minAnnualPoints: 0, pointMultiplier: 1.0 },
+  { name: 'Friend', slug: 'friend', minAnnualPoints: 1000, pointMultiplier: 1.25 },
+  { name: 'Bestie', slug: 'bestie', minAnnualPoints: 3000, pointMultiplier: 1.5 },
+  { name: 'Soulmate', slug: 'soulmate', minAnnualPoints: 7500, pointMultiplier: 2.0 },
 ]
 
 export interface TierProgress {
@@ -35,7 +35,7 @@ export function calculateTierProgress(
   
   // If tier not found, default to first tier
   if (!currentTier) {
-    return calculateTierProgress('head', safeAnnualPoints)
+    return calculateTierProgress('newcomer', safeAnnualPoints)
   }
   
   const nextTier = currentTierIndex < TIER_HIERARCHY.length - 1 
