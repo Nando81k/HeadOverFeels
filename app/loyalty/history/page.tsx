@@ -36,6 +36,8 @@ interface Transaction {
   expiresAt: string | null
   isExpired: boolean
   createdAt: string
+  balanceAfter?: number
+  monthLabel?: string
 }
 
 interface TransactionSummary {
