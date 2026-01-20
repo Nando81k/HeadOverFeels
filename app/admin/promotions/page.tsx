@@ -183,58 +183,58 @@ export default function PromotionsPage() {
       {loading ? (
         <StatsGridSkeleton count={4} />
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
           <Card>
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 flex items-center gap-1">
+            <CardHeader className="pb-1 md:pb-2 pt-3 md:pt-4 px-3 md:px-4">
+              <CardTitle className="text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 flex items-center gap-1">
                 <Tag size={12} />
                 Total
               </CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <div className="text-2xl font-bold text-white">{promotions.length}</div>
-              <p className="text-xs text-white/40">Promotions</p>
+            <CardContent className="px-3 md:px-4 pb-3 md:pb-4">
+              <div className="text-lg md:text-2xl font-bold text-white">{promotions.length}</div>
+              <p className="text-[10px] md:text-xs text-white/40">Promotions</p>
             </CardContent>
           </Card>
           
           <Card>
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Active</CardTitle>
+            <CardHeader className="pb-1 md:pb-2 pt-3 md:pt-4 px-3 md:px-4">
+              <CardTitle className="text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Active</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <div className="text-2xl font-bold text-emerald-400">{activeCount}</div>
-              <p className="text-xs text-white/40">Running</p>
+            <CardContent className="px-3 md:px-4 pb-3 md:pb-4">
+              <div className="text-lg md:text-2xl font-bold text-emerald-400">{activeCount}</div>
+              <p className="text-[10px] md:text-xs text-white/40">Running</p>
             </CardContent>
           </Card>
           
           <Card>
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Usage</CardTitle>
+            <CardHeader className="pb-1 md:pb-2 pt-3 md:pt-4 px-3 md:px-4">
+              <CardTitle className="text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Usage</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <div className="text-2xl font-bold text-blue-400">{totalUsage}</div>
-              <p className="text-xs text-white/40">Times used</p>
+            <CardContent className="px-3 md:px-4 pb-3 md:pb-4">
+              <div className="text-lg md:text-2xl font-bold text-blue-400">{totalUsage}</div>
+              <p className="text-[10px] md:text-xs text-white/40">Times used</p>
             </CardContent>
           </Card>
           
           <Card>
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Auto-Apply</CardTitle>
+            <CardHeader className="pb-1 md:pb-2 pt-3 md:pt-4 px-3 md:px-4">
+              <CardTitle className="text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Auto-Apply</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <div className="text-2xl font-bold text-purple-400">
+            <CardContent className="px-3 md:px-4 pb-3 md:pb-4">
+              <div className="text-lg md:text-2xl font-bold text-purple-400">
                 {promotions.filter(p => p.autoApply).length}
               </div>
-              <p className="text-xs text-white/40">Automatic</p>
+              <p className="text-[10px] md:text-xs text-white/40">Automatic</p>
             </CardContent>
           </Card>
         </div>
       )}
 
       {/* Search & Filters */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
+      <Card className="mb-4 md:mb-6">
+        <CardContent className="p-3 md:p-4">
+          <div className="flex flex-col md:flex-row gap-3 md:gap-4">
             {/* Search */}
             <form onSubmit={handleSearchSubmit} className="flex-1">
               <div className="relative">
@@ -274,13 +274,13 @@ export default function PromotionsPage() {
                 exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden"
               >
-                <div className="flex flex-wrap gap-4 pt-4 mt-4 border-t border-white/10">
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 mb-2">Type</label>
+                <div className="flex flex-wrap gap-3 md:gap-4 pt-3 md:pt-4 mt-3 md:mt-4 border-t border-white/10">
+                  <div className="flex-1 min-w-[140px] md:min-w-[150px]">
+                    <label className="block text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 mb-1.5 md:mb-2">Type</label>
                     <select
                       value={filterType}
                       onChange={(e) => setFilterType(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#FF3131]/50"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm md:text-base text-white focus:outline-none focus:border-[#FF3131]/50"
                     >
                       <option value="all">All Types</option>
                       <option value="PERCENTAGE">Percentage</option>
@@ -291,12 +291,12 @@ export default function PromotionsPage() {
                     </select>
                   </div>
                   
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 mb-2">Status</label>
+                  <div className="flex-1 min-w-[140px] md:min-w-[150px]">
+                    <label className="block text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 mb-1.5 md:mb-2">Status</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#FF3131]/50"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm md:text-base text-white focus:outline-none focus:border-[#FF3131]/50"
                     >
                       <option value="all">All Status</option>
                       <option value="active">Active</option>
@@ -343,13 +343,13 @@ export default function PromotionsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/10">
-                  <th className="text-left text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 p-4">Promotion</th>
-                  <th className="text-left text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 p-4">Type</th>
-                  <th className="text-left text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 p-4">Value</th>
-                  <th className="text-left text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 p-4">Code</th>
-                  <th className="text-left text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 p-4">Usage</th>
-                  <th className="text-left text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 p-4">Status</th>
-                  <th className="text-left text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 p-4">Actions</th>
+                  <th className="text-left text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 p-3 md:p-4">Promotion</th>
+                  <th className="text-left text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 p-3 md:p-4 hidden sm:table-cell">Type</th>
+                  <th className="text-left text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 p-3 md:p-4">Value</th>
+                  <th className="text-left text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 p-3 md:p-4 hidden md:table-cell">Code</th>
+                  <th className="text-left text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 p-3 md:p-4 hidden lg:table-cell">Usage</th>
+                  <th className="text-left text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 p-3 md:p-4">Status</th>
+                  <th className="text-left text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 p-3 md:p-4">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -366,73 +366,73 @@ export default function PromotionsPage() {
                         exit={{ opacity: 0 }}
                         className="border-b border-white/5 hover:bg-white/5 transition-colors"
                       >
-                        <td className="p-4">
-                          <p className="font-medium text-white">{promo.name}</p>
+                        <td className="p-3 md:p-4">
+                          <p className="font-medium text-white text-sm md:text-base">{promo.name}</p>
                           {promo.minimumPurchase && (
-                            <p className="text-xs text-white/40">Min: ${promo.minimumPurchase}</p>
+                            <p className="text-[10px] md:text-xs text-white/40">Min: ${promo.minimumPurchase}</p>
                           )}
                         </td>
-                        <td className="p-4">
+                        <td className="p-3 md:p-4 hidden sm:table-cell">
                           <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${typeConfig[promo.type].color}`}>
                             <TypeIcon size={14} />
-                            {typeConfig[promo.type].label}
+                            <span className="hidden lg:inline">{typeConfig[promo.type].label}</span>
                           </span>
                         </td>
-                        <td className="p-4">
-                          <span className="text-white font-medium">{formatValue(promo)}</span>
+                        <td className="p-3 md:p-4">
+                          <span className="text-white font-medium text-sm md:text-base">{formatValue(promo)}</span>
                         </td>
-                        <td className="p-4">
+                        <td className="p-3 md:p-4 hidden md:table-cell">
                           {promo.code ? (
                             <button
                               onClick={() => copyCode(promo.code!)}
-                              className="flex items-center gap-2 bg-white/5 px-2 py-1 rounded text-sm font-mono text-white/70 hover:bg-white/10 transition-colors group"
+                              className="flex items-center gap-2 bg-white/5 px-2 py-1 rounded text-xs md:text-sm font-mono text-white/70 hover:bg-white/10 transition-colors group"
                             >
                               {promo.code}
                               <Copy size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
                             </button>
                           ) : (
-                            <span className="text-xs text-white/30 italic">Auto-apply</span>
+                            <span className="text-[10px] md:text-xs text-white/30 italic">Auto-apply</span>
                           )}
                         </td>
-                        <td className="p-4">
-                          <span className="text-white">
+                        <td className="p-3 md:p-4 hidden lg:table-cell">
+                          <span className="text-white text-sm">
                             {promo.usedCount || 0}
                             {promo.maxUsesTotal && (
                               <span className="text-white/40"> / {promo.maxUsesTotal}</span>
                             )}
                           </span>
                         </td>
-                        <td className="p-4">
-                          <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${status.color}`}>
+                        <td className="p-3 md:p-4">
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] md:text-xs font-medium ${status.color}`}>
                             {status.label}
                           </span>
                         </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-1">
+                        <td className="p-3 md:p-4">
+                          <div className="flex items-center gap-0.5 md:gap-1">
                             <button
                               onClick={() => toggleActive(promo.id, promo.isActive)}
-                              className="p-2 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors"
+                              className="p-1.5 md:p-2 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors"
                               title={promo.isActive ? 'Deactivate' : 'Activate'}
                             >
                               {promo.isActive ? (
-                                <ToggleRight size={20} weight="fill" className="text-emerald-400" />
+                                <ToggleRight size={18} weight="fill" className="text-emerald-400 md:w-5 md:h-5" />
                               ) : (
-                                <ToggleLeft size={20} />
+                                <ToggleLeft size={18} className="md:w-5 md:h-5" />
                               )}
                             </button>
                             <Link
                               href={`/admin/promotions/${promo.id}`}
-                              className="p-2 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors"
+                              className="p-1.5 md:p-2 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors"
                               title="Edit"
                             >
-                              <PencilSimple size={18} />
+                              <PencilSimple size={16} className="md:w-[18px] md:h-[18px]" />
                             </Link>
                             <button
                               onClick={() => deletePromotion(promo.id)}
-                              className="p-2 text-white/40 hover:text-red-400 hover:bg-white/10 rounded transition-colors"
+                              className="p-1.5 md:p-2 text-white/40 hover:text-red-400 hover:bg-white/10 rounded transition-colors"
                               title="Delete"
                             >
-                              <Trash size={18} />
+                              <Trash size={16} className="md:w-[18px] md:h-[18px]" />
                             </button>
                           </div>
                         </td>
