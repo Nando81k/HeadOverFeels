@@ -373,6 +373,15 @@ export default function AdminCollectionsPage() {
             </div>
           </DndContext>
         )}
+
+        {/* Mobile Floating Add Button */}
+        <Link
+          href="/admin/collections/new"
+          className="sm:hidden fixed bottom-24 right-4 z-40 w-14 h-14 bg-[#FF3131] hover:bg-[#E02828] text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
+          aria-label="New Collection"
+        >
+          <Plus size={24} weight="bold" />
+        </Link>
       </AdminLayout>
   )
 }
