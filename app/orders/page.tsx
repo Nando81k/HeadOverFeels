@@ -171,7 +171,7 @@ export default function OrderHistory() {
   }
 
   return (
-    <div className="min-h-screen bg-white pt-24 pb-16">
+    <div className="min-h-screen bg-white pt-20 sm:pt-24 pb-12 sm:pb-16">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Back Button */}
         <Link
@@ -183,14 +183,15 @@ export default function OrderHistory() {
         </Link>
 
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-black flex items-center justify-center">
-              <Package size={24} weight="fill" className="text-white" />
+        <div className="mb-6 sm:mb-8">
+          <div className="flex items-center gap-3 mb-3 sm:mb-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-black flex items-center justify-center">
+              <Package size={20} weight="fill" className="text-white sm:hidden" />
+              <Package size={24} weight="fill" className="text-white hidden sm:block" />
             </div>
             <div>
-              <h1 className="text-3xl font-black text-black">Order History</h1>
-              <p className="text-black/60">View and track all your orders</p>
+              <h1 className="text-2xl sm:text-3xl font-black text-black">Order History</h1>
+              <p className="text-sm sm:text-base text-black/60">View and track all your orders</p>
             </div>
           </div>
         </div>
@@ -222,11 +223,11 @@ export default function OrderHistory() {
                   className="bg-white border border-black/10 overflow-hidden hover:border-black/20 transition-colors"
                 >
                   {/* Order Header */}
-                  <div className="p-6 border-b border-black/5">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="p-4 sm:p-6 border-b border-black/5">
+                    <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
                       <div>
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-bold text-black">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                          <h3 className="text-base sm:text-lg font-bold text-black">
                             {order.orderNumber}
                           </h3>
                           <div className={`px-3 py-1 ${statusConfig.bg} flex items-center gap-1.5`}>
@@ -258,7 +259,7 @@ export default function OrderHistory() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-black text-black">
+                        <p className="text-xl sm:text-2xl font-black text-black">
                           ${order.total.toFixed(2)}
                         </p>
                         {order.discount > 0 && (
@@ -271,8 +272,8 @@ export default function OrderHistory() {
                   </div>
 
                   {/* Order Items Preview */}
-                  <div className="p-6 bg-black/[0.02]">
-                    <div className="flex items-center gap-4 overflow-x-auto pb-2">
+                  <div className="p-4 sm:p-6 bg-black/[0.02]">
+                    <div className="flex items-center gap-3 sm:gap-4 overflow-x-auto pb-2">
                       {order.items.slice(0, 4).map((item) => {
                         const imageUrl = getImageUrl(item.product.images)
                         return (

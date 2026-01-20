@@ -90,7 +90,7 @@ export function PinnedProductShowcase() {
   ];
 
   return (
-    <section ref={containerRef} className="relative h-[500vh] bg-neutral-50">
+    <section ref={containerRef} className="relative h-[500vh] bg-neutral-50 hidden sm:block">
       {/* Subtle grid pattern */}
       <div 
         className="fixed inset-0 opacity-[0.015] pointer-events-none"

@@ -45,7 +45,7 @@ export function CategoryCarousel({ categories = DEFAULT_CATEGORIES }: CategoryCa
   if (!categories || categories.length === 0) return null;
 
   return (
-    <section className="relative py-16 md:py-32 bg-black overflow-hidden">
+    <section className="relative py-16 md:py-32 bg-black overflow-hidden max-w-full overscroll-contain touch-pan-y">
       {/* Grain overlay */}
       <div 
         className="absolute inset-0 opacity-[0.03] pointer-events-none"
@@ -54,7 +54,7 @@ export function CategoryCarousel({ categories = DEFAULT_CATEGORIES }: CategoryCa
         }}
       />
 
-      <div className="relative max-w-7xl mx-auto px-4 md:px-6">
+      <div className="relative max-w-7xl mx-auto px-4 md:px-6 overflow-hidden overscroll-contain">
         {/* Section Header - Asymmetric */}
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 md:gap-8 mb-8 md:mb-20">
           <div>
@@ -94,7 +94,7 @@ export function CategoryCarousel({ categories = DEFAULT_CATEGORIES }: CategoryCa
         </div>
 
         {/* Category Grid - Modern Asymmetric */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 md:gap-4 mb-8 md:mb-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 md:gap-4 mb-8 md:mb-16 touch-pan-y">
           {categories.map((category, idx) => {
             // First card spans 7 cols, second 5 cols, third full width but shorter
             const colSpan = idx === 0 ? 'lg:col-span-7' : idx === 1 ? 'lg:col-span-5' : 'lg:col-span-12';

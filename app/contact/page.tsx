@@ -44,24 +44,24 @@ export default function ContactPage() {
       <Navigation />
 
       {/* Hero */}
-      <div className="bg-white text-black py-20 pt-28 border-b border-black/10">
+      <div className="bg-white text-black py-12 sm:py-20 pt-24 sm:pt-28 border-b border-black/10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl md:text-6xl font-black mb-6">
+          <h1 className="text-3xl sm:text-4xl md:text-6xl font-black mb-4 sm:mb-6">
             Get in Touch
           </h1>
-          <p className="text-xl text-black/70">
+          <p className="text-base sm:text-xl text-black/70">
             Have questions? We&apos;d love to hear from you
           </p>
         </div>
       </div>
 
       {/* Contact Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="grid lg:grid-cols-2 gap-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
           {/* Contact Form */}
           <div>
-            <h2 className="text-3xl font-black mb-6">Send us a Message</h2>
-            <p className="text-black/70 mb-8">
+            <h2 className="text-2xl sm:text-3xl font-black mb-4 sm:mb-6">Send us a Message</h2>
+            <p className="text-sm sm:text-base text-black/70 mb-6 sm:mb-8">
               Fill out the form below and we&apos;ll get back to you within 24 hours
             </p>
 
@@ -166,30 +166,32 @@ export default function ContactPage() {
 
           {/* Contact Information */}
           <div className="lg:pl-12">
-            <h2 className="text-3xl font-black mb-6">Contact Information</h2>
-            <p className="text-black/70 mb-8">
+            <h2 className="text-2xl sm:text-3xl font-black mb-4 sm:mb-6">Contact Information</h2>
+            <p className="text-sm sm:text-base text-black/70 mb-6 sm:mb-8">
               Reach out through any of these channels
             </p>
 
-            <div className="space-y-6 mb-12">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-black rounded-none flex items-center justify-center shrink-0">
-                  <EnvelopeSimple size={24} weight="bold" className="text-white" />
+            <div className="space-y-4 sm:space-y-6 mb-8 sm:mb-12">
+              <div className="flex items-start gap-3 sm:gap-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-black rounded-none flex items-center justify-center shrink-0">
+                  <EnvelopeSimple size={20} weight="bold" className="text-white sm:hidden" />
+                  <EnvelopeSimple size={24} weight="bold" className="text-white hidden sm:block" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg mb-1">Email</h3>
+                  <h3 className="font-bold text-base sm:text-lg mb-1">Email</h3>
                   <a href="mailto:hello@headoverfeels.com" className="text-black/70 hover:text-black transition-colors">
                     hello@headoverfeels.com
                   </a>
                 </div>
               </div>
 
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-black rounded-none flex items-center justify-center shrink-0">
-                  <Phone size={24} weight="bold" className="text-white" />
+              <div className="flex items-start gap-3 sm:gap-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-black rounded-none flex items-center justify-center shrink-0">
+                  <Phone size={20} weight="bold" className="text-white sm:hidden" />
+                  <Phone size={24} weight="bold" className="text-white hidden sm:block" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg mb-1">Phone</h3>
+                  <h3 className="font-bold text-base sm:text-lg mb-1">Phone</h3>
                   <a href="tel:+15551234567" className="text-black/70 hover:text-black transition-colors">
                     +1 (555) 123-4567
                   </a>
@@ -197,12 +199,13 @@ export default function ContactPage() {
                 </div>
               </div>
 
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-black rounded-none flex items-center justify-center shrink-0">
-                  <MapPin size={24} weight="bold" className="text-white" />
+              <div className="flex items-start gap-3 sm:gap-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-black rounded-none flex items-center justify-center shrink-0">
+                  <MapPin size={20} weight="bold" className="text-white sm:hidden" />
+                  <MapPin size={24} weight="bold" className="text-white hidden sm:block" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg mb-1">Address</h3>
+                  <h3 className="font-bold text-base sm:text-lg mb-1">Address</h3>
                   <p className="text-black/70">
                     123 Street Culture Ave<br />
                     Brooklyn, NY 11211<br />
@@ -214,34 +217,37 @@ export default function ContactPage() {
 
             {/* Social Media */}
             <div>
-              <h3 className="font-bold text-lg mb-4">Follow Us</h3>
-              <div className="flex gap-4">
+              <h3 className="font-bold text-base sm:text-lg mb-3 sm:mb-4">Follow Us</h3>
+              <div className="flex gap-3 sm:gap-4">
                 <a
                   href="https://instagram.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-12 h-12 bg-black/5 border border-black/10 rounded-none flex items-center justify-center hover:bg-black hover:text-white hover:border-black transition-colors"
+                  className="w-10 h-10 sm:w-12 sm:h-12 bg-black/5 border border-black/10 rounded-none flex items-center justify-center hover:bg-black hover:text-white hover:border-black transition-colors"
                   aria-label="Instagram"
                 >
-                  <InstagramLogo size={20} weight="bold" />
+                  <InstagramLogo size={18} weight="bold" className="sm:hidden" />
+                  <InstagramLogo size={20} weight="bold" className="hidden sm:block" />
                 </a>
                 <a
                   href="https://twitter.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-12 h-12 bg-black/5 border border-black/10 rounded-none flex items-center justify-center hover:bg-black hover:text-white hover:border-black transition-colors"
+                  className="w-10 h-10 sm:w-12 sm:h-12 bg-black/5 border border-black/10 rounded-none flex items-center justify-center hover:bg-black hover:text-white hover:border-black transition-colors"
                   aria-label="Twitter"
                 >
-                  <TwitterLogo size={20} weight="bold" />
+                  <TwitterLogo size={18} weight="bold" className="sm:hidden" />
+                  <TwitterLogo size={20} weight="bold" className="hidden sm:block" />
                 </a>
                 <a
                   href="https://facebook.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-12 h-12 bg-black/5 border border-black/10 rounded-none flex items-center justify-center hover:bg-black hover:text-white hover:border-black transition-colors"
+                  className="w-10 h-10 sm:w-12 sm:h-12 bg-black/5 border border-black/10 rounded-none flex items-center justify-center hover:bg-black hover:text-white hover:border-black transition-colors"
                   aria-label="Facebook"
                 >
-                  <FacebookLogo size={20} weight="bold" />
+                  <FacebookLogo size={18} weight="bold" className="sm:hidden" />
+                  <FacebookLogo size={20} weight="bold" className="hidden sm:block" />
                 </a>
               </div>
             </div>

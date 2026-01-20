@@ -32,14 +32,19 @@ export function MobileAddToCartBar({
   return (
     <>
       {/* Spacer to prevent content from being hidden behind the bar */}
-      <div className="h-20 lg:hidden" />
+      <div className="h-24 lg:hidden" aria-hidden="true" />
       
       {/* Sticky bar - only visible on mobile */}
       <motion.div 
         initial={{ y: 100 }}
         animate={{ y: 0 }}
-        className="fixed bottom-0 inset-x-0 z-40 lg:hidden bg-white border-t border-black/10 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        className="fixed bottom-0 left-0 right-0 z-[10000] lg:hidden bg-white border-t border-black/10 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
+        style={{ 
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          position: 'fixed',
+          transform: 'translateZ(0)', // Force GPU layer to prevent stacking context issues
+          willChange: 'transform', // Hint browser to optimize
+        }}
       >
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           {/* Price */}

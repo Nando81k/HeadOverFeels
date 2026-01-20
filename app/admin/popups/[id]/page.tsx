@@ -125,6 +125,7 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop')
   const [activeVariant, setActiveVariant] = useState(0)
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
+  const [mobileTab, setMobileTab] = useState<'editor' | 'preview'>('editor')
   
   const toggleSection = (section: string) => {
     setCollapsedSections(prev => {
@@ -366,14 +367,41 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
   }
   
   return (
-    <div className="flex h-screen bg-black">
+    <div className="flex flex-col lg:flex-row h-screen bg-black">
+      {/* Mobile Tab Switcher */}
+      <div className="lg:hidden sticky top-0 z-20 bg-black border-b border-white/10">
+        <div className="flex">
+          <button
+            onClick={() => setMobileTab('editor')}
+            className={`flex-1 py-3 text-sm font-medium transition-colors ${
+              mobileTab === 'editor' 
+                ? 'text-white bg-white/10 border-b-2 border-[#FF3131]' 
+                : 'text-white/50'
+            }`}
+          >
+            Editor
+          </button>
+          <button
+            onClick={() => setMobileTab('preview')}
+            className={`flex-1 py-3 text-sm font-medium transition-colors ${
+              mobileTab === 'preview' 
+                ? 'text-white bg-white/10 border-b-2 border-[#FF3131]' 
+                : 'text-white/50'
+            }`}
+          >
+            <Eye size={16} className="inline mr-1.5" />
+            Preview
+          </button>
+        </div>
+      </div>
+
       {/* Editor Panel */}
-      <div className="w-1/2 overflow-y-auto border-r border-white/10">
+      <div className={`flex-1 lg:w-1/2 overflow-y-auto lg:border-r border-white/10 ${mobileTab !== 'editor' ? 'hidden lg:block' : ''}`}>
         {/* Header */}
         <div className="sticky top-0 z-10 bg-black/80 backdrop-blur-md border-b border-white/10">
-          <div className="px-8 py-6">
+          <div className="px-4 md:px-8 py-4 md:py-6">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 md:gap-4">
                 <Link
                   href="/admin/popups"
                   className="p-2 text-white/40 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
@@ -381,21 +409,22 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
                   <ArrowLeft size={20} />
                 </Link>
                 <div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF3131] to-[#FF3131]/60 flex items-center justify-center">
-                      <Sparkle size={20} className="text-white" />
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-[#FF3131] to-[#FF3131]/60 flex items-center justify-center">
+                      <Sparkle size={16} className="md:hidden text-white" />
+                      <Sparkle size={20} className="hidden md:block text-white" />
                     </div>
                     <div>
-                      <h1 className="text-xl font-semibold text-white">Edit Popup</h1>
-                      <p className="text-white/40 text-sm">Modify your popup campaign</p>
+                      <h1 className="text-base md:text-xl font-semibold text-white">Edit Popup</h1>
+                      <p className="text-white/40 text-xs md:text-sm hidden sm:block">Modify your popup campaign</p>
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 md:gap-3">
                 <Link
                   href="/admin/popups"
-                  className="px-4 py-2 text-white/60 hover:text-white hover:bg-white/5 rounded-lg transition-colors text-sm"
+                  className="hidden sm:block px-4 py-2 text-white/60 hover:text-white hover:bg-white/5 rounded-lg transition-colors text-sm"
                 >
                   Cancel
                 </Link>
@@ -403,17 +432,18 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
                   type="submit"
                   form="popup-form"
                   disabled={saving}
-                  className="bg-[#FF3131] hover:bg-[#FF3131]/90 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                  className="bg-[#FF3131] hover:bg-[#FF3131]/90 text-white px-3 md:px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2 text-sm"
                 >
                   <FloppyDisk size={18} />
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  <span className="hidden sm:inline">{saving ? 'Saving...' : 'Save Changes'}</span>
+                  <span className="sm:hidden">{saving ? '...' : 'Save'}</span>
                 </Button>
               </div>
             </div>
           </div>
         </div>
         
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
@@ -425,9 +455,9 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
             </motion.div>
           )}
         
-          <form id="popup-form" onSubmit={handleSubmit} className="space-y-6">
+          <form id="popup-form" onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             {/* Name */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 md:p-6">
               <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">
                 Popup Name *
               </label>
@@ -437,16 +467,16 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="e.g., Summer Sale Banner"
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 md:px-4 py-2.5 md:py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors text-sm md:text-base"
               />
             </div>
           
             {/* Template Selection */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 md:p-6">
               <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-3">
                 Template
               </label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3">
                 {templateOptions.map(opt => (
                   <button
                     key={opt.value}
@@ -495,11 +525,11 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
               <button
                 type="button"
                 onClick={() => toggleSection('ab-testing')}
-                className="w-full flex items-center justify-between p-6 hover:bg-white/5 transition-colors"
+                className="w-full flex items-center justify-between p-4 md:p-6 hover:bg-white/5 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <Users size={18} className="text-[#FF3131]" />
-                  <h3 className="font-medium text-white">A/B Testing</h3>
+                  <h3 className="font-medium text-white text-sm md:text-base">A/B Testing</h3>
                   <span className="text-xs text-white/40 bg-white/10 px-2 py-0.5 rounded-full">
                     {formData.variants.length} variant{formData.variants.length > 1 ? 's' : ''}
                   </span>
@@ -520,7 +550,7 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
                     transition={{ duration: 0.2 }}
                     className="overflow-hidden"
                   >
-                    <div className="px-6 pb-6 border-t border-white/10 pt-4">
+                    <div className="px-4 md:px-6 pb-4 md:pb-6 border-t border-white/10 pt-4">
                       {formData.variants.length < 4 && (
                         <button
                           type="button"
@@ -532,21 +562,21 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
                         </button>
                       )}
                       
-                      <div className="flex gap-2 mb-4">
+                      <div className="flex flex-wrap gap-2 mb-4">
                         {formData.variants.map((v, i) => (
                           <button
                             key={i}
                             type="button"
                             onClick={() => setActiveVariant(i)}
-                            className={`flex-1 py-2.5 px-4 text-sm rounded-lg border transition-all ${
+                            className={`flex-1 min-w-[100px] py-2.5 px-3 md:px-4 text-sm rounded-lg border transition-all ${
                               activeVariant === i
                                 ? 'bg-[#FF3131]/10 border-[#FF3131] text-white'
                                 : 'bg-white/5 border-white/10 text-white/60 hover:border-white/20'
                             }`}
                           >
                             <div className="flex items-center justify-between">
-                              <span>{v.name}</span>
-                              <span className="text-xs opacity-70">{v.weight}%</span>
+                              <span className="truncate">{v.name}</span>
+                              <span className="text-xs opacity-70 ml-1">{v.weight}%</span>
                             </div>
                           </button>
                         ))}
@@ -592,11 +622,11 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
               <button
                 type="button"
                 onClick={() => toggleSection('content')}
-                className="w-full flex items-center justify-between p-6 hover:bg-white/5 transition-colors"
+                className="w-full flex items-center justify-between p-4 md:p-6 hover:bg-white/5 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <Palette size={18} className="text-[#FF3131]" />
-                  <h3 className="font-medium text-white">Content & Design</h3>
+                  <h3 className="font-medium text-white text-sm md:text-base">Content & Design</h3>
                 </div>
                 {collapsedSections.has('content') ? (
                   <CaretDown size={18} className="text-white/40" />
@@ -614,14 +644,14 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
                     transition={{ duration: 0.2 }}
                     className="overflow-hidden"
                   >
-                    <div className="px-6 pb-6 border-t border-white/10 pt-4 space-y-4">
+                    <div className="px-4 md:px-6 pb-4 md:pb-6 border-t border-white/10 pt-4 space-y-4">
                       <div>
                         <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">Heading</label>
                         <input
                           type="text"
                           value={currentContent.heading || ''}
                           onChange={(e) => updateVariantContent('heading', e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 md:px-4 py-2.5 md:py-3 text-white text-sm md:text-base focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors"
                         />
                       </div>
                       
@@ -631,18 +661,18 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
                           value={currentContent.body || ''}
                           onChange={(e) => updateVariantContent('body', e.target.value)}
                           rows={2}
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors resize-none"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 md:px-4 py-2.5 md:py-3 text-white text-sm md:text-base focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors resize-none"
                         />
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">Button Text</label>
                           <input
                             type="text"
                             value={currentContent.buttonText || ''}
                             onChange={(e) => updateVariantContent('buttonText', e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 md:px-4 py-2.5 md:py-3 text-white text-sm md:text-base focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors"
                           />
                         </div>
                         <div>
@@ -652,13 +682,13 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
                             value={currentContent.buttonUrl || ''}
                             onChange={(e) => updateVariantContent('buttonUrl', e.target.value)}
                             placeholder="/products"
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 md:px-4 py-2.5 md:py-3 text-white text-sm md:text-base placeholder:text-white/30 focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors"
                           />
                         </div>
                       </div>
                       
                       {/* Colors */}
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-3 gap-2 md:gap-4">
                         <div>
                           <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">Background</label>
                           <div className="flex items-center gap-2">
@@ -756,11 +786,11 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
               <button
                 type="button"
                 onClick={() => toggleSection('trigger')}
-                className="w-full flex items-center justify-between p-6 hover:bg-white/5 transition-colors"
+                className="w-full flex items-center justify-between p-4 md:p-6 hover:bg-white/5 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <SlidersHorizontal size={18} className="text-[#FF3131]" />
-                  <h3 className="font-medium text-white">Trigger Settings</h3>
+                  <h3 className="font-medium text-white text-sm md:text-base">Trigger Settings</h3>
                 </div>
                 {collapsedSections.has('trigger') ? (
                   <CaretDown size={18} className="text-white/40" />
@@ -778,8 +808,8 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
                     transition={{ duration: 0.2 }}
                     className="overflow-hidden"
                   >
-                    <div className="px-6 pb-6 border-t border-white/10 pt-4">
-                      <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="px-4 md:px-6 pb-4 md:pb-6 border-t border-white/10 pt-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3 mb-4">
                         {triggerOptions.map(opt => {
                           const Icon = opt.icon
                           return (
@@ -787,17 +817,17 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
                               key={opt.value}
                               type="button"
                               onClick={() => setFormData(prev => ({ ...prev, triggerType: opt.value }))}
-                              className={`p-4 text-left rounded-xl border transition-all ${
+                              className={`p-3 md:p-4 text-left rounded-xl border transition-all ${
                                 formData.triggerType === opt.value
                                   ? 'bg-[#FF3131]/10 border-[#FF3131] text-white'
                                   : 'bg-white/5 border-white/10 text-white/60 hover:border-white/20'
                               }`}
                             >
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2 md:gap-3">
                                 <Icon size={18} />
                                 <div>
                                   <p className="font-medium text-sm">{opt.label}</p>
-                                  <p className="text-xs opacity-70">{opt.description}</p>
+                                  <p className="text-xs opacity-70 hidden sm:block">{opt.description}</p>
                                 </div>
                               </div>
                             </button>
@@ -816,7 +846,7 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
                             max={formData.triggerType === 'SCROLL' ? 100 : 60}
                             value={formData.triggerValue}
                             onChange={(e) => setFormData(prev => ({ ...prev, triggerValue: Number(e.target.value) }))}
-                            className="w-32 bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors"
+                            className="w-32 bg-white/5 border border-white/10 rounded-lg px-3 md:px-4 py-2.5 md:py-3 text-white focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors"
                           />
                         </div>
                       )}
@@ -827,12 +857,12 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
             </div>
           
             {/* Frequency */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 md:p-6">
               <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">Frequency</label>
               <select
                 value={formData.frequency}
                 onChange={(e) => setFormData(prev => ({ ...prev, frequency: e.target.value as PopupFrequency }))}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 md:px-4 py-2.5 md:py-3 text-white text-sm md:text-base focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors"
               >
                 {frequencyOptions.map(opt => (
                   <option key={opt.value} value={opt.value} className="bg-zinc-900">{opt.label}</option>
@@ -841,19 +871,19 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
             </div>
           
             {/* Schedule */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 md:p-6">
               <div className="flex items-center gap-3 mb-4">
                 <Calendar size={18} className="text-[#FF3131]" />
-                <h3 className="font-medium text-white">Schedule</h3>
+                <h3 className="font-medium text-white text-sm md:text-base">Schedule</h3>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">Start Date</label>
                   <input
                     type="date"
                     value={formData.startDate}
                     onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors [color-scheme:dark]"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 md:px-4 py-2.5 md:py-3 text-white text-sm md:text-base focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors [color-scheme:dark]"
                   />
                 </div>
                 <div>
@@ -863,14 +893,14 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
                     value={formData.endDate}
                     onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
                     min={formData.startDate}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors [color-scheme:dark]"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 md:px-4 py-2.5 md:py-3 text-white text-sm md:text-base focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/20 transition-colors [color-scheme:dark]"
                   />
                 </div>
               </div>
             </div>
           
             {/* Active Toggle */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 md:p-6">
               <label className="flex items-center gap-4 cursor-pointer group">
                 <div className="relative">
                   <input
@@ -884,7 +914,7 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
                   </div>
                 </div>
                 <div>
-                  <p className="text-white group-hover:text-white/90 transition-colors">Popup is active</p>
+                  <p className="text-white text-sm md:text-base group-hover:text-white/90 transition-colors">Popup is active</p>
                   <p className="text-xs text-white/40">Uncheck to save as draft</p>
                 </div>
               </label>
@@ -894,10 +924,10 @@ export default function EditPopupPage({ params }: { params: Promise<{ id: string
       </div>
       
       {/* Preview Panel */}
-      <div className="w-1/2 bg-zinc-950 flex flex-col">
+      <div className={`flex-1 lg:w-1/2 bg-zinc-950 flex flex-col ${mobileTab !== 'preview' ? 'hidden lg:flex' : ''}`}>
         {/* Preview Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/10">
-          <h2 className="font-medium text-white flex items-center gap-2">
+          <h2 className="font-medium text-white flex items-center gap-2 text-sm md:text-base">
             <Eye size={18} className="text-[#FF3131]" />
             Live Preview
           </h2>

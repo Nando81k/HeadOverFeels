@@ -25,7 +25,8 @@ import {
   Fire,
   ArrowUpRight,
   TrendUp,
-  Heart
+  Heart,
+  Bell
 } from '@phosphor-icons/react'
 
 // Animated counter component for smooth number transitions
@@ -443,19 +444,40 @@ export function Navigation() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16 md:h-18">
           
-            {/* Left - Mobile Menu Toggle + Desktop Navigation */}
+            {/* Left - Mobile Logo + Desktop Navigation */}
             <div className="flex items-center gap-4">
-              {/* Mobile Menu Toggle - Left side on mobile */}
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 -ml-2 text-black/60 hover:text-black transition-colors"
-                aria-label="Toggle menu"
+              {/* Mobile & Tablet Logo - Left side */}
+              <Link 
+                href="/" 
+                className="lg:hidden flex items-center gap-1.5 sm:gap-2 transition-all duration-300 hover:opacity-80"
               >
-                {mobileMenuOpen ? <X size={20} weight="bold" /> : <List size={20} weight="bold" />}
-              </button>
+                <Image
+                  src="/assets/head-over-feels-logo.png"
+                  alt="Head Over Feels Logo"
+                  width={32}
+                  height={32}
+                  className="object-contain w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10"
+                />
+                <span 
+                  className="text-sm sm:text-base md:text-lg text-transparent whitespace-nowrap" 
+                  style={{ 
+                    fontFamily: "'Harlow Solid Italic', 'Harlow', sans-serif",
+                    WebkitTextStroke: '1px #1A1A1A'
+                  }}
+                >
+                  Head Over Feels
+                </span>
+                <Image
+                  src="/assets/head-over-feels-logo.png"
+                  alt="Head Over Feels Logo"
+                  width={32}
+                  height={32}
+                  className="object-contain w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10"
+                />
+              </Link>
               
               {/* Desktop Navigation Links */}
-              <div className="hidden md:flex items-center gap-8">
+              <div className="hidden lg:flex items-center gap-8">
               {/* Shop Dropdown */}
               <div 
                 ref={shopDropdownRef}
@@ -557,20 +579,20 @@ export function Navigation() {
               </div>
             </div>
 
-            {/* Center - Logo (Desktop only) (Desktop only, centered) */}
+            {/* Center - Logo (Desktop only, centered) */}
             <Link 
               href="/" 
-              className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-3 transition-all duration-300 hover:opacity-80"
+              className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-2 xl:gap-3 transition-all duration-300 hover:opacity-80"
             >
               <Image
                 src="/assets/head-over-feels-logo.png"
                 alt="Head Over Feels Logo"
-                width={80}
-                height={80}
-                className="object-contain"
+                width={60}
+                height={60}
+                className="object-contain w-12 h-12 xl:w-16 xl:h-16"
               />
               <span 
-                className="text-2xl lg:text-3xl text-transparent whitespace-nowrap" 
+                className="text-xl xl:text-2xl 2xl:text-3xl text-transparent whitespace-nowrap" 
                 style={{ 
                   fontFamily: "'Harlow Solid Italic', 'Harlow', sans-serif",
                   WebkitTextStroke: '1px #1A1A1A'
@@ -581,19 +603,19 @@ export function Navigation() {
               <Image
                 src="/assets/head-over-feels-logo.png"
                 alt="Head Over Feels Logo"
-                width={80}
-                height={80}
-                className="object-contain"
+                width={60}
+                height={60}
+                className="object-contain w-12 h-12 xl:w-16 xl:h-16"
               />
             </Link>
 
-            {/* Right - Icons + Mobile Logo */}
+            {/* Right - Icons + Mobile Menu Toggle */}
             <div className="flex items-center gap-0.5">
               {/* Rewards - Pill style (Desktop) */}
               {user && userPoints !== null && (
                 <Link
                   href="/loyalty/rewards"
-                  className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-black/5 hover:bg-black hover:text-white text-black transition-all duration-200"
+                  className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-black/5 hover:bg-black hover:text-white text-black transition-all duration-200"
                   title="View Rewards"
                 >
                   <Trophy size={14} weight="fill" />
@@ -605,31 +627,31 @@ export function Navigation() {
               {/* Search Trigger - Clean minimal style (Desktop) */}
               <button
                 onClick={() => setSearchOpen(true)}
-                className="hidden md:flex items-center justify-center w-10 h-10 text-black/40 hover:text-black hover:bg-black/5 transition-all duration-200"
+                className="hidden lg:flex items-center justify-center w-10 h-10 text-black/40 hover:text-black hover:bg-black/5 transition-all duration-200"
                 aria-label="Search"
               >
                 <MagnifyingGlass size={18} weight="bold" />
               </button>
 
               {/* Notifications - Desktop only */}
-              <div className="hidden md:block">
+              <div className="hidden lg:flex items-center">
                 {user && <NotificationCenter />}
               </div>
 
               {/* Wishlist - Desktop only */}
-              <div className="hidden md:block">
+              <div className="hidden lg:flex items-center">
                 <WishlistIcon />
               </div>
               
               {/* Cart - Desktop only */}
               <Link
                 href="/cart"
-                className="hidden md:flex relative p-2 text-black/50 hover:text-black hover:bg-black/5 transition-all duration-200"
+                className="hidden lg:flex relative p-2 text-black/50 hover:text-black hover:bg-black/5 transition-all duration-200"
                 aria-label="Shopping cart"
               >
                 <Bag size={20} weight="bold" />
                 {cartItemCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 bg-black text-white text-[9px] font-black h-4 min-w-4 px-1 flex items-center justify-center">
+                  <span className="absolute top-0 right-0 bg-black text-white text-[9px] font-black h-4 min-w-4 px-1 flex items-center justify-center">
                     {cartItemCount > 9 ? '9+' : cartItemCount}
                   </span>
                 )}
@@ -640,7 +662,7 @@ export function Navigation() {
                 user ? (
                   <Link
                     href="/profile"
-                    className="hidden md:flex p-2 text-black/50 hover:text-black hover:bg-black/5 transition-all duration-200"
+                    className="hidden lg:flex p-2 text-black/50 hover:text-black hover:bg-black/5 transition-all duration-200"
                     aria-label="Profile"
                   >
                     <UserCircle size={20} weight="fill" />
@@ -648,28 +670,21 @@ export function Navigation() {
                 ) : (
                   <Link
                     href="/signin"
-                    className="hidden md:flex items-center gap-2 px-4 py-2 bg-black text-white text-[11px] font-black uppercase tracking-widest hover:bg-black/90 transition-all duration-200"
+                    className="hidden lg:flex items-center gap-2 px-4 py-2 bg-black text-white text-[11px] font-black uppercase tracking-widest hover:bg-black/90 transition-all duration-200"
                   >
                     Sign In
                   </Link>
                 )
               )}
 
-              {/* Mobile Logo - Right side */}
-              <Link 
-                href="/" 
-                className="md:hidden flex items-center ml-2 transition-all duration-300 hover:opacity-80"
+              {/* Mobile Menu Toggle - Right side on mobile and tablet */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="lg:hidden p-2 -mr-2 ml-2 text-black/60 hover:text-black transition-colors"
+                aria-label="Toggle menu"
               >
-                <span 
-                  className="text-base text-transparent whitespace-nowrap" 
-                  style={{ 
-                    fontFamily: "'Harlow Solid Italic', 'Harlow', sans-serif",
-                    WebkitTextStroke: '1px #1A1A1A'
-                  }}
-                >
-                  Head Over Feels
-                </span>
-              </Link>
+                {mobileMenuOpen ? <X size={20} weight="bold" /> : <List size={20} weight="bold" />}
+              </button>
             </div>
           </div>
         </div>
@@ -944,7 +959,7 @@ export function Navigation() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="md:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+              className="lg:hidden fixed inset-0 bg-black/20 z-40"
               onClick={() => setMobileMenuOpen(false)}
             />
             
@@ -954,20 +969,20 @@ export function Navigation() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="md:hidden fixed inset-y-0 right-0 w-full max-w-sm bg-white z-50 shadow-2xl overflow-y-auto"
+              className="lg:hidden fixed inset-0 w-full bg-white z-50 overflow-y-auto"
             >
               {/* Header */}
-              <div className="sticky top-0 bg-white border-b border-black/5 px-5 py-4 flex items-center justify-between">
+              <div className="sticky top-0 bg-white border-b border-black/5 px-5 py-4 flex items-center justify-between safe-area-inset-top">
                 <span className="text-xs font-black uppercase tracking-widest text-black">Menu</span>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
                   className="p-2 -mr-2 text-black/50 hover:text-black transition-colors"
                 >
-                  <X size={20} weight="bold" />
+                  <X size={24} weight="bold" />
                 </button>
               </div>
               
-              <div className="px-5 py-6 space-y-6">
+              <div className="px-5 py-6 space-y-6 pb-safe">
                 {/* User Section - Show points if logged in */}
                 {user && userPoints !== null && (
                   <Link
@@ -1011,29 +1026,57 @@ export function Navigation() {
                   </Link>
                 )}
                 
-                {/* Quick Actions - Cart & Wishlist */}
-                <div className="flex gap-3">
+                {/* Quick Actions - Cart, Wishlist & Notifications */}
+                <div className="grid grid-cols-3 gap-2">
                   <Link
                     href="/cart"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="flex-1 flex items-center justify-center gap-2 p-4 bg-black text-white text-xs font-black uppercase tracking-wider"
+                    className="flex flex-col items-center justify-center gap-1.5 p-4 bg-black text-white text-xs font-black uppercase tracking-wider"
                   >
-                    <Bag size={18} weight="bold" />
+                    <div className="relative">
+                      <Bag size={20} weight="bold" />
+                      {cartItemCount > 0 && (
+                        <span className="absolute -top-1 -right-2 bg-white text-black text-[9px] font-black px-1 min-w-4 h-4 flex items-center justify-center">
+                          {cartItemCount > 9 ? '9+' : cartItemCount}
+                        </span>
+                      )}
+                    </div>
                     Cart
-                    {cartItemCount > 0 && (
-                      <span className="bg-white text-black text-[10px] font-black px-1.5 py-0.5">
-                        {cartItemCount > 9 ? '9+' : cartItemCount}
-                      </span>
-                    )}
                   </Link>
                   <Link
                     href="/wishlist"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="flex-1 flex items-center justify-center gap-2 p-4 border border-black text-black text-xs font-black uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+                    className="flex flex-col items-center justify-center gap-1.5 p-4 border border-black text-black text-xs font-black uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
                   >
-                    <Heart size={18} weight="bold" />
+                    <Heart size={20} weight="bold" />
                     Wishlist
                   </Link>
+                  {user && (
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false)
+                        // Open notification center after menu closes
+                        setTimeout(() => {
+                          const notificationBtn = document.querySelector('[aria-label*="Notifications"]') as HTMLButtonElement
+                          if (notificationBtn) notificationBtn.click()
+                        }, 350)
+                      }}
+                      className="flex flex-col items-center justify-center gap-1.5 p-4 border border-black text-black text-xs font-black uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+                    >
+                      <Bell size={20} weight="bold" />
+                      Alerts
+                    </button>
+                  )}
+                  {!user && (
+                    <Link
+                      href="/signin"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex flex-col items-center justify-center gap-1.5 p-4 border border-black text-black text-xs font-black uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+                    >
+                      <UserCircle size={20} weight="bold" />
+                      Sign In
+                    </Link>
+                  )}
                 </div>
                 
                 {/* Shop Section */}

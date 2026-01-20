@@ -66,24 +66,25 @@ export default function CollectionsPage() {
       <Navigation />
 
       {/* Hero Section - Modern */}
-      <section className="relative h-[60vh] min-h-[500px] overflow-hidden bg-white pt-24 lg:pt-32">
-        <div className="relative h-full max-w-7xl mx-auto px-6 lg:px-12 flex flex-col justify-center z-10">
+      <section className="relative min-h-[50vh] sm:min-h-[60vh] overflow-hidden bg-white pt-24 lg:pt-32 pb-8 sm:pb-0">
+        <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 flex flex-col justify-center z-10">
           <div className="max-w-4xl">
-            <div className="inline-flex items-center gap-2 bg-white border border-black/10 px-5 py-2 rounded-none mb-6">
-              <Sparkle size={20} weight="fill" className="text-black" />
-              <span className="text-sm font-bold uppercase tracking-wider text-black">Curated Collections</span>
+            <div className="inline-flex items-center gap-2 bg-white border border-black/10 px-3 sm:px-5 py-1.5 sm:py-2 rounded-none mb-4 sm:mb-6">
+              <Sparkle size={16} weight="fill" className="text-black sm:hidden" />
+              <Sparkle size={20} weight="fill" className="text-black hidden sm:block" />
+              <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-black">Curated Collections</span>
             </div>
-            <h1 className="text-6xl lg:text-8xl font-black mb-6 tracking-tight text-black">
+            <h1 className="text-4xl sm:text-6xl lg:text-8xl font-black mb-4 sm:mb-6 tracking-tight text-black">
               Our Collections
             </h1>
-            <p className="text-xl lg:text-2xl text-black/70 leading-relaxed mb-6 max-w-3xl">
+            <p className="text-base sm:text-xl lg:text-2xl text-black/70 leading-relaxed mb-4 sm:mb-6 max-w-3xl">
               Discover our carefully curated streetwear collections, from everyday essentials to exclusive limited drops
             </p>
             {!loading && collections.length > 0 && (
-              <div className="flex items-center gap-4 text-black/60">
-                <span className="text-sm uppercase tracking-wider">{collections.length} Collections</span>
-                <span className="text-sm">•</span>
-                <span className="text-sm uppercase tracking-wider">
+              <div className="flex items-center gap-2 sm:gap-4 text-black/60">
+                <span className="text-xs sm:text-sm uppercase tracking-wider">{collections.length} Collections</span>
+                <span className="text-xs sm:text-sm">•</span>
+                <span className="text-xs sm:text-sm uppercase tracking-wider">
                   {collections.reduce((sum, c) => sum + c._count.products, 0)} Products
                 </span>
               </div>
@@ -127,24 +128,24 @@ export default function CollectionsPage() {
       )}
 
       {/* Newsletter CTA Section */}
-      <section className="py-12 lg:py-16 bg-white text-black border-t border-black/10">
-        <div className="max-w-3xl mx-auto px-6 text-center">
-          <h2 className="text-4xl lg:text-5xl font-black mb-6 tracking-tight">
+      <section className="py-10 sm:py-12 lg:py-16 bg-white text-black border-t border-black/10">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black mb-4 sm:mb-6 tracking-tight">
             Never Miss a Drop
           </h2>
-          <p className="text-lg text-black/70 mb-10 leading-relaxed">
+          <p className="text-base sm:text-lg text-black/70 mb-6 sm:mb-10 leading-relaxed">
             Join our community to get early access to new collections, exclusive drops, and special offers
           </p>
-          <form className="flex flex-col sm:flex-row gap-4 max-w-xl mx-auto">
+          <form className="flex flex-col sm:flex-row gap-3 sm:gap-4 max-w-xl mx-auto">
             <input
               type="email"
               placeholder="Enter your email"
-              className="flex-1 px-6 py-4 rounded-none bg-white border border-black/10 text-black placeholder:text-black/40 focus:outline-none focus:border-black/20 transition-colors h-[52px]"
+              className="flex-1 px-4 sm:px-6 py-3 sm:py-4 rounded-none bg-white border border-black/10 text-black placeholder:text-black/40 focus:outline-none focus:border-black/20 transition-colors h-[48px] sm:h-[52px]"
             />
             <Button
               type="submit"
               size="lg"
-              className="bg-black text-white hover:bg-black/90 whitespace-nowrap h-[52px] px-8 rounded-none font-bold uppercase tracking-wider"
+              className="bg-black text-white hover:bg-black/90 whitespace-nowrap h-[48px] sm:h-[52px] px-6 sm:px-8 rounded-none font-bold uppercase tracking-wider text-sm sm:text-base"
             >
               Subscribe
             </Button>
