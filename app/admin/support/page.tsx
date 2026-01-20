@@ -88,21 +88,21 @@ function StatCard({
   trendLabel?: string
 }) {
   return (
-    <div className="bg-neutral-900 p-6 border border-white/10">
-      <div className="flex items-center justify-between mb-4">
-        <div className="p-2 bg-white/5 border border-white/10">
-          <Icon className="w-6 h-6 text-white/70" />
+    <div className="bg-neutral-900 p-4 sm:p-6 border border-white/10">
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <div className="p-1.5 sm:p-2 bg-white/5 border border-white/10">
+          <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white/70" />
         </div>
         {trend !== undefined && (
-          <div className={`text-sm font-medium ${trend >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+          <div className={`text-xs sm:text-sm font-medium ${trend >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
             {trend >= 0 ? '+' : ''}{trend}%
           </div>
         )}
       </div>
-      <div className="text-2xl font-bold text-white mb-1">{value}</div>
-      <div className="text-sm text-white/70">{title}</div>
+      <div className="text-xl sm:text-2xl font-bold text-white mb-1">{value}</div>
+      <div className="text-xs sm:text-sm text-white/70">{title}</div>
       {trendLabel && (
-        <div className="text-xs text-white/40 mt-1">{trendLabel}</div>
+        <div className="text-[10px] sm:text-xs text-white/40 mt-1">{trendLabel}</div>
       )}
     </div>
   )
@@ -150,9 +150,9 @@ async function SupportDashboard() {
   ])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <StatCard
           title="Open Tickets"
           value={stats.open}
@@ -187,37 +187,37 @@ async function SupportDashboard() {
       <LiveChatSection />
 
       {/* Quick Actions */}
-      <div className="bg-neutral-900 p-6 border border-white/10">
-        <h2 className="text-sm font-medium tracking-[0.1em] text-white uppercase mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="bg-neutral-900 p-4 sm:p-6 border border-white/10">
+        <h2 className="text-xs sm:text-sm font-medium tracking-[0.1em] text-white uppercase mb-3 sm:mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <Link
             href="/admin/support?status=OPEN"
-            className="flex items-center gap-3 p-4 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/30 transition-colors"
+            className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/30 transition-colors"
           >
-            <Ticket className="w-5 h-5 text-blue-400" />
-            <div>
-              <div className="font-medium text-white">View Open Tickets</div>
-              <div className="text-sm text-blue-400">{stats.open} pending</div>
+            <Ticket className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 shrink-0" />
+            <div className="min-w-0">
+              <div className="font-medium text-white text-sm sm:text-base truncate">View Open Tickets</div>
+              <div className="text-xs sm:text-sm text-blue-400">{stats.open} pending</div>
             </div>
           </Link>
           <Link
             href="/admin/support?status=IN_PROGRESS"
-            className="flex items-center gap-3 p-4 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/30 transition-colors"
+            className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/30 transition-colors"
           >
-            <Clock className="w-5 h-5 text-amber-400" />
-            <div>
-              <div className="font-medium text-white">In Progress</div>
-              <div className="text-sm text-amber-400">{stats.inProgress} active</div>
+            <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 shrink-0" />
+            <div className="min-w-0">
+              <div className="font-medium text-white text-sm sm:text-base truncate">In Progress</div>
+              <div className="text-xs sm:text-sm text-amber-400">{stats.inProgress} active</div>
             </div>
           </Link>
           <Link
             href="/admin/support?priority=URGENT"
-            className="flex items-center gap-3 p-4 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/30 transition-colors"
+            className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/30 transition-colors"
           >
-            <AlertCircle className="w-5 h-5 text-red-400" />
-            <div>
-              <div className="font-medium text-white">Urgent Tickets</div>
-              <div className="text-sm text-red-400">Needs attention</div>
+            <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 shrink-0" />
+            <div className="min-w-0">
+              <div className="font-medium text-white text-sm sm:text-base truncate">Urgent Tickets</div>
+              <div className="text-xs sm:text-sm text-red-400">Needs attention</div>
             </div>
           </Link>
         </div>
@@ -225,19 +225,61 @@ async function SupportDashboard() {
 
       {/* Recent Tickets */}
       <div className="bg-neutral-900 border border-white/10 overflow-hidden">
-        <div className="p-6 border-b border-white/10">
+        <div className="p-4 sm:p-6 border-b border-white/10">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium tracking-[0.1em] text-white uppercase">Recent Tickets</h2>
+            <h2 className="text-xs sm:text-sm font-medium tracking-[0.1em] text-white uppercase">Recent Tickets</h2>
             <Link
               href="/admin/support/tickets"
-              className="text-sm text-[#FF3131] hover:text-[#E02828] font-medium"
+              className="text-xs sm:text-sm text-[#FF3131] hover:text-[#E02828] font-medium"
             >
               View All →
             </Link>
           </div>
         </div>
         
-        <div className="overflow-x-auto">
+        {/* Mobile Cards View */}
+        <div className="lg:hidden p-4 space-y-3">
+          {tickets.map((ticket) => (
+            <Link
+              key={ticket.id}
+              href={`/admin/support/tickets/${ticket.id}`}
+              className="block bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors"
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium text-[#FF3131]">{ticket.ticketNumber}</div>
+                  <div className="text-xs text-white/70 mt-0.5 line-clamp-1">{ticket.subject}</div>
+                </div>
+                <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium ${getStatusColor(ticket.status)} shrink-0 ml-2`}>
+                  {ticket.status.replace('_', ' ')}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2 text-xs text-white/50 mb-2">
+                <span className="text-base">{getTypeIcon(ticket.type)}</span>
+                <span>{ticket.type.replace('_', ' ')}</span>
+                <span className="text-white/20">•</span>
+                <span className={getPriorityColor(ticket.priority)}>{ticket.priority}</span>
+              </div>
+              
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-white/40">
+                  {ticket.customer?.name || ticket.customerName}
+                </span>
+                <div className="flex items-center gap-2 text-white/30">
+                  <span>{new Date(ticket.createdAt).toLocaleDateString()}</span>
+                  <span className="flex items-center gap-1">
+                    <MessageSquare className="w-3 h-3" />
+                    {ticket._count.messages}
+                  </span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* Desktop Table View */}
+        <div className="hidden lg:block overflow-x-auto">
           <table className="w-full">
             <thead className="bg-white/5 border-b border-white/10">
               <tr>

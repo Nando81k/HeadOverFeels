@@ -203,7 +203,7 @@ export async function* streamAdminResponse(
     const result = await chat.sendMessageStream(message)
     
     let fullResponse = ''
-    let pendingFunctionCalls: { name: string; args: Record<string, unknown> }[] = []
+    const pendingFunctionCalls: { name: string; args: Record<string, unknown> }[] = []
     
     for await (const chunk of result.stream) {
       const candidate = chunk.candidates?.[0]

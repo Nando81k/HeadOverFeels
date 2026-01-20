@@ -55,8 +55,8 @@ export function AdminLayout({
       {/* Mobile Bottom Navigation */}
       <AdminMobileNav />
       
-      {/* Reggie AI Assistant */}
-      <AdminReggie />
+      {/* Reggie AI Assistant - Temporarily Hidden */}
+      {/* <AdminReggie /> */}
     </div>
   )
 }

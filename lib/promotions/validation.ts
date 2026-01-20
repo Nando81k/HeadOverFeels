@@ -340,7 +340,7 @@ export function calculateStackedDiscount(
   }
 
   // Sum up all discounts
-  let totalDiscount = appliedPromos.reduce((sum, promo) => sum + promo.discount, 0)
+  const totalDiscount = appliedPromos.reduce((sum, promo) => sum + promo.discount, 0)
 
   // Find the most restrictive cap from applied promos
   const promoCaps = appliedPromos

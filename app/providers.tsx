@@ -28,8 +28,8 @@ export function Providers({ children }: { children: ReactNode }) {
           closeButton
           richColors
         />
-        {/* Reggie AI Assistant for Customer Pages */}
-        <ReggieProvider />
+        {/* Reggie AI Assistant for Customer Pages - Temporarily Hidden */}
+        {/* <ReggieProvider /> */}
         {/* Marketing Popups for Storefront */}
         <PopupManager />
         {/* Cookie Consent Banner */}

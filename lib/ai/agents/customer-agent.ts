@@ -117,7 +117,7 @@ export async function* streamCustomerResponse(
     const result = await chat.sendMessageStream(message)
 
     let fullResponse = ''
-    let functionCalls: FunctionCall[] = []
+    const functionCalls: FunctionCall[] = []
 
     // Stream the response
     for await (const chunk of result.stream) {

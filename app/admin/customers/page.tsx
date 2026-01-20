@@ -25,6 +25,7 @@ import CustomerMetricCards from '@/components/customers/CustomerMetricCards';
 import CustomerSegmentChart from '@/components/customers/CustomerSegmentChart';
 import CustomerActivityChart from '@/components/customers/CustomerActivityChart';
 import CustomerRetentionChart from '@/components/customers/CustomerRetentionChart';
+import { CustomerMobileCard } from '@/components/admin/CustomerMobileCard';
 import {
   fetchCustomers,
   downloadCustomersCSV,
@@ -206,30 +207,30 @@ export default function CustomersPage() {
       title="Customer Management"
       subtitle={`${totalCustomers} total customers`}
       headerActions={
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3">
           {/* View Toggle */}
-          <div className="flex items-center bg-white/5 rounded-lg p-1">
+          <div className="flex items-center bg-white/5 rounded-lg p-0.5 sm:p-1">
             <button
               onClick={() => setViewMode('dashboard')}
-              className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded transition-all ${
+              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded transition-all ${
                 viewMode === 'dashboard' 
                   ? 'bg-white/10 text-white' 
                   : 'text-white/50 hover:text-white/70'
               }`}
             >
-              <ChartLine size={16} weight="bold" />
-              Dashboard
+              <ChartLine size={14} weight="bold" className="sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Dashboard</span>
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded transition-all ${
+              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded transition-all ${
                 viewMode === 'list' 
                   ? 'bg-white/10 text-white' 
                   : 'text-white/50 hover:text-white/70'
               }`}
             >
-              <Table size={16} weight="bold" />
-              List
+              <Table size={14} weight="bold" className="sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">List</span>
             </button>
           </div>
           
@@ -238,9 +239,9 @@ export default function CustomersPage() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleRefresh}
-            className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/70 hover:text-white transition-all"
+            className="p-1.5 sm:p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/70 hover:text-white transition-all"
           >
-            <ArrowsClockwise size={18} weight="bold" />
+            <ArrowsClockwise size={16} weight="bold" className="sm:w-[18px] sm:h-[18px]" />
           </motion.button>
 
           {/* Export Button */}
@@ -248,10 +249,10 @@ export default function CustomersPage() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleExportCSV}
-            className="px-4 py-2 bg-[#FF3131] hover:bg-[#E02828] text-white transition-colors flex items-center gap-2 rounded-lg"
+            className="px-2 sm:px-4 py-1.5 sm:py-2 bg-[#FF3131] hover:bg-[#E02828] text-white transition-colors flex items-center gap-1.5 sm:gap-2 rounded-lg text-xs sm:text-sm"
           >
-            <Download size={16} weight="bold" />
-            Export CSV
+            <Download size={14} weight="bold" className="sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Export CSV</span>
           </motion.button>
         </div>
       }
@@ -314,14 +315,14 @@ export default function CustomersPage() {
         {/* Filters - Show in both views */}
         <motion.div 
           variants={itemVariants}
-          className="bg-neutral-900/80 backdrop-blur-sm border border-white/10 rounded-2xl p-6"
+          className="bg-neutral-900/80 backdrop-blur-sm border border-white/10 rounded-2xl p-4 sm:p-6"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <Funnel size={20} weight="bold" className="text-white/40" />
-            <h3 className="text-sm font-medium text-white/60">Filters & Search</h3>
+          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+            <Funnel size={16} weight="bold" className="text-white/40 sm:w-5 sm:h-5" />
+            <h3 className="text-xs sm:text-sm font-medium text-white/60">Filters & Search</h3>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
             {/* Search */}
             <div className="relative">
               <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">
@@ -410,11 +411,11 @@ export default function CustomersPage() {
           className="bg-neutral-900/80 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden"
         >
           {/* Table Header */}
-          <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Users size={20} weight="bold" className="text-white/40" />
-              <h3 className="text-sm font-medium text-white">Customer List</h3>
-              <span className="text-xs text-white/40 bg-white/5 px-2 py-1 rounded">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Users size={16} weight="bold" className="text-white/40 sm:w-5 sm:h-5" />
+              <h3 className="text-xs sm:text-sm font-medium text-white">Customer List</h3>
+              <span className="text-[10px] sm:text-xs text-white/40 bg-white/5 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
                 {totalCustomers} customers
               </span>
             </div>
@@ -453,7 +454,19 @@ export default function CustomersPage() {
             />
           ) : (
             <>
-              <div className="overflow-x-auto">
+              {/* Mobile Cards View */}
+              <div className="lg:hidden p-4 space-y-3">
+                {customers.map((customer, index) => (
+                  <CustomerMobileCard 
+                    key={customer.id} 
+                    customer={customer} 
+                    index={index} 
+                  />
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="min-w-full divide-y divide-white/5">
                   <thead className="bg-white/5">
                     <tr>

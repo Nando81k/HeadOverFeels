@@ -278,7 +278,7 @@ async function getLimitedDrops(args: Record<string, unknown>) {
   const { status = 'all' } = args
   const now = new Date()
 
-  let where: Record<string, unknown> = { isLimitedEdition: true, isActive: true }
+  const where: Record<string, unknown> = { isLimitedEdition: true, isActive: true }
 
   if (status === 'live') {
     where.releaseDate = { lte: now }

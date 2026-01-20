@@ -361,13 +361,13 @@ export default function AdminOrdersPage() {
       title="Order Management"
       subtitle="View and manage customer orders"
       headerActions={
-        <div className="flex items-center gap-3">
-          {/* Real-time status indicator */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10">
-            <div className={`w-2 h-2 rounded-full ${isPolling ? 'bg-emerald-400 animate-pulse' : 'bg-emerald-400'}`} />
-            <span className="text-xs text-white/50 uppercase tracking-wider">Live</span>
+        <div className="flex items-center gap-1.5 sm:gap-3">
+          {/* Real-time status indicator - Hidden on mobile */}
+          <div className="hidden md:flex items-center gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-white/5 border border-white/10">
+            <div className={`w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full ${isPolling ? 'bg-emerald-400 animate-pulse' : 'bg-emerald-400'}`} />
+            <span className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider">Live</span>
             {lastChecked && (
-              <span className="text-xs text-white/30">
+              <span className="text-[10px] sm:text-xs text-white/30 hidden lg:inline">
                 {lastChecked.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
@@ -376,12 +376,12 @@ export default function AdminOrdersPage() {
           {/* New orders badge & refresh */}
           <button
             onClick={handleRefresh}
-            className="relative inline-flex items-center px-3 py-2 border border-white/10 text-sm font-medium text-white bg-white/5 hover:bg-white/10 hover:border-white/20 transition-colors"
+            className="relative inline-flex items-center px-2 sm:px-3 py-1.5 sm:py-2 border border-white/10 text-sm font-medium text-white bg-white/5 hover:bg-white/10 hover:border-white/20 transition-colors"
             title="Refresh orders"
           >
-            <ArrowsClockwise size={16} weight="bold" className={loading ? 'animate-spin' : ''} />
+            <ArrowsClockwise size={14} weight="bold" className={`sm:w-4 sm:h-4 ${loading ? 'animate-spin' : ''}`} />
             {newOrderCount > 0 && (
-              <span className="absolute -top-2 -right-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-[#FF3131] rounded-full">
+              <span className="absolute -top-1.5 sm:-top-2 -right-1.5 sm:-right-2 inline-flex items-center justify-center min-w-[16px] sm:min-w-[20px] h-4 sm:h-5 px-1 sm:px-1.5 text-[10px] sm:text-xs font-bold text-white bg-[#FF3131] rounded-full">
                 {newOrderCount > 99 ? '99+' : newOrderCount}
               </span>
             )}
@@ -390,24 +390,24 @@ export default function AdminOrdersPage() {
           {/* Sound toggle */}
           <button
             onClick={toggleMute}
-            className={`inline-flex items-center px-3 py-2 border text-sm font-medium transition-colors ${
+            className={`inline-flex items-center px-2 sm:px-3 py-1.5 sm:py-2 border text-sm font-medium transition-colors ${
               isMuted 
                 ? 'border-white/10 text-white/40 bg-white/5 hover:bg-white/10' 
                 : 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20'
             }`}
             title={isMuted ? 'Unmute notifications' : 'Mute notifications'}
           >
-            {isMuted ? <SpeakerSlash size={16} weight="bold" /> : <SpeakerHigh size={16} weight="bold" />}
+            {isMuted ? <SpeakerSlash size={14} weight="bold" className="sm:w-4 sm:h-4" /> : <SpeakerHigh size={14} weight="bold" className="sm:w-4 sm:h-4" />}
           </button>
 
-          {/* Export button */}
+          {/* Export button - Hidden on small mobile */}
           <button
             onClick={handleExportOrders}
             disabled={orders.length === 0}
-            className="inline-flex items-center px-4 py-2 border border-white/10 text-sm font-medium text-white bg-white/5 hover:bg-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none transition-colors"
+            className="hidden sm:inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 border border-white/10 text-sm font-medium text-white bg-white/5 hover:bg-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none transition-colors"
           >
-            <Download size={16} weight="bold" className="mr-2" />
-            Export
+            <Download size={14} weight="bold" className="mr-1.5 sm:mr-2 sm:w-4 sm:h-4" />
+            <span className="hidden lg:inline">Export</span>
           </button>
         </div>
       }
