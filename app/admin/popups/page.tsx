@@ -207,47 +207,47 @@ export default function PopupsPage() {
       {loading ? (
         <StatsGridSkeleton count={4} />
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
           <Card>
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 flex items-center gap-1">
+            <CardHeader className="pb-1 md:pb-2 pt-3 md:pt-4 px-3 md:px-4">
+              <CardTitle className="text-[9px] md:text-[10px] font-medium uppercase tracking-[0.1em] md:tracking-[0.15em] text-white/40 flex items-center gap-1">
                 <Eye size={12} />
                 Total
               </CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <div className="text-2xl font-bold text-white">{popups.length}</div>
-              <p className="text-xs text-white/40">Popups</p>
+            <CardContent className="px-3 md:px-4 pb-3 md:pb-4">
+              <div className="text-lg md:text-2xl font-bold text-white">{popups.length}</div>
+              <p className="text-[10px] md:text-xs text-white/40">Popups</p>
             </CardContent>
           </Card>
           
           <Card>
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Active</CardTitle>
+            <CardHeader className="pb-1 md:pb-2 pt-3 md:pt-4 px-3 md:px-4">
+              <CardTitle className="text-[9px] md:text-[10px] font-medium uppercase tracking-[0.1em] md:tracking-[0.15em] text-white/40">Active</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <div className="text-2xl font-bold text-emerald-400">{activeCount}</div>
-              <p className="text-xs text-white/40">Running</p>
+            <CardContent className="px-3 md:px-4 pb-3 md:pb-4">
+              <div className="text-lg md:text-2xl font-bold text-emerald-400">{activeCount}</div>
+              <p className="text-[10px] md:text-xs text-white/40">Running</p>
             </CardContent>
           </Card>
           
           <Card>
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Impressions</CardTitle>
+            <CardHeader className="pb-1 md:pb-2 pt-3 md:pt-4 px-3 md:px-4">
+              <CardTitle className="text-[9px] md:text-[10px] font-medium uppercase tracking-[0.1em] md:tracking-[0.15em] text-white/40">Impressions</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <div className="text-2xl font-bold text-white">{totalImpressions.toLocaleString()}</div>
-              <p className="text-xs text-white/40">Total views</p>
+            <CardContent className="px-3 md:px-4 pb-3 md:pb-4">
+              <div className="text-lg md:text-2xl font-bold text-white">{totalImpressions.toLocaleString()}</div>
+              <p className="text-[10px] md:text-xs text-white/40">Total views</p>
             </CardContent>
           </Card>
           
           <Card>
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Clicks</CardTitle>
+            <CardHeader className="pb-1 md:pb-2 pt-3 md:pt-4 px-3 md:px-4">
+              <CardTitle className="text-[9px] md:text-[10px] font-medium uppercase tracking-[0.1em] md:tracking-[0.15em] text-white/40">Clicks</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <div className="text-2xl font-bold text-blue-400">{totalClicks.toLocaleString()}</div>
-              <p className="text-xs text-white/40">Total clicks</p>
+            <CardContent className="px-3 md:px-4 pb-3 md:pb-4">
+              <div className="text-lg md:text-2xl font-bold text-blue-400">{totalClicks.toLocaleString()}</div>
+              <p className="text-[10px] md:text-xs text-white/40">Total clicks</p>
             </CardContent>
           </Card>
         </div>
@@ -296,13 +296,13 @@ export default function PopupsPage() {
                 exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden"
               >
-                <div className="flex flex-wrap gap-4 pt-4 mt-4 border-t border-white/10">
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 mb-2">Template</label>
+                <div className="grid grid-cols-2 md:flex md:flex-wrap gap-3 md:gap-4 pt-4 mt-4 border-t border-white/10">
+                  <div className="flex-1 md:min-w-[150px]">
+                    <label className="block text-[9px] md:text-[10px] font-medium uppercase tracking-[0.1em] md:tracking-[0.15em] text-white/40 mb-1.5 md:mb-2">Template</label>
                     <select
                       value={filterTemplate}
                       onChange={(e) => setFilterTemplate(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#FF3131]/50"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm md:text-base text-white focus:outline-none focus:border-[#FF3131]/50"
                     >
                       <option value="all">All Templates</option>
                       <option value="MODAL">Modal</option>
@@ -313,12 +313,12 @@ export default function PopupsPage() {
                     </select>
                   </div>
                   
-                  <div className="flex-1 min-w-[150px]">
-                    <label className="block text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 mb-2">Status</label>
+                  <div className="flex-1 md:min-w-[150px]">
+                    <label className="block text-[9px] md:text-[10px] font-medium uppercase tracking-[0.1em] md:tracking-[0.15em] text-white/40 mb-1.5 md:mb-2">Status</label>
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#FF3131]/50"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm md:text-base text-white focus:outline-none focus:border-[#FF3131]/50"
                     >
                       <option value="all">All Status</option>
                       <option value="active">Active</option>
@@ -429,22 +429,22 @@ export default function PopupsPage() {
                       </div>
                       
                       {/* Stats */}
-                      <div className="grid grid-cols-4 gap-2 mb-3">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
                         <div className="bg-white/5 rounded p-2 text-center">
-                          <p className="text-[10px] uppercase tracking-wider text-white/40">Views</p>
-                          <p className="font-semibold text-white">{stats.impressions.toLocaleString()}</p>
+                          <p className="text-[9px] md:text-[10px] uppercase tracking-wider text-white/40">Views</p>
+                          <p className="text-sm md:text-base font-semibold text-white">{stats.impressions.toLocaleString()}</p>
                         </div>
                         <div className="bg-white/5 rounded p-2 text-center">
-                          <p className="text-[10px] uppercase tracking-wider text-white/40">Clicks</p>
-                          <p className="font-semibold text-white">{stats.clicks.toLocaleString()}</p>
+                          <p className="text-[9px] md:text-[10px] uppercase tracking-wider text-white/40">Clicks</p>
+                          <p className="text-sm md:text-base font-semibold text-white">{stats.clicks.toLocaleString()}</p>
                         </div>
                         <div className="bg-white/5 rounded p-2 text-center">
-                          <p className="text-[10px] uppercase tracking-wider text-white/40">CTR</p>
-                          <p className="font-semibold text-blue-400">{stats.ctr}%</p>
+                          <p className="text-[9px] md:text-[10px] uppercase tracking-wider text-white/40">CTR</p>
+                          <p className="text-sm md:text-base font-semibold text-blue-400">{stats.ctr}%</p>
                         </div>
                         <div className="bg-white/5 rounded p-2 text-center">
-                          <p className="text-[10px] uppercase tracking-wider text-white/40">Conv.</p>
-                          <p className="font-semibold text-emerald-400">{stats.cvr}%</p>
+                          <p className="text-[9px] md:text-[10px] uppercase tracking-wider text-white/40">Conv.</p>
+                          <p className="text-sm md:text-base font-semibold text-emerald-400">{stats.cvr}%</p>
                         </div>
                       </div>
                       
