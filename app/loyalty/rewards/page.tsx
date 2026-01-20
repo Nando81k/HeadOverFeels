@@ -340,24 +340,24 @@ export default function RewardsPage() {
       <Navigation />
 
       {/* Hero Section - Editorial Style */}
-      <section className="relative bg-white pt-24 lg:pt-32 pb-8">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12">
+      <section className="relative bg-white pt-20 md:pt-24 lg:pt-32 pb-4 md:pb-8">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-12">
           {/* Breadcrumb */}
           <Link 
             href="/profile" 
-            className="inline-flex items-center gap-2 text-sm text-black/70 hover:text-black transition-colors mb-6 w-fit"
+            className="inline-flex items-center gap-2 text-xs md:text-sm text-black/70 hover:text-black transition-colors mb-4 md:mb-6 w-fit"
           >
             <span>←</span>
             <span>Back to Profile</span>
           </Link>
 
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 md:gap-8">
             <div className="max-w-2xl">
-              <h1 className="text-5xl lg:text-7xl font-black text-black tracking-tight mb-4">
+              <h1 className="text-3xl md:text-5xl lg:text-7xl font-black text-black tracking-tight mb-2 md:mb-4">
                 Rewards
               </h1>
-              <p className="text-xl lg:text-2xl text-black/70 leading-relaxed">
-                Turn your Care Points into exclusive perks, discounts, and more. The more you shop, the more you earn.
+              <p className="text-sm md:text-xl lg:text-2xl text-black/70 leading-relaxed">
+                Turn your Care Points into exclusive perks and discounts.
               </p>
             </div>
 
@@ -366,49 +366,53 @@ export default function RewardsPage() {
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`relative bg-linear-to-br ${currentTierColors.gradient} p-6 text-white shadow-2xl ${currentTierColors.glow} w-full lg:w-auto lg:min-w-[340px]`}
+                className={`relative bg-linear-to-br ${currentTierColors.gradient} p-4 md:p-6 text-white shadow-2xl ${currentTierColors.glow} w-full lg:w-auto lg:min-w-[340px]`}
               >
                 {/* Decorative elements */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-xl" />
+                <div className="absolute top-0 right-0 w-24 md:w-32 h-24 md:h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+                <div className="absolute bottom-0 left-0 w-16 md:w-24 h-16 md:h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-xl" />
                 
                 <div className="relative">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 ${currentTierColors.iconBg} rounded-lg flex items-center justify-center`}>
-                        <Medal size={20} weight="fill" className="text-white" />
+                  <div className="flex items-center justify-between mb-3 md:mb-4">
+                    <div className="flex items-center gap-2 md:gap-3">
+                      <div className={`w-8 h-8 md:w-10 md:h-10 ${currentTierColors.iconBg} rounded-lg flex items-center justify-center`}>
+                        <Medal size={16} weight="fill" className="text-white md:hidden" />
+                        <Medal size={20} weight="fill" className="text-white hidden md:block" />
                       </div>
                       <div>
-                        <p className="text-[10px] uppercase tracking-wider text-white/60 font-medium">Your Tier</p>
-                        <p className="text-lg font-bold">{user.loyaltyTier.name}</p>
+                        <p className="text-[9px] md:text-[10px] uppercase tracking-wider text-white/60 font-medium">Your Tier</p>
+                        <p className="text-base md:text-lg font-bold">{user.loyaltyTier.name}</p>
                       </div>
                     </div>
                     <button
                       onClick={() => setShowTierModal(true)}
-                      className={`px-3 py-1.5 ${currentTierColors.badge} rounded-full text-xs font-bold hover:bg-white/30 transition-colors`}
+                      className={`px-2 py-1 md:px-3 md:py-1.5 ${currentTierColors.badge} rounded-full text-[10px] md:text-xs font-bold hover:bg-white/30 transition-colors`}
                     >
-                      View Benefits
+                      <span className="hidden md:inline">View Benefits</span>
+                      <span className="md:hidden">Benefits</span>
                     </button>
                   </div>
 
-                  <div className={`${currentTierColors.iconBg} rounded-lg p-4 mb-4`}>
+                  <div className={`${currentTierColors.iconBg} rounded-lg p-3 md:p-4 mb-3 md:mb-4`}>
                     <div className="flex items-center gap-2 mb-1">
-                      <Sparkle size={14} weight="fill" className="text-white/80" />
-                      <span className="text-[10px] uppercase tracking-wider text-white/60 font-medium">Available Points</span>
+                      <Sparkle size={12} weight="fill" className="text-white/80 md:hidden" />
+                      <Sparkle size={14} weight="fill" className="text-white/80 hidden md:block" />
+                      <span className="text-[9px] md:text-[10px] uppercase tracking-wider text-white/60 font-medium">Available Points</span>
                     </div>
-                    <p className="text-4xl font-black">{customerPoints.toLocaleString()}</p>
+                    <p className="text-2xl md:text-4xl font-black">{customerPoints.toLocaleString()}</p>
                   </div>
 
                   {tierProgress && !tierProgress.isMaxTier && (
                     <div>
-                      <div className="flex items-center justify-between text-xs mb-2">
+                      <div className="flex items-center justify-between text-[10px] md:text-xs mb-1.5 md:mb-2">
                         <span className="text-white/60 flex items-center gap-1">
-                          <TrendUp size={12} weight="bold" />
+                          <TrendUp size={10} weight="bold" className="md:hidden" />
+                          <TrendUp size={12} weight="bold" className="hidden md:block" />
                           Next: {tierProgress.nextTier?.name}
                         </span>
-                        <span className="text-white/90 font-medium">{tierProgress.pointsNeeded.toLocaleString()} pts away</span>
+                        <span className="text-white/90 font-medium">{tierProgress.pointsNeeded.toLocaleString()} pts</span>
                       </div>
-                      <div className={`h-1.5 ${currentTierColors.progressBg} rounded-full overflow-hidden`}>
+                      <div className={`h-1 md:h-1.5 ${currentTierColors.progressBg} rounded-full overflow-hidden`}>
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${tierProgress.progressPercentage}%` }}
@@ -420,9 +424,10 @@ export default function RewardsPage() {
                   )}
 
                   {tierProgress?.isMaxTier && (
-                    <div className="flex items-center gap-2 text-xs text-white/80">
-                      <Medal size={14} weight="fill" />
-                      <span>You&apos;ve reached the highest tier! 🎉</span>
+                    <div className="flex items-center gap-2 text-[10px] md:text-xs text-white/80">
+                      <Medal size={12} weight="fill" className="md:hidden" />
+                      <Medal size={14} weight="fill" className="hidden md:block" />
+                      <span>Max tier reached! 🎉</span>
                     </div>
                   )}
                 </div>
@@ -433,11 +438,11 @@ export default function RewardsPage() {
       </section>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-12 py-8 lg:py-12">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-12 py-4 md:py-8 lg:py-12">
         {/* Category Filter - Matching Products Page Style */}
-        <div className="flex items-center justify-between mb-8 pb-6 border-b border-black/5">
-          {/* Categories - Horizontal scroll */}
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-2 px-2">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-8 pb-4 md:pb-6 border-b border-black/5 gap-2">
+          {/* Categories - Wrap on mobile */}
+          <div className="flex flex-wrap gap-1.5 md:gap-2">
             {categories.map((category) => {
               const Icon = category.icon
               const isSelected = selectedCategory === category.value
@@ -445,21 +450,23 @@ export default function RewardsPage() {
                 <button
                   key={category.value}
                   onClick={() => setSelectedCategory(category.value)}
-                  className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-all whitespace-nowrap uppercase tracking-wider ${
+                  className={`flex items-center gap-1.5 md:gap-2 px-3 py-2 md:px-5 md:py-3 text-[10px] md:text-sm font-bold transition-all uppercase tracking-wider ${
                     isSelected
                       ? 'bg-black text-white shadow-lg'
                       : 'bg-white text-black/70 border border-black/10 hover:border-black/30 hover:text-black'
                   }`}
                 >
-                  <Icon size={18} weight={isSelected ? 'fill' : 'bold'} />
-                  <span>{category.label}</span>
+                  <Icon size={14} weight={isSelected ? 'fill' : 'bold'} className="md:hidden shrink-0" />
+                  <Icon size={18} weight={isSelected ? 'fill' : 'bold'} className="hidden md:block shrink-0" />
+                  <span className="hidden sm:inline">{category.label}</span>
+                  <span className="sm:hidden">{category.label.split(' ')[0]}</span>
                 </button>
               )
             })}
           </div>
 
           {/* Results Count */}
-          <span className="text-sm text-black/50 font-medium tracking-wide hidden lg:block">
+          <span className="text-xs md:text-sm text-black/50 font-medium tracking-wide hidden lg:block">
             <span className="font-bold text-black">{rewards.length}</span> {rewards.length === 1 ? 'reward' : 'rewards'}
           </span>
         </div>
@@ -471,24 +478,26 @@ export default function RewardsPage() {
             <p className="text-black/70">Loading rewards...</p>
           </div>
         ) : rewards.length === 0 ? (
-          <div className="text-center py-20 px-6">
+          <div className="text-center py-12 md:py-20 px-4 md:px-6">
             <div className="max-w-md mx-auto">
-              <div className="w-20 h-20 mx-auto mb-6 bg-black/5 flex items-center justify-center">
-                <Sparkle size={40} weight="fill" className="text-black/20" />
+              <div className="w-14 h-14 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 bg-black/5 flex items-center justify-center">
+                <Sparkle size={28} weight="fill" className="text-black/20 md:hidden" />
+                <Sparkle size={40} weight="fill" className="text-black/20 hidden md:block" />
               </div>
-              <h3 className="text-2xl font-black text-black mb-3">No rewards found</h3>
-              <p className="text-black/70 mb-6">Try selecting a different category to find available rewards.</p>
+              <h3 className="text-xl md:text-2xl font-black text-black mb-2 md:mb-3">No rewards found</h3>
+              <p className="text-sm md:text-base text-black/70 mb-4 md:mb-6">Try selecting a different category.</p>
               <button
                 onClick={() => setSelectedCategory('all')}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white font-bold uppercase tracking-wider hover:bg-black/90 transition-all"
+                className="inline-flex items-center gap-2 px-4 py-2.5 md:px-6 md:py-3 bg-black text-white font-bold text-xs md:text-sm uppercase tracking-wider hover:bg-black/90 transition-all"
               >
                 View All Rewards
-                <ArrowRight size={16} weight="bold" />
+                <ArrowRight size={14} weight="bold" className="md:hidden" />
+                <ArrowRight size={16} weight="bold" className="hidden md:block" />
               </button>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 lg:gap-8">
             {rewards.map((reward, index) => {
               const Icon = rewardTypeIcons[reward.rewardType as keyof typeof rewardTypeIcons] || Gift
               const colors = rewardTypeColors[reward.rewardType as keyof typeof rewardTypeColors] || defaultColors
@@ -500,58 +509,59 @@ export default function RewardsPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: index * 0.05 }}
-                  className={`group bg-white border border-black/10 p-6 transition-all duration-300 hover:shadow-xl hover:border-black/20 hover:-translate-y-1 ${
+                  className={`group bg-white border border-black/10 p-4 md:p-6 transition-all duration-300 hover:shadow-xl hover:border-black/20 hover:-translate-y-1 overflow-hidden ${
                     !canRedeem ? 'opacity-60' : ''
                   }`}
                 >
                   {/* Header */}
-                  <div className="flex items-start justify-between mb-6">
-                    <div className={`w-14 h-14 ${colors.iconBg} flex items-center justify-center`}>
-                      <Icon className={`w-7 h-7 ${colors.iconColor}`} weight="fill" />
+                  <div className="flex items-start justify-between mb-4 md:mb-6">
+                    <div className={`w-10 h-10 md:w-14 md:h-14 ${colors.iconBg} flex items-center justify-center`}>
+                      <Icon className={`w-5 h-5 md:w-7 md:h-7 ${colors.iconColor}`} weight="fill" />
                     </div>
-                    <span className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider ${colors.badge}`}>
+                    <span className={`px-2 py-1 md:px-3 md:py-1.5 text-[9px] md:text-xs font-bold uppercase tracking-wider ${colors.badge}`}>
                       {rewardTypeLabels[reward.rewardType as keyof typeof rewardTypeLabels]}
                     </span>
                   </div>
 
                   {/* Content */}
-                  <h3 className="text-xl font-black text-black mb-2 tracking-tight">
+                  <h3 className="text-base md:text-xl font-black text-black mb-1 md:mb-2 tracking-tight line-clamp-2">
                     {reward.name}
                   </h3>
-                  <p className="text-sm text-black/60 mb-6 leading-relaxed min-h-12">
+                  <p className="text-xs md:text-sm text-black/60 mb-4 md:mb-6 leading-relaxed line-clamp-2 min-h-8 md:min-h-12">
                     {reward.description}
                   </p>
 
                   {/* Points Cost */}
-                  <div className={`flex items-center gap-3 mb-6 p-4 ${colors.bg} border ${colors.border}`}>
-                    <Sparkle size={20} weight="fill" className={colors.iconColor} />
+                  <div className={`flex items-center gap-2 md:gap-3 mb-4 md:mb-6 p-3 md:p-4 ${colors.bg} border ${colors.border}`}>
+                    <Sparkle size={16} weight="fill" className={`${colors.iconColor} md:hidden`} />
+                    <Sparkle size={20} weight="fill" className={`${colors.iconColor} hidden md:block`} />
                     <div>
-                      <span className={`text-3xl font-black ${colors.iconColor}`}>
+                      <span className={`text-xl md:text-3xl font-black ${colors.iconColor}`}>
                         {reward.pointsCost.toLocaleString()}
                       </span>
-                      <span className="text-sm text-black/50 ml-2">points</span>
+                      <span className="text-xs md:text-sm text-black/50 ml-1 md:ml-2">pts</span>
                     </div>
                   </div>
 
                   {/* Status Indicators */}
                   {!reward.meetsTierRequirement && reward.minTierRequired && (
-                    <div className="flex items-center gap-2 mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 p-3">
-                      <Lock size={16} weight="bold" />
-                      <span>Requires <span className="font-bold">{reward.minTierRequired}</span> tier</span>
+                    <div className="flex items-center gap-1.5 md:gap-2 mb-3 md:mb-4 text-xs md:text-sm text-amber-700 bg-amber-50 border border-amber-200 p-2 md:p-3">
+                      <Lock size={14} weight="bold" className="shrink-0" />
+                      <span>Requires <span className="font-bold">{reward.minTierRequired}</span></span>
                     </div>
                   )}
 
                   {!reward.canAfford && reward.meetsTierRequirement && (
-                    <div className="flex items-center gap-2 mb-4 text-sm text-rose-700 bg-rose-50 border border-rose-200 p-3">
-                      <Warning size={16} weight="bold" />
-                      <span>Need <span className="font-bold">{(reward.pointsCost - customerPoints).toLocaleString()}</span> more points</span>
+                    <div className="flex items-center gap-1.5 md:gap-2 mb-3 md:mb-4 text-xs md:text-sm text-rose-700 bg-rose-50 border border-rose-200 p-2 md:p-3">
+                      <Warning size={14} weight="bold" className="shrink-0" />
+                      <span>Need <span className="font-bold">{(reward.pointsCost - customerPoints).toLocaleString()}</span> more</span>
                     </div>
                   )}
 
                   {canRedeem && (
-                    <div className="flex items-center gap-2 mb-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 p-3">
-                      <CheckCircle size={16} weight="fill" />
-                      <span className="font-bold">Available to redeem!</span>
+                    <div className="flex items-center gap-1.5 md:gap-2 mb-3 md:mb-4 text-xs md:text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 p-2 md:p-3">
+                      <CheckCircle size={14} weight="fill" className="shrink-0" />
+                      <span className="font-bold">Available!</span>
                     </div>
                   )}
 
@@ -559,7 +569,7 @@ export default function RewardsPage() {
                   <button
                     onClick={() => handleRedeem(reward.id)}
                     disabled={!canRedeem || redeemingRewardId === reward.id}
-                    className={`w-full py-4 font-bold uppercase tracking-wider text-sm transition-all flex items-center justify-center gap-2 ${
+                    className={`w-full py-3 md:py-4 font-bold uppercase tracking-wider text-xs md:text-sm transition-all flex items-center justify-center gap-2 ${
                       canRedeem
                         ? 'bg-black text-white hover:bg-black/90 shadow-lg hover:shadow-xl'
                         : 'bg-black/10 text-black/40 cursor-not-allowed'
@@ -567,24 +577,29 @@ export default function RewardsPage() {
                   >
                     {redeemingRewardId === reward.id ? (
                       <>
-                        <CircleNotch size={18} weight="bold" className="animate-spin" />
-                        Redeeming...
+                        <CircleNotch size={16} weight="bold" className="animate-spin" />
+                        <span className="hidden sm:inline">Redeeming...</span>
+                        <span className="sm:hidden">...</span>
                       </>
                     ) : canRedeem ? (
                       <>
-                        Redeem Now
-                        <ArrowRight size={16} weight="bold" />
+                        <span className="hidden sm:inline">Redeem Now</span>
+                        <span className="sm:hidden">Redeem</span>
+                        <ArrowRight size={14} weight="bold" />
                       </>
                     ) : (
-                      'Cannot Redeem'
+                      <span className="hidden sm:inline">Cannot Redeem</span>
+                    )}
+                    {!canRedeem && redeemingRewardId !== reward.id && (
+                      <span className="sm:hidden">Locked</span>
                     )}
                   </button>
 
                   {/* Redemption Count */}
                   {reward._count.redemptions > 0 && (
-                    <p className="text-xs text-black/40 text-center mt-4 font-medium">
-                      <Users size={12} weight="bold" className="inline mr-1" />
-                      {reward._count.redemptions.toLocaleString()} {reward._count.redemptions === 1 ? 'redemption' : 'redemptions'}
+                    <p className="text-[10px] md:text-xs text-black/40 text-center mt-3 md:mt-4 font-medium">
+                      <Users size={10} weight="bold" className="inline mr-1" />
+                      {reward._count.redemptions.toLocaleString()} redeemed
                     </p>
                   )}
                 </motion.div>
@@ -594,54 +609,58 @@ export default function RewardsPage() {
         )}
 
         {/* How to Earn Section */}
-        <section className="mt-20 pt-16 border-t border-black/5">
-          <div className="text-center mb-12">
-            <span className="text-[10px] font-medium tracking-[0.3em] text-black/40 uppercase block mb-4">
+        <section className="mt-12 md:mt-20 pt-10 md:pt-16 border-t border-black/5">
+          <div className="text-center mb-8 md:mb-12">
+            <span className="text-[9px] md:text-[10px] font-medium tracking-[0.3em] text-black/40 uppercase block mb-2 md:mb-4">
               Maximize Your Rewards
             </span>
-            <h2 className="text-3xl lg:text-4xl font-black text-black tracking-tight">
-              How to Earn More Points
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-black text-black tracking-tight">
+              How to Earn More
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-3 gap-3 md:grid-cols-3 md:gap-8">
             <div className="text-center">
-              <div className="w-16 h-16 bg-black mx-auto mb-6 flex items-center justify-center">
-                <Gift size={28} weight="fill" className="text-white" />
+              <div className="w-12 h-12 md:w-16 md:h-16 bg-black mx-auto mb-3 md:mb-6 flex items-center justify-center">
+                <Gift size={20} weight="fill" className="text-white md:hidden" />
+                <Gift size={28} weight="fill" className="text-white hidden md:block" />
               </div>
-              <h3 className="text-lg font-black text-black mb-2">Make Purchases</h3>
-              <p className="text-black/60">
+              <h3 className="text-xs md:text-lg font-black text-black mb-1 md:mb-2">Purchases</h3>
+              <p className="text-[10px] md:text-base text-black/60 hidden md:block">
                 Earn 1 point per $1 spent, multiplied by your current tier level.
               </p>
             </div>
             <div className="text-center">
-              <div className="w-16 h-16 bg-black mx-auto mb-6 flex items-center justify-center">
-                <Users size={28} weight="fill" className="text-white" />
+              <div className="w-12 h-12 md:w-16 md:h-16 bg-black mx-auto mb-3 md:mb-6 flex items-center justify-center">
+                <Users size={20} weight="fill" className="text-white md:hidden" />
+                <Users size={28} weight="fill" className="text-white hidden md:block" />
               </div>
-              <h3 className="text-lg font-black text-black mb-2">Refer Friends</h3>
-              <p className="text-black/60">
+              <h3 className="text-xs md:text-lg font-black text-black mb-1 md:mb-2">Referrals</h3>
+              <p className="text-[10px] md:text-base text-black/60 hidden md:block">
                 Get 250 bonus points when a friend makes their first purchase.
               </p>
             </div>
             <div className="text-center">
-              <div className="w-16 h-16 bg-black mx-auto mb-6 flex items-center justify-center">
-                <Sparkle size={28} weight="fill" className="text-white" />
+              <div className="w-12 h-12 md:w-16 md:h-16 bg-black mx-auto mb-3 md:mb-6 flex items-center justify-center">
+                <Sparkle size={20} weight="fill" className="text-white md:hidden" />
+                <Sparkle size={28} weight="fill" className="text-white hidden md:block" />
               </div>
-              <h3 className="text-lg font-black text-black mb-2">Special Events</h3>
-              <p className="text-black/60">
+              <h3 className="text-xs md:text-lg font-black text-black mb-1 md:mb-2">Events</h3>
+              <p className="text-[10px] md:text-base text-black/60 hidden md:block">
                 Earn bonus points during your birthday and special promotions.
               </p>
             </div>
           </div>
 
           {/* CTA */}
-          <div className="text-center mt-12">
+          <div className="text-center mt-8 md:mt-12">
             <Link
               href="/products"
-              className="inline-flex items-center gap-3 px-8 py-4 bg-black text-white font-bold uppercase tracking-wider hover:bg-black/90 transition-all shadow-lg"
+              className="inline-flex items-center gap-2 md:gap-3 px-5 py-3 md:px-8 md:py-4 bg-black text-white font-bold text-xs md:text-sm uppercase tracking-wider hover:bg-black/90 transition-all shadow-lg"
             >
               Start Shopping
-              <ArrowRight size={18} weight="bold" />
+              <ArrowRight size={14} weight="bold" className="md:hidden" />
+              <ArrowRight size={18} weight="bold" className="hidden md:block" />
             </Link>
           </div>
         </section>
@@ -665,27 +684,28 @@ export default function RewardsPage() {
               className="bg-white max-w-6xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
             >
               {/* Modal Header */}
-              <div className="sticky top-0 bg-white border-b border-black/5 px-6 py-5 flex items-center justify-between z-10">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-black flex items-center justify-center">
-                    <Medal size={24} weight="fill" className="text-white" />
+              <div className="sticky top-0 bg-white border-b border-black/5 px-4 md:px-6 py-3 md:py-5 flex items-center justify-between z-10">
+                <div className="flex items-center gap-3 md:gap-4">
+                  <div className="w-9 h-9 md:w-12 md:h-12 bg-black flex items-center justify-center">
+                    <Medal size={18} weight="fill" className="text-white md:hidden" />
+                    <Medal size={24} weight="fill" className="text-white hidden md:block" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-black text-black tracking-tight">Loyalty Tiers</h2>
-                    <p className="text-sm text-black/50">Unlock exclusive benefits as you shop</p>
+                    <h2 className="text-lg md:text-2xl font-black text-black tracking-tight">Loyalty Tiers</h2>
+                    <p className="text-xs md:text-sm text-black/50 hidden md:block">Unlock exclusive benefits as you shop</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowTierModal(false)}
-                  className="w-10 h-10 flex items-center justify-center hover:bg-black/5 transition-colors"
+                  className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center hover:bg-black/5 transition-colors"
                 >
-                  <X size={20} weight="bold" className="text-black/60" />
+                  <X size={18} weight="bold" className="text-black/60" />
                 </button>
               </div>
 
               {/* Tier Cards */}
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 md:p-6">
+                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
                   {TIER_HIERARCHY.map((tier, index) => {
                     const currentTierIndex = user?.loyaltyTier ? TIER_HIERARCHY.findIndex(t => t.slug === user.loyaltyTier?.slug) : 0
                     const isCurrentTier = user?.loyaltyTier?.slug === tier.slug
@@ -696,80 +716,86 @@ export default function RewardsPage() {
                     return (
                       <div
                         key={tier.slug}
-                        className={`p-5 transition-all flex flex-col h-full relative overflow-hidden ${
+                        className={`p-3 md:p-5 transition-all flex flex-col h-full relative overflow-hidden ${
                           isCurrentTier 
                             ? `bg-linear-to-br ${gradientColors.gradient} text-white shadow-xl` 
                             : 'bg-white border border-black/10 hover:shadow-lg'
                         }`}
                       >
                         {isCurrentTier && (
-                          <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-xl" />
+                          <div className="absolute top-0 right-0 w-16 md:w-20 h-16 md:h-20 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-xl" />
                         )}
                         
                         <div className="relative">
                           {/* Header */}
-                          <div className="mb-4">
-                            <div className={`w-12 h-12 flex items-center justify-center mb-3 ${
+                          <div className="mb-2 md:mb-4">
+                            <div className={`w-9 h-9 md:w-12 md:h-12 flex items-center justify-center mb-2 md:mb-3 ${
                               isCurrentTier ? gradientColors.iconBg : 'bg-black/5'
                             }`}>
-                              <Medal className={`w-6 h-6 ${isCurrentTier ? 'text-white' : 'text-black/60'}`} weight="fill" />
+                              <Medal className={`w-4 h-4 md:w-6 md:h-6 ${isCurrentTier ? 'text-white' : 'text-black/60'}`} weight="fill" />
                             </div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className={`text-xl font-black ${isCurrentTier ? 'text-white' : 'text-black'}`}>
+                            <div className="flex items-center gap-1 md:gap-2 mb-0.5 md:mb-1 flex-wrap">
+                              <h3 className={`text-sm md:text-xl font-black ${isCurrentTier ? 'text-white' : 'text-black'}`}>
                                 {tier.name}
                               </h3>
                               {isCurrentTier && (
-                                <span className="px-2 py-0.5 bg-white/20 text-[10px] font-bold uppercase tracking-wide">
-                                  Current
+                                <span className="px-1.5 py-0.5 bg-white/20 text-[8px] md:text-[10px] font-bold uppercase tracking-wide">
+                                  Now
                                 </span>
                               )}
                               {isCompletedTier && (
-                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wide">
-                                  ✓ Completed
+                                <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] md:text-[10px] font-bold uppercase tracking-wide">
+                                  ✓
                                 </span>
                               )}
                             </div>
-                            <p className={`text-xs ${isCurrentTier ? 'text-white/70' : 'text-black/50'}`}>
+                            <p className={`text-[10px] md:text-xs ${isCurrentTier ? 'text-white/70' : 'text-black/50'}`}>
                               {tier.minAnnualPoints === 0 
-                                ? 'Starting tier'
-                                : `${tier.minAnnualPoints.toLocaleString()}+ points/year`
+                                ? 'Start'
+                                : `${tier.minAnnualPoints.toLocaleString()}+ pts`
                               }
                             </p>
                           </div>
 
                           {/* Points Multiplier Badge */}
-                          <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 mb-4 ${
+                          <div className={`inline-flex items-center gap-1 md:gap-1.5 px-2 py-1 md:px-3 md:py-1.5 mb-2 md:mb-4 ${
                             isCurrentTier ? gradientColors.iconBg : 'bg-black/5'
                           }`}>
-                            <Sparkle size={14} weight="fill" className={isCurrentTier ? 'text-white' : 'text-black/60'} />
-                            <span className={`text-sm font-black ${isCurrentTier ? 'text-white' : 'text-black'}`}>
-                              {tier.pointMultiplier}x Points
+                            <Sparkle size={10} weight="fill" className={`${isCurrentTier ? 'text-white' : 'text-black/60'} md:hidden`} />
+                            <Sparkle size={14} weight="fill" className={`${isCurrentTier ? 'text-white' : 'text-black/60'} hidden md:block`} />
+                            <span className={`text-[10px] md:text-sm font-black ${isCurrentTier ? 'text-white' : 'text-black'}`}>
+                              {tier.pointMultiplier}x
                             </span>
                           </div>
 
                           {/* Tier Benefits */}
-                          <div className="space-y-2 grow">
-                            {gradientColors.benefits.map((benefit, benefitIndex) => (
-                              <div key={benefitIndex} className={`flex items-center gap-2 text-xs ${isCurrentTier ? 'text-white/80' : 'text-black/60'}`}>
-                                <CheckCircle size={14} weight="fill" className={isCurrentTier ? 'text-white' : 'text-emerald-500'} />
-                                <span>{benefit}</span>
+                          <div className="space-y-1 md:space-y-2 grow">
+                            {gradientColors.benefits.slice(0, 3).map((benefit, benefitIndex) => (
+                              <div key={benefitIndex} className={`flex items-start gap-1.5 md:gap-2 text-[10px] md:text-xs ${isCurrentTier ? 'text-white/80' : 'text-black/60'}`}>
+                                <CheckCircle size={12} weight="fill" className={`${isCurrentTier ? 'text-white' : 'text-emerald-500'} shrink-0 mt-0.5`} />
+                                <span className="line-clamp-2">{benefit}</span>
                               </div>
                             ))}
+                            {gradientColors.benefits.length > 3 && (
+                              <p className={`text-[9px] md:text-[10px] ${isCurrentTier ? 'text-white/60' : 'text-black/40'}`}>
+                                +{gradientColors.benefits.length - 3} more
+                              </p>
+                            )}
                           </div>
 
                           {/* Progress Indicator for Next Tier */}
                           {isNextTier && user?.loyaltyTier && (
-                            <div className="mt-4 pt-4 border-t border-black/10">
-                              <div className="flex items-center justify-between text-xs mb-2">
+                            <div className="mt-2 md:mt-4 pt-2 md:pt-4 border-t border-black/10">
+                              <div className="flex items-center justify-between text-[10px] md:text-xs mb-1 md:mb-2">
                                 <span className="text-black/50 flex items-center gap-1">
-                                  <TrendUp size={12} weight="bold" />
-                                  Your progress
+                                  <TrendUp size={10} weight="bold" />
+                                  Progress
                                 </span>
                                 <span className="text-black font-bold">
-                                  {(tier.minAnnualPoints - (user.annualPointsEarned ?? 0)).toLocaleString()} pts away
+                                  {(tier.minAnnualPoints - (user.annualPointsEarned ?? 0)).toLocaleString()}
                                 </span>
                               </div>
-                              <div className="h-2 bg-black/10 overflow-hidden">
+                              <div className="h-1.5 md:h-2 bg-black/10 overflow-hidden">
                                 <div
                                   className={`h-full bg-linear-to-r ${gradientColors.gradient} transition-all duration-500`}
                                   style={{ 
@@ -787,10 +813,10 @@ export default function RewardsPage() {
               </div>
 
               {/* Modal Footer */}
-              <div className="sticky bottom-0 bg-white border-t border-black/5 px-6 py-4">
+              <div className="sticky bottom-0 bg-white border-t border-black/5 px-4 md:px-6 py-3 md:py-4">
                 <button
                   onClick={() => setShowTierModal(false)}
-                  className="w-full bg-black text-white py-4 font-bold uppercase tracking-wider hover:bg-black/90 transition-colors"
+                  className="w-full bg-black text-white py-3 md:py-4 font-bold text-xs md:text-sm uppercase tracking-wider hover:bg-black/90 transition-colors"
                 >
                   Close
                 </button>
@@ -816,65 +842,68 @@ export default function RewardsPage() {
               className="bg-white max-w-md w-full overflow-hidden shadow-2xl"
             >
               {/* Success Header */}
-              <div className="bg-linear-to-br from-emerald-500 to-emerald-600 p-8 text-center text-white relative overflow-hidden">
+              <div className="bg-linear-to-br from-emerald-500 to-emerald-600 p-5 md:p-8 text-center text-white relative overflow-hidden">
                 <div className="absolute inset-0 opacity-20">
-                  <Confetti size={200} weight="fill" className="absolute -top-10 -left-10 rotate-12" />
-                  <Confetti size={150} weight="fill" className="absolute -bottom-5 -right-5 -rotate-12" />
+                  <Confetti size={200} weight="fill" className="absolute -top-10 -left-10 rotate-12 hidden md:block" />
+                  <Confetti size={150} weight="fill" className="absolute -bottom-5 -right-5 -rotate-12 hidden md:block" />
                 </div>
                 <div className="relative">
-                  <div className="w-16 h-16 bg-white/20 flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle size={40} weight="fill" className="text-white" />
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-white/20 flex items-center justify-center mx-auto mb-3 md:mb-4">
+                    <CheckCircle size={28} weight="fill" className="text-white md:hidden" />
+                    <CheckCircle size={40} weight="fill" className="text-white hidden md:block" />
                   </div>
-                  <h2 className="text-2xl font-black mb-2">Reward Redeemed!</h2>
-                  <p className="text-white/90">
-                    You&apos;ve successfully redeemed {redemptionResult.reward?.name}
+                  <h2 className="text-xl md:text-2xl font-black mb-1 md:mb-2">Reward Redeemed!</h2>
+                  <p className="text-white/90 text-sm md:text-base line-clamp-1">
+                    You&apos;ve redeemed {redemptionResult.reward?.name}
                   </p>
                 </div>
               </div>
 
               {/* Content */}
-              <div className="p-6">
-                <div className="flex items-center justify-between py-3 border-b border-black/10">
-                  <span className="text-black/60">Points Spent</span>
-                  <span className="font-bold text-black">
+              <div className="p-4 md:p-6">
+                <div className="flex items-center justify-between py-2 md:py-3 border-b border-black/10">
+                  <span className="text-xs md:text-sm text-black/60">Points Spent</span>
+                  <span className="font-bold text-black text-sm md:text-base">
                     -{redemptionResult.redemption?.pointsSpent.toLocaleString()} pts
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between py-3 border-b border-black/10">
-                  <span className="text-black/60">New Balance</span>
-                  <span className="font-bold text-black">
+                <div className="flex items-center justify-between py-2 md:py-3 border-b border-black/10">
+                  <span className="text-xs md:text-sm text-black/60">New Balance</span>
+                  <span className="font-bold text-black text-sm md:text-base">
                     {redemptionResult.newPointsBalance?.toLocaleString()} pts
                   </span>
                 </div>
 
                 {redemptionResult.redemption?.couponCode && (
-                  <div className="mt-4 p-4 bg-amber-50 border border-amber-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Gift size={18} weight="fill" className="text-amber-600" />
-                      <span className="text-sm font-bold text-amber-900">Your Coupon Code</span>
+                  <div className="mt-3 md:mt-4 p-3 md:p-4 bg-amber-50 border border-amber-200">
+                    <div className="flex items-center gap-1.5 md:gap-2 mb-1.5 md:mb-2">
+                      <Gift size={14} weight="fill" className="text-amber-600 md:hidden" />
+                      <Gift size={18} weight="fill" className="text-amber-600 hidden md:block" />
+                      <span className="text-xs md:text-sm font-bold text-amber-900">Coupon Code</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <code className="flex-1 bg-white px-4 py-3 font-mono text-lg font-black text-center tracking-wider border border-amber-200">
+                      <code className="flex-1 bg-white px-3 py-2 md:px-4 md:py-3 font-mono text-sm md:text-lg font-black text-center tracking-wider border border-amber-200">
                         {redemptionResult.redemption.couponCode}
                       </code>
                       <button
                         onClick={() => copyToClipboard(redemptionResult.redemption?.couponCode || '')}
-                        className="p-3 bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                        className="p-2 md:p-3 bg-amber-600 text-white hover:bg-amber-700 transition-colors"
                         title="Copy to clipboard"
                       >
-                        {copiedCode ? <Check size={20} weight="bold" /> : <Copy size={20} weight="bold" />}
+                        {copiedCode ? <Check size={16} weight="bold" className="md:hidden" /> : <Copy size={16} weight="bold" className="md:hidden" />}
+                        {copiedCode ? <Check size={20} weight="bold" className="hidden md:block" /> : <Copy size={20} weight="bold" className="hidden md:block" />}
                       </button>
                     </div>
-                    <p className="text-xs text-amber-700 mt-2 text-center">
-                      Use this code at checkout to apply your reward
+                    <p className="text-[10px] md:text-xs text-amber-700 mt-2 text-center">
+                      Use at checkout
                     </p>
                   </div>
                 )}
 
                 {redemptionResult.reward?.value && (
-                  <div className="mt-4 flex items-center gap-2 text-sm text-black/60">
-                    <Star size={16} weight="fill" className="text-amber-500" />
+                  <div className="mt-3 md:mt-4 flex items-center gap-2 text-xs md:text-sm text-black/60">
+                    <Star size={14} weight="fill" className="text-amber-500" />
                     {redemptionResult.reward.type === 'DISCOUNT' && (
                       <span>Save ${redemptionResult.reward.value} on your next order</span>
                     )}
@@ -886,10 +915,10 @@ export default function RewardsPage() {
               </div>
 
               {/* Actions */}
-              <div className="p-6 pt-0 space-y-3">
+              <div className="p-4 md:p-6 pt-0 space-y-2 md:space-y-3">
                 <Link
                   href="/products"
-                  className="block w-full bg-black text-white py-4 font-bold uppercase tracking-wider hover:bg-black/90 transition-colors text-center"
+                  className="block w-full bg-black text-white py-3 md:py-4 font-bold text-xs md:text-sm uppercase tracking-wider hover:bg-black/90 transition-colors text-center"
                 >
                   Shop Now
                 </Link>
@@ -899,9 +928,9 @@ export default function RewardsPage() {
                     setRedemptionResult(null)
                     setCopiedCode(false)
                   }}
-                  className="w-full bg-white text-black py-4 font-bold uppercase tracking-wider border border-black/10 hover:bg-black/5 transition-colors"
+                  className="w-full bg-white text-black py-3 md:py-4 font-bold text-xs md:text-sm uppercase tracking-wider border border-black/10 hover:bg-black/5 transition-colors"
                 >
-                  Continue Browsing
+                  Continue
                 </button>
               </div>
             </motion.div>
@@ -924,21 +953,22 @@ export default function RewardsPage() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white max-w-md w-full overflow-hidden shadow-2xl"
             >
-              <div className="bg-linear-to-br from-rose-500 to-rose-600 p-6 text-center text-white">
-                <div className="w-14 h-14 bg-white/20 flex items-center justify-center mx-auto mb-3">
-                  <Warning size={32} weight="fill" className="text-white" />
+              <div className="bg-linear-to-br from-rose-500 to-rose-600 p-4 md:p-6 text-center text-white">
+                <div className="w-12 h-12 md:w-14 md:h-14 bg-white/20 flex items-center justify-center mx-auto mb-2 md:mb-3">
+                  <Warning size={24} weight="fill" className="text-white md:hidden" />
+                  <Warning size={32} weight="fill" className="text-white hidden md:block" />
                 </div>
-                <h2 className="text-xl font-black mb-1">Redemption Failed</h2>
-                <p className="text-white/90 text-sm">{errorMessage}</p>
+                <h2 className="text-lg md:text-xl font-black mb-1">Failed</h2>
+                <p className="text-white/90 text-xs md:text-sm">{errorMessage}</p>
               </div>
 
-              <div className="p-6">
+              <div className="p-4 md:p-6">
                 <button
                   onClick={() => {
                     setShowErrorModal(false)
                     setErrorMessage('')
                   }}
-                  className="w-full bg-black text-white py-4 font-bold uppercase tracking-wider hover:bg-black/90 transition-colors"
+                  className="w-full bg-black text-white py-3 md:py-4 font-bold text-xs md:text-sm uppercase tracking-wider hover:bg-black/90 transition-colors"
                 >
                   Try Again
                 </button>

@@ -45,7 +45,7 @@ export function CategoryCarousel({ categories = DEFAULT_CATEGORIES }: CategoryCa
   if (!categories || categories.length === 0) return null;
 
   return (
-    <section className="relative py-32 bg-black overflow-hidden">
+    <section className="relative py-16 md:py-32 bg-black overflow-hidden">
       {/* Grain overlay */}
       <div 
         className="absolute inset-0 opacity-[0.03] pointer-events-none"
@@ -54,15 +54,15 @@ export function CategoryCarousel({ categories = DEFAULT_CATEGORIES }: CategoryCa
         }}
       />
 
-      <div className="relative max-w-7xl mx-auto px-6">
+      <div className="relative max-w-7xl mx-auto px-4 md:px-6">
         {/* Section Header - Asymmetric */}
-        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8 mb-20">
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 md:gap-8 mb-8 md:mb-20">
           <div>
             <motion.span
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="text-[10px] font-medium tracking-[0.3em] text-white/30 uppercase block mb-4"
+              className="text-[9px] md:text-[10px] font-medium tracking-[0.3em] text-white/30 uppercase block mb-2 md:mb-4"
             >
               Categories
             </motion.span>
@@ -72,7 +72,7 @@ export function CategoryCarousel({ categories = DEFAULT_CATEGORIES }: CategoryCa
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className="text-[clamp(2.5rem,8vw,5rem)] font-black leading-[0.9] tracking-tight text-white"
+              className="text-[clamp(1.75rem,8vw,5rem)] font-black leading-[0.9] tracking-tight text-white"
             >
               SHOP BY
               <br />
@@ -87,18 +87,18 @@ export function CategoryCarousel({ categories = DEFAULT_CATEGORIES }: CategoryCa
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="text-sm text-white/40 max-w-xs font-light leading-relaxed lg:pb-2"
+            className="text-xs md:text-sm text-white/40 max-w-xs font-light leading-relaxed lg:pb-2 hidden md:block"
           >
             Find your perfect piece across our curated collections. Each category designed with intention.
           </motion.p>
         </div>
 
         {/* Category Grid - Modern Asymmetric */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 md:gap-4 mb-8 md:mb-16">
           {categories.map((category, idx) => {
             // First card spans 7 cols, second 5 cols, third full width but shorter
             const colSpan = idx === 0 ? 'lg:col-span-7' : idx === 1 ? 'lg:col-span-5' : 'lg:col-span-12';
-            const height = idx === 2 ? 'h-[300px]' : 'h-[500px]';
+            const height = idx === 2 ? 'h-[180px] md:h-[300px]' : 'h-[220px] md:h-[500px]';
             
             return (
               <motion.div
@@ -126,34 +126,34 @@ export function CategoryCarousel({ categories = DEFAULT_CATEGORIES }: CategoryCa
                     </div>
 
                     {/* Corner accent */}
-                    <div className="absolute top-4 right-4 w-12 h-12 border-r border-t border-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <div className="absolute top-2 right-2 md:top-4 md:right-4 w-8 h-8 md:w-12 md:h-12 border-r border-t border-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
                     {/* Content */}
-                    <div className="absolute inset-0 p-8 flex flex-col justify-end">
+                    <div className="absolute inset-0 p-4 md:p-8 flex flex-col justify-end">
                       {/* Index */}
-                      <span className="absolute top-6 left-6 text-[10px] font-medium tracking-wider text-white/30">
+                      <span className="absolute top-3 left-4 md:top-6 md:left-6 text-[9px] md:text-[10px] font-medium tracking-wider text-white/30">
                         {String(idx + 1).padStart(2, '0')}
                       </span>
 
                       {/* Category Name */}
                       <motion.h3 
-                        className="text-3xl md:text-4xl font-black text-white mb-2 tracking-tight"
+                        className="text-xl md:text-3xl lg:text-4xl font-black text-white mb-1 md:mb-2 tracking-tight"
                       >
                         {category.name.toUpperCase()}
                       </motion.h3>
                       
-                      {/* Description */}
+                      {/* Description - hidden on mobile */}
                       {category.description && (
-                        <p className="text-white/50 text-sm font-light mb-6 max-w-md">
+                        <p className="hidden md:block text-white/50 text-sm font-light mb-6 max-w-md">
                           {category.description}
                         </p>
                       )}
 
                       {/* CTA */}
-                      <div className="flex items-center gap-2 text-white">
-                        <span className="text-xs font-semibold uppercase tracking-[0.2em]">Explore</span>
+                      <div className="flex items-center gap-1.5 md:gap-2 text-white">
+                        <span className="text-[10px] md:text-xs font-semibold uppercase tracking-[0.15em] md:tracking-[0.2em]">Explore</span>
                         <ArrowUpRight 
-                          className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-300" 
+                          className="w-3 h-3 md:w-4 md:h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-300" 
                           weight="bold" 
                         />
                       </div>

@@ -13,6 +13,7 @@ import { CouponInput } from '@/components/checkout/CouponInput'
 import { PointsPreview } from '@/components/checkout/PointsPreview'
 import { isValidPhoneNumber } from '@/lib/utils/phone'
 import { useAuth } from '@/lib/auth/context'
+import { Navigation } from '@/components/layout/Navigation'
 import { 
   ArrowLeft, 
   Lock, 
@@ -289,8 +290,10 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-20">
+    <>
+      <Navigation />
+      <div className="min-h-screen bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-20">
         {/* Back navigation */}
         <motion.div
           initial={{ opacity: 0, x: -10 }}
@@ -761,6 +764,7 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }

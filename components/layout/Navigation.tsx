@@ -24,7 +24,8 @@ import {
   ArrowRight,
   Fire,
   ArrowUpRight,
-  TrendUp
+  TrendUp,
+  Heart
 } from '@phosphor-icons/react'
 
 // Animated counter component for smooth number transitions
@@ -338,6 +339,16 @@ export function Navigation() {
         return
       }
 
+      // Check if we're on mobile (< 768px)
+      const isMobile = window.innerWidth < 768
+      
+      // On mobile, always show the nav (sticky behavior)
+      if (isMobile) {
+        setShowNav(true)
+        lastScroll = current
+        return
+      }
+
       if (!ticking) {
         window.requestAnimationFrame(() => {
           if (current > lastScroll && current > 80) {
@@ -353,7 +364,12 @@ export function Navigation() {
     }
 
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    // Also listen for resize to handle orientation changes
+    window.addEventListener('resize', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    }
   }, [mobileMenuOpen, searchOpen])
 
   const fetchUserPoints = useCallback(async () => {
@@ -427,8 +443,19 @@ export function Navigation() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16 md:h-18">
           
-            {/* Left - Navigation Links */}
-            <div className="hidden md:flex items-center gap-8">
+            {/* Left - Mobile Menu Toggle + Desktop Navigation */}
+            <div className="flex items-center gap-4">
+              {/* Mobile Menu Toggle - Left side on mobile */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden p-2 -ml-2 text-black/60 hover:text-black transition-colors"
+                aria-label="Toggle menu"
+              >
+                {mobileMenuOpen ? <X size={20} weight="bold" /> : <List size={20} weight="bold" />}
+              </button>
+              
+              {/* Desktop Navigation Links */}
+              <div className="hidden md:flex items-center gap-8">
               {/* Shop Dropdown */}
               <div 
                 ref={shopDropdownRef}
@@ -527,42 +554,42 @@ export function Navigation() {
                   {link.label}
                 </Link>
               ))}
+              </div>
             </div>
 
-            {/* Center - Logo */}
+            {/* Center - Logo (Desktop only) (Desktop only, centered) */}
             <Link 
               href="/" 
-              className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 md:gap-3 transition-all duration-300 hover:opacity-80"
+              className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-3 transition-all duration-300 hover:opacity-80"
             >
               <Image
                 src="/assets/head-over-feels-logo.png"
                 alt="Head Over Feels Logo"
                 width={80}
                 height={80}
-                className="object-contain hidden md:block"
+                className="object-contain"
               />
               <span 
-                className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-transparent whitespace-nowrap" 
+                className="text-2xl lg:text-3xl text-transparent whitespace-nowrap" 
                 style={{ 
                   fontFamily: "'Harlow Solid Italic', 'Harlow', sans-serif",
                   WebkitTextStroke: '1px #1A1A1A'
                 }}
               >
-                <span className="hidden sm:inline">Head Over Feels</span>
-                <span className="sm:hidden">HOF</span>
+                Head Over Feels
               </span>
               <Image
                 src="/assets/head-over-feels-logo.png"
                 alt="Head Over Feels Logo"
                 width={80}
                 height={80}
-                className="object-contain hidden md:block"
+                className="object-contain"
               />
             </Link>
 
-            {/* Right - Icons */}
+            {/* Right - Icons + Mobile Logo */}
             <div className="flex items-center gap-0.5">
-              {/* Rewards - Pill style */}
+              {/* Rewards - Pill style (Desktop) */}
               {user && userPoints !== null && (
                 <Link
                   href="/loyalty/rewards"
@@ -575,7 +602,7 @@ export function Navigation() {
                 </Link>
               )}
               
-              {/* Search Trigger - Clean minimal style */}
+              {/* Search Trigger - Clean minimal style (Desktop) */}
               <button
                 onClick={() => setSearchOpen(true)}
                 className="hidden md:flex items-center justify-center w-10 h-10 text-black/40 hover:text-black hover:bg-black/5 transition-all duration-200"
@@ -584,25 +611,20 @@ export function Navigation() {
                 <MagnifyingGlass size={18} weight="bold" />
               </button>
 
-              {/* Mobile Search */}
-              <button
-                onClick={() => setSearchOpen(true)}
-                className="md:hidden p-2 text-black/60 hover:text-black transition-colors"
-                aria-label="Search"
-              >
-                <MagnifyingGlass size={20} weight="bold" />
-              </button>
+              {/* Notifications - Desktop only */}
+              <div className="hidden md:block">
+                {user && <NotificationCenter />}
+              </div>
 
-              {/* Notifications - Only show when logged in */}
-              {user && <NotificationCenter />}
-
-              {/* Wishlist */}
-              <WishlistIcon />
+              {/* Wishlist - Desktop only */}
+              <div className="hidden md:block">
+                <WishlistIcon />
+              </div>
               
-              {/* Cart */}
+              {/* Cart - Desktop only */}
               <Link
                 href="/cart"
-                className="relative p-2 text-black/50 hover:text-black hover:bg-black/5 transition-all duration-200"
+                className="hidden md:flex relative p-2 text-black/50 hover:text-black hover:bg-black/5 transition-all duration-200"
                 aria-label="Shopping cart"
               >
                 <Bag size={20} weight="bold" />
@@ -613,7 +635,7 @@ export function Navigation() {
                 )}
               </Link>
 
-              {/* Profile / Sign In */}
+              {/* Profile / Sign In (Desktop) */}
               {!authLoading && (
                 user ? (
                   <Link
@@ -633,14 +655,21 @@ export function Navigation() {
                 )
               )}
 
-              {/* Mobile Menu Toggle */}
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 text-black/60 hover:text-black transition-colors"
-                aria-label="Toggle menu"
+              {/* Mobile Logo - Right side */}
+              <Link 
+                href="/" 
+                className="md:hidden flex items-center ml-2 transition-all duration-300 hover:opacity-80"
               >
-                {mobileMenuOpen ? <X size={20} weight="bold" /> : <List size={20} weight="bold" />}
-              </button>
+                <span 
+                  className="text-base text-transparent whitespace-nowrap" 
+                  style={{ 
+                    fontFamily: "'Harlow Solid Italic', 'Harlow', sans-serif",
+                    WebkitTextStroke: '1px #1A1A1A'
+                  }}
+                >
+                  Head Over Feels
+                </span>
+              </Link>
             </div>
           </div>
         </div>
@@ -981,6 +1010,31 @@ export function Navigation() {
                     <ArrowRight size={16} weight="bold" className="text-white/30 group-hover:text-white/70 transition-colors" />
                   </Link>
                 )}
+                
+                {/* Quick Actions - Cart & Wishlist */}
+                <div className="flex gap-3">
+                  <Link
+                    href="/cart"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex-1 flex items-center justify-center gap-2 p-4 bg-black text-white text-xs font-black uppercase tracking-wider"
+                  >
+                    <Bag size={18} weight="bold" />
+                    Cart
+                    {cartItemCount > 0 && (
+                      <span className="bg-white text-black text-[10px] font-black px-1.5 py-0.5">
+                        {cartItemCount > 9 ? '9+' : cartItemCount}
+                      </span>
+                    )}
+                  </Link>
+                  <Link
+                    href="/wishlist"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex-1 flex items-center justify-center gap-2 p-4 border border-black text-black text-xs font-black uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+                  >
+                    <Heart size={18} weight="bold" />
+                    Wishlist
+                  </Link>
+                </div>
                 
                 {/* Shop Section */}
                 <div className="space-y-1">

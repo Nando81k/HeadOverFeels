@@ -628,31 +628,34 @@ export default function ProfilePage() {
       </AnimatePresence>
 
       {/* Editorial Hero Section */}
-      <section className="pt-24 pb-12 px-4 sm:px-8 border-b border-black/10">
+      <section className="pt-20 md:pt-24 pb-8 md:pb-12 px-4 sm:px-8 border-b border-black/10">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6"
+            className="flex flex-col gap-6"
           >
-            <div className="flex items-start gap-6">
-              <div className="w-20 h-20 lg:w-24 lg:h-24 bg-black flex items-center justify-center shrink-0">
-                <User size={40} weight="bold" className="text-white" />
+            {/* User Info */}
+            <div className="flex items-start gap-4 md:gap-6">
+              <div className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 bg-black flex items-center justify-center shrink-0">
+                <User size={32} weight="bold" className="text-white md:hidden" />
+                <User size={40} weight="bold" className="text-white hidden md:block" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-black/50 uppercase tracking-wider mb-2">My Account</p>
-                <h1 className="text-4xl lg:text-6xl font-black text-black tracking-tight">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs md:text-sm font-medium text-black/50 uppercase tracking-wider mb-1 md:mb-2">My Account</p>
+                <h1 className="text-2xl md:text-4xl lg:text-6xl font-black text-black tracking-tight truncate">
                   {user.name || 'Welcome'}
                 </h1>
-                <p className="text-lg text-black/60 mt-2">{user.email}</p>
+                <p className="text-sm md:text-lg text-black/60 mt-1 md:mt-2 truncate">{user.email}</p>
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
+            {/* Action Buttons - Full width on mobile */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               {user.isAdmin && (
                 <Link
                   href="/admin"
-                  className="flex items-center gap-2 px-6 py-3 bg-black text-white text-sm font-bold uppercase tracking-wider hover:bg-black/80 transition-colors"
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-black text-white text-sm font-bold uppercase tracking-wider hover:bg-black/80 transition-colors"
                 >
                   <Gear size={18} weight="bold" />
                   Admin
@@ -660,7 +663,7 @@ export default function ProfilePage() {
               )}
               <button
                 onClick={handleSignout}
-                className="flex items-center gap-2 px-6 py-3 border-2 border-black text-black text-sm font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+                className="flex items-center justify-center gap-2 px-6 py-3 border-2 border-black text-black text-sm font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
               >
                 <SignOut size={18} weight="bold" />
                 Sign Out
@@ -672,7 +675,7 @@ export default function ProfilePage() {
 
       {/* Loyalty Tier Card - Full Width Editorial Style */}
       {user.loyaltyTier && (
-        <section className="py-8 px-4 sm:px-8">
+        <section className="py-6 md:py-8 px-4 sm:px-8">
           <div className="max-w-7xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -704,10 +707,10 @@ export default function ProfilePage() {
               <motion.div 
                 animate={tierTransitionPhase === 'celebrating' ? { scale: [1, 1.5, 1], opacity: [0.1, 0.3, 0.1] } : {}}
                 transition={{ duration: 2 }}
-                className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" 
+                className="absolute top-0 right-0 w-32 md:w-64 h-32 md:h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" 
               />
               <motion.div 
-                className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl" 
+                className="absolute bottom-0 left-0 w-24 md:w-48 h-24 md:h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl" 
               />
               
               {/* Shimmer effect */}
@@ -736,19 +739,20 @@ export default function ProfilePage() {
                 )}
               </AnimatePresence>
               
-              <div className="relative p-8 lg:p-12">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
-                  {/* Tier Info */}
-                  <div className="flex items-center gap-6">
+              <div className="relative p-5 md:p-8 lg:p-12">
+                {/* Tier Info - Stacks on mobile */}
+                <div className="flex flex-col gap-6">
+                  <div className="flex items-center gap-4 md:gap-6">
                     <motion.div
                       animate={tierTransitionPhase === 'celebrating' ? { rotate: [0, -15, 15, -10, 10, 0], scale: [1, 1.3, 1] } : {}}
                       transition={{ duration: 0.8 }}
-                      className={`w-20 h-20 ${activeTierConfig.iconBg} backdrop-blur-sm flex items-center justify-center`}
+                      className={`w-14 h-14 md:w-20 md:h-20 ${activeTierConfig.iconBg} backdrop-blur-sm flex items-center justify-center shrink-0`}
                     >
-                      <Crown size={40} weight="fill" className="text-white" />
+                      <Crown size={28} weight="fill" className="text-white md:hidden" />
+                      <Crown size={40} weight="fill" className="text-white hidden md:block" />
                     </motion.div>
-                    <div>
-                      <p className="text-sm font-medium uppercase tracking-wider text-white/70 mb-1">Loyalty Tier</p>
+                    <div className="min-w-0">
+                      <p className="text-xs md:text-sm font-medium uppercase tracking-wider text-white/70 mb-1">Loyalty Tier</p>
                       <AnimatePresence mode="wait">
                         <motion.h2 
                           key={activeTierSlug}
@@ -756,7 +760,7 @@ export default function ProfilePage() {
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: -20, scale: 0.8 }}
                           transition={{ duration: 0.5, type: "spring", stiffness: 200 }}
-                          className="text-4xl lg:text-5xl font-black"
+                          className="text-2xl md:text-4xl lg:text-5xl font-black"
                         >
                           {displayTierSlug ? getTierConfig(displayTierSlug).name : user.loyaltyTier.name}
                         </motion.h2>
@@ -767,20 +771,20 @@ export default function ProfilePage() {
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
-                          className="text-white/80 mt-1"
+                          className="text-white/80 mt-1 text-sm md:text-base"
                         >
-                          Earning {displayTierSlug ? getTierConfig(displayTierSlug).multiplier : currentTierConfig.multiplier}x points on every purchase
+                          Earning {displayTierSlug ? getTierConfig(displayTierSlug).multiplier : currentTierConfig.multiplier}x points
                         </motion.p>
                       </AnimatePresence>
                     </div>
                   </div>
                   
-                  {/* Points & Stats */}
-                  <div className="flex items-center gap-6 lg:gap-8">
+                  {/* Points & Stats - Grid on mobile, flex on desktop */}
+                  <div className="grid grid-cols-2 md:flex md:items-center gap-3 md:gap-6 lg:gap-8">
                     <motion.div 
                       animate={shouldAnimatePoints || tierTransitionPhase === 'celebrating' ? { scale: [1, 1.05, 1] } : {}}
                       transition={{ duration: 0.5, delay: 0.3 }}
-                      className={`${activeTierConfig.iconBg} backdrop-blur-sm p-6 relative`}
+                      className={`${activeTierConfig.iconBg} backdrop-blur-sm p-4 md:p-6 relative`}
                     >
                       <AnimatePresence>
                         {(shouldAnimatePoints || shouldAnimateTier) && pointsGained > 0 && (
@@ -789,33 +793,33 @@ export default function ProfilePage() {
                             animate={{ opacity: 0, y: -30 }}
                             exit={{ opacity: 0 }}
                             transition={{ duration: 1.5, delay: 1 }}
-                            className="absolute top-2 right-2 text-sm font-bold text-green-300"
+                            className="absolute top-1 right-2 text-xs md:text-sm font-bold text-green-300"
                           >
                             +{pointsGained.toLocaleString()}
                           </motion.div>
                         )}
                       </AnimatePresence>
-                      <p className="text-xs uppercase tracking-wider text-white/70 mb-1">Available Points</p>
+                      <p className="text-[10px] md:text-xs uppercase tracking-wider text-white/70 mb-1">Available</p>
                       <motion.p 
                         animate={shouldAnimatePoints ? { scale: [1, 1.1, 1] } : {}}
                         transition={{ duration: 0.4, delay: 0.5 }}
-                        className="text-4xl font-black"
+                        className="text-xl md:text-3xl lg:text-4xl font-black"
                       >
                         {user.currentPoints.toLocaleString()}
                       </motion.p>
                     </motion.div>
                     
-                    <div className={`${activeTierConfig.iconBg} backdrop-blur-sm p-6`}>
-                      <p className="text-xs uppercase tracking-wider text-white/70 mb-1">Total Spent</p>
-                      <p className="text-4xl font-black">${user.totalSpent.toFixed(0)}</p>
+                    <div className={`${activeTierConfig.iconBg} backdrop-blur-sm p-4 md:p-6`}>
+                      <p className="text-[10px] md:text-xs uppercase tracking-wider text-white/70 mb-1">Total Spent</p>
+                      <p className="text-xl md:text-3xl lg:text-4xl font-black">${user.totalSpent.toFixed(0)}</p>
                     </div>
                     
                     <Link
                       href="/loyalty/rewards"
-                      className="flex items-center gap-3 bg-white text-black px-8 py-6 font-bold uppercase tracking-wider hover:bg-white/90 transition-colors"
+                      className="col-span-2 md:col-span-1 flex items-center justify-center gap-2 md:gap-3 bg-white text-black px-4 md:px-8 py-4 md:py-6 font-bold uppercase tracking-wider text-sm hover:bg-white/90 transition-colors"
                     >
                       Redeem Rewards
-                      <ArrowRight size={20} weight="bold" />
+                      <ArrowRight size={18} weight="bold" />
                     </Link>
                   </div>
                 </div>
@@ -902,52 +906,56 @@ export default function ProfilePage() {
       )}
 
       {/* Stats Grid */}
-      <section className="py-8 px-4 sm:px-8 border-b border-black/10">
+      <section className="py-6 md:py-8 px-4 sm:px-8 border-b border-black/10">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
-            className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+            className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4"
           >
-            <div className="border border-black/10 p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <CalendarBlank size={20} weight="bold" className="text-black/40" />
-                <p className="text-xs uppercase tracking-wider text-black/50">Member Since</p>
+            <div className="border border-black/10 p-4 md:p-6">
+              <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
+                <CalendarBlank size={16} weight="bold" className="text-black/40 md:hidden" />
+                <CalendarBlank size={20} weight="bold" className="text-black/40 hidden md:block" />
+                <p className="text-[10px] md:text-xs uppercase tracking-wider text-black/50">Member Since</p>
               </div>
-              <p className="text-2xl lg:text-3xl font-black text-black">
+              <p className="text-lg md:text-2xl lg:text-3xl font-black text-black">
                 {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
               </p>
             </div>
-            <div className="border border-black/10 p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <Package size={20} weight="bold" className="text-black/40" />
-                <p className="text-xs uppercase tracking-wider text-black/50">Total Orders</p>
+            <div className="border border-black/10 p-4 md:p-6">
+              <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
+                <Package size={16} weight="bold" className="text-black/40 md:hidden" />
+                <Package size={20} weight="bold" className="text-black/40 hidden md:block" />
+                <p className="text-[10px] md:text-xs uppercase tracking-wider text-black/50">Total Orders</p>
               </div>
-              <p className="text-2xl lg:text-3xl font-black text-black">{user.totalOrders || orders.length}</p>
+              <p className="text-lg md:text-2xl lg:text-3xl font-black text-black">{user.totalOrders || orders.length}</p>
             </div>
-            <div className="border border-black/10 p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <Sparkle size={20} weight="bold" className="text-black/40" />
-                <p className="text-xs uppercase tracking-wider text-black/50">Lifetime Points</p>
+            <div className="border border-black/10 p-4 md:p-6">
+              <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
+                <Sparkle size={16} weight="bold" className="text-black/40 md:hidden" />
+                <Sparkle size={20} weight="bold" className="text-black/40 hidden md:block" />
+                <p className="text-[10px] md:text-xs uppercase tracking-wider text-black/50">Lifetime Pts</p>
               </div>
-              <p className="text-2xl lg:text-3xl font-black text-black">{user.lifetimePoints?.toLocaleString() || 0}</p>
+              <p className="text-lg md:text-2xl lg:text-3xl font-black text-black">{user.lifetimePoints?.toLocaleString() || 0}</p>
             </div>
-            <div className="border border-black/10 p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <Envelope size={20} weight="bold" className="text-black/40" />
-                <p className="text-xs uppercase tracking-wider text-black/50">Newsletter</p>
+            <div className="border border-black/10 p-4 md:p-6">
+              <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
+                <Envelope size={16} weight="bold" className="text-black/40 md:hidden" />
+                <Envelope size={20} weight="bold" className="text-black/40 hidden md:block" />
+                <p className="text-[10px] md:text-xs uppercase tracking-wider text-black/50">Newsletter</p>
               </div>
-              <p className="text-2xl lg:text-3xl font-black text-black">{user.newsletter ? 'Subscribed' : 'Not Subscribed'}</p>
+              <p className="text-lg md:text-2xl lg:text-3xl font-black text-black">{user.newsletter ? 'Yes' : 'No'}</p>
             </div>
           </motion.div>
         </div>
       </section>
 
       {/* Two Column Layout: Points History + Recent Orders */}
-      <section className="py-12 px-4 sm:px-8">
+      <section className="py-8 md:py-12 px-4 sm:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
             
             {/* Points History */}
             {user.loyaltyTier && (
@@ -956,46 +964,49 @@ export default function ProfilePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
               >
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl lg:text-3xl font-black text-black flex items-center gap-3">
-                    <ClockCounterClockwise size={28} weight="bold" />
+                <div className="flex items-center justify-between mb-4 md:mb-6">
+                  <h2 className="text-xl md:text-2xl lg:text-3xl font-black text-black flex items-center gap-2 md:gap-3">
+                    <ClockCounterClockwise size={22} weight="bold" className="md:hidden" />
+                    <ClockCounterClockwise size={28} weight="bold" className="hidden md:block" />
                     Points History
                   </h2>
                   <Link
                     href="/loyalty/history"
-                    className="text-sm font-bold uppercase tracking-wider text-black/60 hover:text-black transition-colors flex items-center gap-2"
+                    className="text-xs md:text-sm font-bold uppercase tracking-wider text-black/60 hover:text-black transition-colors flex items-center gap-1 md:gap-2"
                   >
                     View All
-                    <ArrowRight size={16} />
+                    <ArrowRight size={14} className="md:hidden" />
+                    <ArrowRight size={16} className="hidden md:block" />
                   </Link>
                 </div>
                 
                 {loadingPoints ? (
-                  <div className="flex items-center justify-center py-16 border border-black/10">
+                  <div className="flex items-center justify-center py-12 md:py-16 border border-black/10">
                     <CircleNotch size={24} weight="bold" className="animate-spin text-black/30" />
                   </div>
                 ) : pointsHistory.length === 0 ? (
-                  <div className="text-center py-16 border border-black/10">
-                    <Coins size={40} weight="light" className="text-black/20 mx-auto mb-3" />
-                    <p className="text-black/50 font-medium">No points activity yet</p>
-                    <p className="text-sm text-black/40 mt-1">Start shopping to earn points!</p>
+                  <div className="text-center py-12 md:py-16 border border-black/10">
+                    <Coins size={32} weight="light" className="text-black/20 mx-auto mb-3 md:hidden" />
+                    <Coins size={40} weight="light" className="text-black/20 mx-auto mb-3 hidden md:block" />
+                    <p className="text-black/50 font-medium text-sm md:text-base">No points activity yet</p>
+                    <p className="text-xs md:text-sm text-black/40 mt-1">Start shopping to earn points!</p>
                   </div>
                 ) : (
                   <div className="border border-black/10 divide-y divide-black/10">
                     {pointsHistory.slice(0, 5).map((tx) => (
-                      <div key={tx.id} className="flex items-center justify-between p-5 hover:bg-black/2 transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-black/5 flex items-center justify-center">
+                      <div key={tx.id} className="flex items-center justify-between p-4 md:p-5 hover:bg-black/2 transition-colors">
+                        <div className="flex items-center gap-3 md:gap-4 min-w-0">
+                          <div className="w-8 h-8 md:w-10 md:h-10 bg-black/5 flex items-center justify-center shrink-0">
                             {getTransactionIcon(tx.type)}
                           </div>
-                          <div>
-                            <p className="font-bold text-black">{tx.description}</p>
-                            <p className="text-sm text-black/50">
-                              {new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                          <div className="min-w-0">
+                            <p className="font-bold text-black text-sm md:text-base truncate">{tx.description}</p>
+                            <p className="text-xs md:text-sm text-black/50">
+                              {new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                             </p>
                           </div>
                         </div>
-                        <span className={`text-lg font-black ${tx.points > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                        <span className={`text-base md:text-lg font-black shrink-0 ml-2 ${tx.points > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                           {tx.points > 0 ? '+' : ''}{tx.points}
                         </span>
                       </div>
@@ -1012,33 +1023,36 @@ export default function ProfilePage() {
               transition={{ delay: 0.25 }}
               className={!user.loyaltyTier ? 'lg:col-span-2' : ''}
             >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl lg:text-3xl font-black text-black flex items-center gap-3">
-                  <Package size={28} weight="bold" />
+              <div className="flex items-center justify-between mb-4 md:mb-6">
+                <h2 className="text-xl md:text-2xl lg:text-3xl font-black text-black flex items-center gap-2 md:gap-3">
+                  <Package size={22} weight="bold" className="md:hidden" />
+                  <Package size={28} weight="bold" className="hidden md:block" />
                   Recent Orders
                 </h2>
                 {orders.length > 0 && (
                   <Link
                     href="/orders"
-                    className="text-sm font-bold uppercase tracking-wider text-black/60 hover:text-black transition-colors flex items-center gap-2"
+                    className="text-xs md:text-sm font-bold uppercase tracking-wider text-black/60 hover:text-black transition-colors flex items-center gap-1 md:gap-2"
                   >
                     View All
-                    <ArrowRight size={16} />
+                    <ArrowRight size={14} className="md:hidden" />
+                    <ArrowRight size={16} className="hidden md:block" />
                   </Link>
                 )}
               </div>
               
               {loadingOrders ? (
-                <div className="flex items-center justify-center py-16 border border-black/10">
+                <div className="flex items-center justify-center py-12 md:py-16 border border-black/10">
                   <CircleNotch size={24} weight="bold" className="animate-spin text-black/30" />
                 </div>
               ) : orders.length === 0 ? (
-                <div className="text-center py-16 border border-black/10">
-                  <ShoppingBag size={40} weight="light" className="text-black/20 mx-auto mb-3" />
-                  <p className="text-black/50 font-medium mb-4">No orders yet</p>
+                <div className="text-center py-12 md:py-16 border border-black/10">
+                  <ShoppingBag size={32} weight="light" className="text-black/20 mx-auto mb-3 md:hidden" />
+                  <ShoppingBag size={40} weight="light" className="text-black/20 mx-auto mb-3 hidden md:block" />
+                  <p className="text-black/50 font-medium mb-4 text-sm md:text-base">No orders yet</p>
                   <Link
                     href="/products"
-                    className="inline-flex items-center gap-2 bg-black text-white px-6 py-3 font-bold uppercase tracking-wider hover:bg-black/80 transition-colors"
+                    className="inline-flex items-center gap-2 bg-black text-white px-5 md:px-6 py-2.5 md:py-3 font-bold uppercase tracking-wider text-sm hover:bg-black/80 transition-colors"
                   >
                     Start Shopping
                     <ArrowRight size={16} />
@@ -1050,26 +1064,26 @@ export default function ProfilePage() {
                     <Link
                       key={order.id}
                       href={`/order/track/${order.id}`}
-                      className="flex items-center justify-between p-5 hover:bg-black/2 transition-colors group"
+                      className="flex items-center justify-between p-4 md:p-5 hover:bg-black/2 transition-colors group"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className={`w-3 h-3 ${getStatusColor(order.status)}`} />
-                        <div>
-                          <p className="font-bold text-black">Order #{order.orderNumber}</p>
-                          <p className="text-sm text-black/50 max-w-xs truncate">
+                      <div className="flex items-center gap-3 md:gap-4 min-w-0">
+                        <div className={`w-2.5 h-2.5 md:w-3 md:h-3 ${getStatusColor(order.status)} shrink-0`} />
+                        <div className="min-w-0">
+                          <p className="font-bold text-black text-sm md:text-base">Order #{order.orderNumber}</p>
+                          <p className="text-xs md:text-sm text-black/50 truncate max-w-[150px] md:max-w-xs">
                             {order.items.slice(0, 2).map(i => i.productName).join(', ')}
-                            {order.items.length > 2 && ` +${order.items.length - 2} more`}
+                            {order.items.length > 2 && ` +${order.items.length - 2}`}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right flex items-center gap-4">
+                      <div className="text-right flex items-center gap-2 md:gap-4 shrink-0">
                         <div>
-                          <p className="font-black text-black">${order.total.toFixed(2)}</p>
-                          <p className="text-sm text-black/50">
+                          <p className="font-black text-black text-sm md:text-base">${order.total.toFixed(2)}</p>
+                          <p className="text-xs md:text-sm text-black/50">
                             {new Date(order.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </p>
                         </div>
-                        <ArrowRight size={20} className="text-black/30 group-hover:text-black transition-colors" />
+                        <ArrowRight size={16} className="text-black/30 group-hover:text-black transition-colors hidden md:block" />
                       </div>
                     </Link>
                   ))}
@@ -1081,41 +1095,41 @@ export default function ProfilePage() {
       </section>
 
       {/* Quick Actions */}
-      <section className="py-12 px-4 sm:px-8 border-t border-black/10 bg-black/2">
+      <section className="py-8 md:py-12 px-4 sm:px-8 border-t border-black/10 bg-black/2">
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-2xl lg:text-3xl font-black text-black mb-8">Quick Actions</h2>
+          <h2 className="text-xl md:text-2xl lg:text-3xl font-black text-black mb-6 md:mb-8">Quick Actions</h2>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+            className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4"
           >
             <Link
               href="/products"
-              className="flex items-center justify-center gap-3 bg-black text-white py-5 font-bold uppercase tracking-wider hover:bg-black/80 transition-colors"
+              className="flex items-center justify-center gap-2 md:gap-3 bg-black text-white py-4 md:py-5 font-bold uppercase tracking-wider text-xs md:text-sm hover:bg-black/80 transition-colors"
             >
-              <ShoppingBag size={20} weight="bold" />
+              <ShoppingBag size={18} weight="bold" />
               Shop Now
             </Link>
             <Link
               href="/wishlist"
-              className="flex items-center justify-center gap-3 border-2 border-black text-black py-5 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+              className="flex items-center justify-center gap-2 md:gap-3 border-2 border-black text-black py-4 md:py-5 font-bold uppercase tracking-wider text-xs md:text-sm hover:bg-black hover:text-white transition-colors"
             >
-              <Heart size={20} weight="bold" />
+              <Heart size={18} weight="bold" />
               Wishlist
             </Link>
             <Link
               href="/profile/avatar"
-              className="flex items-center justify-center gap-3 border-2 border-black text-black py-5 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+              className="flex items-center justify-center gap-2 md:gap-3 border-2 border-black text-black py-4 md:py-5 font-bold uppercase tracking-wider text-xs md:text-sm hover:bg-black hover:text-white transition-colors"
             >
-              <User size={20} weight="bold" />
-              Create Avatar
+              <User size={18} weight="bold" />
+              Avatar
             </Link>
             <Link
               href="/collections"
-              className="flex items-center justify-center gap-3 border-2 border-black text-black py-5 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+              className="flex items-center justify-center gap-2 md:gap-3 border-2 border-black text-black py-4 md:py-5 font-bold uppercase tracking-wider text-xs md:text-sm hover:bg-black hover:text-white transition-colors"
             >
-              <Star size={20} weight="bold" />
+              <Star size={18} weight="bold" />
               Collections
             </Link>
           </motion.div>

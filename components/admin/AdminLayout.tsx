@@ -47,7 +47,7 @@ export function AdminLayout({
         />
 
         {/* Page Content - Add bottom padding for mobile nav */}
-        <main className="flex-1 overflow-auto p-4 lg:p-6 pb-24 lg:pb-6">
+        <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 pb-20 sm:pb-24 lg:pb-6">
           {children}
         </main>
       </div>

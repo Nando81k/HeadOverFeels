@@ -173,8 +173,8 @@ export function PinnedProductShowcase() {
           );
         })}
 
-        {/* Progress indicator - Minimal */}
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-4">
+        {/* Progress indicator - Minimal (hidden on mobile) */}
+        <div className="hidden md:flex absolute bottom-12 left-1/2 -translate-x-1/2 items-center gap-4">
           {[
             { start: 0, end: 0.25 },
             { start: 0.25, end: 0.5 },

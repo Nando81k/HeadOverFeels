@@ -416,54 +416,54 @@ export default async function AdminDashboard() {
       {activeDrop && dropStatus?.status !== 'ended' ? (
         <Link 
           href={`/admin/drops`}
-          className="block mb-8 group"
+          className="block mb-4 sm:mb-8 group"
         >
           <div className="relative overflow-hidden bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800 border border-white/10 hover:border-[#FF3131]/30 transition-all">
             <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-5" />
             <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-[#FF3131]/10 to-transparent" />
-            <div className="relative p-6 lg:p-8">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div className="relative p-4 sm:p-6 lg:p-8">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 sm:gap-6">
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${dropStatus?.color}`}>
+                  <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                    <span className={`px-2 sm:px-2.5 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider ${dropStatus?.color}`}>
                       {dropStatus?.label}
                     </span>
                     {dropStatus?.status === 'live' && (
-                      <span className="flex items-center gap-1.5 text-xs text-white/50">
-                        <span className="w-2 h-2 bg-[#FF3131] rounded-full animate-pulse" />
+                      <span className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs text-white/50">
+                        <span className="w-1.5 sm:w-2 h-1.5 sm:h-2 bg-[#FF3131] rounded-full animate-pulse" />
                         Active Drop
                       </span>
                     )}
                   </div>
-                  <h2 className="text-2xl lg:text-3xl font-bold text-white mb-2 group-hover:text-[#FF3131] transition-colors">
+                  <h2 className="text-lg sm:text-2xl lg:text-3xl font-bold text-white mb-1 sm:mb-2 group-hover:text-[#FF3131] transition-colors">
                     {activeDrop.name}
                   </h2>
-                  <p className="text-white/50 text-sm max-w-md">
+                  <p className="text-white/50 text-xs sm:text-sm max-w-md hidden sm:block">
                     {activeDrop.description?.slice(0, 120) || 'Limited edition drop — manage inventory, track sales, and monitor performance.'}
                     {(activeDrop.description?.length || 0) > 120 ? '...' : ''}
                   </p>
                 </div>
-                <div className="flex flex-wrap lg:flex-nowrap gap-4 lg:gap-6">
-                  <div className="text-center p-4 bg-white/5 border border-white/10 min-w-[100px]">
-                    <div className="text-2xl font-bold text-white">{dropTotalStock}</div>
-                    <div className="text-[10px] uppercase tracking-wider text-white/40 mt-1">Units Left</div>
-                    <div className="mt-2 h-1 bg-white/10 rounded-full overflow-hidden">
+                <div className="flex flex-wrap gap-2 sm:gap-4 lg:gap-6">
+                  <div className="text-center p-2 sm:p-4 bg-white/5 border border-white/10 min-w-[70px] sm:min-w-[100px] flex-1 sm:flex-none">
+                    <div className="text-lg sm:text-2xl font-bold text-white">{dropTotalStock}</div>
+                    <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 mt-0.5 sm:mt-1">Units Left</div>
+                    <div className="mt-1 sm:mt-2 h-1 bg-white/10 rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-[#FF3131] rounded-full transition-all"
                         style={{ width: `${dropStockPercent}%` }}
                       />
                     </div>
                   </div>
-                  <div className="text-center p-4 bg-white/5 border border-white/10 min-w-[100px]">
-                    <div className="text-2xl font-bold text-white">{formatCurrency(activeDrop.price)}</div>
-                    <div className="text-[10px] uppercase tracking-wider text-white/40 mt-1">Price</div>
+                  <div className="text-center p-2 sm:p-4 bg-white/5 border border-white/10 min-w-[70px] sm:min-w-[100px] flex-1 sm:flex-none">
+                    <div className="text-lg sm:text-2xl font-bold text-white">{formatCurrency(activeDrop.price)}</div>
+                    <div className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 mt-0.5 sm:mt-1">Price</div>
                     {activeDrop.compareAtPrice && activeDrop.compareAtPrice > activeDrop.price && (
-                      <div className="text-xs text-white/30 line-through mt-1">
+                      <div className="text-[10px] sm:text-xs text-white/30 line-through mt-0.5 sm:mt-1">
                         {formatCurrency(activeDrop.compareAtPrice)}
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center text-white/40 group-hover:text-[#FF3131] transition-colors">
+                  <div className="hidden sm:flex items-center text-white/40 group-hover:text-[#FF3131] transition-colors">
                     <ArrowRight size={24} weight="bold" />
                   </div>
                 </div>
@@ -472,25 +472,25 @@ export default async function AdminDashboard() {
           </div>
         </Link>
       ) : (
-        <div className="mb-8 p-6 lg:p-8 bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800 border border-white/10">
+        <div className="mb-4 sm:mb-8 p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800 border border-white/10">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Fire size={20} weight="fill" className="text-[#FF3131]" />
-                <span className="text-xs uppercase tracking-wider text-white/50">Today&apos;s Performance</span>
+              <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                <Fire size={18} weight="fill" className="text-[#FF3131] sm:w-5 sm:h-5" />
+                <span className="text-[10px] sm:text-xs uppercase tracking-wider text-white/50">Today&apos;s Performance</span>
               </div>
-              <div className="text-3xl lg:text-4xl font-bold text-white">
+              <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white">
                 {formatCurrency(todayRevenue._sum.total || 0)}
               </div>
-              <div className="text-sm text-white/50 mt-1">
+              <div className="text-xs sm:text-sm text-white/50 mt-0.5 sm:mt-1">
                 {todayOrders} order{todayOrders !== 1 ? 's' : ''} today
               </div>
             </div>
-            <div className="flex gap-4 lg:gap-6">
-              <Link href="/admin/drops" className="text-center p-4 bg-white/5 border border-white/10 hover:border-[#FF3131]/30 transition-all group">
-                <Lightning size={24} weight="fill" className="text-white/40 group-hover:text-[#FF3131] mx-auto mb-2 transition-colors" />
-                <div className="text-xs uppercase tracking-wider text-white/50">No Active Drop</div>
-                <div className="text-[10px] text-white/30 mt-1">Click to create</div>
+            <div className="flex gap-3 sm:gap-4 lg:gap-6">
+              <Link href="/admin/drops" className="text-center p-3 sm:p-4 bg-white/5 border border-white/10 hover:border-[#FF3131]/30 transition-all group flex-1 sm:flex-none">
+                <Lightning size={20} weight="fill" className="text-white/40 group-hover:text-[#FF3131] mx-auto mb-1.5 sm:mb-2 transition-colors sm:w-6 sm:h-6" />
+                <div className="text-[10px] sm:text-xs uppercase tracking-wider text-white/50">No Active Drop</div>
+                <div className="text-[9px] sm:text-[10px] text-white/30 mt-0.5 sm:mt-1">Click to create</div>
               </Link>
             </div>
           </div>
@@ -498,7 +498,7 @@ export default async function AdminDashboard() {
       )}
 
       {/* Primary Stats Grid - 8 cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-8">
         <StatCard
           title="Today's Revenue"
           value={formatCurrency(todayRevenue._sum.total || 0)}
@@ -575,108 +575,108 @@ export default async function AdminDashboard() {
       </div>
 
       {/* Insights Grid - 4 actionable cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-8">
         {/* Low Stock Alert */}
         <Link 
           href="/admin/products" 
-          className="p-5 bg-neutral-900 border border-white/10 hover:border-amber-500/30 transition-all group"
+          className="p-3 sm:p-5 bg-neutral-900 border border-white/10 hover:border-amber-500/30 transition-all group"
         >
-          <div className="flex items-start justify-between mb-3">
-            <Warning size={24} weight="fill" className="text-amber-400" />
+          <div className="flex items-start justify-between mb-2 sm:mb-3">
+            <Warning size={20} weight="fill" className="text-amber-400 sm:w-6 sm:h-6" />
             {lowStockProducts.length > 0 && (
-              <span className="px-2 py-0.5 text-[10px] font-bold uppercase bg-amber-500/20 text-amber-400">
-                Action Needed
+              <span className="px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase bg-amber-500/20 text-amber-400">
+                Action
               </span>
             )}
           </div>
-          <div className="text-2xl font-bold text-white mb-1">{lowStockProducts.length}</div>
-          <div className="text-xs text-white/50 uppercase tracking-wider">Low Stock Items</div>
-          <div className="text-[11px] text-white/30 mt-2 group-hover:text-white/50 transition-colors">
-            {lowStockProducts.length > 0 ? `${lowStockProducts.length} products need restocking` : 'All products stocked'}
+          <div className="text-lg sm:text-2xl font-bold text-white mb-0.5 sm:mb-1">{lowStockProducts.length}</div>
+          <div className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider">Low Stock</div>
+          <div className="text-[10px] sm:text-[11px] text-white/30 mt-1 sm:mt-2 group-hover:text-white/50 transition-colors hidden sm:block">
+            {lowStockProducts.length > 0 ? `${lowStockProducts.length} need restocking` : 'All stocked'}
           </div>
         </Link>
 
         {/* Support Queue */}
         <Link 
           href="/admin/support" 
-          className={`p-5 bg-neutral-900 border transition-all group ${urgentTickets > 0 ? 'border-red-500/30 hover:border-red-500/50' : 'border-white/10 hover:border-white/20'}`}
+          className={`p-3 sm:p-5 bg-neutral-900 border transition-all group ${urgentTickets > 0 ? 'border-red-500/30 hover:border-red-500/50' : 'border-white/10 hover:border-white/20'}`}
         >
-          <div className="flex items-start justify-between mb-3">
-            <Headset size={24} weight="fill" className={urgentTickets > 0 ? "text-red-400" : "text-white/40"} />
+          <div className="flex items-start justify-between mb-2 sm:mb-3">
+            <Headset size={20} weight="fill" className={`sm:w-6 sm:h-6 ${urgentTickets > 0 ? "text-red-400" : "text-white/40"}`} />
             {urgentTickets > 0 && (
-              <span className="px-2 py-0.5 text-[10px] font-bold uppercase bg-red-500/20 text-red-400">
-                {urgentTickets} Urgent
+              <span className="px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase bg-red-500/20 text-red-400">
+                {urgentTickets}
               </span>
             )}
           </div>
-          <div className="text-2xl font-bold text-white mb-1">{openTickets}</div>
-          <div className="text-xs text-white/50 uppercase tracking-wider">Open Tickets</div>
-          <div className="text-[11px] text-white/30 mt-2 group-hover:text-white/50 transition-colors">
-            {openTickets > 0 ? 'Customers waiting for response' : 'No open tickets'}
+          <div className="text-lg sm:text-2xl font-bold text-white mb-0.5 sm:mb-1">{openTickets}</div>
+          <div className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider">Support</div>
+          <div className="text-[10px] sm:text-[11px] text-white/30 mt-1 sm:mt-2 group-hover:text-white/50 transition-colors hidden sm:block">
+            {openTickets > 0 ? 'Waiting for response' : 'No open tickets'}
           </div>
         </Link>
 
         {/* Abandoned Carts */}
         <Link 
           href="/admin/abandoned-carts" 
-          className="p-5 bg-neutral-900 border border-white/10 hover:border-emerald-500/30 transition-all group"
+          className="p-3 sm:p-5 bg-neutral-900 border border-white/10 hover:border-emerald-500/30 transition-all group"
         >
-          <div className="flex items-start justify-between mb-3">
-            <ShoppingBag size={24} weight="fill" className="text-white/40" />
+          <div className="flex items-start justify-between mb-2 sm:mb-3">
+            <ShoppingBag size={20} weight="fill" className="text-white/40 sm:w-6 sm:h-6" />
             {(abandonedCartsValue._sum.totalValue || 0) > 0 && (
-              <span className="px-2 py-0.5 text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400">
-                Recoverable
+              <span className="px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400">
+                Recover
               </span>
             )}
           </div>
-          <div className="text-2xl font-bold text-white mb-1">{abandonedCartsCount}</div>
-          <div className="text-xs text-white/50 uppercase tracking-wider">Abandoned (7 days)</div>
-          <div className="text-[11px] text-white/30 mt-2 group-hover:text-white/50 transition-colors">
-            {formatCurrency(abandonedCartsValue._sum.totalValue || 0)} potential revenue
+          <div className="text-lg sm:text-2xl font-bold text-white mb-0.5 sm:mb-1">{abandonedCartsCount}</div>
+          <div className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider">Abandoned</div>
+          <div className="text-[10px] sm:text-[11px] text-white/30 mt-1 sm:mt-2 group-hover:text-white/50 transition-colors hidden sm:block">
+            {formatCurrency(abandonedCartsValue._sum.totalValue || 0)} potential
           </div>
         </Link>
 
         {/* Reviews */}
         <Link 
           href="/admin/reviews" 
-          className="p-5 bg-neutral-900 border border-white/10 hover:border-white/20 transition-all group"
+          className="p-3 sm:p-5 bg-neutral-900 border border-white/10 hover:border-white/20 transition-all group"
         >
-          <div className="flex items-start justify-between mb-3">
-            <Star size={24} weight="fill" className="text-yellow-400" />
+          <div className="flex items-start justify-between mb-2 sm:mb-3">
+            <Star size={20} weight="fill" className="text-yellow-400 sm:w-6 sm:h-6" />
             {pendingReviews > 0 && (
-              <span className="px-2 py-0.5 text-[10px] font-bold uppercase bg-yellow-500/20 text-yellow-400">
-                {pendingReviews} Pending
+              <span className="px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase bg-yellow-500/20 text-yellow-400">
+                {pendingReviews}
               </span>
             )}
           </div>
-          <div className="text-2xl font-bold text-white mb-1">{pendingReviews}</div>
-          <div className="text-xs text-white/50 uppercase tracking-wider">Reviews to Moderate</div>
-          <div className="text-[11px] text-white/30 mt-2 group-hover:text-white/50 transition-colors">
-            {pendingReviews > 0 ? 'Approve or respond to reviews' : 'All reviews moderated'}
+          <div className="text-lg sm:text-2xl font-bold text-white mb-0.5 sm:mb-1">{pendingReviews}</div>
+          <div className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider">Reviews</div>
+          <div className="text-[10px] sm:text-[11px] text-white/30 mt-1 sm:mt-2 group-hover:text-white/50 transition-colors hidden sm:block">
+            {pendingReviews > 0 ? 'Pending moderation' : 'All moderated'}
           </div>
         </Link>
       </div>
 
       {/* Sales Performance Section */}
-      <div className="grid lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid lg:grid-cols-2 gap-3 sm:gap-6 mb-4 sm:mb-8">
         <DashboardCard 
           title="Sales Goals" 
-          icon={<TrendUp size={20} weight="bold" className="text-[#FF3131]" />}
+          icon={<TrendUp size={18} weight="bold" className="text-[#FF3131] sm:w-5 sm:h-5" />}
           action={{ label: "Manage Goals", href: "/admin/goals" }}
           noPadding
         >
-          <div className="p-5">
+          <div className="p-3 sm:p-5">
             <SalesGoalsTracker />
           </div>
         </DashboardCard>
 
         <DashboardCard 
           title="Real-Time Sales Feed" 
-          icon={<CurrencyDollar size={20} weight="bold" className="text-emerald-400" />}
+          icon={<CurrencyDollar size={18} weight="bold" className="text-emerald-400 sm:w-5 sm:h-5" />}
           action={{ label: "View All Orders", href: "/admin/orders" }}
           noPadding
         >
-          <div className="p-5">
+          <div className="p-3 sm:p-5">
             <RealTimeSalesFeed 
               refreshInterval={10000}
               maxItems={5}
@@ -687,10 +687,10 @@ export default async function AdminDashboard() {
       </div>
 
       {/* Performance Overview */}
-      <div className="mb-8">
+      <div className="mb-4 sm:mb-8">
         <DashboardCard 
           title="Performance Overview"
-          icon={<ChartLine size={20} weight="bold" className="text-white/70" />}
+          icon={<ChartLine size={18} weight="bold" className="text-white/70 sm:w-5 sm:h-5" />}
           action={{ label: "Full Analytics", href: "/admin/analytics" }}
         >
           <DashboardStats {...statsData} />
@@ -701,23 +701,23 @@ export default async function AdminDashboard() {
       {recentOrders.length > 0 && (
         <DashboardCard 
           title="Recent Orders" 
-          icon={<ShoppingCart size={20} weight="bold" className="text-white/70" />}
+          icon={<ShoppingCart size={18} weight="bold" className="text-white/70 sm:w-5 sm:h-5" />}
           action={{ label: "View All", href: "/admin/orders" }}
         >
-          <div className="space-y-2">
+          <div className="space-y-1.5 sm:space-y-2">
             {recentOrders.map((order) => (
               <Link
                 key={order.id}
                 href={`/admin/orders/${order.id}`}
-                className="block p-4 border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all group"
+                className="block p-2.5 sm:p-4 border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all group"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-white">
+                    <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
+                      <span className="font-semibold text-white text-sm sm:text-base">
                         #{order.orderNumber}
                       </span>
-                      <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                      <span className={`px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wide ${
                         order.status === 'PENDING' ? 'bg-amber-500/20 text-amber-400' :
                         order.status === 'CONFIRMED' ? 'bg-blue-500/20 text-blue-400' :
                         order.status === 'PROCESSING' ? 'bg-purple-500/20 text-purple-400' :
@@ -729,7 +729,7 @@ export default async function AdminDashboard() {
                         {order.status}
                       </span>
                     </div>
-                    <div className="text-sm text-white/50 truncate">
+                    <div className="text-xs sm:text-sm text-white/50 truncate">
                       {order.customer ? (
                         <span className="font-medium">{order.customer.name}</span>
                       ) : (
@@ -737,11 +737,11 @@ export default async function AdminDashboard() {
                       )}
                     </div>
                   </div>
-                  <div className="text-right ml-4">
-                    <div className="font-bold text-white">
+                  <div className="text-right ml-2 sm:ml-4">
+                    <div className="font-bold text-white text-sm sm:text-base">
                       {formatCurrency(order.total)}
                     </div>
-                    <div className="text-xs text-white/40">
+                    <div className="text-[10px] sm:text-xs text-white/40">
                       {new Date(order.createdAt).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric'
@@ -756,71 +756,71 @@ export default async function AdminDashboard() {
       )}
 
       {/* Quick Access Links - Expanded to 8 */}
-      <div className="mt-8">
-        <h2 className="text-sm font-medium tracking-[0.15em] text-white/70 uppercase mb-4">Quick Access</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+      <div className="mt-4 sm:mt-8">
+        <h2 className="text-xs sm:text-sm font-medium tracking-[0.15em] text-white/70 uppercase mb-3 sm:mb-4">Quick Access</h2>
+        <div className="grid grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3">
           <Link
             href="/admin/products/new"
-            className="p-4 bg-neutral-900 border border-white/10 hover:border-[#FF3131]/30 hover:bg-neutral-900/80 transition-all group text-center"
+            className="p-2 sm:p-4 bg-neutral-900 border border-white/10 hover:border-[#FF3131]/30 hover:bg-neutral-900/80 transition-all group text-center"
           >
-            <Package size={24} weight="bold" className="mx-auto mb-2 text-white/40 group-hover:text-[#FF3131] transition-colors" />
-            <div className="text-[10px] font-medium text-white/70 uppercase tracking-wide">New Product</div>
+            <Package size={18} weight="bold" className="mx-auto mb-1 sm:mb-2 text-white/40 group-hover:text-[#FF3131] transition-colors sm:w-6 sm:h-6" />
+            <div className="text-[9px] sm:text-[10px] font-medium text-white/70 uppercase tracking-wide">Product</div>
           </Link>
           
           <Link
             href="/admin/drops"
-            className="p-4 bg-neutral-900 border border-white/10 hover:border-[#FF3131]/30 hover:bg-neutral-900/80 transition-all group text-center"
+            className="p-2 sm:p-4 bg-neutral-900 border border-white/10 hover:border-[#FF3131]/30 hover:bg-neutral-900/80 transition-all group text-center"
           >
-            <Lightning size={24} weight="fill" className="mx-auto mb-2 text-white/40 group-hover:text-[#FF3131] transition-colors" />
-            <div className="text-[10px] font-medium text-white/70 uppercase tracking-wide">Drops</div>
+            <Lightning size={18} weight="fill" className="mx-auto mb-1 sm:mb-2 text-white/40 group-hover:text-[#FF3131] transition-colors sm:w-6 sm:h-6" />
+            <div className="text-[9px] sm:text-[10px] font-medium text-white/70 uppercase tracking-wide">Drops</div>
           </Link>
           
           <Link
             href="/admin/analytics"
-            className="p-4 bg-neutral-900 border border-white/10 hover:border-white/20 hover:bg-neutral-900/80 transition-all group text-center"
+            className="p-2 sm:p-4 bg-neutral-900 border border-white/10 hover:border-white/20 hover:bg-neutral-900/80 transition-all group text-center"
           >
-            <ChartLine size={24} weight="bold" className="mx-auto mb-2 text-white/40 group-hover:text-white transition-colors" />
-            <div className="text-[10px] font-medium text-white/70 uppercase tracking-wide">Analytics</div>
+            <ChartLine size={18} weight="bold" className="mx-auto mb-1 sm:mb-2 text-white/40 group-hover:text-white transition-colors sm:w-6 sm:h-6" />
+            <div className="text-[9px] sm:text-[10px] font-medium text-white/70 uppercase tracking-wide">Analytics</div>
           </Link>
           
           <Link
             href="/admin/financial"
-            className="p-4 bg-neutral-900 border border-white/10 hover:border-emerald-500/30 hover:bg-neutral-900/80 transition-all group text-center"
+            className="p-2 sm:p-4 bg-neutral-900 border border-white/10 hover:border-emerald-500/30 hover:bg-neutral-900/80 transition-all group text-center"
           >
-            <CurrencyDollar size={24} weight="bold" className="mx-auto mb-2 text-white/40 group-hover:text-emerald-400 transition-colors" />
-            <div className="text-[10px] font-medium text-white/70 uppercase tracking-wide">Financial</div>
+            <CurrencyDollar size={18} weight="bold" className="mx-auto mb-1 sm:mb-2 text-white/40 group-hover:text-emerald-400 transition-colors sm:w-6 sm:h-6" />
+            <div className="text-[9px] sm:text-[10px] font-medium text-white/70 uppercase tracking-wide">Financial</div>
           </Link>
 
           <Link
             href="/admin/support"
-            className="p-4 bg-neutral-900 border border-white/10 hover:border-white/20 hover:bg-neutral-900/80 transition-all group text-center"
+            className="p-2 sm:p-4 bg-neutral-900 border border-white/10 hover:border-white/20 hover:bg-neutral-900/80 transition-all group text-center"
           >
-            <Headset size={24} weight="bold" className="mx-auto mb-2 text-white/40 group-hover:text-white transition-colors" />
-            <div className="text-[10px] font-medium text-white/70 uppercase tracking-wide">Support</div>
+            <Headset size={18} weight="bold" className="mx-auto mb-1 sm:mb-2 text-white/40 group-hover:text-white transition-colors sm:w-6 sm:h-6" />
+            <div className="text-[9px] sm:text-[10px] font-medium text-white/70 uppercase tracking-wide">Support</div>
           </Link>
           
           <Link
             href="/admin/loyalty"
-            className="p-4 bg-neutral-900 border border-white/10 hover:border-pink-500/30 hover:bg-neutral-900/80 transition-all group text-center"
+            className="p-2 sm:p-4 bg-neutral-900 border border-white/10 hover:border-pink-500/30 hover:bg-neutral-900/80 transition-all group text-center"
           >
-            <Heart size={24} weight="fill" className="mx-auto mb-2 text-white/40 group-hover:text-pink-400 transition-colors" />
-            <div className="text-[10px] font-medium text-white/70 uppercase tracking-wide">Loyalty</div>
+            <Heart size={18} weight="fill" className="mx-auto mb-1 sm:mb-2 text-white/40 group-hover:text-pink-400 transition-colors sm:w-6 sm:h-6" />
+            <div className="text-[9px] sm:text-[10px] font-medium text-white/70 uppercase tracking-wide">Loyalty</div>
           </Link>
           
           <Link
             href="/admin/collections"
-            className="p-4 bg-neutral-900 border border-white/10 hover:border-white/20 hover:bg-neutral-900/80 transition-all group text-center"
+            className="p-2 sm:p-4 bg-neutral-900 border border-white/10 hover:border-white/20 hover:bg-neutral-900/80 transition-all group text-center"
           >
-            <Gift size={24} weight="bold" className="mx-auto mb-2 text-white/40 group-hover:text-white transition-colors" />
-            <div className="text-[10px] font-medium text-white/70 uppercase tracking-wide">Collections</div>
+            <Gift size={18} weight="bold" className="mx-auto mb-1 sm:mb-2 text-white/40 group-hover:text-white transition-colors sm:w-6 sm:h-6" />
+            <div className="text-[9px] sm:text-[10px] font-medium text-white/70 uppercase tracking-wide">Collections</div>
           </Link>
           
           <Link
             href="/admin/abandoned-carts"
-            className="p-4 bg-neutral-900 border border-white/10 hover:border-white/20 hover:bg-neutral-900/80 transition-all group text-center"
+            className="p-2 sm:p-4 bg-neutral-900 border border-white/10 hover:border-white/20 hover:bg-neutral-900/80 transition-all group text-center"
           >
-            <ShoppingBag size={24} weight="bold" className="mx-auto mb-2 text-white/40 group-hover:text-white transition-colors" />
-            <div className="text-[10px] font-medium text-white/70 uppercase tracking-wide">Abandoned</div>
+            <ShoppingBag size={18} weight="bold" className="mx-auto mb-1 sm:mb-2 text-white/40 group-hover:text-white transition-colors sm:w-6 sm:h-6" />
+            <div className="text-[9px] sm:text-[10px] font-medium text-white/70 uppercase tracking-wide">Abandoned</div>
           </Link>
         </div>
       </div>

@@ -90,7 +90,7 @@ export function BestSellersCarousel({ products }: BestSellersCarouselProps) {
         </div>
 
         {/* Product Grid - Modern Magazine Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-black/10 mb-20">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-px bg-black/10 mb-10 sm:mb-20">
           {displayProducts.map((product, idx) => (
             <motion.div
               key={product.id}
@@ -103,40 +103,40 @@ export function BestSellersCarousel({ products }: BestSellersCarouselProps) {
               <Link href={`/products/${product.slug}`}>
                 <div className="group relative h-full flex flex-col">
                   {/* Image Container */}
-                  <div className="relative aspect-4/5 overflow-hidden bg-neutral-100">
+                  <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100">
                     <Image
                       src={getImageUrl(product.images)}
                       alt={product.name}
                       fill
                       className="object-cover transition-all duration-700 group-hover:scale-105"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      sizes="(max-width: 768px) 50vw, (max-width: 1024px) 50vw, 25vw"
                     />
                     
                     {/* Hover overlay */}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-500" />
                     
-                    {/* Quick view button */}
+                    {/* Quick view button - hidden on mobile */}
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       whileHover={{ opacity: 1, y: 0 }}
-                      className="absolute bottom-4 left-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                      className="absolute bottom-2 sm:bottom-4 left-2 sm:left-4 right-2 sm:right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden sm:block"
                     >
-                      <div className="bg-white px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-center">
+                      <div className="bg-white px-3 sm:px-4 py-2 sm:py-3 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-center">
                         Quick View
                       </div>
                     </motion.div>
 
                     {/* Index number */}
-                    <div className="absolute top-4 left-4">
-                      <span className="text-[10px] font-medium tracking-wider text-black/30">
+                    <div className="absolute top-2 sm:top-4 left-2 sm:left-4">
+                      <span className="text-[9px] sm:text-[10px] font-medium tracking-wider text-black/30">
                         {String(idx + 1).padStart(2, '0')}
                       </span>
                     </div>
 
                     {/* Best seller badge */}
                     {idx === 0 && (
-                      <div className="absolute top-4 right-4">
-                        <span className="px-2 py-1 bg-black text-white text-[9px] font-bold uppercase tracking-wider">
+                      <div className="absolute top-2 sm:top-4 right-2 sm:right-4">
+                        <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-black text-white text-[8px] sm:text-[9px] font-bold uppercase tracking-wider">
                           Top Pick
                         </span>
                       </div>
@@ -144,39 +144,40 @@ export function BestSellersCarousel({ products }: BestSellersCarouselProps) {
                   </div>
 
                   {/* Content */}
-                  <div className="p-6 flex-1 flex flex-col">
-                    {/* Category */}
+                  <div className="p-3 sm:p-6 flex-1 flex flex-col">
+                    {/* Category - hidden on mobile for cleaner look */}
                     {product.category && (
-                      <span className="text-[10px] font-medium tracking-[0.2em] text-black/40 uppercase mb-2">
+                      <span className="hidden sm:block text-[10px] font-medium tracking-[0.2em] text-black/40 uppercase mb-2">
                         {product.category.name}
                       </span>
                     )}
                     
-                    <h3 className="text-base font-bold text-black mb-2 line-clamp-1 group-hover:underline underline-offset-4">
+                    <h3 className="text-xs sm:text-base font-bold text-black mb-1 sm:mb-2 line-clamp-1 group-hover:underline underline-offset-4">
                       {product.name}
                     </h3>
                     
+                    {/* Description hidden on mobile */}
                     {product.description && (
-                      <p className="text-xs text-black/50 mb-4 line-clamp-2 flex-1 font-light leading-relaxed">
+                      <p className="hidden sm:block text-xs text-black/50 mb-4 line-clamp-2 flex-1 font-light leading-relaxed">
                         {product.description}
                       </p>
                     )}
 
                     {/* Price & CTA Row */}
-                    <div className="flex items-center justify-between pt-4 border-t border-black/5">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-lg font-bold text-black">
+                    <div className="flex items-center justify-between pt-2 sm:pt-4 border-t border-black/5">
+                      <div className="flex items-baseline gap-1 sm:gap-2">
+                        <span className="text-sm sm:text-lg font-bold text-black">
                           ${product.price.toFixed(0)}
                         </span>
                         {product.compareAtPrice && product.compareAtPrice > product.price && (
-                          <span className="text-xs text-black/30 line-through">
+                          <span className="text-[10px] sm:text-xs text-black/30 line-through">
                             ${product.compareAtPrice.toFixed(0)}
                           </span>
                         )}
                       </div>
 
                       <ArrowUpRight 
-                        className="w-4 h-4 text-black/30 group-hover:text-black group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" 
+                        className="w-3 h-3 sm:w-4 sm:h-4 text-black/30 group-hover:text-black group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" 
                         weight="bold" 
                       />
                     </div>

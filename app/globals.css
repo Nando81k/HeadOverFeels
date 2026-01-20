@@ -37,6 +37,15 @@ body {
   letter-spacing: -0.01em;
 }
 
+/* Prevent horizontal scroll on mobile - applies to page level only */
+/* Individual elements with overflow-x-auto will still scroll horizontally */
+@media (max-width: 767px) {
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+}
+
 /* Smooth scrolling with enhanced easing */
 html {
   scroll-behavior: smooth;

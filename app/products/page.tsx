@@ -165,29 +165,29 @@ function ProductsContent() {
       <Navigation />
       
       {/* Hero Section - Full Width */}
-      <section className="relative min-h-[400px] bg-white py-12 lg:py-16 pt-24 lg:pt-32">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12 flex flex-col justify-center">
+      <section className="relative min-h-[280px] sm:min-h-[400px] bg-white py-8 sm:py-12 lg:py-16 pt-20 sm:pt-24 lg:pt-32">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 flex flex-col justify-center">
           {/* Breadcrumb */}
           {categorySlug && (
             <Link 
               href="/products" 
-              className="inline-flex items-center gap-2 text-sm text-black/70 hover:text-black transition-colors mb-3 w-fit"
+              className="inline-flex items-center gap-2 text-xs sm:text-sm text-black/70 hover:text-black transition-colors mb-2 sm:mb-3 w-fit"
             >
               <span>←</span>
               <span>All Products</span>
             </Link>
           )}
           
-          <h1 className="text-5xl lg:text-7xl font-black text-black mb-4 tracking-tight max-w-3xl">
+          <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black text-black mb-2 sm:mb-4 tracking-tight max-w-3xl">
             {pageTitle}
           </h1>
           
-          <p className="text-xl lg:text-2xl text-black/70 max-w-2xl leading-relaxed mb-6">
+          <p className="text-base sm:text-xl lg:text-2xl text-black/70 max-w-2xl leading-relaxed mb-4 sm:mb-6">
             {pageDescription}
           </p>
 
           <div className="flex items-center gap-4">
-            <span className="text-black/60 text-sm uppercase tracking-wider">
+            <span className="text-black/60 text-xs sm:text-sm uppercase tracking-wider">
               {loading ? 'Loading...' : `${filteredProducts.length} ${filteredProducts.length === 1 ? 'Product' : 'Products'}`}
             </span>
           </div>
@@ -195,9 +195,9 @@ function ProductsContent() {
       </section>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-12 py-6 lg:py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-12 py-4 sm:py-6 lg:py-8">
         {/* Top Bar: Filters Button + Results Count */}
-        <div className="flex items-center justify-between mb-8 pb-6 border-b border-black/5">
+        <div className="flex items-center justify-between mb-4 sm:mb-8 pb-4 sm:pb-6 border-b border-black/5">
           {/* Left: Filters Button with Badge */}
           <button
             onClick={() => setShowFilters(!showFilters)}
@@ -334,9 +334,9 @@ function ProductsContent() {
             </div>
           )}
 
-          {/* Products Grid - Modern Layout with Larger Cards */}
+          {/* Products Grid - 2 cols on mobile, 3 on tablet, 4 on desktop */}
           {!loading && filteredProducts.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 lg:gap-6">
               {filteredProducts.map(product => (
                 <ProductCard key={product.id} product={product} />
               ))}
