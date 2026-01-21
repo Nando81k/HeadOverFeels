@@ -26,8 +26,16 @@ import {
   ArrowUpRight,
   TrendUp,
   Heart,
-  Bell
+  Bell,
+  Star,
+  Crown,
+  SignOut,
+  Gear,
+  Package,
+  Gift,
+  Lightning
 } from '@phosphor-icons/react'
+import { calculateTierProgressFromPoints, getTierFromPoints } from '@/lib/loyalty/tier-progress'
 
 // Animated counter component for smooth number transitions
 function AnimatedPoints({ value, previousValue }: { value: number; previousValue: number | null }) {
@@ -244,6 +252,12 @@ export function Navigation() {
   const [shopDropdownOpen, setShopDropdownOpen] = useState(false)
   const [userPoints, setUserPoints] = useState<number | null>(null)
   const [previousPoints, setPreviousPoints] = useState<number | null>(null)
+  
+  // Tier animation states for cycling through tiers when skipping
+  const [displayedTierSlug, setDisplayedTierSlug] = useState<string | null>(null)
+  const [isTierAnimating, setIsTierAnimating] = useState(false)
+  const previousTierSlugRef = useRef<string | null>(null)
+  
   const shopDropdownRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const cartItemCount = useCartStore(state => mounted ? state.getTotalItems() : 0)
@@ -253,6 +267,57 @@ export function Navigation() {
     const timer = setTimeout(() => setMounted(true), 0)
     return () => clearTimeout(timer)
   }, [])
+
+  // Tier progression animation - cycles through tiers when user skips levels
+  useEffect(() => {
+    if (!user) return
+    
+    const tierOrder = ['newcomer', 'friend', 'bestie', 'soulmate']
+    // Use lifetime points for tier calculation (more intuitive for users)
+    const pointsForTier = user.lifetimePoints || user.annualPointsEarned || 0
+    const calculatedTier = getTierFromPoints(pointsForTier)
+    const currentTierSlug = calculatedTier.slug
+    
+    // Initialize displayed tier on first load
+    if (previousTierSlugRef.current === null) {
+      setDisplayedTierSlug(currentTierSlug)
+      previousTierSlugRef.current = currentTierSlug
+      return
+    }
+    
+    // If tier changed, animate through the progression
+    if (currentTierSlug !== previousTierSlugRef.current) {
+      const prevIndex = tierOrder.indexOf(previousTierSlugRef.current)
+      const currentIndex = tierOrder.indexOf(currentTierSlug)
+      
+      // Only animate if moving up tiers and skipping at least one
+      if (currentIndex > prevIndex && currentIndex - prevIndex > 1) {
+        setIsTierAnimating(true)
+        
+        // Get all tiers to animate through (excluding the previous, including current)
+        const tiersToAnimate = tierOrder.slice(prevIndex + 1, currentIndex + 1)
+        
+        // Animate through each tier with delay
+        tiersToAnimate.forEach((tierSlug, index) => {
+          setTimeout(() => {
+            setDisplayedTierSlug(tierSlug)
+            
+            // On last tier, stop animating
+            if (index === tiersToAnimate.length - 1) {
+              setTimeout(() => {
+                setIsTierAnimating(false)
+              }, 500)
+            }
+          }, index * 800) // 800ms per tier
+        })
+      } else {
+        // Normal tier change (no skip), just update immediately
+        setDisplayedTierSlug(currentTierSlug)
+      }
+      
+      previousTierSlugRef.current = currentTierSlug
+    }
+  }, [user])
 
   // Keyboard shortcut: Cmd/Ctrl + K to open search
   useEffect(() => {
@@ -973,10 +1038,10 @@ export function Navigation() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="lg:hidden fixed inset-0 w-full bg-white z-50 overflow-y-auto"
+              className="lg:hidden fixed inset-0 w-full bg-[#F6F1EE] z-50 overflow-y-auto"
             >
               {/* Header */}
-              <div className="sticky top-0 bg-white border-b border-black/5 px-5 py-4 flex items-center justify-between safe-area-inset-top">
+              <div className="sticky top-0 bg-[#F6F1EE] border-b border-black/5 px-5 py-4 flex items-center justify-between safe-area-inset-top z-10">
                 <span className="text-xs font-black uppercase tracking-widest text-black">Menu</span>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
@@ -986,174 +1051,428 @@ export function Navigation() {
                 </button>
               </div>
               
-              <div className="px-5 py-6 space-y-6 pb-safe">
-                {/* User Section - Show points if logged in */}
-                {user && userPoints !== null && (
-                  <Link
-                    href="/loyalty/rewards"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center justify-between p-4 bg-black text-white relative overflow-hidden group"
-                  >
-                    <AnimatePresence>
-                      {previousPoints !== null && userPoints > previousPoints && (
-                        <motion.div
-                          initial={{ x: '-100%', opacity: 0 }}
-                          animate={{ x: '200%', opacity: [0, 0.3, 0] }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 1.5 }}
-                          className="absolute inset-0 w-1/2 bg-linear-to-r from-transparent via-white/20 to-transparent skew-x-12"
-                        />
-                      )}
-                    </AnimatePresence>
-                    <div className="flex items-center gap-3">
-                      <motion.div 
-                        className="w-10 h-10 bg-white/10 flex items-center justify-center"
-                        animate={previousPoints !== null && userPoints > previousPoints ? {
-                          scale: [1, 1.2, 1],
-                          rotate: [0, -10, 10, 0]
-                        } : {}}
-                        transition={{ duration: 0.5 }}
-                      >
-                        <Trophy size={20} weight="fill" />
-                      </motion.div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-white/50">Your Rewards</p>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xl font-black tabular-nums">
-                            <AnimatedPoints value={userPoints} previousValue={previousPoints} />
-                          </span>
-                          <span className="text-sm font-bold text-white/50">pts</span>
+              <div className="px-4 py-5 space-y-5 pb-safe">
+                
+                {/* User Loyalty Tier Card - For signed in users */}
+                {user && userPoints !== null && (() => {
+                  // Use lifetime points for tier calculation (more intuitive for users)
+                  // Fall back to annual points if lifetime is 0
+                  const pointsForTier = user.lifetimePoints || user.annualPointsEarned || 0
+                  const tierProgress = calculateTierProgressFromPoints(pointsForTier)
+                  const actualTierSlug = tierProgress.currentTier.slug
+                  
+                  // Use displayed tier for visual animation, actual tier for data
+                  const animatedTierSlug = displayedTierSlug || actualTierSlug
+                  
+                  const tierIcons: Record<string, typeof Star> = {
+                    newcomer: Star,
+                    friend: Heart,
+                    bestie: Crown,
+                    soulmate: Sparkle,
+                  }
+                  
+                  // Tier names for display during animation
+                  const tierNames: Record<string, string> = {
+                    newcomer: 'Newcomer',
+                    friend: 'Friend',
+                    bestie: 'Bestie',
+                    soulmate: 'Soulmate',
+                  }
+                  
+                  // Tier colors matching profile and rewards pages
+                  const tierColors: Record<string, { gradient: string; iconBg: string; progressBg: string; progressFill: string }> = {
+                    newcomer: {
+                      gradient: 'from-slate-400 via-slate-500 to-slate-600',
+                      iconBg: 'bg-slate-400/30',
+                      progressBg: 'bg-slate-400/30',
+                      progressFill: 'bg-slate-300',
+                    },
+                    friend: {
+                      gradient: 'from-blue-500 via-blue-600 to-indigo-700',
+                      iconBg: 'bg-blue-400/30',
+                      progressBg: 'bg-blue-400/30',
+                      progressFill: 'bg-blue-300',
+                    },
+                    bestie: {
+                      gradient: 'from-pink-500 via-rose-500 to-pink-600',
+                      iconBg: 'bg-pink-400/30',
+                      progressBg: 'bg-pink-400/30',
+                      progressFill: 'bg-pink-300',
+                    },
+                    soulmate: {
+                      gradient: 'from-purple-500 via-violet-500 to-purple-700',
+                      iconBg: 'bg-purple-400/30',
+                      progressBg: 'bg-purple-400/30',
+                      progressFill: 'bg-purple-300',
+                    },
+                  }
+                  
+                  // Use animated tier for visuals
+                  const TierIcon = tierIcons[animatedTierSlug] || Star
+                  const colors = tierColors[animatedTierSlug] || tierColors.newcomer
+                  const displayTierName = tierNames[animatedTierSlug] || 'Newcomer'
+                  
+                  return (
+                    <motion.div 
+                      className={`text-white p-4 space-y-4 shadow-lg relative overflow-hidden`}
+                      animate={{
+                        background: isTierAnimating ? undefined : undefined,
+                      }}
+                      style={{
+                        backgroundImage: `linear-gradient(to bottom right, var(--tw-gradient-stops))`,
+                      }}
+                    >
+                      {/* Animated gradient background */}
+                      <motion.div
+                        key={animatedTierSlug}
+                        initial={isTierAnimating ? { opacity: 0, scale: 1.1 } : false}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.4 }}
+                        className={`absolute inset-0 bg-gradient-to-br ${colors.gradient}`}
+                      />
+                      
+                      {/* Decorative elements */}
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+                      <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+                      
+                      {/* Tier Header */}
+                      <div className="flex items-center justify-between relative">
+                        <div className="flex items-center gap-3">
+                          <motion.div 
+                            key={`icon-${animatedTierSlug}`}
+                            initial={isTierAnimating ? { scale: 0, rotate: -180 } : false}
+                            animate={{ scale: 1, rotate: 0 }}
+                            transition={{ type: 'spring', damping: 15, stiffness: 300 }}
+                            className={`w-10 h-10 ${colors.iconBg} flex items-center justify-center`}
+                          >
+                            <TierIcon size={20} weight="fill" />
+                          </motion.div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-white/60">
+                              {isTierAnimating ? 'Leveling Up!' : 'Your Tier'}
+                            </p>
+                            <motion.p 
+                              key={`name-${animatedTierSlug}`}
+                              initial={isTierAnimating ? { opacity: 0, y: 10 } : false}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="text-base font-black uppercase tracking-wide"
+                            >
+                              {displayTierName}
+                            </motion.p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-white/60">Points</p>
+                          <div className="flex items-center gap-1">
+                            <motion.span 
+                              className="text-xl font-black tabular-nums"
+                              animate={previousPoints !== null && userPoints > previousPoints ? {
+                                scale: [1, 1.15, 1],
+                              } : {}}
+                            >
+                              <AnimatedPoints value={userPoints} previousValue={previousPoints} />
+                            </motion.span>
+                          </div>
                         </div>
                       </div>
+                      
+                      {/* Animating indicator */}
+                      {isTierAnimating && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="flex items-center justify-center gap-2 py-2 relative"
+                        >
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                          >
+                            <Sparkle size={16} weight="fill" className="text-amber-300" />
+                          </motion.div>
+                          <span className="text-xs font-bold text-white/80">Tier upgrade in progress...</span>
+                        </motion.div>
+                      )}
+                      
+                      {/* Progress to next tier - always show accurate data */}
+                      {!tierProgress.isMaxTier && tierProgress.nextTier && tierProgress.pointsNeeded > 0 && (
+                        <motion.div 
+                          className="space-y-2 relative"
+                          initial={isTierAnimating ? { opacity: 0 } : false}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: isTierAnimating ? 0.3 : 0 }}
+                        >
+                          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider">
+                            <span className="text-white/60">Progress to {tierProgress.nextTier.name}</span>
+                            <span className="text-white/80">{Math.round(tierProgress.progressPercentage)}%</span>
+                          </div>
+                          <div className={`h-1.5 ${colors.progressBg} overflow-hidden rounded-full`}>
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${tierProgress.progressPercentage}%` }}
+                              transition={{ duration: 0.8, ease: 'easeOut' }}
+                              className={`h-full ${colors.progressFill} rounded-full`}
+                            />
+                          </div>
+                          <p className="text-[10px] text-white/50">
+                            {tierProgress.pointsNeeded.toLocaleString()} pts needed
+                          </p>
+                        </motion.div>
+                      )}
+                      
+                      {tierProgress.isMaxTier && (
+                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-white/70 relative">
+                          <Sparkle size={12} weight="fill" className="text-amber-300" />
+                          Max tier achieved!
+                        </div>
+                      )}
+                      
+                      {/* Quick tier perks */}
+                      <div className="flex flex-wrap gap-3 pt-1 relative">
+                        {user.loyaltyTier?.freeShipping && (
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-white/80">
+                            <Package size={12} weight="bold" />
+                            Free Shipping
+                          </div>
+                        )}
+                        {user.loyaltyTier?.earlyDropAccess && (
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-white/80">
+                            <Lightning size={12} weight="bold" />
+                            Early Access
+                          </div>
+                        )}
+                        {tierProgress.currentTier.pointMultiplier > 1 && (
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-white/80">
+                            <TrendUp size={12} weight="bold" />
+                            {tierProgress.currentTier.pointMultiplier}x Points
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* View Rewards Link */}
+                      <Link
+                        href="/loyalty/rewards"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center justify-between pt-3 border-t border-white/20 group relative"
+                      >
+                        <span className="text-xs font-bold uppercase tracking-wider text-white/80 group-hover:text-white transition-colors">
+                          View Rewards
+                        </span>
+                        <ArrowRight size={14} weight="bold" className="text-white/60 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                      </Link>
+                    </motion.div>
+                  )
+                })()}
+                
+                {/* Guest Sign In CTA */}
+                {!user && !authLoading && (
+                  <Link
+                    href="/signin"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-between p-4 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 text-white group shadow-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white/10 flex items-center justify-center">
+                        <UserCircle size={20} weight="bold" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-black uppercase tracking-wide">Sign In</p>
+                        <p className="text-[10px] font-medium text-white/50">Earn rewards on every order</p>
+                      </div>
                     </div>
-                    <ArrowRight size={16} weight="bold" className="text-white/30 group-hover:text-white/70 transition-colors" />
+                    <ArrowRight size={16} weight="bold" className="text-white/40 group-hover:text-white transition-colors" />
                   </Link>
                 )}
                 
-                {/* Quick Actions - Cart, Wishlist & Notifications */}
-                <div className="grid grid-cols-3 gap-2">
+                {/* Primary Actions - Cart & Wishlist */}
+                <div className="grid grid-cols-2 gap-2">
                   <Link
                     href="/cart"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="flex flex-col items-center justify-center gap-1.5 p-4 bg-black text-white text-xs font-black uppercase tracking-wider"
+                    className="flex items-center gap-3 p-4 bg-black text-white"
                   >
                     <div className="relative">
                       <Bag size={20} weight="bold" />
                       {cartItemCount > 0 && (
-                        <span className="absolute -top-1 -right-2 bg-white text-black text-[9px] font-black px-1 min-w-4 h-4 flex items-center justify-center">
+                        <span className="absolute -top-1.5 -right-1.5 bg-white text-black text-[9px] font-black w-4 h-4 flex items-center justify-center">
                           {cartItemCount > 9 ? '9+' : cartItemCount}
                         </span>
                       )}
                     </div>
-                    Cart
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider">Cart</p>
+                      {cartItemCount > 0 && (
+                        <p className="text-[10px] font-medium text-white/50">{cartItemCount} item{cartItemCount !== 1 ? 's' : ''}</p>
+                      )}
+                    </div>
                   </Link>
                   <Link
                     href="/wishlist"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="flex flex-col items-center justify-center gap-1.5 p-4 border border-black text-black text-xs font-black uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
+                    className="flex items-center gap-3 p-4 border border-black text-black hover:bg-black hover:text-white transition-colors"
                   >
                     <Heart size={20} weight="bold" />
-                    Wishlist
+                    <p className="text-xs font-black uppercase tracking-wider">Wishlist</p>
                   </Link>
-                  {user && (
-                    <button
-                      onClick={() => {
-                        setMobileMenuOpen(false)
-                        // Open notification center after menu closes
-                        setTimeout(() => {
-                          const notificationBtn = document.querySelector('[aria-label*="Notifications"]') as HTMLButtonElement
-                          if (notificationBtn) notificationBtn.click()
-                        }, 350)
-                      }}
-                      className="flex flex-col items-center justify-center gap-1.5 p-4 border border-black text-black text-xs font-black uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
-                    >
-                      <Bell size={20} weight="bold" />
-                      Alerts
-                    </button>
-                  )}
-                  {!user && (
-                    <Link
-                      href="/signin"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex flex-col items-center justify-center gap-1.5 p-4 border border-black text-black text-xs font-black uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
-                    >
-                      <UserCircle size={20} weight="bold" />
-                      Sign In
-                    </Link>
-                  )}
                 </div>
                 
                 {/* Shop Section */}
-                <div className="space-y-1">
-                  <p className="px-1 text-[9px] font-black uppercase tracking-widest text-black/30 mb-3">Shop</p>
+                <div className="space-y-1 bg-white p-1">
+                  <p className="px-3 pt-2 text-[9px] font-black uppercase tracking-widest text-black/30">Shop</p>
                   
                   <Link
                     href="/products"
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-4 px-4 py-4 text-sm font-black uppercase tracking-wider transition-all ${
+                    className={`flex items-center justify-between px-4 py-3.5 transition-all ${
                       isShopActive
                         ? 'bg-black text-white'
                         : 'text-black hover:bg-black/5'
                     }`}
                   >
-                    <Bag size={18} weight="bold" />
-                    All Products
+                    <div className="flex items-center gap-3">
+                      <Bag size={18} weight="bold" />
+                      <span className="text-sm font-black uppercase tracking-wider">All Products</span>
+                    </div>
+                    <CaretRight size={14} weight="bold" className="opacity-40" />
                   </Link>
                   
                   {/* Categories */}
-                  <div className="space-y-0.5">
-                    {categories.map((category) => {
-                      const Icon = category.icon
-                      return (
-                        <Link
-                          key={category.href}
-                          href={category.href}
-                          onClick={() => setMobileMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-3 text-xs font-bold uppercase tracking-wider text-black/60 hover:text-black hover:bg-black/5 transition-all"
-                        >
+                  {categories.map((category) => {
+                    const Icon = category.icon
+                    return (
+                      <Link
+                        key={category.href}
+                        href={category.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center justify-between px-4 py-3 text-black/70 hover:text-black hover:bg-black/5 transition-all"
+                      >
+                        <div className="flex items-center gap-3">
                           <Icon size={16} weight="bold" />
-                          {category.label}
-                        </Link>
-                      )
-                    })}
-                  </div>
+                          <span className="text-xs font-bold uppercase tracking-wider">{category.label}</span>
+                        </div>
+                        <CaretRight size={12} weight="bold" className="opacity-30" />
+                      </Link>
+                    )
+                  })}
                 </div>
                 
-                {/* Divider */}
-                <div className="h-px bg-black/10" />
-                
-                {/* Other Nav Links */}
-                <div className="space-y-1">
+                {/* Navigation Links */}
+                <div className="space-y-1 bg-white p-1">
+                  <p className="px-3 pt-2 text-[9px] font-black uppercase tracking-widest text-black/30">Explore</p>
+                  
                   {navLinks.map(link => (
                     <Link
                       key={link.href}
                       href={link.href}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center gap-4 px-4 py-4 text-sm font-black uppercase tracking-wider transition-all ${
+                      className={`flex items-center justify-between px-4 py-3.5 transition-all ${
                         isActive(link.href)
                           ? 'bg-black text-white'
                           : 'text-black hover:bg-black/5'
                       }`}
                     >
-                      {link.label}
+                      <span className="text-sm font-black uppercase tracking-wider">{link.label}</span>
+                      <CaretRight size={14} weight="bold" className="opacity-40" />
                     </Link>
                   ))}
                 </div>
                 
-                {/* Divider */}
-                <div className="h-px bg-black/10" />
-                
-                {/* Profile / Sign In */}
-                {!authLoading && (
-                  <Link
-                    href={user ? "/profile" : "/signin"}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-4 px-4 py-4 text-sm font-black uppercase tracking-wider text-black hover:bg-black/5 transition-all"
-                  >
-                    <UserCircle size={18} weight={user ? "fill" : "bold"} />
-                    {user ? 'My Profile' : 'Sign In'}
-                  </Link>
+                {/* Account Section - For signed in users */}
+                {user && (
+                  <div className="space-y-1 bg-white p-1">
+                    <p className="px-3 pt-2 text-[9px] font-black uppercase tracking-widest text-black/30">Account</p>
+                    
+                    <Link
+                      href="/profile"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-4 py-3.5 text-black hover:bg-black/5 transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <UserCircle size={18} weight="fill" />
+                        <span className="text-sm font-black uppercase tracking-wider">My Profile</span>
+                      </div>
+                      <CaretRight size={14} weight="bold" className="opacity-40" />
+                    </Link>
+                    
+                    <Link
+                      href="/orders"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-4 py-3 text-black/70 hover:text-black hover:bg-black/5 transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Package size={16} weight="bold" />
+                        <span className="text-xs font-bold uppercase tracking-wider">My Orders</span>
+                      </div>
+                      <CaretRight size={12} weight="bold" className="opacity-30" />
+                    </Link>
+                    
+                    <Link
+                      href="/loyalty/rewards"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-4 py-3 text-black/70 hover:text-black hover:bg-black/5 transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Gift size={16} weight="bold" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Rewards</span>
+                      </div>
+                      <CaretRight size={12} weight="bold" className="opacity-30" />
+                    </Link>
+                    
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false)
+                        setTimeout(() => {
+                          const notificationBtn = document.querySelector('[aria-label*="Notifications"]') as HTMLButtonElement
+                          if (notificationBtn) notificationBtn.click()
+                        }, 350)
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-3 text-black/70 hover:text-black hover:bg-black/5 transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Bell size={16} weight="bold" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Notifications</span>
+                      </div>
+                      <CaretRight size={12} weight="bold" className="opacity-30" />
+                    </button>
+                    
+                    <Link
+                      href="/profile/notifications"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-4 py-3 text-black/70 hover:text-black hover:bg-black/5 transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Gear size={16} weight="bold" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Settings</span>
+                      </div>
+                      <CaretRight size={12} weight="bold" className="opacity-30" />
+                    </Link>
+                  </div>
                 )}
+                
+                {/* Footer - Sign Out or Help */}
+                <div className="pt-2">
+                  {user ? (
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false)
+                        // Sign out logic - would call auth signout
+                        window.location.href = '/api/auth/signout'
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3.5 text-black/50 hover:text-black hover:bg-black/5 transition-all"
+                    >
+                      <SignOut size={16} weight="bold" />
+                      <span className="text-xs font-bold uppercase tracking-wider">Sign Out</span>
+                    </button>
+                  ) : (
+                    <Link
+                      href="/contact"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-center gap-2 px-4 py-3.5 text-black/50 hover:text-black hover:bg-black/5 transition-all"
+                    >
+                      <span className="text-xs font-bold uppercase tracking-wider">Need Help?</span>
+                    </Link>
+                  )}
+                </div>
+                
               </div>
             </motion.div>
           </>

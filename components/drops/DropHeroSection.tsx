@@ -51,10 +51,11 @@ export default function DropHeroSection({ product }: DropHeroProps) {
 
   const heroImage = getFirstImageUrl(product.images)
   
-  // Calculate total inventory
+  // Calculate total inventory and sold count
   const totalInventory = product.variants.reduce((sum, v) => sum + v.inventory, 0);
   const maxQty = product.maxQuantity || totalInventory;
-  const soldPercentage = maxQty > 0 ? Math.round(((maxQty - totalInventory) / maxQty) * 100) : 0;
+  const soldCount = maxQty - totalInventory;
+  const soldPercentage = maxQty > 0 ? Math.min(100, Math.max(0, Math.round((soldCount / maxQty) * 100))) : 0;
 
   // Countdown timer logic
   useEffect(() => {
@@ -158,23 +159,23 @@ export default function DropHeroSection({ product }: DropHeroProps) {
         transition={{ duration: 0.8, delay: 0.3 }}
       />
 
-      <div className="relative w-full max-w-7xl mx-auto px-6 py-20 md:py-28">
+      <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16 md:py-28">
         {/* Section Label */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="mb-12"
+          className="mb-6 sm:mb-12"
         >
           <span className="text-[10px] font-medium tracking-[0.3em] text-white/40 uppercase">
             Limited Edition Drop
           </span>
         </motion.div>
 
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-20 items-center">
           
           {/* LEFT: Hero Content */}
-          <div className="flex flex-col space-y-8">
+          <div className="flex flex-col space-y-5 sm:space-y-8 order-2 lg:order-1">
             {/* Status Badge */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -204,12 +205,12 @@ export default function DropHeroSection({ product }: DropHeroProps) {
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="space-y-2"
+              className="space-y-1 sm:space-y-2"
             >
-              <h1 className="text-[clamp(2.5rem,8vw,5rem)] font-black leading-[0.9] tracking-tight text-white">
+              <h1 className="text-3xl sm:text-[clamp(2.5rem,8vw,5rem)] font-black leading-[0.95] sm:leading-[0.9] tracking-tight text-white">
                 {product.name.split(' ').slice(0, 2).join(' ')}
               </h1>
-              <h2 className="text-[clamp(1.5rem,4vw,2.5rem)] font-black leading-[0.9] tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white/60 via-white/40 to-white/20">
+              <h2 className="text-xl sm:text-[clamp(1.5rem,4vw,2.5rem)] font-black leading-[0.95] sm:leading-[0.9] tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white/60 via-white/40 to-white/20">
                 {product.name.split(' ').slice(2).join(' ') || 'Limited Edition'}
               </h2>
             </motion.div>
@@ -219,13 +220,13 @@ export default function DropHeroSection({ product }: DropHeroProps) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
-              className="flex items-baseline gap-4"
+              className="flex items-baseline gap-3 sm:gap-4"
             >
-              <span className="text-4xl md:text-5xl font-black text-white tracking-tight">
+              <span className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight">
                 ${product.price.toFixed(2)}
               </span>
               {product.compareAtPrice && product.compareAtPrice > product.price && (
-                <span className="text-xl text-white/30 line-through font-medium">
+                <span className="text-base sm:text-xl text-white/30 line-through font-medium">
                   ${product.compareAtPrice.toFixed(2)}
                 </span>
               )}
@@ -249,12 +250,12 @@ export default function DropHeroSection({ product }: DropHeroProps) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.5 }}
-              className="space-y-3"
+              className="space-y-2 sm:space-y-3"
             >
               <span className="text-[10px] font-medium tracking-[0.2em] text-white/40 uppercase">
                 {isDropLive ? 'Ends In' : 'Drops In'}
               </span>
-              <div className="flex gap-4">
+              <div className="flex gap-3 sm:gap-4">
                 {[
                   { label: 'Days', value: timeLeft.days },
                   { label: 'Hrs', value: timeLeft.hours },
@@ -262,10 +263,10 @@ export default function DropHeroSection({ product }: DropHeroProps) {
                   { label: 'Sec', value: timeLeft.seconds },
                 ].map((unit) => (
                   <div key={unit.label} className="text-center">
-                    <p className="text-3xl md:text-4xl font-black text-white tabular-nums leading-none tracking-tight">
+                    <p className="text-2xl sm:text-3xl md:text-4xl font-black text-white tabular-nums leading-none tracking-tight">
                       {String(unit.value).padStart(2, '0')}
                     </p>
-                    <p className="text-[9px] text-white/40 mt-1.5 font-medium uppercase tracking-wider">
+                    <p className="text-[8px] sm:text-[9px] text-white/40 mt-1 sm:mt-1.5 font-medium uppercase tracking-wider">
                       {unit.label}
                     </p>
                   </div>
@@ -282,7 +283,7 @@ export default function DropHeroSection({ product }: DropHeroProps) {
                 className="space-y-2"
               >
                 <div className="flex items-center justify-between text-[10px] uppercase tracking-wider">
-                  <span className="text-white/40">{soldPercentage}% Claimed</span>
+                  <span className="text-white/40">{soldCount} Sold</span>
                   <span className="text-white/60 font-medium">{totalInventory} Left</span>
                 </div>
                 <div className="h-1 w-full bg-white/10 overflow-hidden">
@@ -365,14 +366,14 @@ export default function DropHeroSection({ product }: DropHeroProps) {
             </motion.div>
           </div>
 
-          {/* RIGHT: Product Image */}
+          {/* RIGHT: Product Image - Shows first on mobile */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, delay: 0.3 }}
-            className="relative"
+            className="relative order-1 lg:order-2"
           >
-            <div className="relative aspect-[4/5] w-full overflow-hidden group">
+            <div className="relative aspect-square sm:aspect-[4/5] w-full max-w-sm mx-auto lg:max-w-none overflow-hidden group">
               {heroImage ? (
                 <Image
                   src={heroImage}

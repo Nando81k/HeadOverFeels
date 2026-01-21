@@ -317,7 +317,25 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
   // Get sizes and colors from variants
   const sizes = useMemo(() => {
     if (!product) return []
-    return [...new Set(product.variants.map(v => v.size).filter(Boolean))] as string[]
+    // Size order for proper sorting (S to XL)
+    const sizeOrder: Record<string, number> = {
+      'XXS': 0, 'XS': 1, 'S': 2, 'M': 3, 'L': 4, 'XL': 5, 'XXL': 6, '2XL': 6, 'XXXL': 7, '3XL': 7,
+      // Numeric/dress sizes
+      '0': 10, '2': 11, '4': 12, '6': 13, '8': 14, '10': 15, '12': 16, '14': 17, '16': 18, '18': 19, '20': 20,
+      // One size
+      'ONE SIZE': 100, 'OS': 100, 'ONESIZE': 100
+    }
+    const uniqueSizes = [...new Set(product.variants.map(v => v.size).filter(Boolean))] as string[]
+    return uniqueSizes.sort((a, b) => {
+      const orderA = sizeOrder[a.toUpperCase()] ?? 50
+      const orderB = sizeOrder[b.toUpperCase()] ?? 50
+      if (orderA !== orderB) return orderA - orderB
+      // If both have same order (like shoe sizes), sort numerically
+      const numA = parseFloat(a)
+      const numB = parseFloat(b)
+      if (!isNaN(numA) && !isNaN(numB)) return numA - numB
+      return a.localeCompare(b)
+    })
   }, [product])
 
   const colors = useMemo(() => {

@@ -76,6 +76,29 @@ export function getTierBySlug(slug: string): TierInfo | undefined {
   return TIER_HIERARCHY.find(t => t.slug === slug)
 }
 
+export function getTierFromPoints(annualPointsEarned: number): TierInfo {
+  // Calculate the correct tier based on annual points earned
+  // Returns the highest tier the user qualifies for
+  const safePoints = typeof annualPointsEarned === 'number' && !isNaN(annualPointsEarned) ? annualPointsEarned : 0
+  
+  // Find the highest tier the user qualifies for
+  let qualifiedTier = TIER_HIERARCHY[0] // Default to newcomer
+  for (const tier of TIER_HIERARCHY) {
+    if (safePoints >= tier.minAnnualPoints) {
+      qualifiedTier = tier
+    } else {
+      break
+    }
+  }
+  return qualifiedTier
+}
+
+export function calculateTierProgressFromPoints(annualPointsEarned: number): TierProgress {
+  // Calculate tier progress based solely on points, not trusting database tier
+  const correctTier = getTierFromPoints(annualPointsEarned)
+  return calculateTierProgress(correctTier.slug, annualPointsEarned)
+}
+
 export function getNextTierBySlug(slug: string): TierInfo | null {
   const currentIndex = TIER_HIERARCHY.findIndex(t => t.slug === slug)
   if (currentIndex === -1 || currentIndex >= TIER_HIERARCHY.length - 1) {

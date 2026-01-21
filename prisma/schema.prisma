@@ -96,6 +96,8 @@ model Product {
   cartReservations         CartReservation[]
   collections              CollectionProduct[]
   dropNotifications        DropNotification[]
+  earlyAccessConfigs       DropEarlyAccess[]
+  earlyAccessGrants        EarlyAccessGrant[]
   orderItems               OrderItem[]
   sourceRecommendations    ProductRecommendation[]   @relation("SourceProduct")
   targetRecommendations    ProductRecommendation[]   @relation("TargetProduct")
@@ -198,6 +200,7 @@ model Customer {
   cartItems                CartItem[]
   notes                    CustomerNote[]
   notifications            CustomerNotification[]
+  earlyAccessGrants        EarlyAccessGrant[]
   loyaltyTier              LoyaltyTier?              @relation(fields: [loyaltyTierId], references: [id])
   giftCardTransactions     GiftCardTransaction[]
   purchasedGiftCards       GiftCard[]                @relation("GiftCardPurchaser")
@@ -736,22 +739,23 @@ model SalesGoalHistory {
 }
 
 model LoyaltyTier {
-  id              String     @id @default(cuid())
-  name            String     @unique
-  slug            String     @unique
-  description     String?
-  minAnnualSpend  Float      @default(0)
-  isInviteOnly    Boolean    @default(false)
-  pointMultiplier Float      @default(1.0)
-  freeShipping    Boolean    @default(false)
-  earlyDropAccess Boolean    @default(false)
-  perks           String?
-  sortOrder       Int        @default(0)
-  isActive        Boolean    @default(true)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  minAnnualPoints Int        @default(0)
-  customers       Customer[]
+  id                String            @id @default(cuid())
+  name              String            @unique
+  slug              String            @unique
+  description       String?
+  minAnnualSpend    Float             @default(0)
+  isInviteOnly      Boolean           @default(false)
+  pointMultiplier   Float             @default(1.0)
+  freeShipping      Boolean           @default(false)
+  earlyDropAccess   Boolean           @default(false)
+  perks             String?
+  sortOrder         Int               @default(0)
+  isActive          Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  minAnnualPoints   Int               @default(0)
+  customers         Customer[]
+  earlyAccessConfig DropEarlyAccess[]
 
   @@map("loyalty_tiers")
 }
@@ -839,6 +843,7 @@ model RewardRedemption {
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   idempotencyKey     String              @unique
+  earlyAccessGrant   EarlyAccessGrant?
   orders             Order[]
   pointsTransactions PointsTransaction[]
   customer           Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
@@ -1633,4 +1638,53 @@ enum GiftCardTransactionType {
   REFUND
   ADJUSTMENT
   EXPIRATION
+}
+
+// ==================== Early Access System ====================
+
+enum EarlyAccessType {
+  TIER_BENEFIT       // Automatic based on loyalty tier
+  POINTS_REDEMPTION  // Purchased with care points
+}
+
+// Configuration for tier-based early access windows per drop
+model DropEarlyAccess {
+  id            String       @id @default(cuid())
+  productId     String
+  loyaltyTierId String?      // Which tier gets this access window (null = applies to tier's default earlyDropAccess)
+  startDate     DateTime     // When early access begins for this tier
+  endDate       DateTime     // When early access ends (should be public release date)
+  pointsCost    Int          @default(500) // Cost in points for non-tier users to unlock
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  product       Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  loyaltyTier   LoyaltyTier? @relation(fields: [loyaltyTierId], references: [id])
+
+  @@unique([productId, loyaltyTierId])
+  @@index([productId])
+  @@index([loyaltyTierId])
+  @@index([startDate, endDate])
+  @@map("drop_early_access")
+}
+
+// Tracks individual user grants for early access (from tier benefit or points)
+model EarlyAccessGrant {
+  id           String            @id @default(cuid())
+  customerId   String
+  productId    String            // The drop they get access to
+  grantType    EarlyAccessType   // How they got access
+  redemptionId String?           @unique // If granted via points redemption
+  validUntil   DateTime          // When their early access expires
+  usedAt       DateTime?         // When they made a purchase using this access
+  createdAt    DateTime          @default(now())
+  customer     Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product      Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  redemption   RewardRedemption? @relation(fields: [redemptionId], references: [id])
+
+  @@unique([customerId, productId])
+  @@index([customerId])
+  @@index([productId])
+  @@index([validUntil])
+  @@map("early_access_grants")
 }

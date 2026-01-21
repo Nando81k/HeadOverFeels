@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { CircleNotch, Trash, X, Plus, FloppyDisk } from '@phosphor-icons/react'
+import { CircleNotch, Trash, X, Plus, FloppyDisk, Clock, Star } from '@phosphor-icons/react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -28,6 +28,22 @@ interface Collection {
   id: string
   name: string
   slug: string
+}
+
+interface LoyaltyTier {
+  id: string
+  name: string
+  slug: string
+  earlyDropAccess: boolean
+}
+
+interface EarlyAccessConfig {
+  id?: string
+  loyaltyTierId: string | null
+  startDate: string
+  endDate: string
+  pointsCost: number
+  isActive: boolean
 }
 
 interface Product {
@@ -61,7 +77,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [collections, setCollections] = useState<Collection[]>([])
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
   const [selectedCollections, setSelectedCollections] = useState<string[]>([])
-  
+  const [loyaltyTiers, setLoyaltyTiers] = useState<LoyaltyTier[]>([])
+  const [earlyAccessConfigs, setEarlyAccessConfigs] = useState<EarlyAccessConfig[]>([])
+  const [savingEarlyAccess, setSavingEarlyAccess] = useState(false)  
   // Collection creation modal state
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -194,6 +212,100 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
     loadData()
   }, [])
+
+  // Load loyalty tiers and early access configs for this product
+  useEffect(() => {
+    async function loadEarlyAccessData() {
+      try {
+        // Load loyalty tiers
+        const tiersRes = await fetch('/api/admin/loyalty/tiers')
+        if (tiersRes.ok) {
+          const tiersData = await tiersRes.json()
+          setLoyaltyTiers(Array.isArray(tiersData.tiers) ? tiersData.tiers : [])
+        }
+        
+        // Load early access configs for this product
+        if (id && id !== 'new') {
+          const configsRes = await fetch(`/api/admin/drops/early-access?productId=${id}`)
+          if (configsRes.ok) {
+            const configsData = await configsRes.json()
+            if (configsData.configs && configsData.configs.length > 0) {
+              setEarlyAccessConfigs(configsData.configs.map((c: {
+                id: string
+                loyaltyTierId: string | null
+                startDate: string
+                endDate: string
+                pointsCost: number
+                isActive: boolean
+              }) => ({
+                id: c.id,
+                loyaltyTierId: c.loyaltyTierId,
+                startDate: new Date(c.startDate).toISOString().slice(0, 16),
+                endDate: new Date(c.endDate).toISOString().slice(0, 16),
+                pointsCost: c.pointsCost,
+                isActive: c.isActive
+              })))
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load early access data:', error)
+      }
+    }
+
+    loadEarlyAccessData()
+  }, [id])
+
+  // Helper functions for early access config management
+  const addEarlyAccessConfig = () => {
+    // Default to 24 hours before release date
+    const releaseDate = formData.releaseDate ? new Date(formData.releaseDate) : new Date()
+    const startDate = new Date(releaseDate.getTime() - 24 * 60 * 60 * 1000) // 24 hours before
+    
+    setEarlyAccessConfigs([...earlyAccessConfigs, {
+      loyaltyTierId: null,
+      startDate: startDate.toISOString().slice(0, 16),
+      endDate: formData.releaseDate || new Date().toISOString().slice(0, 16),
+      pointsCost: 500,
+      isActive: true
+    }])
+  }
+
+  const removeEarlyAccessConfig = (index: number) => {
+    setEarlyAccessConfigs(earlyAccessConfigs.filter((_, i) => i !== index))
+  }
+
+  const updateEarlyAccessConfig = (index: number, updates: Partial<EarlyAccessConfig>) => {
+    setEarlyAccessConfigs(earlyAccessConfigs.map((config, i) => 
+      i === index ? { ...config, ...updates } : config
+    ))
+  }
+
+  const saveEarlyAccessConfigs = async () => {
+    setSavingEarlyAccess(true)
+    try {
+      const response = await fetch('/api/admin/drops/early-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: id,
+          configs: earlyAccessConfigs
+        })
+      })
+      
+      if (!response.ok) {
+        const result = await response.json()
+        throw new Error(result.error || 'Failed to save early access configuration')
+      }
+      
+      // Success feedback
+    } catch (error) {
+      console.error('Failed to save early access config:', error)
+      setError(error instanceof Error ? error.message : 'Failed to save early access configuration')
+    } finally {
+      setSavingEarlyAccess(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -760,7 +872,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                       }
                       className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-[#FF3131]/50 focus:outline-none"
                     />
-                    <p className="text-xs text-white/40 mt-1">When the drop becomes available</p>
+                    <p className="text-xs text-white/40 mt-1">When the drop becomes available to public</p>
                   </div>
 
                   <div>
@@ -790,6 +902,153 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                     />
                     <p className="text-xs text-white/40 mt-1">Total limited quantity for this drop</p>
                   </div>
+                </div>
+              )}
+
+              {/* Early Access Configuration */}
+              {formData.isLimitedEdition && (
+                <div className="mt-6 pt-6 border-t border-white/10">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-amber-400" />
+                      <h3 className="text-base font-semibold text-white">Early Access Windows</h3>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={addEarlyAccessConfig}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Add Window
+                    </Button>
+                  </div>
+                  <p className="text-xs text-white/50 mb-4">
+                    Configure early access windows for loyalty tier members. Users with qualifying tiers can shop before the public release.
+                    Other users can redeem care points to unlock early access.
+                  </p>
+
+                  {earlyAccessConfigs.length === 0 ? (
+                    <div className="p-4 bg-white/5 border border-white/10 border-dashed rounded-lg text-center">
+                      <p className="text-sm text-white/40">No early access windows configured</p>
+                      <p className="text-xs text-white/30 mt-1">All customers will have access starting from the release date</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {earlyAccessConfigs.map((config, index) => (
+                        <div key={index} className="p-4 bg-white/5 border border-white/10 rounded-lg">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <Star className="w-4 h-4 text-amber-400" />
+                              <span className="text-sm font-medium text-white">
+                                Early Access Window {index + 1}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeEarlyAccessConfig(index)}
+                              className="p-1 text-white/40 hover:text-red-400 transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div>
+                              <label className="block text-xs font-medium text-white/60 mb-1">Loyalty Tier</label>
+                              <select
+                                value={config.loyaltyTierId || ''}
+                                onChange={(e) => updateEarlyAccessConfig(index, {
+                                  loyaltyTierId: e.target.value || null
+                                })}
+                                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-[#FF3131]/50 focus:outline-none"
+                              >
+                                <option value="">All tiers with early access benefit</option>
+                                {loyaltyTiers.map(tier => (
+                                  <option key={tier.id} value={tier.id}>
+                                    {tier.name} {tier.earlyDropAccess ? '✓' : ''}
+                                  </option>
+                                ))}
+                              </select>
+                              <p className="text-xs text-white/30 mt-1">Which tier gets this window</p>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-medium text-white/60 mb-1">Early Access Starts</label>
+                              <input
+                                type="datetime-local"
+                                value={config.startDate}
+                                onChange={(e) => updateEarlyAccessConfig(index, {
+                                  startDate: e.target.value
+                                })}
+                                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-[#FF3131]/50 focus:outline-none"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-medium text-white/60 mb-1">Early Access Ends</label>
+                              <input
+                                type="datetime-local"
+                                value={config.endDate}
+                                onChange={(e) => updateEarlyAccessConfig(index, {
+                                  endDate: e.target.value
+                                })}
+                                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-[#FF3131]/50 focus:outline-none"
+                              />
+                              <p className="text-xs text-white/30 mt-1">Usually same as release date</p>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-medium text-white/60 mb-1">Points to Unlock</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={config.pointsCost}
+                                onChange={(e) => updateEarlyAccessConfig(index, {
+                                  pointsCost: parseInt(e.target.value) || 0
+                                })}
+                                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-[#FF3131]/50 focus:outline-none"
+                                placeholder="500"
+                              />
+                              <p className="text-xs text-white/30 mt-1">Cost for non-tier users</p>
+                            </div>
+                          </div>
+
+                          <label className="flex items-center gap-2 mt-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={config.isActive}
+                              onChange={(e) => updateEarlyAccessConfig(index, {
+                                isActive: e.target.checked
+                              })}
+                              className="w-4 h-4 accent-[#FF3131]"
+                            />
+                            <span className="text-xs text-white/70">Active</span>
+                          </label>
+                        </div>
+                      ))}
+
+                      <Button
+                        type="button"
+                        onClick={saveEarlyAccessConfigs}
+                        disabled={savingEarlyAccess}
+                        className="w-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30"
+                      >
+                        {savingEarlyAccess ? (
+                          <>
+                            <CircleNotch className="w-4 h-4 mr-2 animate-spin" />
+                            Saving Early Access...
+                          </>
+                        ) : (
+                          <>
+                            <FloppyDisk className="w-4 h-4 mr-2" />
+                            Save Early Access Configuration
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

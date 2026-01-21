@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Navigation } from '@/components/layout/Navigation'
 import { useAuth } from '@/lib/auth/context'
-import { calculateTierProgress, TIER_HIERARCHY } from '@/lib/loyalty/tier-progress'
+import { calculateTierProgressFromPoints, getTierFromPoints, TIER_HIERARCHY } from '@/lib/loyalty/tier-progress'
 import { Sparkle, Gift, Heart, Truck, Lightning, Users, Download, Package, CircleNotch, Lock, CheckCircle, Warning, TrendUp, Medal, X, Copy, Check, Confetti, Star, ArrowRight } from '@phosphor-icons/react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
+import { EarlyAccessDrops } from '@/components/loyalty/EarlyAccessDrops'
 
 interface Reward {
   id: string
@@ -332,8 +333,11 @@ export default function RewardsPage() {
     { value: 'PHYSICAL_PERK', label: 'Physical', icon: Package },
   ]
 
-  const currentTierColors = user.loyaltyTier ? (tierColors[user.loyaltyTier.slug] || tierColors.newcomer) : tierColors.newcomer
-  const tierProgress = user.loyaltyTier ? calculateTierProgress(user.loyaltyTier.slug, user.annualPointsEarned ?? 0) : null
+  // Use lifetime points for tier calculation (tiers never reset)
+  const pointsForTier = user.lifetimePoints || user.annualPointsEarned || 0
+  const calculatedTier = getTierFromPoints(pointsForTier)
+  const currentTierColors = tierColors[calculatedTier.slug] || tierColors.newcomer
+  const tierProgress = calculateTierProgressFromPoints(pointsForTier)
 
   return (
     <div className="min-h-screen bg-white">
@@ -439,6 +443,17 @@ export default function RewardsPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-12 py-4 md:py-8 lg:py-12">
+        {/* Early Access Drops Section */}
+        <div className="mb-8 md:mb-12">
+          <EarlyAccessDrops 
+            currentPoints={customerPoints} 
+            onPointsChange={(newPoints) => {
+              setCustomerPoints(newPoints)
+              fetchRewards() // Refresh rewards to update points display
+            }} 
+          />
+        </div>
+
         {/* Category Filter - Matching Products Page Style */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-8 pb-4 md:pb-6 border-b border-black/5 gap-2">
           {/* Categories - Wrap on mobile */}

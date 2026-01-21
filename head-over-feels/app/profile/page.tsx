@@ -465,12 +465,12 @@ export default function ProfilePage() {
               >
                 Wishlist
               </Link>
-              <Link
-                href="/profile/avatar"
-                className="flex items-center justify-center gap-2 bg-white text-black py-3 px-4 rounded-xl font-medium hover:bg-black/5 transition-colors text-sm border border-black/10"
+              <div
+                className="flex items-center justify-center gap-2 bg-white/50 text-black/40 py-3 px-4 rounded-xl font-medium text-sm border border-black/10 cursor-not-allowed"
+                title="Avatar customization coming soon!"
               >
-                Create Avatar
-              </Link>
+                Coming Soon
+              </div>
               <Link
                 href="/collections"
                 className="flex items-center justify-center gap-2 bg-white text-black py-3 px-4 rounded-xl font-medium hover:bg-black/5 transition-colors text-sm border border-black/10"

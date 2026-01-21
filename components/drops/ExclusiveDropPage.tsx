@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Clock, Package, TrendUp, Warning } from '@phosphor-icons/react';
+import Link from 'next/link';
+import { Clock, Package, TrendUp, Warning, Lock, Star, Sparkle, ArrowRight } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { useCartStore } from '@/lib/store/cart';
 import { CountdownTimer } from '@/components/products/CountdownTimer';
+import { useSession } from 'next-auth/react';
 
 interface Product {
   id: string;
@@ -27,30 +29,116 @@ interface Product {
   }>;
 }
 
+interface EarlyAccessStatus {
+  hasAccess: boolean;
+  reason: string;
+  canUnlock: boolean;
+  pointsCost: number | null;
+  currentPoints?: number;
+  hasEnoughPoints?: boolean;
+  earlyAccessEnds?: string;
+  tierName?: string;
+  publicReleaseDate?: string;
+}
+
 interface ExclusiveDropPageProps {
   product: Product;
 }
 
 export default function ExclusiveDropPage({ product }: ExclusiveDropPageProps) {
+  const { data: session } = useSession();
   const [selectedVariant, setSelectedVariant] = useState(product.variants[0]);
   const [quantity, setQuantity] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [earlyAccessStatus, setEarlyAccessStatus] = useState<EarlyAccessStatus | null>(null);
+  const [checkingAccess, setCheckingAccess] = useState(true);
+  const [unlocking, setUnlocking] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
 
   // Calculate if drop is live based on dates
   const now = new Date().getTime();
   const releaseTime = product.releaseDate ? new Date(product.releaseDate).getTime() : now;
   const endTime = product.dropEndDate ? new Date(product.dropEndDate).getTime() : Infinity;
-  const isDropLive = now >= releaseTime && now < endTime;
+  const isPubliclyLive = now >= releaseTime && now < endTime;
   const isUpcoming = now < releaseTime;
 
-  // Calculate total inventory and sold percentage
+  // Check early access status
+  useEffect(() => {
+    async function checkEarlyAccess() {
+      setCheckingAccess(true);
+      try {
+        const response = await fetch(`/api/drops/early-access/check?productId=${product.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setEarlyAccessStatus(data);
+        }
+      } catch (error) {
+        console.error('Failed to check early access:', error);
+      } finally {
+        setCheckingAccess(false);
+      }
+    }
+    
+    checkEarlyAccess();
+  }, [product.id, session]);
+
+  // Determine if user can purchase
+  const canPurchase = isPubliclyLive || 
+    (earlyAccessStatus?.hasAccess && earlyAccessStatus.reason !== 'not_available');
+
+  // Calculate total inventory and sold count
   const totalInventory = product.variants.reduce((sum, v) => sum + v.inventory, 0);
   const maxQty = product.maxQuantity || totalInventory;
-  const soldPercentage = ((maxQty - totalInventory) / maxQty) * 100;
+  const soldCount = maxQty - totalInventory;
+  const soldPercentage = Math.min(100, Math.max(0, ((soldCount) / maxQty) * 100));
+
+  // Size order for proper sorting (S to XL)
+  const sizeOrder: Record<string, number> = {
+    'XXS': 0, 'XS': 1, 'S': 2, 'M': 3, 'L': 4, 'XL': 5, 'XXL': 6, '2XL': 6, 'XXXL': 7, '3XL': 7,
+    '0': 10, '2': 11, '4': 12, '6': 13, '8': 14, '10': 15, '12': 16, '14': 17, '16': 18,
+    'ONE SIZE': 100, 'OS': 100, 'ONESIZE': 100
+  };
+  
+  // Sort variants by size
+  const sortedVariants = [...product.variants].sort((a, b) => {
+    const sizeA = (a.size || '').toUpperCase();
+    const sizeB = (b.size || '').toUpperCase();
+    const orderA = sizeOrder[sizeA] ?? 50;
+    const orderB = sizeOrder[sizeB] ?? 50;
+    return orderA - orderB;
+  });
+
+  const handleUnlockEarlyAccess = async () => {
+    if (!earlyAccessStatus?.canUnlock || !earlyAccessStatus?.hasEnoughPoints) return;
+    
+    setUnlocking(true);
+    try {
+      const response = await fetch('/api/drops/early-access/unlock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product.id })
+      });
+      
+      if (response.ok) {
+        // Refresh early access status
+        const checkResponse = await fetch(`/api/drops/early-access/check?productId=${product.id}`);
+        if (checkResponse.ok) {
+          const data = await checkResponse.json();
+          setEarlyAccessStatus(data);
+        }
+      } else {
+        const error = await response.json();
+        console.error('Failed to unlock:', error);
+      }
+    } catch (error) {
+      console.error('Failed to unlock early access:', error);
+    } finally {
+      setUnlocking(false);
+    }
+  };
 
   const handleAddToCart = () => {
-    if (!selectedVariant || selectedVariant.inventory <= 0) return;
+    if (!selectedVariant || selectedVariant.inventory <= 0 || !canPurchase) return;
 
     const productForCart = {
       id: product.id,
@@ -106,12 +194,39 @@ export default function ExclusiveDropPage({ product }: ExclusiveDropPageProps) {
                 className="object-cover"
                 priority
               />
-              {!isDropLive && (
+              {!canPurchase && !checkingAccess && (
                 <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
-                  <div className="text-center space-y-3">
-                    <Clock size={48} weight="bold" className="mx-auto text-black/40" />
-                    <p className="text-lg font-bold text-black">Coming Soon</p>
+                  <div className="text-center space-y-3 px-4">
+                    {earlyAccessStatus?.canUnlock ? (
+                      <>
+                        <Lock size={48} weight="bold" className="mx-auto text-amber-500" />
+                        <p className="text-lg font-bold text-black">Early Access Available</p>
+                        <p className="text-sm text-black/60">Unlock with care points or wait for public release</p>
+                      </>
+                    ) : isUpcoming ? (
+                      <>
+                        <Clock size={48} weight="bold" className="mx-auto text-black/40" />
+                        <p className="text-lg font-bold text-black">Coming Soon</p>
+                        {earlyAccessStatus?.publicReleaseDate && (
+                          <p className="text-sm text-black/60">
+                            Public release: {new Date(earlyAccessStatus.publicReleaseDate).toLocaleDateString()}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <Clock size={48} weight="bold" className="mx-auto text-black/40" />
+                        <p className="text-lg font-bold text-black">Drop Ended</p>
+                      </>
+                    )}
                   </div>
+                </div>
+              )}
+              {/* Early Access Badge */}
+              {canPurchase && earlyAccessStatus?.hasAccess && !isPubliclyLive && (
+                <div className="absolute top-4 left-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg">
+                  <Star size={14} weight="fill" />
+                  Early Access
                 </div>
               )}
             </div>
@@ -180,7 +295,7 @@ export default function ExclusiveDropPage({ product }: ExclusiveDropPageProps) {
                   style={{ width: `${soldPercentage}%` }}
                 />
               </div>
-              <p className="text-xs text-black/60">{soldPercentage.toFixed(0)}% claimed</p>
+              <p className="text-xs text-black/60">{soldCount} sold of {maxQty}</p>
             </div>
 
             {/* Description */}
@@ -192,7 +307,7 @@ export default function ExclusiveDropPage({ product }: ExclusiveDropPageProps) {
             <div className="space-y-3">
               <h3 className="font-black text-black text-sm uppercase tracking-wider">Select Size</h3>
               <div className="grid grid-cols-4 gap-2">
-                {product.variants.map((variant) => (
+                {sortedVariants.map((variant) => (
                   <button
                     key={variant.id}
                     onClick={() => setSelectedVariant(variant)}
@@ -232,23 +347,101 @@ export default function ExclusiveDropPage({ product }: ExclusiveDropPageProps) {
             </div>
 
             {/* Add to Cart Button */}
-            <Button
-              onClick={handleAddToCart}
-              disabled={!isDropLive || selectedVariant.inventory <= 0}
-              size="lg"
-              className="w-full py-5 text-base font-black bg-black hover:bg-black/85 text-white border-0 rounded-xl transition-all hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-            >
-              {!isDropLive ? (
-                'Drop Not Started'
-              ) : selectedVariant.inventory <= 0 ? (
-                'Sold Out'
-              ) : (
-                <>
-                  <Package size={18} weight="bold" className="mr-2" />
-                  Add to Cart
-                </>
-              )}
-            </Button>
+            {canPurchase ? (
+              <Button
+                onClick={handleAddToCart}
+                disabled={selectedVariant.inventory <= 0}
+                size="lg"
+                className="w-full py-5 text-base font-black bg-black hover:bg-black/85 text-white border-0 rounded-xl transition-all hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              >
+                {selectedVariant.inventory <= 0 ? (
+                  'Sold Out'
+                ) : (
+                  <>
+                    <Package size={18} weight="bold" className="mr-2" />
+                    Add to Cart
+                  </>
+                )}
+              </Button>
+            ) : earlyAccessStatus?.canUnlock ? (
+              <div className="space-y-3">
+                {/* Unlock with Points Button */}
+                <Button
+                  onClick={handleUnlockEarlyAccess}
+                  disabled={unlocking || !earlyAccessStatus.hasEnoughPoints}
+                  size="lg"
+                  className="w-full py-5 text-base font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 rounded-xl transition-all hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  {unlocking ? (
+                    'Unlocking...'
+                  ) : earlyAccessStatus.hasEnoughPoints ? (
+                    <>
+                      <Sparkle size={18} weight="fill" className="mr-2" />
+                      Unlock Early Access ({earlyAccessStatus.pointsCost} points)
+                    </>
+                  ) : (
+                    <>
+                      <Lock size={18} weight="bold" className="mr-2" />
+                      Need {earlyAccessStatus.pointsCost} points ({earlyAccessStatus.currentPoints} available)
+                    </>
+                  )}
+                </Button>
+                
+                {!earlyAccessStatus.hasEnoughPoints && (
+                  <Link href="/loyalty/rewards" className="block">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="w-full py-4 text-sm font-bold border-black/20 text-black hover:bg-black/5 rounded-xl"
+                    >
+                      Earn More Points
+                      <ArrowRight size={16} className="ml-2" />
+                    </Button>
+                  </Link>
+                )}
+
+                <p className="text-xs text-center text-black/50">
+                  Or wait until public release on {product.releaseDate ? new Date(product.releaseDate).toLocaleDateString() : 'TBA'}
+                </p>
+              </div>
+            ) : !session ? (
+              <div className="space-y-3">
+                <Link href="/signin" className="block">
+                  <Button
+                    size="lg"
+                    className="w-full py-5 text-base font-black bg-black hover:bg-black/85 text-white border-0 rounded-xl transition-all hover:scale-[1.01]"
+                  >
+                    Sign In for Early Access
+                  </Button>
+                </Link>
+                <p className="text-xs text-center text-black/50">
+                  Loyalty members can unlock early access to this drop
+                </p>
+              </div>
+            ) : (
+              <Button
+                disabled
+                size="lg"
+                className="w-full py-5 text-base font-black bg-black/30 text-white border-0 rounded-xl cursor-not-allowed"
+              >
+                {isUpcoming ? 'Drop Not Started' : 'Drop Ended'}
+              </Button>
+            )}
+
+            {/* Early Access Status Banner */}
+            {earlyAccessStatus?.hasAccess && !isPubliclyLive && (
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+                <Star size={18} weight="fill" className="text-amber-500 shrink-0 mt-0.5" />
+                <div className="text-sm space-y-1">
+                  <p className="font-bold text-amber-800">You Have Early Access!</p>
+                  <p className="text-amber-700">
+                    {earlyAccessStatus.reason === 'tier_benefit' 
+                      ? `As a ${earlyAccessStatus.tierName} member, you can shop this drop before the public release.`
+                      : 'You\'ve unlocked early access to this exclusive drop.'}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Exclusive Notice */}
             <div className="bg-black/2 border border-black/10 rounded-lg p-4 flex items-start gap-3">

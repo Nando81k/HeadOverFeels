@@ -11,7 +11,7 @@ import {
 } from '@phosphor-icons/react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { calculateTierProgress } from '@/lib/loyalty/tier-progress'
+import { calculateTierProgressFromPoints } from '@/lib/loyalty/tier-progress'
 import { toast } from '@/lib/toast'
 
 interface PointsTransaction {
@@ -386,9 +386,11 @@ export default function ProfilePage() {
   }, [user])
 
   const tierProgress = useMemo(() => {
-    if (!user?.loyaltyTier) return null
-    return calculateTierProgress(user.loyaltyTier.slug, user.annualPointsEarned ?? 0)
-  }, [user?.loyaltyTier, user?.annualPointsEarned])
+    if (!user) return null
+    // Use lifetime points for tier calculation (tiers never reset)
+    const pointsForTier = user.lifetimePoints || user.annualPointsEarned || 0
+    return calculateTierProgressFromPoints(pointsForTier)
+  }, [user])
 
   useEffect(() => {
     if (tierProgress && shouldAnimatePoints && !shouldAnimateTier) {
@@ -420,9 +422,11 @@ export default function ProfilePage() {
     )
   }
 
-  const currentTierConfig = user.loyaltyTier ? getTierConfig(user.loyaltyTier.slug) : getTierConfig('newcomer')
+  // Use calculated tier from lifetimePoints, not database tier (tiers never reset)
+  const calculatedTierSlug = tierProgress?.currentTier.slug || 'newcomer'
+  const currentTierConfig = getTierConfig(calculatedTierSlug)
   const previousTierConfig = previousTierSlug ? getTierConfig(previousTierSlug) : null
-  const activeTierSlug = displayTierSlug || user.loyaltyTier?.slug || 'newcomer'
+  const activeTierSlug = displayTierSlug || calculatedTierSlug
   const activeTierConfig = getTierConfig(activeTierSlug)
 
   const getStatusColor = (status: string) => {
@@ -1118,13 +1122,13 @@ export default function ProfilePage() {
               <Heart size={18} weight="bold" />
               Wishlist
             </Link>
-            <Link
-              href="/profile/avatar"
-              className="flex items-center justify-center gap-2 md:gap-3 border-2 border-black text-black py-4 md:py-5 font-bold uppercase tracking-wider text-xs md:text-sm hover:bg-black hover:text-white transition-colors"
+            <div
+              className="flex items-center justify-center gap-2 md:gap-3 border-2 border-black/30 text-black/40 py-4 md:py-5 font-bold uppercase tracking-wider text-xs md:text-sm cursor-not-allowed"
+              title="Avatar customization coming soon!"
             >
               <User size={18} weight="bold" />
-              Avatar
-            </Link>
+              Coming Soon
+            </div>
             <Link
               href="/collections"
               className="flex items-center justify-center gap-2 md:gap-3 border-2 border-black text-black py-4 md:py-5 font-bold uppercase tracking-wider text-xs md:text-sm hover:bg-black hover:text-white transition-colors"
