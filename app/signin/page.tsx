@@ -218,9 +218,18 @@ function SignInContent() {
         return
       }
       
-      setRequiresVerification(true)
-      setUnverifiedEmail(signupEmail)
+      // Auto-sign in the user with the returned session data
+      if (data.data) {
+        setUserData(data.data)
+      }
+      
+      // Show success message and redirect
       setSuccessMessage('Account created! Please check your email to verify your account and earn 50 Care Points.')
+      
+      // Redirect to home after a short delay so user sees the success message
+      setTimeout(() => {
+        router.push(redirectTo)
+      }, 1500)
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message)
