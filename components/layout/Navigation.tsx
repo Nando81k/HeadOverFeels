@@ -459,10 +459,12 @@ export function Navigation() {
                   className="object-contain w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10"
                 />
                 <span 
-                  className="text-sm sm:text-base md:text-lg text-transparent whitespace-nowrap" 
+                  className="text-sm sm:text-base md:text-lg whitespace-nowrap" 
                   style={{ 
-                    fontFamily: "'Harlow Solid Italic', 'Harlow', sans-serif",
-                    WebkitTextStroke: '1px #1A1A1A'
+                    fontFamily: 'var(--font-logo)',
+                    WebkitTextStroke: '1.5px #1A1A1A',
+                    WebkitTextFillColor: 'transparent',
+                    paintOrder: 'stroke fill'
                   }}
                 >
                   Head Over Feels
@@ -592,10 +594,12 @@ export function Navigation() {
                 className="object-contain w-12 h-12 xl:w-16 xl:h-16"
               />
               <span 
-                className="text-xl xl:text-2xl 2xl:text-3xl text-transparent whitespace-nowrap" 
+                className="text-xl xl:text-2xl 2xl:text-3xl whitespace-nowrap" 
                 style={{ 
-                  fontFamily: "'Harlow Solid Italic', 'Harlow', sans-serif",
-                  WebkitTextStroke: '1px #1A1A1A'
+                  fontFamily: 'var(--font-logo)',
+                  WebkitTextStroke: '1.5px #1A1A1A',
+                  WebkitTextFillColor: 'transparent',
+                  paintOrder: 'stroke fill'
                 }}
               >
                 Head Over Feels

@@ -412,8 +412,15 @@ export default function AdminOrderDetailPage() {
                       <span className="text-white">{formatCurrency(order.subtotal)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-white/50">Shipping</span>
-                      <span className="text-white">{formatCurrency(order.shipping)}</span>
+                      <div className="flex flex-col">
+                        <span className="text-white/50">Shipping</span>
+                        {order.shippingMethod && (
+                          <span className="text-[10px] text-white/30 uppercase tracking-wider">{order.shippingMethod}</span>
+                        )}
+                      </div>
+                      <span className={`text-white ${order.shipping === 0 ? 'text-emerald-400' : ''}`}>
+                        {order.shipping === 0 ? 'FREE' : formatCurrency(order.shipping)}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-white/50">Tax</span>

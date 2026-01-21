@@ -36,6 +36,7 @@ const CreateOrderSchema = z.object({
   shipping: z.number().min(0, 'Shipping must be non-negative'),
   tax: z.number().min(0, 'Tax must be non-negative'),
   total: z.number().positive('Total must be positive'),
+  shippingMethod: z.string().optional(), // STANDARD, EXPRESS, OVERNIGHT
   paymentIntentId: z.string().optional(),
   sessionId: z.string().optional(),
   couponCode: z.string().optional(),
@@ -209,6 +210,7 @@ export async function POST(request: NextRequest) {
           shipping: validatedData.shipping,
           tax: validatedData.tax,
           total: validatedData.total,
+          shippingMethod: validatedData.shippingMethod || null,
           couponCode: validatedData.couponCode || null,
           redemptionId: validatedData.redemptionId || null,
           status: 'PENDING',

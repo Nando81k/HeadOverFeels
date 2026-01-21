@@ -1,8 +1,9 @@
-@import url('https://fonts.cdnfonts.com/css/harlow');
-@import url('https://fonts.cdnfonts.com/css/harlow-solid-italic');
 @import "tailwindcss";
 
 :root {
+  /* Logo font - loaded via Next.js font optimization */
+  --font-logo: var(--font-allura), 'Allura', cursive;
+  
   /* New vibrant color palette */
   --background: #F6F1EE;
   --foreground: #000000;

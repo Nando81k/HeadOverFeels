@@ -2,7 +2,8 @@
 
 import { Input } from '@/components/ui/input'
 import { PhoneInput } from '@/components/ui/PhoneInput'
-import { Select } from '@/components/ui/select'
+import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete'
+import { CaretDown } from '@phosphor-icons/react'
 
 export interface ShippingFormData {
   firstName: string
@@ -125,12 +126,22 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
       {/* Shipping Address */}
       <div className="space-y-4">
         <h3 className="text-sm font-bold uppercase tracking-wide text-black/60">Shipping Address</h3>
-        <Input
+        <AddressAutocomplete
           label="Address"
           value={data.address}
-          onChange={(e) => handleChange('address', e.target.value)}
+          onChange={(value) => handleChange('address', value)}
+          onAddressSelect={(components) => {
+            onChange({
+              ...data,
+              address: components.address,
+              city: components.city,
+              state: components.state,
+              zipCode: components.zipCode,
+              country: components.country,
+            })
+          }}
           error={errors.address}
-          placeholder="Street address"
+          placeholder="Start typing your address..."
           required
         />
         <Input
@@ -148,14 +159,37 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
             error={errors.city}
             required
           />
-          <Select
-            label="State"
-            value={data.state}
-            onChange={(e) => handleChange('state', e.target.value)}
-            error={errors.state}
-            options={US_STATES}
-            required
-          />
+          <div className="w-full">
+            <label className="block text-sm font-semibold text-black mb-2">
+              State
+              <span className="text-[#FF3131] ml-1">*</span>
+            </label>
+            <div className="relative">
+              <select
+                value={data.state}
+                onChange={(e) => handleChange('state', e.target.value)}
+                className={`
+                  w-full px-4 py-3.5 border bg-white text-black
+                  transition-all duration-200 appearance-none cursor-pointer
+                  focus:ring-2 focus:ring-black focus:border-transparent focus:outline-none
+                  hover:border-black/30
+                  ${errors.state ? 'border-[#FF3131] ring-1 ring-[#FF3131]' : 'border-black/10'}
+                `}
+              >
+                {US_STATES.map((state) => (
+                  <option key={state.value} value={state.value}>
+                    {state.label}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                <CaretDown size={16} weight="bold" className="text-black/60" />
+              </div>
+            </div>
+            {errors.state && (
+              <p className="mt-1.5 text-sm text-[#FF3131] font-medium">{errors.state}</p>
+            )}
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input

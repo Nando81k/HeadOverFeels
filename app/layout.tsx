@@ -1,6 +1,15 @@
 import type { Metadata } from "next";
+import { Allura } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+
+// Load Allura font for logo - self-hosted through Next.js for consistent production rendering
+const allura = Allura({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-allura",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Head Over Feels - Premium Streetwear",
@@ -13,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={allura.variable}>
       <body className="antialiased">
         <Providers>
           {children}
