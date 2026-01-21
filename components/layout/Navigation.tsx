@@ -261,7 +261,7 @@ export function Navigation() {
   const shopDropdownRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const cartItemCount = useCartStore(state => mounted ? state.getTotalItems() : 0)
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, signout } = useAuth()
 
   useEffect(() => {
     const timer = setTimeout(() => setMounted(true), 0)
@@ -1452,10 +1452,10 @@ export function Navigation() {
                 <div className="pt-2">
                   {user ? (
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         setMobileMenuOpen(false)
-                        // Sign out logic - would call auth signout
-                        window.location.href = '/api/auth/signout'
+                        await signout()
+                        router.push('/')
                       }}
                       className="w-full flex items-center justify-center gap-2 px-4 py-3.5 text-black/50 hover:text-black hover:bg-black/5 transition-all"
                     >

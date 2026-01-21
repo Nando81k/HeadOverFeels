@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useMemo, Suspense } from 'react'
+import { useState, useEffect, useMemo, Suspense, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { motion, AnimatePresence, useDragControls, PanInfo } from 'framer-motion'
 import { Navigation } from '@/components/layout/Navigation'
 import { productApi, Product } from '@/lib/api/products'
 import { ProductCard } from '@/components/products/ProductCard'
@@ -229,74 +230,133 @@ function ProductsContent() {
           </div>
         </div>
 
-        {/* Filters Overlay - Bottom Sheet on Mobile, Side Panel on Desktop */}
-        <div 
-          className={`fixed inset-0 z-50 transition-all duration-300 ${showFilters ? 'visible' : 'invisible'}`}
-        >
-          {/* Backdrop */}
-          <div 
-            className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${showFilters ? 'opacity-100' : 'opacity-0'}`}
-            onClick={() => setShowFilters(false)}
-          />
-          
-          {/* Panel - Bottom sheet on mobile, side panel on lg+ */}
-          <div 
-            className={`absolute transition-transform duration-300 ease-out bg-white shadow-2xl
-              /* Mobile: Bottom sheet */
-              inset-x-0 bottom-0 max-h-[85vh] rounded-t-3xl lg:rounded-none
-              /* Desktop: Side panel */
-              lg:inset-y-0 lg:left-0 lg:right-auto lg:w-[340px] lg:max-h-full lg:max-w-[85vw]
-              ${showFilters 
-                ? 'translate-y-0 lg:translate-y-0 lg:translate-x-0' 
-                : 'translate-y-full lg:translate-y-0 lg:-translate-x-full'
-              }`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Drag Handle - Mobile only */}
-            <div className="lg:hidden flex justify-center pt-3 pb-1">
-              <div className="w-12 h-1.5 bg-black/20 rounded-full" />
-            </div>
-
-            {/* Panel Header */}
-            <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-4 lg:py-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-black text-black tracking-tight">Filters</h2>
-                  <p className="text-xs text-black/40 mt-0.5">Refine your search</p>
-                </div>
-                <button
-                  onClick={() => setShowFilters(false)}
-                  className="w-10 h-10 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/5 transition-all rounded-full"
-                >
-                  <X size={22} weight="bold" />
-                </button>
-              </div>
-            </div>
-            
-            {/* Panel Content */}
-            <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 140px)' }}>
-              <ProductFilters 
-                onFilterChange={(newFilters) => {
-                  setFilters(newFilters)
-                }} 
-                initialFilters={filters}
-              />
-            </div>
-            
-            {/* Panel Footer - Apply Button */}
-            <div 
-              className="sticky bottom-0 p-4 bg-gradient-to-t from-white via-white to-white/90 border-t border-black/5"
-              style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
-            >
-              <button
+        {/* Filters Overlay - Swipeable Bottom Sheet on Mobile, Side Panel on Desktop */}
+        <AnimatePresence>
+          {showFilters && (
+            <>
+              {/* Backdrop */}
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
                 onClick={() => setShowFilters(false)}
-                className="w-full py-4 bg-black text-white font-bold uppercase tracking-wider text-sm hover:bg-black/90 transition-all shadow-lg"
+              />
+              
+              {/* Desktop: Side Panel */}
+              <motion.div 
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                className="hidden lg:block fixed inset-y-0 left-0 z-50 w-[340px] max-w-[85vw] bg-white shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
               >
-                View Results ({filteredProducts.length})
-              </button>
-            </div>
-          </div>
-        </div>
+                {/* Panel Header */}
+                <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-black text-black tracking-tight">Filters</h2>
+                      <p className="text-xs text-black/40 mt-0.5">Refine your search</p>
+                    </div>
+                    <button
+                      onClick={() => setShowFilters(false)}
+                      className="w-10 h-10 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/5 transition-all rounded-full"
+                    >
+                      <X size={22} weight="bold" />
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Panel Content */}
+                <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 140px)' }}>
+                  <ProductFilters 
+                    onFilterChange={(newFilters) => {
+                      setFilters(newFilters)
+                    }} 
+                    initialFilters={filters}
+                  />
+                </div>
+                
+                {/* Panel Footer - Apply Button */}
+                <div 
+                  className="sticky bottom-0 p-4 bg-gradient-to-t from-white via-white to-white/90 border-t border-black/5"
+                >
+                  <button
+                    onClick={() => setShowFilters(false)}
+                    className="w-full py-4 bg-black text-white font-bold uppercase tracking-wider text-sm hover:bg-black/90 transition-all shadow-lg"
+                  >
+                    View Results ({filteredProducts.length})
+                  </button>
+                </div>
+              </motion.div>
+
+              {/* Mobile: Swipeable Bottom Sheet */}
+              <motion.div 
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                drag="y"
+                dragConstraints={{ top: 0, bottom: 0 }}
+                dragElastic={{ top: 0, bottom: 0.5 }}
+                onDragEnd={(_, info: PanInfo) => {
+                  // Close if dragged down more than 100px or with velocity
+                  if (info.offset.y > 100 || info.velocity.y > 500) {
+                    setShowFilters(false)
+                  }
+                }}
+                className="lg:hidden fixed inset-x-0 bottom-0 z-50 max-h-[85vh] bg-white shadow-2xl rounded-t-3xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Drag Handle - swipe indicator */}
+                <div className="flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing touch-none">
+                  <div className="w-12 h-1.5 bg-black/20 rounded-full" />
+                </div>
+
+                {/* Panel Header */}
+                <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-black text-black tracking-tight">Filters</h2>
+                      <p className="text-xs text-black/40 mt-0.5">Refine your search</p>
+                    </div>
+                    <button
+                      onClick={() => setShowFilters(false)}
+                      className="w-10 h-10 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/5 transition-all rounded-full"
+                    >
+                      <X size={22} weight="bold" />
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Panel Content */}
+                <div className="p-6 overflow-y-auto touch-pan-y" style={{ maxHeight: 'calc(85vh - 180px)' }}>
+                  <ProductFilters 
+                    onFilterChange={(newFilters) => {
+                      setFilters(newFilters)
+                    }} 
+                    initialFilters={filters}
+                  />
+                </div>
+                
+                {/* Panel Footer - Apply Button */}
+                <div 
+                  className="sticky bottom-0 p-4 bg-gradient-to-t from-white via-white to-white/90 border-t border-black/5"
+                  style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
+                >
+                  <button
+                    onClick={() => setShowFilters(false)}
+                    className="w-full py-4 bg-black text-white font-bold uppercase tracking-wider text-sm hover:bg-black/90 transition-all shadow-lg"
+                  >
+                    View Results ({filteredProducts.length})
+                  </button>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
         {/* Products Grid - Full Width */}
         <div>

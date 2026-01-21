@@ -29,7 +29,6 @@ export function MobileAddToCartBar({
   showAddedMessage
 }: MobileAddToCartBarProps) {
   const [mounted, setMounted] = useState(false)
-  const onSale = compareAtPrice && compareAtPrice > price
   
   // Get cart item count
   const cartItemCount = useCartStore(state => mounted ? state.getTotalItems() : 0)
@@ -58,16 +57,9 @@ export function MobileAddToCartBar({
         <div className="flex items-center gap-3 px-4 py-3">
           {/* Price & Variant Info */}
           <div className="flex flex-col min-w-0 shrink-0">
-            <div className="flex items-baseline gap-2">
-              <span className="text-lg font-black text-black">
-                ${price.toFixed(2)}
-              </span>
-              {onSale && (
-                <span className="text-xs text-black/40 line-through">
-                  ${compareAtPrice?.toFixed(2)}
-                </span>
-              )}
-            </div>
+            <span className="text-lg font-black text-black">
+              ${price.toFixed(2)}
+            </span>
             {selectedVariant && (
               <span className="text-[10px] text-black/50 truncate">
                 {selectedVariant.size && `${selectedVariant.size}`}
