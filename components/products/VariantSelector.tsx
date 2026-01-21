@@ -20,13 +20,34 @@ interface VariantSelectorProps {
   onVariantChange: (variant: ProductVariant) => void
 }
 
-// Size order for proper sorting (S to XL)
+// Size order for proper sorting (S to XL, then numeric)
+// Standard clothing sizes get explicit ordering, numeric sizes use fallback sorting
 const sizeOrder: Record<string, number> = {
   'XXS': 0, 'XS': 1, 'S': 2, 'M': 3, 'L': 4, 'XL': 5, 'XXL': 6, '2XL': 6, 'XXXL': 7, '3XL': 7,
-  '0': 10, '2': 11, '4': 12, '6': 13, '8': 14, '10': 15, '12': 16, '14': 17, '16': 18,
-  '5': 20, '5.5': 21, '6': 22, '6.5': 23, '7': 24, '7.5': 25, '8': 26, '8.5': 27, '9': 28, '9.5': 29,
-  '10': 30, '10.5': 31, '11': 32, '11.5': 33, '12': 34, '13': 35,
   'ONE SIZE': 100, 'OS': 100, 'ONESIZE': 100
+}
+
+// Helper to sort sizes - handles letter sizes via sizeOrder, numeric sizes via parseFloat
+function sortSizes(a: string, b: string): number {
+  const upperA = a.toUpperCase()
+  const upperB = b.toUpperCase()
+  const orderA = sizeOrder[upperA]
+  const orderB = sizeOrder[upperB]
+  
+  // Both have explicit order
+  if (orderA !== undefined && orderB !== undefined) return orderA - orderB
+  // Only A has explicit order - A comes first
+  if (orderA !== undefined) return -1
+  // Only B has explicit order - B comes first
+  if (orderB !== undefined) return 1
+  
+  // Try numeric comparison for both
+  const numA = parseFloat(a)
+  const numB = parseFloat(b)
+  if (!isNaN(numA) && !isNaN(numB)) return numA - numB
+  
+  // Fallback to string comparison
+  return a.localeCompare(b)
 }
 
 export function VariantSelector({ variants, onVariantChange }: VariantSelectorProps) {
@@ -35,11 +56,7 @@ export function VariantSelector({ variants, onVariantChange }: VariantSelectorPr
   )
 
   // Group variants by size and color, sorted properly
-  const sizes = [...new Set(variants.map(v => v.size).filter(Boolean))].sort((a, b) => {
-    const orderA = sizeOrder[a!.toUpperCase()] ?? 50
-    const orderB = sizeOrder[b!.toUpperCase()] ?? 50
-    return orderA - orderB
-  })
+  const sizes = [...new Set(variants.map(v => v.size).filter(Boolean))].sort((a, b) => sortSizes(a!, b!))
   const colors = [...new Set(variants.map(v => v.color).filter(Boolean))]
 
   const [selectedSize, setSelectedSize] = useState<string | null>(
