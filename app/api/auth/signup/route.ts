@@ -38,8 +38,13 @@ export async function POST(request: NextRequest) {
     const normalizedEmail = validatedData.email.toLowerCase()
 
     // Check if user already exists (don't reveal whether email exists)
-    const existingCustomer = await prisma.customer.findUnique({
-      where: { email: normalizedEmail },
+    const existingCustomer = await prisma.customer.findFirst({
+      where: {
+        email: {
+          equals: normalizedEmail,
+          mode: 'insensitive',
+        },
+      },
     })
 
     if (existingCustomer) {

@@ -1,213 +1,271 @@
 'use client'
 
-import Link from 'next/link'
-import Image from 'next/image'
-import { motion } from 'framer-motion'
-import { Clock, TrendUp, X, SquaresFour, Fire } from '@phosphor-icons/react'
-import { Category } from './useSearch'
+import ProductImage from '@/components/ui/ProductImage'
 import { Product } from '@/lib/api/products'
+import { ArrowUpRight, Clock, Fire, LinkSimple, TrendUp, X } from '@phosphor-icons/react'
 
-// Helper to safely get first image from product
-function getProductImage(images: string | string[] | null | undefined): string | null {
-  if (!images) return null
-  
-  // If it's already an array
-  if (Array.isArray(images)) {
-    return images[0] || null
-  }
-  
-  // If it's a string, try to parse as JSON
-  if (typeof images === 'string') {
-    try {
-      const parsed = JSON.parse(images)
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed[0]
-      }
-    } catch {
-      // If it's a valid URL string itself, return it
-      if (images.startsWith('http') || images.startsWith('/')) {
-        return images
-      }
-    }
-  }
-  
-  return null
+export interface QuickLink {
+  label: string
+  href: string
+  description: string
 }
 
 interface SearchSuggestionsProps {
   recentSearches: string[]
   trendingSearches: string[]
-  categories: Category[]
+  quickLinks: QuickLink[]
   featuredProducts: Product[]
+  activeItemKey: string | null
   onSearchClick: (search: string) => void
+  onQuickLinkClick: (href: string) => void
+  onProductClick: (slug: string) => void
   onRemoveRecent: (search: string) => void
   onClearRecent: () => void
-  onClose: () => void
+  onItemHover: (itemKey: string) => void
+}
+
+function getFirstImage(images: string): string {
+  try {
+    const parsed = JSON.parse(images)
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const first = parsed[0]
+      return (typeof first === 'string' ? first : first?.url) || '/placeholder-product.jpg'
+    }
+  } catch {
+    // Fall back below
+  }
+  return images || '/placeholder-product.jpg'
+}
+
+function getDisplayPrice(product: Product): number {
+  const variantPrices = product.variants
+    .map((variant) => variant.price)
+    .filter((price): price is number => typeof price === 'number')
+
+  return variantPrices.length > 0 ? Math.min(...variantPrices) : product.price
+}
+
+function getColorSwatches(product: Product): Array<{ hex: string; name: string }> {
+  const swatches: Array<{ hex: string; name: string }> = []
+
+  product.variants.forEach((variant) => {
+    if (!variant.colorHex) {
+      return
+    }
+
+    if (swatches.some((swatch) => swatch.hex.toLowerCase() === variant.colorHex?.toLowerCase())) {
+      return
+    }
+
+    swatches.push({
+      hex: variant.colorHex,
+      name: variant.color || variant.colorHex,
+    })
+  })
+
+  return swatches
 }
 
 export function SearchSuggestions({
   recentSearches,
   trendingSearches,
-  categories,
+  quickLinks,
   featuredProducts,
+  activeItemKey,
   onSearchClick,
+  onQuickLinkClick,
+  onProductClick,
   onRemoveRecent,
   onClearRecent,
-  onClose,
+  onItemHover,
 }: SearchSuggestionsProps) {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.05,
-      },
-    },
-  }
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0 },
-  }
-
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12"
-    >
-      {/* Recent Searches */}
-      {recentSearches.length > 0 && (
-        <motion.div variants={itemVariants} className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock size={16} className="text-black/40" weight="bold" />
-              <h3 className="text-xs font-medium tracking-widest uppercase text-black/50">
-                Recent
-              </h3>
-            </div>
-            <button
-              onClick={onClearRecent}
-              className="text-xs text-black/40 hover:text-black transition-colors"
-            >
-              Clear
-            </button>
+    <div className="space-y-5" data-testid="search-suggestions">
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="rounded-xl border border-black/10 bg-white p-3">
+          <div className="mb-2 flex items-center gap-2">
+            <LinkSimple size={14} weight="bold" className="text-black/35" />
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/35">Quick Links</p>
           </div>
           <div className="space-y-1">
-            {recentSearches.map((search) => (
-              <div
-                key={search}
-                className="group flex items-center justify-between"
-              >
+            {quickLinks.map((link) => {
+              const itemKey = `quick:${link.href}`
+              const isActive = activeItemKey === itemKey
+              return (
                 <button
-                  onClick={() => onSearchClick(search)}
-                  className="text-left text-sm text-black/70 hover:text-black transition-colors py-1.5"
+                  key={link.href}
+                  type="button"
+                  onClick={() => onQuickLinkClick(link.href)}
+                  onMouseEnter={() => onItemHover(itemKey)}
+                  className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition-colors ${
+                    isActive
+                      ? 'border-black bg-black text-white'
+                      : 'border-black/10 text-black hover:border-black/20 hover:bg-black/[0.03]'
+                  }`}
                 >
-                  {search}
+                  <div>
+                    <p className={`text-xs font-bold uppercase tracking-[0.12em] ${isActive ? 'text-white' : 'text-black'}`}>
+                      {link.label}
+                    </p>
+                    <p className={`mt-0.5 text-[11px] ${isActive ? 'text-white/70' : 'text-black/50'}`}>
+                      {link.description}
+                    </p>
+                  </div>
+                  <ArrowUpRight size={14} weight="bold" className={isActive ? 'text-white' : 'text-black/35'} />
                 </button>
-                <button
-                  onClick={() => onRemoveRecent(search)}
-                  className="p-1 text-black/30 hover:text-black opacity-0 group-hover:opacity-100 transition-all"
-                  aria-label={`Remove ${search} from recent searches`}
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
-        </motion.div>
-      )}
+        </div>
 
-      {/* Trending Searches */}
-      <motion.div variants={itemVariants} className="space-y-4">
-        <div className="flex items-center gap-2">
-          <TrendUp size={16} className="text-black/40" weight="bold" />
-          <h3 className="text-xs font-medium tracking-widest uppercase text-black/50">
-            Trending
-          </h3>
+        <div className="rounded-xl border border-black/10 bg-white p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock size={14} weight="bold" className="text-black/35" />
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/35">Recent</p>
+            </div>
+            {recentSearches.length > 0 && (
+              <button
+                type="button"
+                onClick={onClearRecent}
+                className="text-[11px] font-semibold text-black/45 hover:text-black"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          {recentSearches.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-black/15 px-3 py-4 text-xs text-black/45">
+              Your recent searches will appear here.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {recentSearches.map((search) => {
+                const itemKey = `recent:${search.toLowerCase()}`
+                const isActive = activeItemKey === itemKey
+                return (
+                  <div key={search} className="group flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onSearchClick(search)}
+                      onMouseEnter={() => onItemHover(itemKey)}
+                      className={`flex-1 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                        isActive
+                          ? 'border-black bg-black text-white'
+                          : 'border-black/10 text-black/75 hover:border-black/20 hover:bg-black/[0.03] hover:text-black'
+                      }`}
+                    >
+                      {search}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveRecent(search)}
+                      className="rounded-md p-1.5 text-black/30 transition-colors hover:bg-black/5 hover:text-black"
+                      aria-label={`Remove ${search} from recent searches`}
+                    >
+                      <X size={12} weight="bold" />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-black/10 bg-white p-3">
+        <div className="mb-2 flex items-center gap-2">
+          <TrendUp size={14} weight="bold" className="text-black/35" />
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/35">Trending</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {trendingSearches.map((search) => (
-            <button
-              key={search}
-              onClick={() => onSearchClick(search)}
-              className="px-4 py-2 bg-black/5 hover:bg-black hover:text-white text-sm text-black/70 rounded-full transition-all duration-200"
-            >
-              {search}
-            </button>
-          ))}
+          {trendingSearches.map((search) => {
+            const itemKey = `trending:${search.toLowerCase()}`
+            const isActive = activeItemKey === itemKey
+            return (
+              <button
+                key={search}
+                type="button"
+                onClick={() => onSearchClick(search)}
+                onMouseEnter={() => onItemHover(itemKey)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-[0.1em] transition-colors ${
+                  isActive
+                    ? 'border-black bg-black text-white'
+                    : 'border-black/15 bg-black/[0.02] text-black/60 hover:border-black/30 hover:text-black'
+                }`}
+              >
+                {search}
+              </button>
+            )
+          })}
         </div>
-      </motion.div>
+      </div>
 
-      {/* Categories */}
-      {categories.length > 0 && (
-        <motion.div variants={itemVariants} className="space-y-4">
-          <div className="flex items-center gap-2">
-            <SquaresFour size={16} className="text-black/40" weight="bold" />
-            <h3 className="text-xs font-medium tracking-widest uppercase text-black/50">
-              Categories
-            </h3>
-          </div>
-          <div className="space-y-1">
-            {categories.slice(0, 6).map((category) => (
-              <Link
-                key={category.id}
-                href={`/products?category=${category.slug}`}
-                onClick={onClose}
-                className="block text-sm text-black/70 hover:text-black transition-colors py-1.5"
-              >
-                {category.name}
-              </Link>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-      {/* Featured Products */}
       {featuredProducts.length > 0 && (
-        <motion.div variants={itemVariants} className="md:col-span-3 space-y-4 mt-8 pt-8 border-t border-black/10">
-          <div className="flex items-center gap-2">
-            <Fire size={16} className="text-amber-500" weight="fill" />
-            <h3 className="text-xs font-medium tracking-widest uppercase text-black/50">
-              Popular Products
-            </h3>
+        <div className="rounded-xl border border-black/10 bg-white p-3">
+          <div className="mb-2 flex items-center gap-2">
+            <Fire size={14} weight="fill" className="text-orange-500" />
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/35">Popular Products</p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {featuredProducts.slice(0, 6).map((product) => {
-              const imageUrl = getProductImage(product.images)
+          <div className="grid gap-2 sm:grid-cols-2">
+            {featuredProducts.map((product) => {
+              const itemKey = `featured:${product.id}`
+              const isActive = activeItemKey === itemKey
+              const swatches = getColorSwatches(product)
               return (
-              <Link
-                key={product.id}
-                href={`/products/${product.slug}`}
-                onClick={onClose}
-                className="group"
-              >
-                <div className="aspect-square rounded-2xl bg-black/5 overflow-hidden mb-2 relative">
-                  {imageUrl ? (
-                    <Image
-                      src={imageUrl}
+                <button
+                  key={product.id}
+                  type="button"
+                  onClick={() => onProductClick(product.slug)}
+                  onMouseEnter={() => onItemHover(itemKey)}
+                  className={`flex items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${
+                    isActive
+                      ? 'border-black bg-black text-white'
+                      : 'border-black/10 text-black hover:border-black/20 hover:bg-black/[0.03]'
+                  }`}
+                >
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-black/5">
+                    <ProductImage
+                      src={getFirstImage(product.images)}
                       alt={product.name}
                       fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="object-cover"
+                      sizes="48px"
                     />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-black/20">
-                      <SquaresFour size={24} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`truncate text-xs font-semibold ${isActive ? 'text-white' : 'text-black'}`}>
+                      {product.name}
+                    </p>
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <p className={`text-xs tabular-nums ${isActive ? 'text-white/75' : 'text-black/50'}`}>
+                        ${getDisplayPrice(product).toFixed(2)}
+                      </p>
+                      {swatches.length > 0 && (
+                        <div className="flex items-center gap-1">
+                          {swatches.slice(0, 3).map((swatch) => (
+                            <span
+                              key={`${product.id}-${swatch.hex}`}
+                              className={`h-2.5 w-2.5 rounded-full border ${isActive ? 'border-white/40' : 'border-black/25'}`}
+                              style={{ backgroundColor: swatch.hex }}
+                              title={swatch.name}
+                            />
+                          ))}
+                          {swatches.length > 3 && (
+                            <span className={`text-[10px] ${isActive ? 'text-white/70' : 'text-black/45'}`}>
+                              +{swatches.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <p className="text-xs font-medium text-black/80 group-hover:text-black truncate">
-                  {product.name}
-                </p>
-                <p className="text-xs text-black/50">
-                  ${product.price.toFixed(2)}
-                </p>
-              </Link>
-            )})}
+                  </div>
+                </button>
+              )
+            })}
           </div>
-        </motion.div>
+        </div>
       )}
-    </motion.div>
+    </div>
   )
 }

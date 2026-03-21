@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
 // GET /api/products/[id]/reviews - Get reviews for a specific product
 export async function GET(
@@ -9,21 +10,42 @@ export async function GET(
   try {
     const { id: productId } = await params
     const searchParams = request.nextUrl.searchParams
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
+    const limit = Math.max(1, Math.min(20, parseInt(searchParams.get('limit') || '10', 10) || 10))
     const sortBy = searchParams.get('sortBy') || 'newest' // newest, oldest, highest, lowest, helpful
     const verified = searchParams.get('verified') // 'true' to filter verified purchases only
+    const hasMedia = searchParams.get('hasMedia') // 'true' to filter reviews with photos
+    const ratingParam = searchParams.get('rating')
+    const rating = ratingParam ? parseInt(ratingParam, 10) : null
+
+    if (ratingParam && (Number.isNaN(rating) || rating === null || rating < 1 || rating > 5)) {
+      return NextResponse.json(
+        { error: 'Invalid rating filter. Must be a number between 1 and 5.' },
+        { status: 400 }
+      )
+    }
 
     const skip = (page - 1) * limit
 
     // Build where clause
-    const where: Record<string, unknown> = {
+    const where: Prisma.ReviewWhereInput = {
       productId,
       status: 'APPROVED' // Only show approved reviews to customers
     }
     
     if (verified === 'true') {
       where.isVerified = true
+    }
+
+    if (rating !== null) {
+      where.rating = rating
+    }
+
+    if (hasMedia === 'true') {
+      where.AND = [
+        { images: { not: null } },
+        { NOT: { images: '' } },
+      ]
     }
 
     // Build orderBy clause

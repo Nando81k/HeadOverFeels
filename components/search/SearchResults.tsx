@@ -1,134 +1,210 @@
 'use client'
 
-import Link from 'next/link'
-import { motion } from 'framer-motion'
-import { Product } from '@/lib/api/products'
 import ProductImage from '@/components/ui/ProductImage'
-import { ArrowRight } from '@phosphor-icons/react'
+import { Product } from '@/lib/api/products'
+import { MagnifyingGlass } from '@phosphor-icons/react'
 
 interface SearchResultsProps {
   results: Product[]
   query: string
-  onProductClick: () => void
+  isLoading: boolean
+  activeItemKey: string | null
+  onProductClick: (slug: string) => void
   onViewAll: () => void
+  onItemHover: (itemKey: string) => void
+}
+
+function getFirstImage(images: string): string {
+  try {
+    const parsed = JSON.parse(images)
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const first = parsed[0]
+      return (typeof first === 'string' ? first : first?.url) || '/placeholder-product.jpg'
+    }
+  } catch {
+    // Fall back below
+  }
+  return images || '/placeholder-product.jpg'
+}
+
+function getDisplayPrice(product: Product): number {
+  const variantPrices = product.variants
+    .map((variant) => variant.price)
+    .filter((price): price is number => typeof price === 'number')
+
+  return variantPrices.length > 0 ? Math.min(...variantPrices) : product.price
+}
+
+function getColorSwatches(product: Product): Array<{ hex: string; name: string }> {
+  const swatches: Array<{ hex: string; name: string }> = []
+
+  product.variants.forEach((variant) => {
+    if (!variant.colorHex) {
+      return
+    }
+
+    if (swatches.some((swatch) => swatch.hex.toLowerCase() === variant.colorHex?.toLowerCase())) {
+      return
+    }
+
+    swatches.push({
+      hex: variant.colorHex,
+      name: variant.color || variant.colorHex,
+    })
+  })
+
+  return swatches
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function highlightMatch(text: string, query: string) {
+  const trimmed = query.trim()
+  if (!trimmed) {
+    return text
+  }
+
+  const matcher = new RegExp(`(${escapeRegExp(trimmed)})`, 'ig')
+  const parts = text.split(matcher)
+
+  return parts.map((part, index) => {
+    const isMatch = part.toLowerCase() === trimmed.toLowerCase()
+    if (!isMatch) {
+      return <span key={`${part}-${index}`}>{part}</span>
+    }
+
+    return (
+      <mark
+        key={`${part}-${index}`}
+        className="bg-black text-white px-1 py-0.5 rounded-sm"
+      >
+        {part}
+      </mark>
+    )
+  })
 }
 
 export function SearchResults({
   results,
   query,
+  isLoading,
+  activeItemKey,
   onProductClick,
   onViewAll,
+  onItemHover,
 }: SearchResultsProps) {
-  if (results.length === 0) {
+  if (isLoading) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="text-center py-12"
-      >
-        <p className="text-black/50 text-lg">
-          No results found for &ldquo;{query}&rdquo;
-        </p>
-        <p className="text-black/30 text-sm mt-2">
-          Try a different search term or browse our collections
-        </p>
-      </motion.div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="search-results-loading">
+        {[1, 2, 3, 4, 5, 6].map((row) => (
+          <div
+            key={row}
+            className="h-72 rounded-2xl border border-black/10 bg-black/[0.03] animate-pulse"
+            aria-hidden="true"
+          />
+        ))}
+      </div>
     )
   }
 
-  // Parse images helper - handle both flat string arrays and object arrays
-  const getFirstImage = (images: string): string => {
-    try {
-      const parsed = JSON.parse(images)
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const firstImg = parsed[0]
-        return (typeof firstImg === 'string' ? firstImg : firstImg?.url) || '/placeholder-product.jpg'
-      }
-      return '/placeholder-product.jpg'
-    } catch {
-      return images || '/placeholder-product.jpg'
-    }
+  if (query.trim().length >= 2 && results.length === 0) {
+    return (
+      <div className="rounded-xl border border-black/10 bg-black/[0.02] px-5 py-12 text-center" data-testid="search-results-empty">
+        <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-black/5">
+          <MagnifyingGlass size={18} weight="bold" className="text-black/35" />
+        </div>
+        <p className="text-sm font-semibold text-black">No results for &ldquo;{query}&rdquo;</p>
+        <p className="mt-1 text-xs text-black/50">Try another keyword or browse all products.</p>
+      </div>
+    )
   }
 
-  // Format price
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(price)
+  if (query.trim().length < 2) {
+    return null
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-6"
-    >
-      {/* Results Header */}
+    <div className="space-y-4" data-testid="search-results-list">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium tracking-widest uppercase text-black/50">
-          {results.length} Result{results.length !== 1 ? 's' : ''}
+        <p className="px-1 text-[10px] font-black uppercase tracking-[0.2em] text-black/35">
+          Products
         </p>
-        <button
-          onClick={onViewAll}
-          className="group flex items-center gap-1.5 text-xs font-medium tracking-widest uppercase text-black/70 hover:text-black transition-colors"
-        >
-          View All
-          <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-        </button>
+        <p className="text-xs font-semibold text-black/45">{results.length} results</p>
       </div>
 
-      {/* Product Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-        {results.slice(0, 8).map((product, index) => (
-          <motion.div
-            key={product.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.05 }}
-          >
-            <Link
-              href={`/products/${product.slug}`}
-              onClick={onProductClick}
-              className="group block"
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {results.map((product) => {
+          const itemKey = `product:${product.id}`
+          const isActive = activeItemKey === itemKey
+          const swatches = getColorSwatches(product)
+
+          return (
+            <button
+              key={product.id}
+              type="button"
+              onClick={() => onProductClick(product.slug)}
+              onMouseEnter={() => onItemHover(itemKey)}
+              className={`overflow-hidden rounded-2xl border text-left transition-all ${
+                isActive
+                  ? 'border-black bg-black text-white'
+                  : 'border-black/10 bg-white text-black hover:-translate-y-0.5 hover:border-black/25 hover:shadow-lg'
+              }`}
             >
-              {/* Image */}
-              <div className="relative aspect-square bg-[#FAF8F5] rounded-xl overflow-hidden mb-3">
+              <div className={`relative aspect-[4/5] w-full ${isActive ? 'bg-white/10' : 'bg-black/[0.04]'}`}>
                 <ProductImage
                   src={getFirstImage(product.images)}
                   alt={product.name}
                   fill
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  sizes="(max-width: 768px) 50vw, 25vw"
+                  className="object-cover"
+                  sizes="(max-width: 1280px) 50vw, 20vw"
                 />
-                {product.isLimitedEdition && (
-                  <span className="absolute top-2 left-2 px-2 py-0.5 bg-black text-white text-[10px] font-medium tracking-wider uppercase rounded-full">
-                    Limited
-                  </span>
-                )}
               </div>
-
-              {/* Info */}
-              <div className="space-y-0.5">
-                <h3 className="text-sm font-medium text-black line-clamp-1 group-hover:underline">
-                  {product.name}
-                </h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-black/70">
-                    {formatPrice(product.price)}
-                  </span>
-                  {product.compareAtPrice && product.compareAtPrice > product.price && (
-                    <span className="text-xs text-black/40 line-through">
-                      {formatPrice(product.compareAtPrice)}
-                    </span>
+              <div className="p-3">
+                <p className={`truncate text-sm font-semibold ${isActive ? 'text-white' : 'text-black'}`}>
+                  {highlightMatch(product.name, query)}
+                </p>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <p className={`text-xs font-semibold tabular-nums ${isActive ? 'text-white/75' : 'text-black/55'}`}>
+                    ${getDisplayPrice(product).toFixed(2)}
+                  </p>
+                  {swatches.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      {swatches.slice(0, 4).map((swatch) => (
+                        <span
+                          key={`${product.id}-${swatch.hex}`}
+                          className={`h-3 w-3 rounded-full border ${isActive ? 'border-white/40' : 'border-black/20'}`}
+                          style={{ backgroundColor: swatch.hex }}
+                          title={swatch.name}
+                        />
+                      ))}
+                      {swatches.length > 4 && (
+                        <span className={`text-[10px] ${isActive ? 'text-white/70' : 'text-black/40'}`}>
+                          +{swatches.length - 4}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
-            </Link>
-          </motion.div>
-        ))}
+            </button>
+          )
+        })}
       </div>
-    </motion.div>
+
+      <button
+        type="button"
+        onClick={onViewAll}
+        onMouseEnter={() => onItemHover('action:view-all')}
+        className={`w-full rounded-xl border px-4 py-3 text-xs font-black uppercase tracking-[0.16em] transition-colors ${
+          activeItemKey === 'action:view-all'
+            ? 'border-black bg-black text-white'
+            : 'border-black/15 text-black/70 hover:border-black/30 hover:bg-black/[0.03] hover:text-black'
+        }`}
+      >
+        View all results for &ldquo;{query.trim()}&rdquo;
+      </button>
+    </div>
   )
 }

@@ -103,6 +103,21 @@ export default function CheckoutPage() {
     country: 'United States',
   })
 
+  useEffect(() => {
+    if (!user?.email) return
+
+    setShippingData((prev) => {
+      if (prev.email.trim().length > 0) {
+        return prev
+      }
+
+      return {
+        ...prev,
+        email: user.email,
+      }
+    })
+  }, [user?.email])
+
   const subtotal = getTotalPrice()
   const selectedOption = SHIPPING_OPTIONS.find(opt => opt.id === selectedShippingMethod)!
   

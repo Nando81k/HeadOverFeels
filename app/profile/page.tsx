@@ -1,18 +1,20 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { Navigation } from '@/components/layout/Navigation'
 import { useAuth } from '@/lib/auth/context'
 import { 
-  User, Package, SignOut, CircleNotch, Medal, Sparkle, Gift, TrendUp, 
+  User, Package, SignOut, CircleNotch, Medal, Sparkle, Gift,
   ArrowRight, Gear, ClockCounterClockwise, ShoppingBag, Star, Coins, 
-  Confetti, Heart, CalendarBlank, Envelope, Crown, Lightning
+  Confetti, Heart, CalendarBlank, Envelope, Crown
 } from '@phosphor-icons/react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { calculateTierProgressFromPoints } from '@/lib/loyalty/tier-progress'
 import { toast } from '@/lib/toast'
+import { RewardsHubSection } from '@/components/profile/RewardsHubSection'
+import { LoyaltyTierMeter } from '@/components/profile/LoyaltyTierMeter'
 
 interface PointsTransaction {
   id: string
@@ -37,11 +39,19 @@ interface Order {
 
 // Storage key for tracking points/tier changes
 const LOYALTY_CACHE_KEY = 'hof_loyalty_cache'
+const LOYALTY_PENDING_ANIMATION_KEY = 'hof_loyalty_pending_animation'
 
 interface LoyaltyCache {
   points: number
   tierSlug: string
   lastVisit: number
+}
+
+interface PendingLoyaltyAnimation {
+  orderId: string
+  customerId: string | null
+  pointsEarned: number
+  createdAt: number
 }
 
 // Tier configuration with colors
@@ -129,6 +139,14 @@ const tierConfig: Record<string, {
 
 const getTierConfig = (slug: string) => tierConfig[slug] || tierConfig.newcomer
 
+type ProfileTab = 'profile' | 'rewards'
+
+const PROFILE_TAB_ORDER: ProfileTab[] = ['profile', 'rewards']
+
+const getProfileTabFromHash = (hash: string): ProfileTab => {
+  return hash.replace('#', '').toLowerCase() === 'rewards' ? 'rewards' : 'profile'
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const { user, loading: authLoading, signout, refreshUser } = useAuth()
@@ -145,12 +163,20 @@ export default function ProfilePage() {
   const [showCelebration, setShowCelebration] = useState(false)
   const [showTierUpgradeModal, setShowTierUpgradeModal] = useState(false)
   const [animatedProgress, setAnimatedProgress] = useState(0)
+  const [progressAnimationStart, setProgressAnimationStart] = useState<number | null>(null)
   const [displayTierSlug, setDisplayTierSlug] = useState<string | null>(null)
   const [tierTransitionPhase, setTierTransitionPhase] = useState<'idle' | 'filling' | 'celebrating' | 'resetting' | 'complete'>('idle')
   const animationTriggeredRef = useRef(false)
   const tierRefreshAttemptedRef = useRef(false)
   const initialRefreshDoneRef = useRef(false)
   const readyToCheckRef = useRef(false)
+  const [activeTab, setActiveTab] = useState<ProfileTab>('profile')
+  const [hasLoadedRewards, setHasLoadedRewards] = useState(false)
+  const [openTierModalSignal, setOpenTierModalSignal] = useState(0)
+  const tabButtonRefs = useRef<Record<ProfileTab, HTMLButtonElement | null>>({
+    profile: null,
+    rewards: null,
+  })
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -158,87 +184,178 @@ export default function ProfilePage() {
     }
   }, [user, authLoading, router])
 
+  const setTabAndHash = useCallback((tab: ProfileTab) => {
+    setActiveTab(tab)
+    if (tab === 'rewards') {
+      setHasLoadedRewards(true)
+    }
+
+    if (typeof window === 'undefined') return
+    const nextHash = `#${tab}`
+    if (window.location.hash === nextHash) return
+    const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`
+    window.history.replaceState(null, '', nextUrl)
+  }, [])
+
+  const handleViewBenefits = useCallback(() => {
+    setTabAndHash('rewards')
+    setOpenTierModalSignal((signal) => signal + 1)
+  }, [setTabAndHash])
+
+  const handleTabKeyDown = useCallback((event: ReactKeyboardEvent<HTMLButtonElement>, currentTab: ProfileTab) => {
+    const currentIndex = PROFILE_TAB_ORDER.indexOf(currentTab)
+    let nextTab: ProfileTab | null = null
+
+    if (event.key === 'ArrowRight') {
+      nextTab = PROFILE_TAB_ORDER[(currentIndex + 1) % PROFILE_TAB_ORDER.length]
+    } else if (event.key === 'ArrowLeft') {
+      nextTab = PROFILE_TAB_ORDER[(currentIndex - 1 + PROFILE_TAB_ORDER.length) % PROFILE_TAB_ORDER.length]
+    } else if (event.key === 'Home') {
+      nextTab = PROFILE_TAB_ORDER[0]
+    } else if (event.key === 'End') {
+      nextTab = PROFILE_TAB_ORDER[PROFILE_TAB_ORDER.length - 1]
+    }
+
+    if (!nextTab) return
+
+    event.preventDefault()
+    setTabAndHash(nextTab)
+    tabButtonRefs.current[nextTab]?.focus()
+  }, [setTabAndHash])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const syncFromHash = () => {
+      const tabFromHash = getProfileTabFromHash(window.location.hash)
+      setActiveTab(tabFromHash)
+      if (tabFromHash === 'rewards') {
+        setHasLoadedRewards(true)
+      }
+    }
+
+    syncFromHash()
+    window.addEventListener('hashchange', syncFromHash)
+    return () => window.removeEventListener('hashchange', syncFromHash)
+  }, [])
+
+  const getPendingLoyaltyAnimation = useCallback((): PendingLoyaltyAnimation | null => {
+    if (!user) return null
+
+    try {
+      const raw = localStorage.getItem(LOYALTY_PENDING_ANIMATION_KEY)
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as PendingLoyaltyAnimation
+
+      if (!parsed || typeof parsed !== 'object') return null
+      if (typeof parsed.pointsEarned !== 'number' || parsed.pointsEarned <= 0) return null
+      if (typeof parsed.createdAt !== 'number') return null
+      if (parsed.customerId && parsed.customerId !== user.id) return null
+
+      // Ignore stale purchase animations older than 7 days.
+      if (Date.now() - parsed.createdAt > 7 * 24 * 60 * 60 * 1000) return null
+
+      return parsed
+    } catch {
+      return null
+    }
+  }, [user])
+
+  const clearPendingLoyaltyAnimation = useCallback(() => {
+    try {
+      localStorage.removeItem(LOYALTY_PENDING_ANIMATION_KEY)
+    } catch {
+      // Ignore storage errors
+    }
+  }, [])
+
   // Check for points/tier changes and trigger animations
   const checkForLoyaltyChanges = useCallback(() => {
     if (!user || !user.loyaltyTier || animationTriggeredRef.current) return
-    
+
     const cacheKey = `${LOYALTY_CACHE_KEY}_${user.id}`
     const cachedData = localStorage.getItem(cacheKey)
     const currentTierSlug = user.loyaltyTier.slug
     const currentPoints = user.currentPoints
-    
     const annualPoints = user.annualPointsEarned ?? 0
+    const pendingPoints = getPendingLoyaltyAnimation()?.pointsEarned || 0
+
+    const runPointsAnimation = (pointsDelta: number) => {
+      const gained = Math.max(0, pointsDelta)
+      const previousAnnualPoints = Math.max(0, annualPoints - gained)
+      const previousProgress = calculateTierProgressFromPoints(previousAnnualPoints).progressPercentage
+
+      setPointsGained(gained)
+      setProgressAnimationStart(previousProgress)
+      setShouldAnimatePoints(true)
+      animationTriggeredRef.current = true
+
+      setTimeout(() => {
+        setShouldAnimatePoints(false)
+        setProgressAnimationStart(null)
+      }, 2200)
+
+      toast.success(`+${gained} Points Earned! 🌟`, `You now have ${currentPoints.toLocaleString()} total points.`)
+    }
+
+    const runTierAnimation = (fromTierSlug: string, toTierSlug: string, pointsDelta: number) => {
+      setPointsGained(Math.max(0, pointsDelta))
+      setPreviousTierSlug(fromTierSlug)
+      setDisplayTierSlug(fromTierSlug)
+      setShouldAnimateTier(true)
+      setTierTransitionPhase('filling')
+      setProgressAnimationStart(0)
+      animationTriggeredRef.current = true
+
+      setAnimatedProgress(0)
+      setTimeout(() => setAnimatedProgress(100), 100)
+      setTimeout(() => {
+        setTierTransitionPhase('celebrating')
+        setShowCelebration(true)
+      }, 1200)
+      setTimeout(() => {
+        setTierTransitionPhase('resetting')
+        setDisplayTierSlug(toTierSlug)
+        setAnimatedProgress(0)
+      }, 2500)
+      setTimeout(() => {
+        setTierTransitionPhase('complete')
+        setShowCelebration(false)
+      }, 3200)
+      setTimeout(() => {
+        setShowTierUpgradeModal(true)
+      }, 3800)
+      setTimeout(() => {
+        setShouldAnimateTier(false)
+        setProgressAnimationStart(null)
+      }, 4200)
+    }
+
     let expectedTierSlug = 'newcomer'
     if (annualPoints >= 7500) expectedTierSlug = 'soulmate'
     else if (annualPoints >= 3000) expectedTierSlug = 'bestie'
     else if (annualPoints >= 1000) expectedTierSlug = 'friend'
-    
+
     if (cachedData) {
       try {
         const cache: LoyaltyCache = JSON.parse(cachedData)
-        
+
         if (currentTierSlug !== cache.tierSlug) {
-          const gained = currentPoints - cache.points
-          setPointsGained(gained > 0 ? gained : 0)
-          setPreviousTierSlug(cache.tierSlug)
-          setDisplayTierSlug(cache.tierSlug)
-          setShouldAnimateTier(true)
-          setTierTransitionPhase('filling')
-          animationTriggeredRef.current = true
-          
-          setAnimatedProgress(0)
-          setTimeout(() => setAnimatedProgress(100), 100)
-          setTimeout(() => {
-            setTierTransitionPhase('celebrating')
-            setShowCelebration(true)
-          }, 1200)
-          setTimeout(() => {
-            setTierTransitionPhase('resetting')
-            setDisplayTierSlug(currentTierSlug)
-            setAnimatedProgress(0)
-          }, 2500)
-          setTimeout(() => {
-            setTierTransitionPhase('complete')
-            setShowCelebration(false)
-          }, 3200)
-          setTimeout(() => {
-            setShowTierUpgradeModal(true)
-          }, 3800)
-          
+          const rawPointsDelta = currentPoints - cache.points
+          const pointsDelta = pendingPoints > 0 ? pendingPoints : rawPointsDelta
+          runTierAnimation(cache.tierSlug, currentTierSlug, pointsDelta)
+          clearPendingLoyaltyAnimation()
         } else if (currentTierSlug !== expectedTierSlug && cache.tierSlug !== expectedTierSlug) {
           if (!tierRefreshAttemptedRef.current) {
             tierRefreshAttemptedRef.current = true
-            
+
             fetch('/api/loyalty/refresh-tier', { method: 'POST' })
               .then(res => res.json())
               .then(async data => {
                 if (data.upgraded && data.newTier) {
-                  setPointsGained(0)
-                  setPreviousTierSlug(currentTierSlug)
-                  setDisplayTierSlug(currentTierSlug)
-                  setShouldAnimateTier(true)
-                  setTierTransitionPhase('filling')
-                  animationTriggeredRef.current = true
-                  
-                  setAnimatedProgress(0)
-                  setTimeout(() => setAnimatedProgress(100), 100)
-                  setTimeout(() => {
-                    setTierTransitionPhase('celebrating')
-                    setShowCelebration(true)
-                  }, 1200)
-                  setTimeout(() => {
-                    setTierTransitionPhase('resetting')
-                    setDisplayTierSlug(data.newTier)
-                    setAnimatedProgress(0)
-                  }, 2500)
-                  setTimeout(() => {
-                    setTierTransitionPhase('complete')
-                    setShowCelebration(false)
-                  }, 3200)
-                  setTimeout(() => {
-                    setShowTierUpgradeModal(true)
-                  }, 3800)
-                  
+                  runTierAnimation(currentTierSlug, data.newTier, pendingPoints)
+                  clearPendingLoyaltyAnimation()
+
                   const newCache: LoyaltyCache = {
                     points: currentPoints,
                     tierSlug: data.newTier,
@@ -252,24 +369,29 @@ export default function ProfilePage() {
             return
           }
         } else if (currentPoints > cache.points) {
-          const gained = currentPoints - cache.points
-          setPointsGained(gained)
-          setShouldAnimatePoints(true)
-          animationTriggeredRef.current = true
-          toast.success(`+${gained} Points Earned! 🌟`, `You now have ${currentPoints.toLocaleString()} total points.`)
+          const rawPointsDelta = currentPoints - cache.points
+          const pointsDelta = pendingPoints > 0 ? pendingPoints : rawPointsDelta
+          runPointsAnimation(pointsDelta)
+          clearPendingLoyaltyAnimation()
+        } else if (pendingPoints > 0) {
+          runPointsAnimation(pendingPoints)
+          clearPendingLoyaltyAnimation()
         }
       } catch {
         // Invalid cache
       }
+    } else if (pendingPoints > 0) {
+      runPointsAnimation(pendingPoints)
+      clearPendingLoyaltyAnimation()
     }
-    
+
     const newCache: LoyaltyCache = {
       points: user.currentPoints,
       tierSlug: user.loyaltyTier.slug,
       lastVisit: Date.now()
     }
     localStorage.setItem(cacheKey, JSON.stringify(newCache))
-  }, [user, refreshUser])
+  }, [user, getPendingLoyaltyAnimation, clearPendingLoyaltyAnimation, refreshUser])
 
   // Dev mode tier animation trigger
   useEffect(() => {
@@ -394,10 +516,11 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (tierProgress && shouldAnimatePoints && !shouldAnimateTier) {
-      setAnimatedProgress(0)
+      const fromProgress = progressAnimationStart ?? tierProgress.progressPercentage
+      setAnimatedProgress(fromProgress)
       const timer = setTimeout(() => {
         setAnimatedProgress(tierProgress.progressPercentage)
-      }, 500)
+      }, 220)
       return () => clearTimeout(timer)
     } else if (tierProgress && tierTransitionPhase === 'complete') {
       const timer = setTimeout(() => {
@@ -407,7 +530,7 @@ export default function ProfilePage() {
     } else if (tierProgress && !shouldAnimateTier && !shouldAnimatePoints) {
       setAnimatedProgress(tierProgress.progressPercentage)
     }
-  }, [tierProgress, shouldAnimatePoints, shouldAnimateTier, tierTransitionPhase])
+  }, [tierProgress, shouldAnimatePoints, shouldAnimateTier, tierTransitionPhase, progressAnimationStart])
 
   const handleSignout = async () => {
     await signout()
@@ -637,277 +760,289 @@ export default function ProfilePage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col gap-6"
+            className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 lg:gap-8"
           >
-            {/* User Info */}
-            <div className="flex items-start gap-4 md:gap-6">
-              <div className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 bg-black flex items-center justify-center shrink-0">
-                <User size={32} weight="bold" className="text-white md:hidden" />
-                <User size={40} weight="bold" className="text-white hidden md:block" />
+            <div className="flex-1 min-w-0 space-y-4">
+              {/* User Info */}
+              <div className="flex items-start gap-3 md:gap-4">
+                <div className="w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 bg-black flex items-center justify-center shrink-0">
+                  <User size={24} weight="bold" className="text-white md:hidden" />
+                  <User size={30} weight="bold" className="text-white hidden md:block" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] md:text-xs font-medium text-black/50 uppercase tracking-wider mb-0.5 md:mb-1">My Account</p>
+                  <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-black tracking-tight leading-tight break-words whitespace-normal">
+                    {user.name || 'Welcome'}
+                  </h1>
+                  <p className="text-xs md:text-sm text-black/60 mt-0.5 md:mt-1 break-all whitespace-normal">{user.email}</p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs md:text-sm font-medium text-black/50 uppercase tracking-wider mb-1 md:mb-2">My Account</p>
-                <h1 className="text-2xl md:text-4xl lg:text-6xl font-black text-black tracking-tight truncate">
-                  {user.name || 'Welcome'}
-                </h1>
-                <p className="text-sm md:text-lg text-black/60 mt-1 md:mt-2 truncate">{user.email}</p>
-              </div>
-            </div>
-            
-            {/* Action Buttons - Full width on mobile */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              {user.isAdmin && (
-                <Link
-                  href="/admin"
-                  className="flex items-center justify-center gap-2 px-6 py-3 bg-black text-white text-sm font-bold uppercase tracking-wider hover:bg-black/80 transition-colors"
+
+              {/* Action Buttons - Full width on mobile */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                {user.isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-black/80 transition-colors"
+                  >
+                    <Gear size={14} weight="bold" />
+                    Admin
+                  </Link>
+                )}
+                <button
+                  onClick={handleSignout}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 border-2 border-black text-black text-xs font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
                 >
-                  <Gear size={18} weight="bold" />
-                  Admin
-                </Link>
-              )}
-              <button
-                onClick={handleSignout}
-                className="flex items-center justify-center gap-2 px-6 py-3 border-2 border-black text-black text-sm font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
-              >
-                <SignOut size={18} weight="bold" />
-                Sign Out
-              </button>
+                  <SignOut size={14} weight="bold" />
+                  Sign Out
+                </button>
+              </div>
             </div>
+
+            {user.loyaltyTier && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                  scale: tierTransitionPhase === 'celebrating' ? [1, 1.01, 1] : 1,
+                }}
+                transition={{ delay: 0.1, scale: { duration: 0.6 } }}
+                className={`relative overflow-hidden text-white w-full lg:w-[760px] xl:w-[840px] shrink-0 transition-all duration-500 ${
+                  tierTransitionPhase === 'celebrating' ? `shadow-2xl ${currentTierConfig.glow}` : ''
+                }`}
+              >
+                <motion.div
+                  initial={{ opacity: 1 }}
+                  animate={{ opacity: tierTransitionPhase === 'resetting' || tierTransitionPhase === 'complete' ? 0 : 1 }}
+                  transition={{ duration: 0.8 }}
+                  className={`absolute inset-0 bg-linear-to-br ${previousTierConfig?.gradient || activeTierConfig.gradient}`}
+                />
+                <motion.div
+                  initial={{ opacity: shouldAnimateTier ? 0 : 1 }}
+                  animate={{ opacity: tierTransitionPhase === 'resetting' || tierTransitionPhase === 'complete' ? 1 : (shouldAnimateTier ? 0 : 1) }}
+                  transition={{ duration: 0.8 }}
+                  className={`absolute inset-0 bg-linear-to-br ${currentTierConfig.gradient}`}
+                />
+
+                <motion.div
+                  animate={tierTransitionPhase === 'celebrating' ? { scale: [1, 1.5, 1], opacity: [0.1, 0.3, 0.1] } : {}}
+                  transition={{ duration: 2 }}
+                  className="absolute top-0 right-0 w-32 md:w-56 h-32 md:h-56 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"
+                />
+                <motion.div
+                  className="absolute bottom-0 left-0 w-24 md:w-40 h-24 md:h-40 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl"
+                />
+
+                <AnimatePresence>
+                  {tierTransitionPhase === 'celebrating' && (
+                    <motion.div
+                      initial={{ x: '-100%', opacity: 0 }}
+                      animate={{ x: '200%', opacity: [0, 0.5, 0] }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 1.5 }}
+                      className="absolute inset-0 w-1/2 bg-linear-to-r from-transparent via-white/30 to-transparent skew-x-12"
+                    />
+                  )}
+                </AnimatePresence>
+
+                <AnimatePresence>
+                  {tierTransitionPhase === 'resetting' && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: [0, 0.8, 0] }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.6 }}
+                      className="absolute inset-0 bg-white"
+                    />
+                  )}
+                </AnimatePresence>
+
+                <div className="relative p-3 md:p-4">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between gap-2 md:gap-4">
+                      <motion.div
+                        animate={tierTransitionPhase === 'celebrating' ? { rotate: [0, -15, 15, -10, 10, 0], scale: [1, 1.3, 1] } : {}}
+                        transition={{ duration: 0.8 }}
+                        className={`w-10 h-10 md:w-12 md:h-12 ${activeTierConfig.iconBg} backdrop-blur-sm flex items-center justify-center shrink-0`}
+                      >
+                        <Crown size={18} weight="fill" className="text-white md:hidden" />
+                        <Crown size={22} weight="fill" className="text-white hidden md:block" />
+                      </motion.div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] md:text-xs font-medium uppercase tracking-wider text-white/70 mb-0.5">Loyalty Tier</p>
+                        <AnimatePresence mode="wait">
+                          <motion.h2
+                            key={activeTierSlug}
+                            initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -20, scale: 0.8 }}
+                            transition={{ duration: 0.5, type: 'spring', stiffness: 200 }}
+                            className="text-lg md:text-xl font-black"
+                          >
+                            {displayTierSlug ? getTierConfig(displayTierSlug).name : user.loyaltyTier.name}
+                          </motion.h2>
+                        </AnimatePresence>
+                        <AnimatePresence mode="wait">
+                          <motion.p
+                            key={activeTierSlug}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="text-white/80 mt-0.5 text-[11px] md:text-xs"
+                          >
+                            Earning {displayTierSlug ? getTierConfig(displayTierSlug).multiplier : currentTierConfig.multiplier}x points
+                          </motion.p>
+                        </AnimatePresence>
+                      </div>
+                      <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        <div className={`${activeTierConfig.iconBg} backdrop-blur-sm px-2 py-1.5`}>
+                          <p className="text-[9px] uppercase tracking-wider text-white/70">Multiplier</p>
+                          <p className="text-sm md:text-base font-black">
+                            {displayTierSlug ? getTierConfig(displayTierSlug).multiplier : currentTierConfig.multiplier}x
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleViewBenefits}
+                          className="bg-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white transition-colors hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/90 focus-visible:ring-offset-1 focus-visible:ring-offset-black/10"
+                        >
+                          View Benefits
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      <motion.div
+                        animate={shouldAnimatePoints || tierTransitionPhase === 'celebrating' ? { scale: [1, 1.05, 1] } : {}}
+                        transition={{ duration: 0.5, delay: 0.3 }}
+                        className={`${activeTierConfig.iconBg} backdrop-blur-sm p-2.5 md:p-3 relative`}
+                      >
+                        <AnimatePresence>
+                          {(shouldAnimatePoints || shouldAnimateTier) && pointsGained > 0 && (
+                            <motion.div
+                              initial={{ opacity: 1, y: 0 }}
+                              animate={{ opacity: 0, y: -30 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 1.5, delay: 1 }}
+                              className="absolute top-1 right-2 text-[10px] md:text-xs font-bold text-green-300"
+                            >
+                              +{pointsGained.toLocaleString()}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                        <p className="text-[10px] uppercase tracking-wider text-white/70 mb-0.5">Available</p>
+                        <motion.p
+                          animate={shouldAnimatePoints ? { scale: [1, 1.1, 1] } : {}}
+                          transition={{ duration: 0.4, delay: 0.5 }}
+                          className="text-base md:text-xl font-black"
+                        >
+                          {user.currentPoints.toLocaleString()}
+                        </motion.p>
+                      </motion.div>
+
+                      <div className={`${activeTierConfig.iconBg} backdrop-blur-sm p-2.5 md:p-3`}>
+                        <p className="text-[10px] uppercase tracking-wider text-white/70 mb-0.5">Total Spent</p>
+                        <p className="text-base md:text-xl font-black">${user.totalSpent.toFixed(0)}</p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setTabAndHash('rewards')}
+                        className="col-span-2 md:col-span-1 flex items-center justify-center gap-1.5 bg-white text-black px-2.5 md:px-3 py-2.5 md:py-3 font-bold uppercase tracking-wider text-[11px] hover:bg-white/90 transition-colors"
+                      >
+                        Redeem Rewards
+                        <ArrowRight size={14} weight="bold" />
+                      </button>
+                    </div>
+
+                    {tierProgress && (
+                      <LoyaltyTierMeter
+                        className="w-full"
+                        compact
+                        isMaxTier={tierProgress.isMaxTier}
+                        nextTierName={tierProgress.nextTier?.name}
+                        pointsNeeded={tierProgress.pointsNeeded}
+                        progressPercentage={animatedProgress}
+                        title={
+                          tierTransitionPhase === 'filling' || tierTransitionPhase === 'celebrating'
+                            ? 'Leveling up'
+                            : `Next: ${tierProgress.nextTier?.name || 'Next Tier'}`
+                        }
+                        statusLabel={
+                          tierTransitionPhase === 'filling'
+                            ? 'Progressing...'
+                            : tierTransitionPhase === 'celebrating'
+                              ? 'Level up'
+                              : `${tierProgress.pointsNeeded.toLocaleString()} pts`
+                        }
+                        isAnimating={
+                          shouldAnimatePoints ||
+                          tierTransitionPhase === 'filling' ||
+                          tierTransitionPhase === 'celebrating'
+                        }
+                        showShimmer={shouldAnimatePoints || tierTransitionPhase === 'filling'}
+                      />
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </motion.div>
         </div>
       </section>
 
-      {/* Loyalty Tier Card - Full Width Editorial Style */}
-      {user.loyaltyTier && (
-        <section className="py-6 md:py-8 px-4 sm:px-8">
-          <div className="max-w-7xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ 
-                opacity: 1, 
-                y: 0,
-                scale: tierTransitionPhase === 'celebrating' ? [1, 1.01, 1] : 1,
-              }}
-              transition={{ delay: 0.1, scale: { duration: 0.6 } }}
-              className={`relative overflow-hidden text-white transition-all duration-500 ${
-                tierTransitionPhase === 'celebrating' ? `shadow-2xl ${currentTierConfig.glow}` : ''
-              }`}
-            >
-              {/* Background layers for smooth transition */}
-              <motion.div
-                initial={{ opacity: 1 }}
-                animate={{ opacity: tierTransitionPhase === 'resetting' || tierTransitionPhase === 'complete' ? 0 : 1 }}
-                transition={{ duration: 0.8 }}
-                className={`absolute inset-0 bg-linear-to-br ${previousTierConfig?.gradient || activeTierConfig.gradient}`}
-              />
-              <motion.div
-                initial={{ opacity: shouldAnimateTier ? 0 : 1 }}
-                animate={{ opacity: tierTransitionPhase === 'resetting' || tierTransitionPhase === 'complete' ? 1 : (shouldAnimateTier ? 0 : 1) }}
-                transition={{ duration: 0.8 }}
-                className={`absolute inset-0 bg-linear-to-br ${currentTierConfig.gradient}`}
-              />
-              
-              {/* Decorative elements */}
-              <motion.div 
-                animate={tierTransitionPhase === 'celebrating' ? { scale: [1, 1.5, 1], opacity: [0.1, 0.3, 0.1] } : {}}
-                transition={{ duration: 2 }}
-                className="absolute top-0 right-0 w-32 md:w-64 h-32 md:h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" 
-              />
-              <motion.div 
-                className="absolute bottom-0 left-0 w-24 md:w-48 h-24 md:h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl" 
-              />
-              
-              {/* Shimmer effect */}
-              <AnimatePresence>
-                {tierTransitionPhase === 'celebrating' && (
-                  <motion.div
-                    initial={{ x: '-100%', opacity: 0 }}
-                    animate={{ x: '200%', opacity: [0, 0.5, 0] }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 1.5 }}
-                    className="absolute inset-0 w-1/2 bg-linear-to-r from-transparent via-white/30 to-transparent skew-x-12"
-                  />
-                )}
-              </AnimatePresence>
-              
-              {/* Flash effect */}
-              <AnimatePresence>
-                {tierTransitionPhase === 'resetting' && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: [0, 0.8, 0] }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.6 }}
-                    className="absolute inset-0 bg-white"
-                  />
-                )}
-              </AnimatePresence>
-              
-              <div className="relative p-5 md:p-8 lg:p-12">
-                {/* Tier Info - Stacks on mobile */}
-                <div className="flex flex-col gap-6">
-                  <div className="flex items-center gap-4 md:gap-6">
-                    <motion.div
-                      animate={tierTransitionPhase === 'celebrating' ? { rotate: [0, -15, 15, -10, 10, 0], scale: [1, 1.3, 1] } : {}}
-                      transition={{ duration: 0.8 }}
-                      className={`w-14 h-14 md:w-20 md:h-20 ${activeTierConfig.iconBg} backdrop-blur-sm flex items-center justify-center shrink-0`}
-                    >
-                      <Crown size={28} weight="fill" className="text-white md:hidden" />
-                      <Crown size={40} weight="fill" className="text-white hidden md:block" />
-                    </motion.div>
-                    <div className="min-w-0">
-                      <p className="text-xs md:text-sm font-medium uppercase tracking-wider text-white/70 mb-1">Loyalty Tier</p>
-                      <AnimatePresence mode="wait">
-                        <motion.h2 
-                          key={activeTierSlug}
-                          initial={{ opacity: 0, y: 20, scale: 0.8 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: -20, scale: 0.8 }}
-                          transition={{ duration: 0.5, type: "spring", stiffness: 200 }}
-                          className="text-2xl md:text-4xl lg:text-5xl font-black"
-                        >
-                          {displayTierSlug ? getTierConfig(displayTierSlug).name : user.loyaltyTier.name}
-                        </motion.h2>
-                      </AnimatePresence>
-                      <AnimatePresence mode="wait">
-                        <motion.p 
-                          key={activeTierSlug}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="text-white/80 mt-1 text-sm md:text-base"
-                        >
-                          Earning {displayTierSlug ? getTierConfig(displayTierSlug).multiplier : currentTierConfig.multiplier}x points
-                        </motion.p>
-                      </AnimatePresence>
-                    </div>
-                  </div>
-                  
-                  {/* Points & Stats - Grid on mobile, flex on desktop */}
-                  <div className="grid grid-cols-2 md:flex md:items-center gap-3 md:gap-6 lg:gap-8">
-                    <motion.div 
-                      animate={shouldAnimatePoints || tierTransitionPhase === 'celebrating' ? { scale: [1, 1.05, 1] } : {}}
-                      transition={{ duration: 0.5, delay: 0.3 }}
-                      className={`${activeTierConfig.iconBg} backdrop-blur-sm p-4 md:p-6 relative`}
-                    >
-                      <AnimatePresence>
-                        {(shouldAnimatePoints || shouldAnimateTier) && pointsGained > 0 && (
-                          <motion.div
-                            initial={{ opacity: 1, y: 0 }}
-                            animate={{ opacity: 0, y: -30 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 1.5, delay: 1 }}
-                            className="absolute top-1 right-2 text-xs md:text-sm font-bold text-green-300"
-                          >
-                            +{pointsGained.toLocaleString()}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                      <p className="text-[10px] md:text-xs uppercase tracking-wider text-white/70 mb-1">Available</p>
-                      <motion.p 
-                        animate={shouldAnimatePoints ? { scale: [1, 1.1, 1] } : {}}
-                        transition={{ duration: 0.4, delay: 0.5 }}
-                        className="text-xl md:text-3xl lg:text-4xl font-black"
-                      >
-                        {user.currentPoints.toLocaleString()}
-                      </motion.p>
-                    </motion.div>
-                    
-                    <div className={`${activeTierConfig.iconBg} backdrop-blur-sm p-4 md:p-6`}>
-                      <p className="text-[10px] md:text-xs uppercase tracking-wider text-white/70 mb-1">Total Spent</p>
-                      <p className="text-xl md:text-3xl lg:text-4xl font-black">${user.totalSpent.toFixed(0)}</p>
-                    </div>
-                    
-                    <Link
-                      href="/loyalty/rewards"
-                      className="col-span-2 md:col-span-1 flex items-center justify-center gap-2 md:gap-3 bg-white text-black px-4 md:px-8 py-4 md:py-6 font-bold uppercase tracking-wider text-sm hover:bg-white/90 transition-colors"
-                    >
-                      Redeem Rewards
-                      <ArrowRight size={18} weight="bold" />
-                    </Link>
-                  </div>
-                </div>
-                
-                {/* Progress Bar */}
-                {tierProgress && !tierProgress.isMaxTier && (
-                  <div className="mt-8">
-                    <div className="flex items-center justify-between text-sm mb-3">
-                      <AnimatePresence mode="wait">
-                        <motion.span 
-                          key={shouldAnimateTier && tierTransitionPhase !== 'complete' ? 'upgrading' : 'normal'}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          className="text-white/80 flex items-center gap-2 font-medium"
-                        >
-                          <TrendUp size={16} weight="bold" />
-                          {tierTransitionPhase === 'filling' || tierTransitionPhase === 'celebrating' ? (
-                            <>Leveling up to {user.loyaltyTier.name}!</>
-                          ) : (
-                            <>Progress to {tierProgress.nextTier?.name}</>
-                          )}
-                        </motion.span>
-                      </AnimatePresence>
-                      <AnimatePresence mode="wait">
-                        <motion.span 
-                          key={tierTransitionPhase}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1, scale: shouldAnimatePoints && !shouldAnimateTier ? [1, 1.1, 1] : 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className="text-white font-bold"
-                        >
-                          {tierTransitionPhase === 'filling' ? 'Reaching new tier...' : 
-                           tierTransitionPhase === 'celebrating' ? '🎉 Level up!' : 
-                           `${tierProgress.pointsNeeded.toLocaleString()} pts away`}
-                        </motion.span>
-                      </AnimatePresence>
-                    </div>
-                    <div className={`h-4 ${activeTierConfig.progressBg} overflow-hidden relative`}>
-                      <AnimatePresence>
-                        {(tierTransitionPhase === 'filling' || tierTransitionPhase === 'celebrating') && (
-                          <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: [0.3, 0.6, 0.3] }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 1, repeat: Infinity }}
-                            className="absolute inset-0 bg-white/20"
-                          />
-                        )}
-                      </AnimatePresence>
-                      <motion.div
-                        initial={{ width: '0%' }}
-                        animate={{ width: `${animatedProgress}%` }}
-                        transition={{ 
-                          duration: tierTransitionPhase === 'filling' ? 1.0 : (shouldAnimatePoints ? 1.5 : 0.5),
-                          ease: tierTransitionPhase === 'filling' ? [0.34, 1.56, 0.64, 1] : "easeOut"
-                        }}
-                        className={`h-full ${activeTierConfig.progressFill} relative overflow-hidden`}
-                      >
-                        {(shouldAnimatePoints || tierTransitionPhase === 'filling') && (
-                          <motion.div
-                            initial={{ x: '-100%' }}
-                            animate={{ x: '200%' }}
-                            transition={{ duration: 1, delay: 1.5, repeat: 1 }}
-                            className="absolute inset-0 w-1/2 bg-linear-to-r from-transparent via-white/50 to-transparent"
-                          />
-                        )}
-                      </motion.div>
-                    </div>
-                  </div>
-                )}
-                
-                {tierProgress?.isMaxTier && (
-                  <div className="mt-8 flex items-center gap-3 text-white/90">
-                    <Lightning size={20} weight="fill" />
-                    <span className="font-medium">Maximum tier achieved! You&apos;re earning the highest rewards.</span>
-                  </div>
-                )}
-              </div>
-            </motion.div>
+      <section className="sticky top-16 md:top-[72px] z-30 border-b border-black/10 bg-white/95 backdrop-blur">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3">
+          <div
+            role="tablist"
+            aria-label="Profile sections"
+            className="inline-flex items-center rounded-full border border-black/15 bg-black/[0.02] p-1"
+          >
+            {PROFILE_TAB_ORDER.map((tab) => {
+              const isTabActive = activeTab === tab
+              const label = tab === 'profile' ? 'Profile' : 'Rewards'
+              const Icon = tab === 'profile' ? User : Gift
+              const tabId = `${tab}-tab`
+              const panelId = `${tab}-panel`
+
+              return (
+                <button
+                  key={tab}
+                  id={tabId}
+                  ref={(node) => {
+                    tabButtonRefs.current[tab] = node
+                  }}
+                  type="button"
+                  role="tab"
+                  aria-selected={isTabActive}
+                  aria-controls={panelId}
+                  tabIndex={isTabActive ? 0 : -1}
+                  data-state={isTabActive ? 'active' : 'inactive'}
+                  onClick={() => setTabAndHash(tab)}
+                  onKeyDown={(event) => handleTabKeyDown(event, tab)}
+                  className={`relative inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs md:text-sm font-bold uppercase tracking-wider transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 ${
+                    isTabActive
+                      ? 'bg-black text-white shadow-sm'
+                      : 'text-black/65 hover:text-black'
+                  }`}
+                >
+                  <Icon size={14} weight={isTabActive ? 'fill' : 'bold'} />
+                  <span>{label}</span>
+                </button>
+              )
+            })}
           </div>
-        </section>
-      )}
+        </div>
+      </section>
+
+      <div
+        id="profile-panel"
+        role="tabpanel"
+        aria-labelledby="profile-tab"
+        hidden={activeTab !== 'profile'}
+        className={activeTab === 'profile' ? 'block' : 'hidden'}
+      >
 
       {/* Stats Grid */}
       <section className="py-6 md:py-8 px-4 sm:px-8 border-b border-black/10">
@@ -1139,6 +1274,17 @@ export default function ProfilePage() {
           </motion.div>
         </div>
       </section>
+      </div>
+
+      <div
+        id="rewards-panel"
+        role="tabpanel"
+        aria-labelledby="rewards-tab"
+        hidden={activeTab !== 'rewards'}
+        className={activeTab === 'rewards' ? 'block' : 'hidden'}
+      >
+        {hasLoadedRewards && <RewardsHubSection embedded openTierModalSignal={openTierModalSignal} />}
+      </div>
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { sendOrderConfirmation } from '@/lib/email/resend'
 import { updateCustomerStatsOnOrderCompletion } from '@/lib/crm/service'
 import { awardReferralPoints } from '@/lib/loyalty/service'
+import { recoverMissingLoyaltyForOrder } from '@/lib/loyalty/recovery'
 import Stripe from 'stripe'
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
@@ -173,6 +174,19 @@ export async function POST(request: NextRequest) {
               } catch (loyaltyError) {
                 // Log error but don't fail the webhook
                 console.error(`Failed to process CRM/loyalty for order ${orderId}:`, loyaltyError)
+
+                try {
+                  const recoveryResult = await recoverMissingLoyaltyForOrder(
+                    orderId,
+                    order.customerId,
+                    order.total
+                  )
+                  if (recoveryResult.recovered) {
+                    console.log(`Recovered missing loyalty points for order ${orderId}:`, recoveryResult)
+                  }
+                } catch (recoveryError) {
+                  console.error(`Failed loyalty recovery for order ${orderId}:`, recoveryError)
+                }
               }
 
               // Unlock avatar items for purchased products

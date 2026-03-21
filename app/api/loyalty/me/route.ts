@@ -1,11 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getActiveMultiplierEvent } from '@/lib/loyalty/service'
+import { auth } from '@/lib/auth/auth'
+
+const CANONICAL_CUSTOMER_ORDER = [
+  { totalOrders: 'desc' as const },
+  { lifetimePoints: 'desc' as const },
+  { currentPoints: 'desc' as const },
+  { createdAt: 'asc' as const },
+]
+
+async function findCustomerWithTierById(customerId: string) {
+  return prisma.customer.findUnique({
+    where: { id: customerId },
+    include: {
+      loyaltyTier: true,
+    },
+  })
+}
 
 export async function GET(request: NextRequest) {
   try {
-    // Get authenticated user from session cookie
-    const sessionId = request.cookies.get('auth_session')?.value
+    // Resolve authenticated customer from either NextAuth session or legacy cookie session
+    const session = await auth()
+    const authSessionCookie = request.cookies.get('auth_session')?.value
+    const sessionId = session?.user?.id || authSessionCookie
 
     if (!sessionId) {
       return NextResponse.json(
@@ -14,16 +33,38 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Fetch customer with tier information
-    const customer = await prisma.customer.findUnique({
+    const baseCustomer = await prisma.customer.findUnique({
       where: { id: sessionId },
-      include: {
-        loyaltyTier: true,
+      select: {
+        id: true,
+        email: true,
       },
     })
-    
-    // Fetch active multiplier event
-    const activeEvent = await getActiveMultiplierEvent(sessionId)
+
+    const referenceEmail =
+      session?.user?.email?.toLowerCase().trim() ||
+      baseCustomer?.email.toLowerCase().trim() ||
+      null
+
+    let customer = null as Awaited<ReturnType<typeof findCustomerWithTierById>>
+    if (referenceEmail) {
+      customer = await prisma.customer.findFirst({
+        where: {
+          email: {
+            equals: referenceEmail,
+            mode: 'insensitive',
+          },
+        },
+        orderBy: CANONICAL_CUSTOMER_ORDER,
+        include: {
+          loyaltyTier: true,
+        },
+      })
+    }
+
+    if (!customer) {
+      customer = await findCustomerWithTierById(sessionId)
+    }
 
     if (!customer) {
       return NextResponse.json(
@@ -31,6 +72,11 @@ export async function GET(request: NextRequest) {
         { status: 404 }
       )
     }
+
+    const resolvedCustomerId = customer.id
+
+    // Fetch active multiplier event
+    const activeEvent = await getActiveMultiplierEvent(resolvedCustomerId)
 
     // Calculate annual spend (last 365 days)
     const oneYearAgo = new Date()
@@ -40,7 +86,7 @@ export async function GET(request: NextRequest) {
     try {
       const annualOrders = await prisma.order.aggregate({
         where: {
-          customerId: sessionId,
+          customerId: resolvedCustomerId,
           createdAt: {
             gte: oneYearAgo,
           },
@@ -76,7 +122,7 @@ export async function GET(request: NextRequest) {
     }> = []
     try {
       recentActivity = await prisma.pointsTransaction.findMany({
-        where: { customerId: sessionId },
+        where: { customerId: resolvedCustomerId },
         orderBy: { createdAt: 'desc' },
         take: 10,
         select: {
@@ -105,7 +151,7 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       currentTier: customer.loyaltyTier,
       tierName: customer.loyaltyTier?.name || 'Friend',
       tierSlug: customer.loyaltyTier?.slug || 'friend',
@@ -129,6 +175,18 @@ export async function GET(request: NextRequest) {
       })),
       availableRewardsCount,
     })
+
+    if (authSessionCookie !== resolvedCustomerId) {
+      response.cookies.set('auth_session', resolvedCustomerId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7,
+        path: '/',
+      })
+    }
+
+    return response
   } catch (error) {
     console.error('Failed to fetch loyalty data:', error)
     return NextResponse.json(

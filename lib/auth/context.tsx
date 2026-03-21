@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchCurrentUser = async () => {
     try {
       console.log('🔐 Fetching current user...')
-      const response = await fetch('/api/auth/me')
+      const response = await fetch('/api/auth/me', { cache: 'no-store' })
       console.log('🔐 Auth response status:', response.status)
       
       if (response.ok) {

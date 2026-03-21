@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useRef, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -62,15 +62,18 @@ interface Order {
   customerId?: string
 }
 
+const LOYALTY_PENDING_ANIMATION_KEY = 'hof_loyalty_pending_animation'
+
 function ConfirmationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
   const success = searchParams.get('success')
   const orderId = searchParams.get('orderId')
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const initializedOrderIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!success || !orderId) {
@@ -78,7 +81,37 @@ function ConfirmationContent() {
       return
     }
 
+    if (initializedOrderIdRef.current === orderId) {
+      return
+    }
+    initializedOrderIdRef.current = orderId
+
     const fetchOrderAndSendEmail = async () => {
+      let fallbackPointsEarned = 0
+      let loyaltyUpdated = false
+
+      try {
+        // Recovery pass: ensure order confirmation + loyalty processing runs even
+        // when Stripe redirected back before frontend confirmation completed.
+        const confirmResponse = await fetch(`/api/orders/${orderId}/confirm-payment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentIntentId: null }),
+        })
+
+        if (confirmResponse.ok) {
+          const confirmData = await confirmResponse.json()
+          fallbackPointsEarned = Number(confirmData.pointsEarned || 0)
+          loyaltyUpdated = Boolean(
+            confirmData.pointsEarned ||
+            confirmData.tierUpgrade ||
+            confirmData.recoveredLoyalty
+          )
+        }
+      } catch (confirmError) {
+        console.error('Failed to run payment confirmation fallback:', confirmError)
+      }
+
       try {
         const response = await fetch(`/api/orders/${orderId}`)
         if (!response.ok) {
@@ -86,6 +119,39 @@ function ConfirmationContent() {
         }
         const data = await response.json()
         setOrder(data.data)
+
+        const resolvedPointsEarned = Number(data.data?.pointsEarned || fallbackPointsEarned || 0)
+
+        if (resolvedPointsEarned > 0) {
+          try {
+            localStorage.setItem(
+              LOYALTY_PENDING_ANIMATION_KEY,
+              JSON.stringify({
+                orderId: data.data.id,
+                customerId: user?.id || null,
+                pointsEarned: resolvedPointsEarned,
+                createdAt: Date.now(),
+              })
+            )
+          } catch {
+            // Ignore storage errors
+          }
+
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(
+              new CustomEvent('hof:loyalty-updated', {
+                detail: {
+                  orderId: data.data.id,
+                  pointsEarned: resolvedPointsEarned,
+                },
+              })
+            )
+          }
+        }
+
+        if (user && (resolvedPointsEarned > 0 || loyaltyUpdated)) {
+          await refreshUser()
+        }
         
         fetch(`/api/orders/${orderId}/send-confirmation`, {
           method: 'POST',
@@ -101,7 +167,7 @@ function ConfirmationContent() {
     }
 
     fetchOrderAndSendEmail()
-  }, [success, orderId, router])
+  }, [success, orderId, router, user, refreshUser])
 
   if (!success || !orderId) {
     return null
@@ -299,7 +365,7 @@ function ConfirmationContent() {
                   </div>
                   
                   <Link
-                    href="/loyalty/rewards"
+                    href="/profile#rewards"
                     className="hidden md:inline-flex items-center gap-2 px-6 py-3 bg-white text-black text-xs font-semibold uppercase tracking-wider hover:bg-white/90 transition-all"
                   >
                     View Rewards
@@ -308,7 +374,7 @@ function ConfirmationContent() {
                 </div>
                 
                 <Link
-                  href="/loyalty/rewards"
+                  href="/profile#rewards"
                   className="md:hidden mt-6 inline-flex items-center gap-2 text-xs font-semibold text-white uppercase tracking-wider hover:text-white/80 transition-colors"
                 >
                   View your rewards
@@ -343,7 +409,7 @@ function ConfirmationContent() {
                       Create an account to earn points on every purchase.
                     </p>
                     <Link
-                      href={`/signin?tab=signup&email=${encodeURIComponent(order.customerEmail)}&redirect=/loyalty/rewards`}
+                      href={`/signin?tab=signup&email=${encodeURIComponent(order.customerEmail)}&redirect=${encodeURIComponent('/profile#rewards')}`}
                       className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white text-xs font-semibold uppercase tracking-wider hover:bg-black/80 transition-all"
                     >
                       Create Account

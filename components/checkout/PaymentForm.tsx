@@ -30,7 +30,7 @@ export function PaymentForm({ amount, orderId, onSuccess, onError }: PaymentForm
 
     try {
       // Confirm payment
-      const { error } = await stripe.confirmPayment({
+      const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
           return_url: `${window.location.origin}/order/confirmation?orderId=${orderId}&success=true`,
@@ -47,7 +47,7 @@ export function PaymentForm({ amount, orderId, onSuccess, onError }: PaymentForm
           const confirmResponse = await fetch(`/api/orders/${orderId}/confirm-payment`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paymentIntentId: null }), // Could pass actual ID if available
+            body: JSON.stringify({ paymentIntentId: paymentIntent?.id || null }),
           })
           
           if (!confirmResponse.ok) {

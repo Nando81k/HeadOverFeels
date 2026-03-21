@@ -28,8 +28,22 @@ export async function POST(request: NextRequest) {
     const normalizedEmail = validatedData.email.toLowerCase()
 
     // Find the customer with full data including loyalty tier
-    const customer = await prisma.customer.findUnique({
-      where: { email: normalizedEmail },
+    const customer = await prisma.customer.findFirst({
+      where: {
+        email: {
+          equals: normalizedEmail,
+          mode: 'insensitive',
+        },
+        password: {
+          not: null,
+        },
+      },
+      orderBy: [
+        { totalOrders: 'desc' },
+        { lifetimePoints: 'desc' },
+        { currentPoints: 'desc' },
+        { createdAt: 'asc' },
+      ],
       select: {
         id: true,
         email: true,

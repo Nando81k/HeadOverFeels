@@ -1,17 +1,38 @@
 'use client'
 
-import { useEffect, useCallback } from 'react'
+import { useEffect, useMemo, useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence, PanInfo } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { X, MagnifyingGlass } from '@phosphor-icons/react'
 import { SearchInput } from './SearchInput'
 import { SearchResults } from './SearchResults'
-import { SearchSuggestions } from './SearchSuggestions'
+import { QuickLink, SearchSuggestions } from './SearchSuggestions'
 import { useSearch } from './useSearch'
+import { Product } from '@/lib/api/products'
 
 interface SearchModalProps {
   isOpen: boolean
   onClose: () => void
+}
+
+type SearchNavigationItem =
+  | { key: `product:${string}`; type: 'product'; product: Product }
+  | { key: 'action:view-all'; type: 'view-all'; query: string }
+  | { key: `quick:${string}`; type: 'quick-link'; href: string }
+  | { key: `recent:${string}`; type: 'recent'; term: string }
+  | { key: `trending:${string}`; type: 'trending'; term: string }
+  | { key: `featured:${string}`; type: 'featured'; product: Product }
+
+const QUICK_LINKS: QuickLink[] = [
+  { label: 'All Products', href: '/products', description: 'Browse the full catalog' },
+  { label: 'Collections', href: '/collections', description: 'Shop by curated collection' },
+  { label: 'Hoodies', href: '/products?category=hoodies', description: 'Explore heavyweight comfort' },
+  { label: 'T-Shirts', href: '/products?category=tshirts', description: 'Find everyday essentials' },
+  { label: 'Accessories', href: '/products?category=accessories', description: 'Complete the fit' },
+]
+
+function makeTermKey(value: string): string {
+  return value.trim().toLowerCase()
 }
 
 export function SearchModal({ isOpen, onClose }: SearchModalProps) {
@@ -22,7 +43,6 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     results,
     isLoading,
     recentSearches,
-    categories,
     trendingSearches,
     featuredProducts,
     clearRecentSearches,
@@ -30,257 +50,383 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     saveRecentSearch,
   } = useSearch()
 
-  // Handle ESC key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = 'hidden'
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen, onClose])
-
-  // Reset query when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setQuery('')
-    }
-  }, [isOpen, setQuery])
-
-  // Handle search submission
-  const handleSubmit = useCallback(() => {
-    if (query.trim()) {
-      saveRecentSearch(query.trim())
-      router.push(`/products?search=${encodeURIComponent(query.trim())}`)
-      onClose()
-    }
-  }, [query, saveRecentSearch, router, onClose])
-
-  // Handle clicking a search suggestion
-  const handleSuggestionClick = useCallback((search: string) => {
-    setQuery(search)
-    saveRecentSearch(search)
-    router.push(`/products?search=${encodeURIComponent(search)}`)
-    onClose()
-  }, [setQuery, saveRecentSearch, router, onClose])
-
-  // Handle product click
-  const handleProductClick = useCallback(() => {
-    if (query.trim()) {
-      saveRecentSearch(query.trim())
-    }
-    onClose()
-  }, [query, saveRecentSearch, onClose])
-
-  // Handle view all results
-  const handleViewAll = useCallback(() => {
-    if (query.trim()) {
-      saveRecentSearch(query.trim())
-      router.push(`/products?search=${encodeURIComponent(query.trim())}`)
-      onClose()
-    }
-  }, [query, saveRecentSearch, router, onClose])
+  const [activeIndex, setActiveIndex] = useState(-1)
 
   const showResults = query.trim().length >= 2
+  const productAutocompleteSuggestions = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+    if (normalizedQuery.length < 2) {
+      return []
+    }
+
+    const seen = new Set<string>()
+    const suggestions: string[] = []
+
+    results.forEach((product) => {
+      const candidate = product.name.trim()
+      if (!candidate) {
+        return
+      }
+
+      const normalizedCandidate = candidate.toLowerCase()
+      if (!normalizedCandidate.includes(normalizedQuery) || seen.has(normalizedCandidate)) {
+        return
+      }
+
+      seen.add(normalizedCandidate)
+      suggestions.push(candidate)
+    })
+
+    return suggestions.slice(0, 8)
+  }, [query, results])
+
+  const navigationItems = useMemo<SearchNavigationItem[]>(() => {
+    if (showResults) {
+      const items: SearchNavigationItem[] = results.map((product) => ({
+        key: `product:${product.id}`,
+        type: 'product',
+        product,
+      }))
+
+      if (query.trim()) {
+        items.push({
+          key: 'action:view-all',
+          type: 'view-all',
+          query: query.trim(),
+        })
+      }
+
+      return items
+    }
+
+    return [
+      ...QUICK_LINKS.map((quickLink) => ({
+        key: `quick:${quickLink.href}` as const,
+        type: 'quick-link' as const,
+        href: quickLink.href,
+      })),
+      ...recentSearches.map((search) => ({
+        key: `recent:${makeTermKey(search)}` as const,
+        type: 'recent' as const,
+        term: search,
+      })),
+      ...trendingSearches.map((search) => ({
+        key: `trending:${makeTermKey(search)}` as const,
+        type: 'trending' as const,
+        term: search,
+      })),
+      ...featuredProducts.map((product) => ({
+        key: `featured:${product.id}` as const,
+        type: 'featured' as const,
+        product,
+      })),
+    ]
+  }, [showResults, results, query, recentSearches, trendingSearches, featuredProducts])
+
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [isOpen])
+
+  const handleQueryChange = useCallback((value: string) => {
+    setQuery(value)
+    setActiveIndex(-1)
+  }, [setQuery])
+
+  const closeModal = useCallback(() => {
+    setQuery('')
+    setActiveIndex(-1)
+    onClose()
+  }, [onClose, setQuery])
+
+  const executeSearch = useCallback((value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed) {
+      return
+    }
+    saveRecentSearch(trimmed)
+    router.push(`/products?search=${encodeURIComponent(trimmed)}`)
+    closeModal()
+  }, [closeModal, router, saveRecentSearch])
+
+  const openProduct = useCallback((slug: string) => {
+    if (query.trim()) {
+      saveRecentSearch(query.trim())
+    }
+    router.push(`/products/${slug}`)
+    closeModal()
+  }, [closeModal, query, router, saveRecentSearch])
+
+  const openQuickLink = useCallback((href: string) => {
+    router.push(href)
+    closeModal()
+  }, [closeModal, router])
+
+  const runNavigationItem = useCallback((item: SearchNavigationItem | undefined) => {
+    if (!item) {
+      return
+    }
+
+    switch (item.type) {
+      case 'product':
+        openProduct(item.product.slug)
+        return
+      case 'featured':
+        openProduct(item.product.slug)
+        return
+      case 'quick-link':
+        openQuickLink(item.href)
+        return
+      case 'recent':
+        executeSearch(item.term)
+        return
+      case 'trending':
+        executeSearch(item.term)
+        return
+      case 'view-all':
+        executeSearch(item.query)
+        return
+      default:
+        return
+    }
+  }, [executeSearch, openProduct, openQuickLink])
+
+  const handleItemHover = useCallback((itemKey: string) => {
+    const nextIndex = navigationItems.findIndex((item) => item.key === itemKey)
+    if (nextIndex >= 0) {
+      setActiveIndex(nextIndex)
+    }
+  }, [navigationItems])
+
+  const handleInputKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeModal()
+      return
+    }
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if (navigationItems.length === 0) {
+        return
+      }
+
+      event.preventDefault()
+      setActiveIndex((currentIndex) => {
+        if (event.key === 'ArrowDown') {
+          return currentIndex >= navigationItems.length - 1 ? 0 : currentIndex + 1
+        }
+        return currentIndex <= 0 ? navigationItems.length - 1 : currentIndex - 1
+      })
+      return
+    }
+
+    if (event.key === 'Enter') {
+      if (activeIndex >= 0) {
+        event.preventDefault()
+        runNavigationItem(navigationItems[activeIndex])
+        return
+      }
+
+      if (query.trim()) {
+        event.preventDefault()
+        executeSearch(query)
+      }
+    }
+  }, [activeIndex, closeModal, executeSearch, navigationItems, query, runNavigationItem])
+
+  const activeItemKey = activeIndex >= 0 ? navigationItems[activeIndex]?.key ?? null : null
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm"
-            onClick={onClose}
-          />
-
-          {/* Desktop: Top Panel - slides down from top */}
-          <motion.div
-            initial={{ y: '-100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '-100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="hidden md:block fixed inset-x-0 top-0 z-[100] bg-white max-h-[85vh] overflow-auto shadow-2xl"
+            className="hidden md:flex fixed inset-0 z-[101] flex-col bg-white"
           >
-            {/* Close Button */}
-            <button
-              onClick={onClose}
-              className="absolute top-6 right-6 p-2 text-black/50 hover:text-black transition-colors z-10"
-              aria-label="Close search"
-            >
-              <X size={28} weight="light" />
-            </button>
-
-            {/* Content */}
-            <div className="max-w-5xl mx-auto px-6 py-16 md:py-20">
-              {/* Header */}
-              <div className="text-center mb-10">
-                <h2 className="text-xs font-medium tracking-[0.3em] uppercase text-black/40 mb-8">
-                  Search
-                </h2>
-                
-                {/* Search Input */}
-                <SearchInput
-                  value={query}
-                  onChange={setQuery}
-                  onSubmit={handleSubmit}
-                  isLoading={isLoading}
-                />
+            <div className="border-b border-black/10 bg-white">
+              <div className="mx-auto flex w-full max-w-7xl items-start justify-between gap-6 px-8 py-6">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/35">
+                    Search
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black text-black">Find products fast</h2>
+                  <div className="mt-5">
+                    <SearchInput
+                      value={query}
+                      onChange={handleQueryChange}
+                      onSubmit={() => executeSearch(query)}
+                      onSuggestionSelect={executeSearch}
+                      onKeyDown={handleInputKeyDown}
+                      inputTestId="search-input-desktop"
+                      suggestionsTestId="nav-search-autocomplete"
+                      isLoading={isLoading}
+                      placeholder="Search products, colors, and categories"
+                      suggestions={productAutocompleteSuggestions}
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={closeModal}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/10 text-black/45 transition-colors hover:border-black/30 hover:text-black"
+                  aria-label="Close search"
+                >
+                  <X size={18} weight="bold" />
+                </button>
               </div>
+            </div>
 
-              {/* Results or Suggestions */}
-              <div className="mt-12">
+            <div className="flex-1 overflow-hidden">
+              <div className="mx-auto h-full w-full max-w-7xl px-8 py-6">
                 {showResults ? (
-                  <SearchResults
-                    results={results}
-                    query={query}
-                    onProductClick={handleProductClick}
-                    onViewAll={handleViewAll}
-                  />
+                  <div className="grid h-full grid-cols-[minmax(0,1fr)_360px] gap-6">
+                    <div className="overflow-y-auto pr-1">
+                      <SearchResults
+                        results={results}
+                        query={query}
+                        isLoading={isLoading}
+                        activeItemKey={activeItemKey}
+                        onProductClick={openProduct}
+                        onViewAll={() => executeSearch(query)}
+                        onItemHover={handleItemHover}
+                      />
+                    </div>
+                    <div className="overflow-y-auto rounded-2xl border border-black/10 bg-black/[0.015] p-3">
+                      <SearchSuggestions
+                        recentSearches={recentSearches}
+                        trendingSearches={trendingSearches}
+                        quickLinks={QUICK_LINKS}
+                        featuredProducts={featuredProducts}
+                        activeItemKey={activeItemKey}
+                        onSearchClick={executeSearch}
+                        onQuickLinkClick={openQuickLink}
+                        onProductClick={openProduct}
+                        onRemoveRecent={removeRecentSearch}
+                        onClearRecent={clearRecentSearches}
+                        onItemHover={handleItemHover}
+                      />
+                    </div>
+                  </div>
                 ) : (
-                  <SearchSuggestions
-                    recentSearches={recentSearches}
-                    trendingSearches={trendingSearches}
-                    categories={categories}
-                    featuredProducts={featuredProducts}
-                    onSearchClick={handleSuggestionClick}
-                    onRemoveRecent={removeRecentSearch}
-                    onClearRecent={clearRecentSearches}
-                    onClose={onClose}
-                  />
+                  <div className="h-full overflow-y-auto pr-1">
+                    <SearchSuggestions
+                      recentSearches={recentSearches}
+                      trendingSearches={trendingSearches}
+                      quickLinks={QUICK_LINKS}
+                      featuredProducts={featuredProducts}
+                      activeItemKey={activeItemKey}
+                      onSearchClick={executeSearch}
+                      onQuickLinkClick={openQuickLink}
+                      onProductClick={openProduct}
+                      onRemoveRecent={removeRecentSearch}
+                      onClearRecent={clearRecentSearches}
+                      onItemHover={handleItemHover}
+                    />
+                  </div>
                 )}
               </div>
-
-              {/* Keyboard hint */}
-              <p className="text-center text-xs text-black/30 mt-12">
-                Press <kbd className="px-2 py-0.5 bg-black/5 rounded text-[10px] font-medium mx-1">ESC</kbd> to close
-              </p>
             </div>
           </motion.div>
 
-          {/* Mobile: Bottom Sheet with swipe-to-dismiss */}
           <motion.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.5 }}
-            onDragEnd={(_, info: PanInfo) => {
-              // Close if dragged down more than 100px or with velocity
-              if (info.offset.y > 100 || info.velocity.y > 500) {
-                onClose()
-              }
-            }}
-            className="md:hidden fixed inset-x-0 bottom-0 z-[100] bg-white rounded-t-3xl shadow-2xl"
-            style={{ 
-              height: '90vh',
-              maxHeight: '90vh'
-            }}
+            transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+            className="md:hidden fixed inset-0 z-[101] flex flex-col bg-white"
+            data-testid="mobile-search-sheet"
           >
-            {/* Drag Handle */}
-            <div className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none">
-              <div className="w-12 h-1.5 bg-black/20 rounded-full" />
-            </div>
-
-            {/* Header with search input */}
-            <div className="sticky top-0 z-10 bg-white px-4 pb-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-black text-black tracking-tight">Search</h2>
+            <div className="border-b border-black/10 px-4 py-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-lg font-black text-black">Search</h2>
                 <button
-                  onClick={onClose}
-                  className="w-10 h-10 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/5 transition-all rounded-full"
+                  onClick={closeModal}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 text-black/45"
                   aria-label="Close search"
                 >
-                  <X size={22} weight="bold" />
+                  <X size={18} weight="bold" />
                 </button>
               </div>
-              
-              {/* Mobile Search Input */}
+
               <div className="relative">
-                <MagnifyingGlass 
-                  size={20} 
-                  weight="bold" 
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-black/40"
+                <MagnifyingGlass
+                  size={18}
+                  weight="bold"
+                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-black/35"
                 />
                 <input
-                  type="text"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleSubmit()
-                    }
-                  }}
-                  placeholder="What are you looking for?"
+                  onChange={(event) => handleQueryChange(event.target.value)}
+                  onKeyDown={handleInputKeyDown}
+                  placeholder="Search products, colors, and categories"
+                  data-testid="search-input-mobile"
                   autoFocus
-                  className="w-full pl-12 pr-4 py-4 bg-black/[0.03] border-0 text-black placeholder-black/40 text-base rounded-xl focus:outline-none focus:ring-2 focus:ring-black/10"
+                  className="w-full rounded-xl border border-black/10 bg-white py-3 pl-11 pr-4 text-sm font-semibold text-black placeholder:text-black/35 focus:border-black/30 focus:outline-none"
                 />
-                {query && (
-                  <button
-                    onClick={() => setQuery('')}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-black/30 hover:text-black"
+                {query.trim().length >= 2 && productAutocompleteSuggestions.length > 0 ? (
+                  <div
+                    className="mt-3 overflow-hidden rounded-xl border border-black/10 bg-white"
+                    data-testid="nav-search-autocomplete-mobile"
                   >
-                    <X size={16} weight="bold" />
-                  </button>
-                )}
+                    <div className="border-b border-black/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-black/45">
+                      Suggestions
+                    </div>
+                    <div className="max-h-52 overflow-y-auto">
+                      {productAutocompleteSuggestions.map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onClick={() => executeSearch(suggestion)}
+                          className="flex w-full items-center justify-between border-b border-black/5 px-3 py-2.5 text-left text-sm text-black/75 transition-colors hover:bg-black/[0.03] hover:text-black last:border-b-0"
+                        >
+                          <span className="truncate">{suggestion}</span>
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-black/35">
+                            Product
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
 
-            {/* Scrollable Content */}
-            <div 
-              className="overflow-y-auto touch-pan-y px-4 pb-8"
-              style={{ height: 'calc(90vh - 140px)' }}
-            >
+            <div className="flex-1 overflow-y-auto px-4 py-4">
               {showResults ? (
                 <SearchResults
                   results={results}
                   query={query}
-                  onProductClick={handleProductClick}
-                  onViewAll={handleViewAll}
+                  isLoading={isLoading}
+                  activeItemKey={activeItemKey}
+                  onProductClick={openProduct}
+                  onViewAll={() => executeSearch(query)}
+                  onItemHover={handleItemHover}
                 />
               ) : (
                 <SearchSuggestions
                   recentSearches={recentSearches}
                   trendingSearches={trendingSearches}
-                  categories={categories}
+                  quickLinks={QUICK_LINKS}
                   featuredProducts={featuredProducts}
-                  onSearchClick={handleSuggestionClick}
+                  activeItemKey={activeItemKey}
+                  onSearchClick={executeSearch}
+                  onQuickLinkClick={openQuickLink}
+                  onProductClick={openProduct}
                   onRemoveRecent={removeRecentSearch}
                   onClearRecent={clearRecentSearches}
-                  onClose={onClose}
+                  onItemHover={handleItemHover}
                 />
               )}
             </div>
-
-            {/* Search Button - Fixed at bottom */}
-            {query.trim() && (
-              <div 
-                className="sticky bottom-0 p-4 bg-gradient-to-t from-white via-white to-white/90 border-t border-black/5"
-                style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
-              >
-                <button
-                  onClick={handleSubmit}
-                  className="w-full py-4 bg-black text-white font-bold uppercase tracking-wider text-sm hover:bg-black/90 transition-all shadow-lg rounded-xl flex items-center justify-center gap-2"
-                >
-                  <MagnifyingGlass size={18} weight="bold" />
-                  Search &quot;{query.trim()}&quot;
-                </button>
-              </div>
-            )}
           </motion.div>
         </>
       )}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -10,6 +10,19 @@ import { useCartStore } from '@/lib/store/cart'
 import { WishlistButton } from '@/components/wishlist/WishlistButton'
 import { MobileAddToCartBar } from '@/components/products/MobileAddToCartBar'
 import { SimilarProducts } from '@/components/recommendations/SimilarProducts'
+import {
+  clampQuantity,
+  getAvailableColorsForSize,
+  getAvailableSizesForColor,
+  getColorOptions,
+  getDefaultVariant,
+  getQuantityCap,
+  getSelectionFromVariant,
+  getSortedSizes,
+  isColorAvailableForSelection,
+  isSizeAvailableForSelection,
+  resolveVariantForSelection,
+} from '@/components/products/variant-selection'
 import { useProductView } from '@/hooks/useProductView'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
@@ -76,7 +89,6 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
   
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [showAddedMessage, setShowAddedMessage] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -87,7 +99,14 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
   const [reviews, setReviews] = useState<Review[]>([])
   const [reviewStats, setReviewStats] = useState<ReviewStats | null>(null)
   const [reviewsLoading, setReviewsLoading] = useState(true)
+  const [reviewsLoadingMore, setReviewsLoadingMore] = useState(false)
   const [sortBy, setSortBy] = useState('newest')
+  const [reviewPage, setReviewPage] = useState(1)
+  const [reviewsHasNextPage, setReviewsHasNextPage] = useState(false)
+  const [reviewsTotalCount, setReviewsTotalCount] = useState(0)
+  const [selectedReviewRating, setSelectedReviewRating] = useState<number | null>(null)
+  const [reviewVerifiedOnly, setReviewVerifiedOnly] = useState(false)
+  const [reviewWithPhotosOnly, setReviewWithPhotosOnly] = useState(false)
   const [showWriteReview, setShowWriteReview] = useState(false)
   
   // Review form state
@@ -126,12 +145,10 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
         if (response.ok) {
           const foundProduct = await response.json()
           setProduct(foundProduct)
-          const defaultVariant = foundProduct.variants.find((v: ProductVariant) => v.inventory > 0) || foundProduct.variants[0]
-          setSelectedVariant(defaultVariant || null)
-          if (defaultVariant) {
-            setSelectedSize(defaultVariant.size || null)
-            setSelectedColor(defaultVariant.color || null)
-          }
+          const defaultVariant = getDefaultVariant(foundProduct.variants as ProductVariant[])
+          const defaultSelection = getSelectionFromVariant(defaultVariant)
+          setSelectedSize(defaultSelection.size)
+          setSelectedColor(defaultSelection.color)
         }
       } catch (error) {
         console.error('Failed to load product:', error)
@@ -142,30 +159,75 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
     loadProduct()
   }, [slug])
 
-  // Load reviews
-  useEffect(() => {
-    const loadReviews = async () => {
-      if (!product?.id) return
+  const REVIEWS_PAGE_LIMIT = 6
+
+  const buildReviewQueryParams = useCallback((pageNumber: number) => {
+    const params = new URLSearchParams({
+      page: pageNumber.toString(),
+      limit: REVIEWS_PAGE_LIMIT.toString(),
+      sortBy,
+    })
+
+    if (reviewVerifiedOnly) {
+      params.set('verified', 'true')
+    }
+    if (reviewWithPhotosOnly) {
+      params.set('hasMedia', 'true')
+    }
+    if (selectedReviewRating !== null) {
+      params.set('rating', selectedReviewRating.toString())
+    }
+
+    return params.toString()
+  }, [sortBy, reviewVerifiedOnly, reviewWithPhotosOnly, selectedReviewRating])
+
+  const loadReviews = useCallback(async ({
+    append = false,
+    pageNumber = 1,
+  }: {
+    append?: boolean
+    pageNumber?: number
+  } = {}) => {
+    if (!product?.id) return
+
+    if (append) {
+      setReviewsLoadingMore(true)
+    } else {
       setReviewsLoading(true)
-      try {
-        const response = await fetch(`/api/products/${product.id}/reviews?sortBy=${sortBy}&limit=10`)
-        const data = await response.json()
-        if (data.data) {
-          setReviews(data.data)
-          setReviewStats({
-            averageRating: data.stats?.averageRating || 0,
-            totalReviews: data.stats?.totalReviews || 0,
-            distribution: data.stats?.distribution || {}
-          })
-        }
-      } catch (error) {
-        console.error('Failed to load reviews:', error)
-      } finally {
+    }
+
+    try {
+      const query = buildReviewQueryParams(pageNumber)
+      const response = await fetch(`/api/products/${product.id}/reviews?${query}`)
+      const data = await response.json()
+
+      if (data.data) {
+        setReviews((prev) => (append ? [...prev, ...data.data] : data.data))
+        setReviewStats({
+          averageRating: data.stats?.averageRating || 0,
+          totalReviews: data.stats?.totalReviews || 0,
+          distribution: data.stats?.distribution || {}
+        })
+        setReviewPage(data.pagination?.page || pageNumber)
+        setReviewsHasNextPage(Boolean(data.pagination?.hasNextPage))
+        setReviewsTotalCount(data.pagination?.totalCount || 0)
+      }
+    } catch (error) {
+      console.error('Failed to load reviews:', error)
+    } finally {
+      if (append) {
+        setReviewsLoadingMore(false)
+      } else {
         setReviewsLoading(false)
       }
     }
-    loadReviews()
-  }, [product?.id, sortBy])
+  }, [product?.id, buildReviewQueryParams])
+
+  // Load reviews when product, sorting, or filters change.
+  useEffect(() => {
+    if (!product?.id) return
+    loadReviews({ pageNumber: 1, append: false })
+  }, [product?.id, loadReviews])
 
   // Check review eligibility
   const checkReviewEligibility = async (email: string) => {
@@ -282,21 +344,7 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
       setTimeout(() => {
         setFormSuccess(false)
         setShowWriteReview(false)
-        // Reload reviews
-        if (product?.id) {
-          fetch(`/api/products/${product.id}/reviews?sortBy=${sortBy}&limit=10`)
-            .then(res => res.json())
-            .then(data => {
-              if (data.data) {
-                setReviews(data.data)
-                setReviewStats({
-                  averageRating: data.stats?.averageRating || 0,
-                  totalReviews: data.stats?.totalReviews || 0,
-                  distribution: data.stats?.distribution || {}
-                })
-              }
-            })
-        }
+        loadReviews({ pageNumber: 1, append: false })
       }, 2000)
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to submit review')
@@ -314,96 +362,152 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
     })
   }
 
-  // Get sizes and colors from variants
-  const sizes = useMemo(() => {
-    if (!product) return []
-    // Size order for proper sorting (S to XL)
-    const sizeOrder: Record<string, number> = {
-      'XXS': 0, 'XS': 1, 'S': 2, 'M': 3, 'L': 4, 'XL': 5, 'XXL': 6, '2XL': 6, 'XXXL': 7, '3XL': 7,
-      // Numeric/dress sizes
-      '0': 10, '2': 11, '4': 12, '6': 13, '8': 14, '10': 15, '12': 16, '14': 17, '16': 18, '18': 19, '20': 20,
-      // One size
-      'ONE SIZE': 100, 'OS': 100, 'ONESIZE': 100
-    }
-    const uniqueSizes = [...new Set(product.variants.map(v => v.size).filter(Boolean))] as string[]
-    return uniqueSizes.sort((a, b) => {
-      const orderA = sizeOrder[a.toUpperCase()] ?? 50
-      const orderB = sizeOrder[b.toUpperCase()] ?? 50
-      if (orderA !== orderB) return orderA - orderB
-      // If both have same order (like shoe sizes), sort numerically
-      const numA = parseFloat(a)
-      const numB = parseFloat(b)
-      if (!isNaN(numA) && !isNaN(numB)) return numA - numB
-      return a.localeCompare(b)
-    })
-  }, [product])
+  const variants = useMemo(() => product?.variants || [], [product])
 
-  const colors = useMemo(() => {
-    if (!product) return []
-    const seenColors = new Set<string>()
-    return product.variants.filter(v => {
-      if (v.color && v.colorHex && !seenColors.has(v.color)) {
-        seenColors.add(v.color)
-        return true
-      }
-      return false
-    })
-  }, [product])
+  const sizes = useMemo(() => getSortedSizes(variants), [variants])
+  const colorOptions = useMemo(() => getColorOptions(variants), [variants])
+
+  const selectedVariant = useMemo(
+    () =>
+      resolveVariantForSelection(variants, {
+        size: selectedSize,
+        color: selectedColor,
+      }),
+    [variants, selectedSize, selectedColor]
+  )
+
+  const availableSizeSet = useMemo(
+    () => getAvailableSizesForColor(variants, selectedColor),
+    [variants, selectedColor]
+  )
+  const availableColorSet = useMemo(
+    () => getAvailableColorsForSize(variants, selectedSize),
+    [variants, selectedSize]
+  )
+
+  const unavailableSizeCount = useMemo(
+    () => sizes.filter((size) => !availableSizeSet.has(size)).length,
+    [sizes, availableSizeSet]
+  )
+  const unavailableColorCount = useMemo(
+    () => colorOptions.filter((option) => !availableColorSet.has(option.color)).length,
+    [colorOptions, availableColorSet]
+  )
+
+  const availabilityHelperText = useMemo(() => {
+    if (selectedColor && unavailableSizeCount > 0) {
+      return 'Some sizes are unavailable in the selected color.'
+    }
+    if (selectedSize && unavailableColorCount > 0) {
+      return 'Some colors are unavailable in the selected size.'
+    }
+    return null
+  }, [selectedColor, selectedSize, unavailableSizeCount, unavailableColorCount])
+
+  const variantImagesById = useMemo(() => {
+    const imageMap = new Map<string, string[]>()
+    for (const variant of variants) {
+      imageMap.set(variant.id, parseImageArray(variant.images))
+    }
+    return imageMap
+  }, [variants])
+
+  const selectedColorImages = useMemo(() => {
+    if (!selectedColor) return []
+
+    for (const variant of variants) {
+      if (variant.color !== selectedColor) continue
+      const imagesForVariant = variantImagesById.get(variant.id) || []
+      if (imagesForVariant.length > 0) return imagesForVariant
+    }
+
+    return []
+  }, [variants, variantImagesById, selectedColor])
 
   // Get images based on selected variant
   const images = useMemo(() => {
     if (!product) return []
-    
-    if (selectedVariant?.images) {
-      const variantImages = parseImageArray(selectedVariant.images)
-      if (variantImages.length > 0) return variantImages
+
+    if (selectedVariant) {
+      const selectedVariantImages = variantImagesById.get(selectedVariant.id) || []
+      if (selectedVariantImages.length > 0) return selectedVariantImages
     }
-    
+
+    if (selectedColorImages.length > 0) return selectedColorImages
+
     const productImages = parseImageArray(product.images)
     return productImages.length > 0 ? productImages : ['/placeholder-product.jpg']
-  }, [product, selectedVariant])
+  }, [product, selectedVariant, selectedColorImages, variantImagesById])
 
-  // Reset image index when variant changes
+  const imageSelectionKey = `${selectedVariant?.id || 'none'}::${selectedColor || 'none'}`
+
+  // Reset image index when image-driving selection changes.
   useEffect(() => {
     setCurrentImageIndex(0)
-  }, [selectedVariant?.id])
+  }, [imageSelectionKey])
 
-  // Handle size change
+  // Keep quantity valid whenever variant or cap changes.
+  const maxSelectableQuantity = useMemo(
+    () => getQuantityCap(selectedVariant, product?.maxQuantity),
+    [selectedVariant, product?.maxQuantity]
+  )
+
+  useEffect(() => {
+    setQuantity((prev) => clampQuantity(prev, maxSelectableQuantity))
+  }, [maxSelectableQuantity])
+
   const handleSizeChange = (size: string) => {
-    setSelectedSize(size)
-    if (product) {
-      const variant = product.variants.find(
-        v => v.size === size && (!selectedColor || v.color === selectedColor)
-      )
-      if (variant) {
-        setSelectedVariant(variant)
-      }
+    if (!isSizeAvailableForSelection(variants, size, selectedColor)) return
+
+    const nextVariant = resolveVariantForSelection(variants, {
+      size,
+      color: selectedColor,
+    })
+    const nextSelection = getSelectionFromVariant(nextVariant)
+
+    setSelectedSize(nextSelection.size || size)
+    if (colorOptions.length > 0) {
+      setSelectedColor(nextSelection.color)
     }
   }
 
-  // Handle color change
   const handleColorChange = (color: string) => {
-    setSelectedColor(color)
-    if (product) {
-      const variant = product.variants.find(
-        v => v.color === color && (!selectedSize || v.size === selectedSize)
-      )
-      if (variant) {
-        setSelectedVariant(variant)
-      }
+    if (!isColorAvailableForSelection(variants, color, selectedSize)) return
+
+    const nextVariant = resolveVariantForSelection(variants, {
+      size: selectedSize,
+      color,
+    })
+    const nextSelection = getSelectionFromVariant(nextVariant)
+
+    if (sizes.length > 0) {
+      setSelectedSize(nextSelection.size)
     }
+    setSelectedColor(nextSelection.color || color)
+  }
+
+  const handleQuantityChange = (nextQuantity: number) => {
+    setQuantity(clampQuantity(nextQuantity, maxSelectableQuantity))
   }
 
   const handleAddToCart = () => {
-    if (!product || !selectedVariant) return
-    addItem(product, selectedVariant, quantity)
+    if (!product || !selectedVariant || maxSelectableQuantity <= 0) return
+    const safeQuantity = clampQuantity(quantity, maxSelectableQuantity)
+    if (safeQuantity !== quantity) {
+      setQuantity(safeQuantity)
+    }
+    addItem(product, selectedVariant, safeQuantity)
     setShowAddedMessage(true)
     setTimeout(() => setShowAddedMessage(false), 2000)
   }
 
   const handleBuyNow = () => {
-    if (!product || !selectedVariant) return
-    addItem(product, selectedVariant, quantity)
+    if (!product || !selectedVariant || maxSelectableQuantity <= 0) return
+    const safeQuantity = clampQuantity(quantity, maxSelectableQuantity)
+    if (safeQuantity !== quantity) {
+      setQuantity(safeQuantity)
+    }
+    addItem(product, selectedVariant, safeQuantity)
     router.push('/cart')
   }
 
@@ -419,6 +523,21 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  const hasActiveReviewFilters =
+    selectedReviewRating !== null || reviewVerifiedOnly || reviewWithPhotosOnly
+  const hasAnyApprovedReviews = (reviewStats?.totalReviews || 0) > 0
+
+  const handleLoadMoreReviews = () => {
+    if (reviewsLoadingMore || !reviewsHasNextPage) return
+    loadReviews({ append: true, pageNumber: reviewPage + 1 })
+  }
+
+  const handleClearReviewFilters = () => {
+    setSelectedReviewRating(null)
+    setReviewVerifiedOnly(false)
+    setReviewWithPhotosOnly(false)
   }
 
   if (loading) {
@@ -453,24 +572,19 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
   const displayPrice = selectedVariant?.price || product.price
   const onSale = product.compareAtPrice && product.compareAtPrice > displayPrice
   const discountPercent = onSale ? Math.round((1 - displayPrice / (product.compareAtPrice || displayPrice)) * 100) : 0
+  const selectedStock = selectedVariant?.inventory || 0
+  const selectedInStock = selectedStock > 0
+  const selectedLowStock = selectedStock > 0 && selectedStock <= 5
+  const canPurchaseSelectedVariant = Boolean(selectedVariant) && maxSelectableQuantity > 0
+  const canIncreaseQuantity = maxSelectableQuantity > 0 && quantity < maxSelectableQuantity
 
-  // Check availability for selected combination
-  const getVariantForSizeColor = (size: string | null, color: string | null) => {
-    if (!product) return null
-    return product.variants.find(v => 
-      (!size || v.size === size) && (!color || v.color === color)
-    )
-  }
-
-  const isSizeAvailable = (size: string) => {
-    const variant = getVariantForSizeColor(size, selectedColor)
-    return variant && variant.inventory > 0
-  }
-
-  const isColorAvailable = (color: string) => {
-    const variant = getVariantForSizeColor(selectedSize, color)
-    return variant && variant.inventory > 0
-  }
+  const selectedStockText = !selectedVariant
+    ? 'Select an option'
+    : !selectedInStock
+      ? 'Sold out'
+      : selectedLowStock
+        ? `Only ${selectedStock} left`
+        : 'In stock'
 
   return (
     <div className="min-h-screen bg-white">
@@ -487,22 +601,20 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
         </Link>
       </div>
 
-      {/* Main Product Section - Balanced Layout */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-16">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-          
+      {/* Main Product Section */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-14">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
           {/* Left: Image Gallery */}
           <div className="relative">
-            <div className="lg:sticky lg:top-28">
-              {/* Main Image - Square aspect ratio */}
-              <div className="relative aspect-square bg-neutral-50 overflow-hidden">
+            <div className="lg:sticky lg:top-28 space-y-3">
+              <div className="relative aspect-square bg-neutral-100 border border-black/10 overflow-hidden rounded-xl">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={currentImageIndex}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
+                    transition={{ duration: 0.25 }}
                     className="absolute inset-0"
                   >
                     <Image
@@ -515,26 +627,24 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
                   </motion.div>
                 </AnimatePresence>
 
-                {/* Status Badges */}
                 <div className="absolute top-4 left-4 flex flex-col gap-2">
                   {!inStock && (
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white bg-black px-3 py-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white bg-black px-3 py-1.5 rounded-md">
                       Sold Out
                     </span>
                   )}
                   {onSale && inStock && (
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white bg-black px-3 py-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white bg-black px-3 py-1.5 rounded-md">
                       −{discountPercent}%
                     </span>
                   )}
                   {lowStock && inStock && !onSale && (
-                    <span className="text-[10px] font-black uppercase tracking-widest text-black bg-white/90 px-3 py-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-black bg-white/90 px-3 py-1.5 rounded-md">
                       Only {totalStock} left
                     </span>
                   )}
                 </div>
 
-                {/* Wishlist */}
                 <div className="absolute top-4 right-4">
                   <WishlistButton
                     productId={product.id}
@@ -543,18 +653,19 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
                   />
                 </div>
 
-                {/* Image Navigation */}
                 {images.length > 1 && (
                   <>
                     <button
                       onClick={goToPrevImage}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-black hover:text-white transition-all"
+                      aria-label="Previous image"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/85 backdrop-blur-sm border border-black/10 flex items-center justify-center hover:bg-black hover:text-white transition-all"
                     >
                       <ArrowLeft size={16} weight="bold" />
                     </button>
                     <button
                       onClick={goToNextImage}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-black hover:text-white transition-all"
+                      aria-label="Next image"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/85 backdrop-blur-sm border border-black/10 flex items-center justify-center hover:bg-black hover:text-white transition-all"
                     >
                       <ArrowRight size={16} weight="bold" />
                     </button>
@@ -562,17 +673,17 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
                 )}
               </div>
 
-              {/* Thumbnails */}
               {images.length > 1 && (
-                <div className="grid grid-cols-5 gap-2 mt-2">
+                <div className="grid grid-cols-5 gap-2">
                   {images.slice(0, 5).map((image, index) => (
                     <button
                       key={index}
                       onClick={() => setCurrentImageIndex(index)}
-                      className={`relative aspect-square border-2 transition-all overflow-hidden ${
-                        index === currentImageIndex 
-                          ? 'border-black' 
-                          : 'border-transparent opacity-60 hover:opacity-100'
+                      aria-label={`View image ${index + 1}`}
+                      className={`relative aspect-square border rounded-md transition-all overflow-hidden ${
+                        index === currentImageIndex
+                          ? 'border-black'
+                          : 'border-black/10 opacity-70 hover:opacity-100'
                       }`}
                     >
                       <Image
@@ -589,10 +700,9 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
           </div>
 
           {/* Right: Product Info */}
-          <div className="space-y-6">
-            {/* Category */}
+          <div className="space-y-5">
             {product.category && (
-              <Link 
+              <Link
                 href={`/products?category=${product.category.slug}`}
                 className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/40 hover:text-black transition-colors"
               >
@@ -600,19 +710,17 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
               </Link>
             )}
 
-            {/* Title */}
             <h1 className="text-3xl sm:text-4xl font-black text-black tracking-tight leading-tight">
               {product.name}
             </h1>
 
-            {/* Rating Summary */}
             {reviewStats && reviewStats.totalReviews > 0 && (
               <div className="flex items-center gap-3">
                 <div className="flex gap-0.5">
                   {[1, 2, 3, 4, 5].map((i) => (
-                    <Star 
+                    <Star
                       key={i}
-                      size={14} 
+                      size={14}
                       weight={i <= Math.round(reviewStats.averageRating) ? 'fill' : 'regular'}
                       className={i <= Math.round(reviewStats.averageRating) ? 'text-black' : 'text-black/20'}
                     />
@@ -624,58 +732,95 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
               </div>
             )}
 
-            {/* Price */}
-            <div className="flex items-baseline gap-3">
-              <span className="text-2xl font-black text-black">
-                ${displayPrice.toFixed(2)}
-              </span>
-              {onSale && product.compareAtPrice && (
-                <span className="text-lg text-black/30 line-through">
-                  ${product.compareAtPrice.toFixed(2)}
-                </span>
-              )}
+            <div
+              data-testid="sticky-price-row"
+              className="sticky top-16 z-20 -mx-2 border-y border-black/10 bg-white/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-white/80 sm:-mx-0 sm:px-0"
+            >
+              <div className="flex items-end justify-between gap-3">
+                <p
+                  data-testid="sticky-product-name"
+                  className="text-[10px] sm:text-xs font-black uppercase tracking-[0.12em] text-black/70 line-clamp-1"
+                >
+                  {product.name.toUpperCase()}
+                </p>
+                <div className="flex items-baseline gap-2 shrink-0">
+                  <span className="text-2xl sm:text-3xl font-black text-black">
+                    ${displayPrice.toFixed(2)}
+                  </span>
+                  {onSale && product.compareAtPrice && (
+                    <span className="text-sm sm:text-lg text-black/30 line-through">
+                      ${product.compareAtPrice.toFixed(2)}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {/* Description */}
             {product.description && (
-              <p className="text-sm text-black/60 leading-relaxed">
+              <p className="text-sm text-black/65 leading-relaxed">
                 {product.description}
               </p>
             )}
 
-            <div className="border-t border-black/10 pt-6 space-y-5">
-              {/* Color Selection */}
-              {colors.length > 0 && (
+            <div className="border border-black/10 rounded-lg p-3 sm:p-4 space-y-3.5">
+              {colorOptions.length > 0 && (
                 <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs font-bold uppercase tracking-wider text-black">Color:</span>
-                    {selectedColor && <span className="text-xs text-black/60">{selectedColor}</span>}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-black uppercase tracking-[0.14em] text-black">Color</span>
+                    <span data-testid="selected-color-value" className="text-[10px] uppercase tracking-[0.12em] text-black/60">
+                      {(selectedColor || 'N/A').toUpperCase()}
+                    </span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {colors.map((variant) => {
-                      const isSelected = selectedColor === variant.color
-                      const available = isColorAvailable(variant.color!)
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {colorOptions.map((option) => {
+                      const isSelected = selectedColor === option.color
+                      const available = availableColorSet.has(option.color)
+                      const hasValidHex =
+                        Boolean(option.colorHex) &&
+                        /^#[0-9A-Fa-f]{6}$/.test(option.colorHex || '')
+                      const swatchColor = hasValidHex ? (option.colorHex || '#D4D4D4') : '#D4D4D4'
+                      const selectedTextColor =
+                        hasValidHex && isLightColor(swatchColor || '#D4D4D4') ? '#111111' : '#FFFFFF'
+                      const selectedButtonStyle =
+                        isSelected && available && hasValidHex
+                          ? {
+                              backgroundColor: swatchColor,
+                              color: selectedTextColor,
+                            }
+                          : undefined
+
                       return (
                         <button
-                          key={variant.id}
-                          onClick={() => handleColorChange(variant.color!)}
+                          key={option.color}
+                          type="button"
+                          onClick={() => handleColorChange(option.color)}
                           disabled={!available}
-                          title={variant.color || undefined}
+                          aria-label={`Select color ${option.color}`}
                           className={`
-                            relative w-9 h-9 transition-all
-                            ${isSelected ? 'ring-2 ring-black ring-offset-2' : 'ring-1 ring-black/20'}
-                            ${!available ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer hover:ring-black/50'}
+                            h-9 px-2.5 rounded-md border text-xs font-bold uppercase tracking-[0.08em]
+                            flex items-center gap-2 transition-all
+                            focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black
+                            ${isSelected ? 'border-black' : 'bg-white text-black border-black/20 hover:border-black'}
+                            ${!available ? 'bg-neutral-100 text-black/35 border-black/10 cursor-not-allowed' : 'cursor-pointer'}
                           `}
-                          style={{ backgroundColor: variant.colorHex || '#ccc' }}
+                          style={selectedButtonStyle}
                         >
-                          {isSelected && variant.colorHex && (
-                            <Check 
-                              size={12}
-                              weight="bold"
-                              className="absolute inset-0 m-auto"
-                              style={{ color: isLightColor(variant.colorHex) ? '#000' : '#FFF' }} 
-                            />
-                          )}
+                          <span
+                            className="relative w-4 h-4 rounded-full border border-black/20 shrink-0"
+                            style={{ backgroundColor: swatchColor || '#D4D4D4' }}
+                          >
+                            {isSelected && (
+                              <Check
+                                size={10}
+                                weight="bold"
+                                className="absolute inset-0 m-auto"
+                                style={{
+                                  color: hasValidHex && !isLightColor(swatchColor || '#D4D4D4') ? '#FFF' : '#000',
+                                }}
+                              />
+                            )}
+                          </span>
+                          <span className={available ? '' : 'line-through'}>{option.color}</span>
                         </button>
                       )
                     })}
@@ -683,26 +828,31 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
                 </div>
               )}
 
-              {/* Size Selection */}
               {sizes.length > 0 && (
                 <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-black mb-3 block">Size</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-black uppercase tracking-[0.14em] text-black">Size</span>
+                    <span data-testid="selected-size-value" className="text-[10px] uppercase tracking-[0.12em] text-black/60">
+                      {(selectedSize || 'N/A').toUpperCase()}
+                    </span>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {sizes.map((size) => {
                       const isSelected = selectedSize === size
-                      const available = isSizeAvailable(size)
+                      const available = availableSizeSet.has(size)
+
                       return (
                         <button
                           key={size}
+                          type="button"
                           onClick={() => handleSizeChange(size)}
                           disabled={!available}
+                          aria-label={`Select size ${size}`}
                           className={`
-                            min-w-11 h-11 px-3 text-xs font-bold uppercase tracking-wider transition-all
-                            ${isSelected 
-                              ? 'bg-black text-white' 
-                              : 'bg-white text-black border border-black/20 hover:border-black'
-                            }
-                            ${!available ? 'opacity-30 cursor-not-allowed line-through' : 'cursor-pointer'}
+                            min-w-11 h-9 px-3 rounded-md border text-xs font-black uppercase tracking-[0.1em] transition-all
+                            focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black
+                            ${isSelected ? 'bg-black text-white border-black' : 'bg-white text-black border-black/20 hover:border-black'}
+                            ${!available ? 'bg-neutral-100 text-black/35 border-black/10 line-through cursor-not-allowed' : 'cursor-pointer'}
                           `}
                         >
                           {size}
@@ -713,71 +863,93 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
                 </div>
               )}
 
-              {/* Quantity */}
+              {availabilityHelperText && (
+                <p data-testid="availability-helper" className="text-[11px] text-black/55">
+                  {availabilityHelperText}
+                </p>
+              )}
+
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-black mb-3 block">Quantity</span>
-                <div className="flex items-center w-fit border border-black/20">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-[0.14em] text-black">Quantity</span>
+                </div>
+                <div className="flex items-center w-fit border border-black/20 rounded-md overflow-hidden">
                   <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-11 h-11 flex items-center justify-center hover:bg-black/5 transition-colors"
+                    type="button"
+                    onClick={() => handleQuantityChange(quantity - 1)}
+                    disabled={quantity <= 1 || maxSelectableQuantity <= 0}
+                    aria-label="Decrease quantity"
+                    className="w-9 h-9 flex items-center justify-center hover:bg-black/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    <Minus size={14} weight="bold" />
+                    <Minus size={12} weight="bold" />
                   </button>
-                  <span className="w-12 text-center text-sm font-bold">{quantity}</span>
+                  <span data-testid="selected-quantity" className="w-9 text-center text-xs font-bold">
+                    {quantity}
+                  </span>
                   <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="w-11 h-11 flex items-center justify-center hover:bg-black/5 transition-colors"
+                    type="button"
+                    onClick={() => handleQuantityChange(quantity + 1)}
+                    disabled={!canIncreaseQuantity}
+                    aria-label="Increase quantity"
+                    className="w-9 h-9 flex items-center justify-center hover:bg-black/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    <Plus size={14} weight="bold" />
+                    <Plus size={12} weight="bold" />
                   </button>
                 </div>
               </div>
-            </div>
 
-            {/* Actions */}
-            <div className="space-y-3 pt-4">
-              <motion.button
-                onClick={handleAddToCart}
-                disabled={!inStock || !selectedVariant}
-                whileTap={{ scale: 0.98 }}
-                className={`
-                  w-full h-14 flex items-center justify-center gap-2 text-sm font-black uppercase tracking-widest transition-all
-                  ${!inStock || !selectedVariant
-                    ? 'bg-black/10 text-black/30 cursor-not-allowed'
-                    : showAddedMessage
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-black text-white hover:bg-black/80'
-                  }
-                `}
-              >
-                {showAddedMessage ? (
-                  <>
-                    <Check size={18} weight="bold" />
-                    Added to Bag
-                  </>
+              <p data-testid="selection-cap-text" className="text-[10px] text-black/55 -mt-1">
+                {maxSelectableQuantity > 0 ? (
+                  <>Max {maxSelectableQuantity} for this selection</>
                 ) : (
-                  inStock ? 'Add to Bag' : 'Sold Out'
+                  <>Unavailable for selected options</>
                 )}
-              </motion.button>
+              </p>
 
-              <button
-                onClick={handleBuyNow}
-                disabled={!inStock || !selectedVariant}
-                className={`
-                  w-full h-14 flex items-center justify-center text-sm font-black uppercase tracking-widest border-2 border-black transition-all
-                  ${!inStock || !selectedVariant
-                    ? 'border-black/10 text-black/30 cursor-not-allowed'
-                    : 'text-black hover:bg-black hover:text-white'
-                  }
-                `}
-              >
-                Buy Now
-              </button>
+              <div className="space-y-1.5 pt-0.5">
+                <motion.button
+                  data-testid="add-to-bag-button"
+                  onClick={handleAddToCart}
+                  disabled={!canPurchaseSelectedVariant}
+                  whileTap={{ scale: 0.98 }}
+                  className={`
+                    w-full h-11 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-[0.14em] rounded-md transition-all
+                    ${!canPurchaseSelectedVariant
+                      ? 'bg-black/10 text-black/30 cursor-not-allowed'
+                      : showAddedMessage
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-black text-white hover:bg-black/85'
+                    }
+                  `}
+                >
+                  {showAddedMessage ? (
+                    <>
+                      <Check size={16} weight="bold" />
+                      Added to Bag
+                    </>
+                  ) : (
+                    canPurchaseSelectedVariant ? 'Add to Bag' : 'Sold Out'
+                  )}
+                </motion.button>
+
+                <button
+                  onClick={handleBuyNow}
+                  disabled={!canPurchaseSelectedVariant}
+                  className={`
+                    w-full h-11 flex items-center justify-center text-xs font-black uppercase tracking-[0.14em] border rounded-md transition-all
+                    ${!canPurchaseSelectedVariant
+                      ? 'border-black/10 text-black/30 cursor-not-allowed'
+                      : 'border-black text-black hover:bg-black hover:text-white'
+                    }
+                  `}
+                >
+                  Buy Now
+                </button>
+              </div>
             </div>
 
-            {/* Product Details */}
             {(product.materials || product.careGuide) && (
-              <div className="pt-6 border-t border-black/10 space-y-4">
+              <div className="pt-1 space-y-4">
                 {product.materials && (
                   <div>
                     <span className="text-xs font-bold uppercase tracking-wider text-black">Materials</span>
@@ -799,84 +971,179 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
       {/* Reviews Section */}
       <section className="border-t border-black/10 bg-neutral-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
-          {/* Reviews Header */}
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-10">
-            <div>
-              <h2 className="text-2xl font-black text-black mb-2">Customer Reviews</h2>
-              {reviewStats && reviewStats.totalReviews > 0 && (
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-4xl font-black text-black">{reviewStats.averageRating.toFixed(1)}</span>
-                    <div>
-                      <div className="flex gap-0.5">
-                        {[1, 2, 3, 4, 5].map((i) => (
-                          <Star 
-                            key={i}
-                            size={14} 
-                            weight={i <= Math.round(reviewStats.averageRating) ? 'fill' : 'regular'}
-                            className={i <= Math.round(reviewStats.averageRating) ? 'text-black' : 'text-black/20'}
-                          />
-                        ))}
-                      </div>
-                      <p className="text-xs text-black/50">{reviewStats.totalReviews} reviews</p>
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 mb-8">
+            <div className="flex-1 space-y-4">
+              <h2 className="text-2xl font-black text-black">Customer Reviews</h2>
+
+              {reviewStats && reviewStats.totalReviews > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4">
+                  <div className="bg-white border border-black/10 rounded-xl p-4">
+                    <p className="text-4xl font-black text-black">
+                      {reviewStats.averageRating.toFixed(1)}
+                    </p>
+                    <div className="flex gap-0.5 mt-1">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <Star
+                          key={i}
+                          size={14}
+                          weight={i <= Math.round(reviewStats.averageRating) ? 'fill' : 'regular'}
+                          className={i <= Math.round(reviewStats.averageRating) ? 'text-black' : 'text-black/20'}
+                        />
+                      ))}
                     </div>
+                    <p className="text-xs text-black/50 mt-1">
+                      {reviewStats.totalReviews} total reviews
+                    </p>
                   </div>
-                  
-                  {/* Rating Distribution */}
-                  <div className="hidden sm:flex items-end gap-1 pl-4 border-l border-black/10">
-                    {[5, 4, 3, 2, 1].map(r => {
-                      const count = reviewStats.distribution[r] || 0
-                      const pct = reviewStats.totalReviews ? (count / reviewStats.totalReviews) * 100 : 0
+
+                  <div className="bg-white border border-black/10 rounded-xl p-4 space-y-2">
+                    {[5, 4, 3, 2, 1].map((star) => {
+                      const count = reviewStats.distribution[star] || 0
+                      const pct = reviewStats.totalReviews
+                        ? Math.round((count / reviewStats.totalReviews) * 100)
+                        : 0
+                      const isSelected = selectedReviewRating === star
+
                       return (
-                        <div key={r} className="flex flex-col items-center gap-1">
-                          <div className="w-4 bg-black/10 rounded-t" style={{ height: `${Math.max(pct * 0.4, 4)}px` }}>
-                            <div className="w-full bg-black rounded-t" style={{ height: `${pct}%` }} />
+                        <button
+                          key={star}
+                          type="button"
+                          data-testid={`review-rating-bar-${star}`}
+                          onClick={() =>
+                            setSelectedReviewRating((prev) => (prev === star ? null : star))
+                          }
+                          className={`
+                            w-full flex items-center gap-3 text-left rounded-md px-2 py-1.5 transition-colors
+                            ${isSelected ? 'bg-black text-white' : 'hover:bg-black/5 text-black'}
+                          `}
+                        >
+                          <span className={`w-10 text-xs font-bold ${isSelected ? 'text-white' : 'text-black/70'}`}>
+                            {star} ★
+                          </span>
+                          <div className={`flex-1 h-2 rounded-full overflow-hidden ${isSelected ? 'bg-white/20' : 'bg-black/10'}`}>
+                            <div
+                              className={isSelected ? 'h-full bg-white' : 'h-full bg-black'}
+                              style={{ width: `${pct}%` }}
+                            />
                           </div>
-                          <span className="text-[9px] text-black/40">{r}</span>
-                        </div>
+                          <span className={`w-12 text-right text-xs font-medium ${isSelected ? 'text-white' : 'text-black/60'}`}>
+                            {count}
+                          </span>
+                        </button>
                       )
                     })}
                   </div>
                 </div>
+              ) : (
+                <p className="text-sm text-black/55">
+                  No reviews yet. Be the first to share your experience.
+                </p>
               )}
             </div>
-            
+
             <button
               onClick={() => setShowWriteReview(true)}
-              className="px-6 py-3 bg-black text-white text-sm font-bold uppercase tracking-widest hover:bg-black/80 transition-colors"
+              className="px-6 py-3 bg-black text-white text-sm font-bold uppercase tracking-widest rounded-lg hover:bg-black/80 transition-colors"
             >
               Write a Review
             </button>
           </div>
 
-          {/* Sort Controls */}
-          {reviews.length > 0 && (
-            <div className="flex items-center gap-3 mb-6">
-              <span className="text-xs text-black/50">Sort by:</span>
-              <div className="relative">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="appearance-none bg-white border border-black/20 px-4 py-2 pr-8 text-sm font-medium cursor-pointer hover:border-black transition-colors"
-                >
-                  <option value="newest">Newest</option>
-                  <option value="oldest">Oldest</option>
-                  <option value="highest">Highest Rated</option>
-                  <option value="lowest">Lowest Rated</option>
-                  <option value="helpful">Most Helpful</option>
-                </select>
-                <CaretDown size={14} weight="bold" className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-black/40" />
+          {hasAnyApprovedReviews && (
+            <div className="mb-6 space-y-3">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-black/50">Sort by:</span>
+                  <div className="relative">
+                    <select
+                      data-testid="review-sort-select"
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="appearance-none bg-white border border-black/20 px-4 py-2 pr-8 text-sm font-medium rounded-lg cursor-pointer hover:border-black transition-colors"
+                    >
+                      <option value="newest">Newest</option>
+                      <option value="oldest">Oldest</option>
+                      <option value="highest">Highest Rated</option>
+                      <option value="lowest">Lowest Rated</option>
+                      <option value="helpful">Most Helpful</option>
+                    </select>
+                    <CaretDown size={14} weight="bold" className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-black/40" />
+                  </div>
+                  {reviewsLoading && reviews.length > 0 && (
+                    <span className="text-xs text-black/45">Updating…</span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    data-testid="review-filter-verified"
+                    type="button"
+                    onClick={() => setReviewVerifiedOnly((prev) => !prev)}
+                    className={`px-3 py-1.5 text-xs font-bold uppercase tracking-[0.1em] rounded-full border transition-colors ${
+                      reviewVerifiedOnly
+                        ? 'bg-black text-white border-black'
+                        : 'bg-white text-black/70 border-black/20 hover:border-black'
+                    }`}
+                  >
+                    Verified only
+                  </button>
+                  <button
+                    data-testid="review-filter-photos"
+                    type="button"
+                    onClick={() => setReviewWithPhotosOnly((prev) => !prev)}
+                    className={`px-3 py-1.5 text-xs font-bold uppercase tracking-[0.1em] rounded-full border transition-colors ${
+                      reviewWithPhotosOnly
+                        ? 'bg-black text-white border-black'
+                        : 'bg-white text-black/70 border-black/20 hover:border-black'
+                    }`}
+                  >
+                    With photos
+                  </button>
+                  {hasActiveReviewFilters && (
+                    <button
+                      data-testid="review-filter-clear"
+                      type="button"
+                      onClick={handleClearReviewFilters}
+                      className="px-3 py-1.5 text-xs font-bold uppercase tracking-[0.1em] rounded-full border border-black/20 text-black/70 bg-white hover:border-black transition-colors"
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </div>
               </div>
+
+              <div className="flex flex-wrap gap-2">
+                {[5, 4, 3, 2, 1].map((star) => (
+                  <button
+                    key={star}
+                    data-testid={`review-filter-rating-${star}`}
+                    type="button"
+                    onClick={() => setSelectedReviewRating((prev) => (prev === star ? null : star))}
+                    className={`px-3 py-1.5 text-xs font-bold uppercase tracking-[0.1em] rounded-full border transition-colors ${
+                      selectedReviewRating === star
+                        ? 'bg-black text-white border-black'
+                        : 'bg-white text-black/70 border-black/20 hover:border-black'
+                    }`}
+                  >
+                    {star} Star
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-xs text-black/55">
+                Showing {reviews.length} of {reviewsTotalCount} review{reviewsTotalCount === 1 ? '' : 's'}
+                {hasActiveReviewFilters ? ' matching current filters' : ''}
+              </p>
             </div>
           )}
 
           {/* Reviews List */}
-          {reviewsLoading ? (
+          {reviewsLoading && reviews.length === 0 ? (
             <div className="flex justify-center py-12">
               <CircleNotch size={24} weight="bold" className="animate-spin text-black/30" />
             </div>
           ) : reviews.length > 0 ? (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {reviews.map((review) => (
                 <ReviewCard
                   key={review.id}
@@ -885,13 +1152,38 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
                   formatDate={formatDate}
                 />
               ))}
+
+              {reviewsHasNextPage && (
+                <div className="pt-2 text-center">
+                  <button
+                    data-testid="review-load-more"
+                    type="button"
+                    onClick={handleLoadMoreReviews}
+                    disabled={reviewsLoadingMore}
+                    className="inline-flex items-center justify-center px-6 py-3 border border-black text-sm font-bold uppercase tracking-[0.14em] rounded-lg hover:bg-black hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {reviewsLoadingMore ? 'Loading…' : 'Load More'}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : hasAnyApprovedReviews && hasActiveReviewFilters ? (
+            <div className="text-center py-14 bg-white border border-black/10 rounded-xl">
+              <p className="text-black/55 mb-4">No reviews match your current filters.</p>
+              <button
+                type="button"
+                onClick={handleClearReviewFilters}
+                className="px-5 py-2 border border-black text-xs font-bold uppercase tracking-[0.14em] rounded-lg hover:bg-black hover:text-white transition-colors"
+              >
+                Clear Filters
+              </button>
             </div>
           ) : (
-            <div className="text-center py-16 bg-white border border-black/10">
-              <p className="text-black/40 mb-4">No reviews yet. Be the first to share your experience!</p>
+            <div className="text-center py-16 bg-white border border-black/10 rounded-xl">
+              <p className="text-black/45 mb-4">No reviews yet. Be the first to share your experience!</p>
               <button
                 onClick={() => setShowWriteReview(true)}
-                className="px-6 py-3 border-2 border-black text-sm font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors"
+                className="px-6 py-3 border-2 border-black text-sm font-bold uppercase tracking-widest rounded-lg hover:bg-black hover:text-white transition-colors"
               >
                 Write a Review
               </button>
@@ -914,7 +1206,7 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white w-full max-w-lg max-h-[90vh] overflow-y-auto"
+              className="bg-white w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-black/10 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
@@ -931,7 +1223,7 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
               <div className="p-6">
                 {/* Purchase Verification */}
                 {canReview === null && !checkingEligibility && (
-                  <div className="mb-6 p-4 bg-neutral-50 border border-black/10">
+                  <div className="mb-6 p-4 bg-neutral-50 border border-black/10 rounded-lg">
                     <div className="flex items-start gap-3 mb-4">
                       <ShoppingBag size={20} className="text-black/60 shrink-0 mt-0.5" />
                       <div>
@@ -947,11 +1239,11 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
                         value={emailToCheck}
                         onChange={(e) => setEmailToCheck(e.target.value)}
                         placeholder="your@email.com"
-                        className="flex-1 px-3 py-2 border border-black/20 text-sm focus:outline-none focus:border-black"
+                        className="flex-1 px-3 py-2 border border-black/20 rounded-lg text-sm focus:outline-none focus:border-black"
                       />
                       <button 
                         onClick={handleEmailCheck}
-                        className="px-4 py-2 bg-black text-white text-sm font-bold uppercase tracking-wider hover:bg-black/80 transition-colors"
+                        className="px-4 py-2 bg-black text-white text-sm font-bold uppercase tracking-wider rounded-lg hover:bg-black/80 transition-colors"
                       >
                         Verify
                       </button>
@@ -961,14 +1253,14 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
                 )}
 
                 {checkingEligibility && (
-                  <div className="mb-6 p-4 bg-neutral-50 border border-black/10 flex items-center gap-3">
+                  <div className="mb-6 p-4 bg-neutral-50 border border-black/10 rounded-lg flex items-center gap-3">
                     <CircleNotch size={20} className="text-black animate-spin" />
                     <p className="text-sm text-black/60">Verifying your purchase...</p>
                   </div>
                 )}
 
                 {canReview === false && (
-                  <div className="mb-6 p-4 bg-amber-50 border border-amber-200">
+                  <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                     <div className="flex items-start gap-3">
                       <Warning size={20} className="text-amber-600 shrink-0 mt-0.5" />
                       <div>
@@ -991,13 +1283,13 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
                     </div>
 
                     {formSuccess && (
-                      <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200">
+                      <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
                         <p className="text-sm text-emerald-800">✨ Thank you! Your review will be published after moderation.</p>
                       </div>
                     )}
 
                     {formError && (
-                      <div className="mb-4 p-3 bg-red-50 border border-red-200 text-sm text-red-700">
+                      <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                         {formError}
                       </div>
                     )}
@@ -1131,8 +1423,7 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
 
       {/* Similar Products */}
       <section className="border-t border-black/10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
-          <h2 className="text-xl font-black text-black mb-8">You May Also Like</h2>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 sm:py-16">
           <SimilarProducts productId={product.id} />
         </div>
       </section>
@@ -1140,11 +1431,12 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
       {/* Mobile Add to Cart Bar */}
       <MobileAddToCartBar
         price={displayPrice}
-        compareAtPrice={product.compareAtPrice}
-        inStock={inStock}
+        inStock={canPurchaseSelectedVariant}
         selectedVariant={selectedVariant}
         quantity={quantity}
-        onQuantityChange={setQuantity}
+        maxQuantity={maxSelectableQuantity}
+        stockStatusLabel={selectedStockText}
+        onQuantityChange={handleQuantityChange}
         onAddToCart={handleAddToCart}
         showAddedMessage={showAddedMessage}
       />
@@ -1201,14 +1493,14 @@ function ReviewCard({
   } catch { /* ignore */ }
 
   return (
-    <div className="bg-white border border-black/10 p-6">
+    <div className="bg-white border border-black/10 rounded-xl p-5 sm:p-6 shadow-sm">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="font-bold text-black">{review.customerName}</span>
             {review.isVerified && (
-              <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5">
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
                 Verified
               </span>
             )}
@@ -1224,7 +1516,7 @@ function ReviewCard({
                 />
               ))}
             </div>
-            <span className="text-xs text-black/40">{formatDate(review.createdAt)}</span>
+            <span className="text-xs uppercase tracking-[0.08em] text-black/40">{formatDate(review.createdAt)}</span>
           </div>
         </div>
       </div>
@@ -1245,9 +1537,9 @@ function ReviewCard({
 
       {/* Images */}
       {images.length > 0 && (
-        <div className="flex gap-2 mt-4">
+        <div className="flex flex-wrap gap-2 mt-4">
           {images.map((url, i) => (
-            <div key={i} className="w-16 h-16 border border-black/10 overflow-hidden">
+            <div key={i} className="w-16 h-16 border border-black/10 rounded-md overflow-hidden">
               <Image src={url} alt="" width={64} height={64} className="object-cover w-full h-full" />
             </div>
           ))}
@@ -1256,7 +1548,7 @@ function ReviewCard({
 
       {/* Admin Reply */}
       {review.adminReply && (
-        <div className="mt-4 p-3 bg-neutral-50 border-l-2 border-black">
+        <div className="mt-4 p-3 bg-neutral-50 border-l-2 border-black rounded-r-md">
           <p className="text-xs font-bold text-black mb-1">Response from Head Over Feels</p>
           <p className="text-sm text-black/70">{review.adminReply}</p>
         </div>
@@ -1268,7 +1560,7 @@ function ReviewCard({
         <button
           onClick={() => handleVote('helpful')}
           disabled={voted !== null}
-          className={`flex items-center gap-1 text-xs px-2 py-1 transition-colors ${
+          className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-full transition-colors ${
             voted === 'helpful' 
               ? 'bg-black text-white' 
               : 'hover:bg-black/5 text-black/60 disabled:opacity-50'
@@ -1280,7 +1572,7 @@ function ReviewCard({
         <button
           onClick={() => handleVote('not_helpful')}
           disabled={voted !== null}
-          className={`flex items-center gap-1 text-xs px-2 py-1 transition-colors ${
+          className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-full transition-colors ${
             voted === 'not_helpful' 
               ? 'bg-black text-white' 
               : 'hover:bg-black/5 text-black/60 disabled:opacity-50'

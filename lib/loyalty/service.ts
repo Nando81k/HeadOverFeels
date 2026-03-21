@@ -162,7 +162,19 @@ export async function getActiveMultiplierEvent(customerId: string): Promise<{ mu
   for (const event of activeEvents) {
     // If tierIds is set, check if customer's tier qualifies
     if (event.tierIds) {
-      const tierIds = JSON.parse(event.tierIds) as string[]
+      let tierIds: string[] = []
+      try {
+        const parsedTierIds = JSON.parse(event.tierIds) as unknown
+        if (Array.isArray(parsedTierIds)) {
+          tierIds = parsedTierIds.filter(
+            (value): value is string => typeof value === 'string' && value.trim().length > 0
+          )
+        }
+      } catch (parseError) {
+        console.error(`Invalid tierIds JSON for multiplier event ${event.id}:`, parseError)
+        continue
+      }
+
       if (customer?.loyaltyTierId && tierIds.includes(customer.loyaltyTierId)) {
         return { multiplier: event.multiplier, eventId: event.id, eventName: event.name }
       }

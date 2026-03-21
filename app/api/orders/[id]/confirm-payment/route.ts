@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { updateCustomerStatsOnOrderCompletion } from '@/lib/crm/service'
 import { awardReferralPoints } from '@/lib/loyalty/service'
+import { recoverMissingLoyaltyForOrder } from '@/lib/loyalty/recovery'
 import { sendOrderConfirmation } from '@/lib/email/resend'
+import { auth } from '@/lib/auth/auth'
 
 /**
  * POST /api/orders/[id]/confirm-payment
@@ -23,9 +25,12 @@ export async function POST(
     const { id: orderId } = await params
     const body = await request.json()
     const { paymentIntentId } = body
+    const session = await auth()
+    const authenticatedCustomerId =
+      session?.user?.id || request.cookies.get('auth_session')?.value || null
 
     // Get the order
-    const order = await prisma.order.findUnique({
+    let order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
         items: {
@@ -46,12 +51,47 @@ export async function POST(
       )
     }
 
+    // If the requester is authenticated and the emails match, ensure the order
+    // is linked to that authenticated customer (prevents split accounts from
+    // mixed-case checkout emails).
+    if (authenticatedCustomerId && order.customerId !== authenticatedCustomerId) {
+      const authenticatedCustomer = await prisma.customer.findUnique({
+        where: { id: authenticatedCustomerId },
+        select: { id: true, email: true },
+      })
+
+      if (
+        authenticatedCustomer &&
+        authenticatedCustomer.email.toLowerCase().trim() === order.customerEmail.toLowerCase().trim()
+      ) {
+        order = await prisma.order.update({
+          where: { id: orderId },
+          data: {
+            customerId: authenticatedCustomer.id,
+            customerEmail: authenticatedCustomer.email,
+          },
+          include: {
+            items: {
+              include: {
+                product: true,
+                productVariant: true,
+              },
+            },
+            shippingAddress: true,
+            customer: true,
+          },
+        })
+      }
+    }
+
     // If order is already confirmed/paid, skip (webhook might have already processed it)
     if (order.status === 'CONFIRMED' && order.paymentStatus === 'PAID') {
       console.log(`Order ${orderId} already confirmed - skipping duplicate processing`)
       
       // Check if points were already awarded
       let pointsEarned = 0
+      let tierUpgrade: string | undefined
+      let recoveredLoyalty = false
       if (order.customerId) {
         const existingTransaction = await prisma.pointsTransaction.findFirst({
           where: {
@@ -60,8 +100,25 @@ export async function POST(
             type: 'PURCHASE',
             points: { gt: 0 },
           },
+          orderBy: { createdAt: 'desc' },
         })
-        pointsEarned = existingTransaction?.points || 0
+
+        if (existingTransaction) {
+          pointsEarned = existingTransaction.points
+        } else {
+          try {
+            const recoveryResult = await recoverMissingLoyaltyForOrder(
+              orderId,
+              order.customerId,
+              order.total
+            )
+            pointsEarned = recoveryResult.pointsEarned
+            tierUpgrade = recoveryResult.tierUpgrade
+            recoveredLoyalty = recoveryResult.recovered
+          } catch (recoveryError) {
+            console.error(`Failed loyalty recovery for confirmed order ${orderId}:`, recoveryError)
+          }
+        }
       }
       
       return NextResponse.json({
@@ -69,6 +126,8 @@ export async function POST(
         message: 'Order already confirmed',
         alreadyProcessed: true,
         pointsEarned,
+        tierUpgrade,
+        recoveredLoyalty,
       })
     }
 
@@ -86,6 +145,7 @@ export async function POST(
     // Award loyalty points and update CRM stats
     let pointsEarned = 0
     let tierUpgrade: string | undefined
+    let recoveredLoyalty = false
 
     if (order.customerId) {
       try {
@@ -125,6 +185,19 @@ export async function POST(
       } catch (loyaltyError) {
         // Log error but don't fail the request
         console.error(`Failed to process CRM/loyalty for order ${orderId}:`, loyaltyError)
+
+        try {
+          const recoveryResult = await recoverMissingLoyaltyForOrder(
+            orderId,
+            order.customerId,
+            order.total
+          )
+          pointsEarned = recoveryResult.pointsEarned
+          tierUpgrade = recoveryResult.tierUpgrade || tierUpgrade
+          recoveredLoyalty = recoveryResult.recovered
+        } catch (recoveryError) {
+          console.error(`Failed loyalty recovery for order ${orderId}:`, recoveryError)
+        }
       }
     }
 
@@ -165,6 +238,7 @@ export async function POST(
       message: 'Order confirmed and points awarded',
       pointsEarned,
       tierUpgrade,
+      recoveredLoyalty,
     })
   } catch (error) {
     console.error('Error confirming payment:', error)

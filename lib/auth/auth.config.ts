@@ -5,6 +5,36 @@ import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 
+const CANONICAL_CUSTOMER_ORDER = [
+  { totalOrders: 'desc' as const },
+  { lifetimePoints: 'desc' as const },
+  { currentPoints: 'desc' as const },
+  { createdAt: 'asc' as const },
+]
+
+function normalizeEmail(email: string): string {
+  return email.toLowerCase().trim()
+}
+
+async function findCanonicalCustomerByEmail(email: string) {
+  const normalizedEmail = normalizeEmail(email)
+  return prisma.customer.findFirst({
+    where: {
+      email: {
+        equals: normalizedEmail,
+        mode: 'insensitive',
+      },
+    },
+    orderBy: CANONICAL_CUSTOMER_ORDER,
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      isAdmin: true,
+    },
+  })
+}
+
 // Build providers array conditionally based on available env vars
 const providers: NextAuthConfig['providers'] = [];
 
@@ -45,9 +75,19 @@ providers.push(
 
       const email = credentials.email as string;
       const password = credentials.password as string;
+      const normalizedEmail = normalizeEmail(email)
 
-      const customer = await prisma.customer.findUnique({
-        where: { email },
+      const customer = await prisma.customer.findFirst({
+        where: {
+          email: {
+            equals: normalizedEmail,
+            mode: 'insensitive',
+          },
+          password: {
+            not: null,
+          },
+        },
+        orderBy: CANONICAL_CUSTOMER_ORDER,
         select: {
           id: true,
           email: true,
@@ -89,20 +129,27 @@ export const authConfig: NextAuthConfig = {
     async signIn({ user, account, profile }) {
       // For OAuth providers, create or link customer account
       if (account?.provider !== 'credentials' && user.email) {
-        const existingCustomer = await prisma.customer.findUnique({
-          where: { email: user.email },
-        });
+        const normalizedEmail = normalizeEmail(user.email)
+        const existingCustomer = await findCanonicalCustomerByEmail(normalizedEmail)
 
         if (!existingCustomer) {
+          const defaultTier = await prisma.loyaltyTier.findFirst({
+            where: { isActive: true, isInviteOnly: false },
+            orderBy: { minAnnualPoints: 'asc' },
+            select: { id: true },
+          })
+
           // Create new customer for OAuth user
           await prisma.customer.create({
             data: {
-              email: user.email,
+              email: normalizedEmail,
               name: user.name || profile?.name || null,
+              loyaltyTierId: defaultTier?.id,
               // No password for OAuth users
             },
           });
         }
+        user.email = normalizedEmail
       }
       return true;
     },
@@ -113,15 +160,17 @@ export const authConfig: NextAuthConfig = {
         token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
       }
       
-      // On OAuth sign in, get the customer ID
-      if (account?.provider !== 'credentials' && token.email) {
-        const customer = await prisma.customer.findUnique({
-          where: { email: token.email as string },
-          select: { id: true, isAdmin: true },
-        });
+      // Resolve canonical customer by email to avoid split accounts caused by
+      // mixed-case provider emails (e.g. User@Email.com vs user@email.com).
+      if (token.email) {
+        const customer = await findCanonicalCustomerByEmail(token.email as string)
         if (customer) {
           token.id = customer.id;
           token.isAdmin = customer.isAdmin;
+          token.email = customer.email;
+          if (!token.name && customer.name) {
+            token.name = customer.name;
+          }
         }
       }
       

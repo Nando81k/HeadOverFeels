@@ -9,6 +9,7 @@ import { useCartStore } from '@/lib/store/cart'
 import { useAuth } from '@/lib/auth/context'
 import { WishlistIcon } from '@/components/wishlist/WishlistIcon'
 import { NotificationCenter } from '@/components/notifications/NotificationCenter'
+import { SearchModal } from '@/components/search'
 import { 
   Bag, 
   MagnifyingGlass, 
@@ -23,7 +24,6 @@ import {
   Sparkle,
   ArrowRight,
   Fire,
-  ArrowUpRight,
   TrendUp,
   Heart,
   Bell,
@@ -45,10 +45,10 @@ function AnimatedPoints({ value, previousValue }: { value: number; previousValue
   const pointsGained = previousValue !== null && value > previousValue ? value - previousValue : 0
   
   useEffect(() => {
+    let animationFrame: number | null = null
+    let gainHideTimer: ReturnType<typeof setTimeout> | null = null
+
     if (previousValue !== null && value !== previousValue) {
-      setIsAnimating(true)
-      setShowGain(value > previousValue)
-      
       const startValue = previousValue
       const endValue = value
       const duration = 1500
@@ -63,16 +63,31 @@ function AnimatedPoints({ value, previousValue }: { value: number; previousValue
         setDisplayValue(currentValue)
         
         if (progress < 1) {
-          requestAnimationFrame(animate)
+          animationFrame = requestAnimationFrame(animate)
         } else {
           setIsAnimating(false)
-          setTimeout(() => setShowGain(false), 2000)
+          gainHideTimer = setTimeout(() => setShowGain(false), 2000)
         }
       }
       
-      requestAnimationFrame(animate)
+      animationFrame = requestAnimationFrame(() => {
+        setIsAnimating(true)
+        setShowGain(value > previousValue)
+        animate()
+      })
     } else {
-      setDisplayValue(value)
+      animationFrame = requestAnimationFrame(() => {
+        setDisplayValue(value)
+      })
+    }
+
+    return () => {
+      if (animationFrame !== null) {
+        cancelAnimationFrame(animationFrame)
+      }
+      if (gainHideTimer !== null) {
+        clearTimeout(gainHideTimer)
+      }
     }
   }, [value, previousValue])
   
@@ -107,129 +122,6 @@ function AnimatedPoints({ value, previousValue }: { value: number; previousValue
   )
 }
 
-// Product card component with clickable color variants
-interface SearchProductCardProps {
-  product: {
-    id: string
-    name: string
-    slug: string
-    price: number
-    images: string
-    variants: Array<{id: string, color?: string, colorHex?: string, images?: string}>
-  }
-  onSelect: () => void
-}
-
-function SearchProductCard({ product, onSelect }: SearchProductCardProps) {
-  const [selectedColorHex, setSelectedColorHex] = useState<string | null>(null)
-  
-  // Get default image
-  const getDefaultImage = () => {
-    try {
-      const images = typeof product.images === 'string' 
-        ? JSON.parse(product.images) 
-        : product.images
-      if (images && images.length > 0) {
-        const first = images[0]
-        return (typeof first === 'string' ? first : first?.url) || '/placeholder-product.jpg'
-      }
-    } catch {
-      // Keep default
-    }
-    return '/placeholder-product.jpg'
-  }
-
-  // Get unique color variants with their images
-  const colorVariants = product.variants
-    ?.filter((v) => v.colorHex)
-    .reduce((acc: Array<{hex: string, name: string, image: string | null}>, v) => {
-      if (v.colorHex && !acc.some(c => c.hex === v.colorHex)) {
-        let variantImage: string | null = null
-        if (v.images) {
-          try {
-            const parsed = typeof v.images === 'string' ? JSON.parse(v.images) : v.images
-            if (parsed && parsed.length > 0) {
-              const first = parsed[0]
-              variantImage = (typeof first === 'string' ? first : first?.url) || null
-            }
-          } catch {
-            // No variant image
-          }
-        }
-        acc.push({ hex: v.colorHex, name: v.color || '', image: variantImage })
-      }
-      return acc
-    }, []) || []
-
-  // Get current display image based on selected color
-  const currentImage = selectedColorHex 
-    ? (colorVariants.find(c => c.hex === selectedColorHex)?.image || getDefaultImage())
-    : getDefaultImage()
-
-  return (
-    <div 
-      className="flex-1 min-w-0 group"
-      role="listitem"
-    >
-      <Link
-        href={`/products/${product.slug}${selectedColorHex ? `?color=${encodeURIComponent(selectedColorHex)}` : ''}`}
-        onClick={onSelect}
-        className="block focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
-        aria-label={`${product.name}, $${product.price.toFixed(2)}`}
-      >
-        <div className="relative aspect-square bg-black/5 mb-2 overflow-hidden">
-          <Image
-            src={currentImage}
-            alt=""
-            fill
-            className="object-cover transition-all duration-300 group-hover:scale-105"
-          />
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-        </div>
-        <p className="text-xs font-bold text-black truncate group-hover:text-black/70 transition-colors">
-          {product.name}
-        </p>
-      </Link>
-      <div className="flex items-center justify-between mt-1 gap-1">
-        <span className="text-xs font-black text-black/50 tabular-nums shrink-0">
-          ${product.price.toFixed(2)}
-        </span>
-        {colorVariants.length > 0 && (
-          <div 
-            className="flex items-center gap-1" 
-            role="radiogroup" 
-            aria-label={`Color options for ${product.name}`}
-          >
-            {colorVariants.slice(0, 4).map((color) => (
-              <button
-                key={color.hex}
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  setSelectedColorHex(selectedColorHex === color.hex ? null : color.hex)
-                }}
-                className={`w-3 h-3 rounded-full border-2 transition-all hover:scale-125 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-1 ${
-                  selectedColorHex === color.hex 
-                    ? 'border-black scale-110' 
-                    : 'border-black/20 hover:border-black/50'
-                }`}
-                style={{ backgroundColor: color.hex }}
-                title={color.name}
-                aria-label={`Select ${color.name} color${selectedColorHex === color.hex ? ' (selected)' : ''}`}
-                role="radio"
-                aria-checked={selectedColorHex === color.hex}
-              />
-            ))}
-            {colorVariants.length > 4 && (
-              <span className="text-[8px] text-black/40 ml-0.5">+{colorVariants.length - 4}</span>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 const NAV_POINTS_CACHE_KEY = 'hof_nav_points_cache'
 
 const categories = [
@@ -244,11 +136,7 @@ export function Navigation() {
   const [mounted, setMounted] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<Array<{id: string, name: string, slug: string, price: number, images: string, variants: Array<{id: string, color?: string, colorHex?: string, images?: string}>}>>([])
-  const [popularProducts, setPopularProducts] = useState<Array<{id: string, name: string, slug: string, price: number, images: string, variants: Array<{id: string, color?: string, colorHex?: string, images?: string}>}>>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [showNav, setShowNav] = useState(true)
+  const showNav = true
   const [shopDropdownOpen, setShopDropdownOpen] = useState(false)
   const [userPoints, setUserPoints] = useState<number | null>(null)
   const [previousPoints, setPreviousPoints] = useState<number | null>(null)
@@ -259,7 +147,6 @@ export function Navigation() {
   const previousTierSlugRef = useRef<string | null>(null)
   
   const shopDropdownRef = useRef<HTMLDivElement>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
   const cartItemCount = useCartStore(state => mounted ? state.getTotalItems() : 0)
   const { user, loading: authLoading, signout } = useAuth()
 
@@ -280,7 +167,6 @@ export function Navigation() {
     
     // Initialize displayed tier on first load
     if (previousTierSlugRef.current === null) {
-      setDisplayedTierSlug(currentTierSlug)
       previousTierSlugRef.current = currentTierSlug
       return
     }
@@ -328,119 +214,15 @@ export function Navigation() {
       }
       if (e.key === 'Escape' && searchOpen) {
         setSearchOpen(false)
-        setSearchQuery('')
       }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [searchOpen])
 
-  // Focus search input when opened
-  useEffect(() => {
-    if (searchOpen && searchInputRef.current) {
-      setTimeout(() => searchInputRef.current?.focus(), 100)
-    }
-  }, [searchOpen])
-
-  // Fetch popular products when search opens
-  useEffect(() => {
-    if (searchOpen && popularProducts.length === 0) {
-      // Fetch products - try featured first, fallback to any active products
-      fetch('/api/products?limit=5&isActive=true')
-        .then(res => res.json())
-        .then(data => {
-          const products = data.products || data.data || []
-          if (products.length > 0) {
-            setPopularProducts(products.slice(0, 5))
-          }
-        })
-        .catch((err) => {
-          console.error('Failed to fetch popular products:', err)
-        })
-    }
-  }, [searchOpen, popularProducts.length])
-
-  // Live search as user types - search across all products with partial matching
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults([])
-      return
-    }
-    
-    const timer = setTimeout(async () => {
-      setIsSearching(true)
-      try {
-        // Use the main products API with search parameter for better partial matching
-        const res = await fetch(`/api/products?search=${encodeURIComponent(searchQuery)}&limit=8&isActive=true`)
-        const data = await res.json()
-        const products = data.products || data.data || []
-        if (products.length > 0) {
-          setSearchResults(products.slice(0, 5))
-        } else {
-          // If no results from API, try the search endpoint as fallback
-          const searchRes = await fetch(`/api/products/search?q=${encodeURIComponent(searchQuery)}&limit=5`)
-          const searchData = await searchRes.json()
-          setSearchResults(searchData.products || [])
-        }
-      } catch {
-        setSearchResults([])
-      } finally {
-        setIsSearching(false)
-      }
-    }, 200)
-
-    return () => clearTimeout(timer)
-  }, [searchQuery])
-
-  useEffect(() => {
-    let lastScroll = 0
-    let ticking = false
-
-    const onScroll = () => {
-      const current = window.scrollY || 0
-
-      if (mobileMenuOpen || searchOpen) {
-        setShowNav(true)
-        lastScroll = current
-        return
-      }
-
-      // Check if we're on mobile (< 768px)
-      const isMobile = window.innerWidth < 768
-      
-      // On mobile, always show the nav (sticky behavior)
-      if (isMobile) {
-        setShowNav(true)
-        lastScroll = current
-        return
-      }
-
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          if (current > lastScroll && current > 80) {
-            setShowNav(false)
-          } else {
-            setShowNav(true)
-          }
-          lastScroll = current
-          ticking = false
-        })
-        ticking = true
-      }
-    }
-
-    window.addEventListener('scroll', onScroll, { passive: true })
-    // Also listen for resize to handle orientation changes
-    window.addEventListener('resize', onScroll, { passive: true })
-    return () => {
-      window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onScroll)
-    }
-  }, [mobileMenuOpen, searchOpen])
-
   const fetchUserPoints = useCallback(async () => {
     try {
-      const response = await fetch('/api/loyalty/me')
+      const response = await fetch('/api/loyalty/me', { cache: 'no-store' })
       if (response.ok) {
         const data = await response.json()
         const newPoints = data.points
@@ -467,8 +249,36 @@ export function Navigation() {
   }, [user])
 
   useEffect(() => {
-    if (user && mounted) {
+    if (!user || !mounted) return
+
+    const timeoutId = window.setTimeout(() => {
       void fetchUserPoints()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [user, mounted, pathname, fetchUserPoints])
+
+  useEffect(() => {
+    if (!user || !mounted) return
+
+    const refreshPoints = () => {
+      void fetchUserPoints()
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshPoints()
+      }
+    }
+
+    window.addEventListener('focus', refreshPoints)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('hof:loyalty-updated', refreshPoints as EventListener)
+
+    return () => {
+      window.removeEventListener('focus', refreshPoints)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('hof:loyalty-updated', refreshPoints as EventListener)
     }
   }, [user, mounted, fetchUserPoints])
 
@@ -483,16 +293,6 @@ export function Navigation() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Handle search submission
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      router.push(`/products?search=${encodeURIComponent(searchQuery.trim())}`)
-      setSearchOpen(false)
-      setSearchQuery('')
-    }
-  }
-
   const navLinks = [
     { href: '/collections', label: 'Collections' },
     { href: '/about', label: 'About' },
@@ -500,6 +300,7 @@ export function Navigation() {
 
   const isActive = (href: string) => pathname === href
   const isShopActive = pathname === '/products' || pathname.startsWith('/products?')
+  const displayedUserPoints = userPoints ?? user?.currentPoints ?? 0
 
   return (
     <>
@@ -681,14 +482,14 @@ export function Navigation() {
             {/* Right - Icons + Mobile Menu Toggle */}
             <div className="flex items-center gap-0.5">
               {/* Rewards - Pill style (Desktop) */}
-              {user && userPoints !== null && (
+              {user && (
                 <Link
-                  href="/loyalty/rewards"
+                  href="/profile#rewards"
                   className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-black/5 hover:bg-black hover:text-white text-black transition-all duration-200"
-                  title="View Rewards"
+                  title="View Profile & Rewards"
                 >
                   <Trophy size={14} weight="fill" />
-                  <AnimatedPoints value={userPoints} previousValue={previousPoints} />
+                  <AnimatedPoints value={displayedUserPoints} previousValue={previousPoints} />
                   <span className="text-[9px] font-bold uppercase tracking-wider opacity-50">pts</span>
                 </Link>
               )}
@@ -698,6 +499,7 @@ export function Navigation() {
                 onClick={() => setSearchOpen(true)}
                 className="hidden lg:flex items-center justify-center w-10 h-10 text-black/40 hover:text-black hover:bg-black/5 transition-all duration-200"
                 aria-label="Search"
+                data-testid="nav-search-trigger-desktop"
               >
                 <MagnifyingGlass size={18} weight="bold" />
               </button>
@@ -726,17 +528,9 @@ export function Navigation() {
                 )}
               </Link>
 
-              {/* Profile / Sign In (Desktop) */}
+              {/* Sign In (Desktop) */}
               {!authLoading && (
-                user ? (
-                  <Link
-                    href="/profile"
-                    className="hidden lg:flex p-2 text-black/50 hover:text-black hover:bg-black/5 transition-all duration-200"
-                    aria-label="Profile"
-                  >
-                    <UserCircle size={20} weight="fill" />
-                  </Link>
-                ) : (
+                !user && (
                   <Link
                     href="/signin"
                     className="hidden lg:flex items-center gap-2 px-4 py-2 bg-black text-white text-[11px] font-black uppercase tracking-widest hover:bg-black/90 transition-all duration-200"
@@ -745,6 +539,16 @@ export function Navigation() {
                   </Link>
                 )
               )}
+
+              {/* Search Trigger - Mobile */}
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="lg:hidden p-2 text-black/60 hover:text-black transition-colors"
+                aria-label="Search"
+                data-testid="nav-search-trigger-mobile"
+              >
+                <MagnifyingGlass size={20} weight="bold" />
+              </button>
 
               {/* Mobile Menu Toggle - Right side on mobile and tablet */}
               <button
@@ -759,265 +563,7 @@ export function Navigation() {
         </div>
       </nav>
 
-      {/* Search Overlay - 55% Height Dropdown Style */}
-      <AnimatePresence>
-        {searchOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
-              onClick={() => {
-                setSearchOpen(false)
-                setSearchQuery('')
-                setSearchResults([])
-              }}
-            />
-            
-            {/* Search Panel */}
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="fixed top-0 left-0 right-0 z-50 bg-white shadow-2xl"
-              style={{ maxHeight: '55vh' }}
-            >
-              {/* Search Header */}
-              <div className="border-b border-black/10">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
-                  <div className="flex items-center gap-4">
-                    {/* Search Input */}
-                    <div className="flex-1 relative">
-                      <MagnifyingGlass 
-                        size={20} 
-                        weight="bold" 
-                        className="absolute left-0 top-1/2 -translate-y-1/2 text-black/30" 
-                      />
-                      <form onSubmit={handleSearch}>
-                        <input
-                          ref={searchInputRef}
-                          type="text"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          placeholder="Search products..."
-                          className="w-full pl-8 pr-4 py-2 text-xl md:text-2xl font-bold text-black placeholder:text-black/30 bg-transparent outline-none"
-                          autoComplete="off"
-                        />
-                      </form>
-                      {isSearching && (
-                        <div className="absolute right-0 top-1/2 -translate-y-1/2">
-                          <div className="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Close Button */}
-                    <button
-                      onClick={() => {
-                        setSearchOpen(false)
-                        setSearchQuery('')
-                        setSearchResults([])
-                      }}
-                      className="w-10 h-10 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/5 transition-all"
-                      aria-label="Close search"
-                    >
-                      <X size={20} weight="bold" />
-                    </button>
-                  </div>
-                  
-                  {/* Keyboard hint */}
-                  <p className="mt-2 text-[10px] text-black/30 uppercase tracking-wider">
-                    Press Enter to search • ESC to close
-                  </p>
-                </div>
-              </div>
-
-              {/* Search Content */}
-              <div className="overflow-y-auto" style={{ maxHeight: 'calc(55vh - 110px)' }}>
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
-                  
-                  {/* Live Search Results */}
-                  {searchQuery.trim() && searchResults.length > 0 && (
-                    <div className="mb-8">
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/30 mb-4">
-                        Suggestions
-                      </p>
-                      <div className="space-y-1">
-                        {searchResults.map((product) => {
-                          let imageUrl = '/placeholder-product.jpg'
-                          try {
-                            const images = typeof product.images === 'string' 
-                              ? JSON.parse(product.images) 
-                              : product.images
-                            if (images && images.length > 0) {
-                              const first = images[0]
-                              imageUrl = (typeof first === 'string' ? first : first?.url) || imageUrl
-                            }
-                          } catch {
-                            // Keep default placeholder
-                          }
-
-                          // Get unique colors from variants
-                          const colors = product.variants
-                            ?.filter((v: { colorHex?: string }) => v.colorHex)
-                            .reduce((acc: Array<{hex: string, name: string}>, v: { colorHex?: string, color?: string }) => {
-                              if (v.colorHex && !acc.some(c => c.hex === v.colorHex)) {
-                                acc.push({ hex: v.colorHex, name: v.color || '' })
-                              }
-                              return acc
-                            }, [])
-                            .slice(0, 4) || []
-
-                          return (
-                            <Link
-                              key={product.id}
-                              href={`/products/${product.slug}`}
-                              onClick={() => {
-                                setSearchOpen(false)
-                                setSearchQuery('')
-                                setSearchResults([])
-                              }}
-                              className="flex items-center gap-4 p-3 hover:bg-black/5 transition-colors group"
-                            >
-                              <div className="relative w-14 h-14 bg-black/5 shrink-0 overflow-hidden">
-                                <Image
-                                  src={imageUrl}
-                                  alt={product.name}
-                                  fill
-                                  className="object-cover"
-                                />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-black truncate group-hover:text-black/70 transition-colors">
-                                  {product.name}
-                                </p>
-                                <div className="flex items-center gap-3 mt-1">
-                                  <span className="text-sm font-black text-black/50 tabular-nums">
-                                    ${product.price.toFixed(2)}
-                                  </span>
-                                  {colors && colors.length > 0 && (
-                                    <div className="flex items-center gap-1">
-                                      {colors.map((color: {hex: string, name: string}) => (
-                                        <span
-                                          key={color.hex}
-                                          className="w-3 h-3 rounded-full border border-black/10"
-                                          style={{ backgroundColor: color.hex }}
-                                          title={color.name}
-                                        />
-                                      ))}
-                                      {product.variants && product.variants.filter((v: { colorHex?: string }) => v.colorHex).length > 4 && (
-                                        <span className="text-[10px] text-black/40">
-                                          +{product.variants.filter((v: { colorHex?: string }) => v.colorHex).length - 4}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <ArrowUpRight size={16} weight="bold" className="text-black/20 group-hover:text-black transition-colors shrink-0" />
-                            </Link>
-                          )
-                        })}
-                      </div>
-                      
-                      {/* View all results */}
-                      <button
-                        onClick={() => {
-                          router.push(`/products?search=${encodeURIComponent(searchQuery)}`)
-                          setSearchOpen(false)
-                          setSearchQuery('')
-                          setSearchResults([])
-                        }}
-                        className="mt-3 w-full py-3 text-xs font-black uppercase tracking-wider text-black/50 hover:text-black hover:bg-black/5 border border-black/10 transition-all"
-                      >
-                        View all results for &quot;{searchQuery}&quot;
-                      </button>
-                    </div>
-                  )}
-                  
-                  {/* No results message */}
-                  {searchQuery.trim() && !isSearching && searchResults.length === 0 && (
-                    <div className="mb-8 text-center py-8">
-                      <p className="text-sm text-black/40">No products found for &quot;{searchQuery}&quot;</p>
-                      <p className="text-xs text-black/30 mt-1">Try a different search term</p>
-                    </div>
-                  )}
-                  
-                  {/* Default Content - Horizontal Layout */}
-                  {!searchQuery.trim() && (
-                    <div className="space-y-6">
-                      {/* Trending Searches - Horizontal Pills */}
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <TrendUp size={14} weight="bold" className="text-black/30" />
-                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/30">
-                            Trending Searches
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2" role="list" aria-label="Trending search terms">
-                          {['Hoodies', 'Graphic Tees', 'New Arrivals', 'Best Sellers', 'Limited Drops', 'Accessories'].map((term) => (
-                            <button
-                              key={term}
-                              onClick={() => {
-                                router.push(`/products?search=${encodeURIComponent(term)}`)
-                                setSearchOpen(false)
-                                setSearchQuery('')
-                              }}
-                              className="px-4 py-2 text-xs font-bold text-black/60 border border-black/10 hover:border-black hover:text-black hover:bg-black/5 transition-all focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
-                              role="listitem"
-                            >
-                              {term}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* Popular Products - Horizontal Row */}
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <Fire size={14} weight="fill" className="text-orange-500" />
-                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/30">
-                            Popular Products
-                          </p>
-                        </div>
-                        
-                        {popularProducts.length === 0 ? (
-                          <div className="flex gap-4" role="list" aria-label="Loading popular products">
-                            {[1, 2, 3, 4, 5].map((i) => (
-                              <div key={i} className="flex-1 min-w-0 animate-pulse" role="listitem" aria-hidden="true">
-                                <div className="aspect-square bg-black/10 mb-2" />
-                                <div className="h-3 bg-black/10 w-3/4 mb-1" />
-                                <div className="h-3 bg-black/10 w-1/2" />
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="flex gap-4" role="list" aria-label="Popular products">
-                            {popularProducts.slice(0, 5).map((product) => (
-                              <SearchProductCard 
-                                key={product.id} 
-                                product={product} 
-                                onSelect={() => {
-                                  setSearchOpen(false)
-                                  setSearchQuery('')
-                                }}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
 
       {/* Mobile Menu - Full Screen Overlay */}
       <AnimatePresence>
@@ -1250,7 +796,7 @@ export function Navigation() {
                       
                       {/* View Rewards Link */}
                       <Link
-                        href="/loyalty/rewards"
+                        href="/profile#rewards"
                         onClick={() => setMobileMenuOpen(false)}
                         className="flex items-center justify-between pt-3 border-t border-white/20 group relative"
                       >
@@ -1406,7 +952,7 @@ export function Navigation() {
                     </Link>
                     
                     <Link
-                      href="/loyalty/rewards"
+                      href="/profile#rewards"
                       onClick={() => setMobileMenuOpen(false)}
                       className="flex items-center justify-between px-4 py-3 text-black/70 hover:text-black hover:bg-black/5 transition-all"
                     >

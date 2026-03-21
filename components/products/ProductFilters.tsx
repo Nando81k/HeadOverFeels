@@ -1,261 +1,428 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { MagnifyingGlass, X, SlidersHorizontal, Check, Sparkle, Package, CurrencyDollar } from '@phosphor-icons/react'
+import { useMemo, useState } from 'react'
+import { Check, MagnifyingGlass, Package, Palette, SlidersHorizontal, X } from '@phosphor-icons/react'
+import {
+  ColorOption,
+  FilterState,
+  PriceBounds,
+  ProductSortBy,
+} from '@/components/products/product-filtering'
 
 interface ProductFiltersProps {
+  filters: FilterState
+  availableSizes: string[]
+  availableColors: ColorOption[]
+  searchSuggestions: string[]
+  priceBounds: PriceBounds
   onFilterChange: (filters: FilterState) => void
-  initialFilters?: FilterState
+  onClearAll: () => void
 }
 
-export interface FilterState {
-  search: string
-  priceRange: [number, number]
-  sizes: string[]
-  inStockOnly: boolean
-  sortBy: string
-}
-
-const SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL']
-const SORT_OPTIONS = [
-  { value: 'newest', label: 'Newest First', icon: Sparkle },
-  { value: 'price-asc', label: 'Price: Low → High', icon: CurrencyDollar },
-  { value: 'price-desc', label: 'Price: High → Low', icon: CurrencyDollar },
-  { value: 'name', label: 'Name: A → Z', icon: null },
+const SORT_OPTIONS: Array<{ value: ProductSortBy; label: string }> = [
+  { value: 'newest', label: 'Newest First' },
+  { value: 'price-asc', label: 'Price: Low to High' },
+  { value: 'price-desc', label: 'Price: High to Low' },
+  { value: 'name', label: 'Name: A to Z' },
 ]
 
-const DEFAULT_FILTERS: FilterState = {
-  search: '',
-  priceRange: [0, 500],
-  sizes: [],
-  inStockOnly: false,
-  sortBy: 'newest',
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
 }
 
-export function ProductFilters({ onFilterChange, initialFilters }: ProductFiltersProps) {
-  const [filters, setFilters] = useState<FilterState>(initialFilters || DEFAULT_FILTERS)
+function sanitizeHexColor(value: string | null): string | null {
+  if (!value) {
+    return null
+  }
 
-  // Sync with parent's filter state when it changes
-  useEffect(() => {
-    if (initialFilters) {
-      setFilters(initialFilters)
-    }
-  }, [initialFilters])
+  const hex = value.trim()
+  if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
+    return hex
+  }
+
+  return null
+}
+
+function createPricePresets(bounds: PriceBounds): Array<{ label: string; range: [number, number] }> {
+  const presets: Array<{ label: string; range: [number, number] }> = []
+
+  const under50: [number, number] = [bounds.min, Math.min(50, bounds.max)]
+  if (under50[0] <= under50[1]) {
+    presets.push({ label: 'Under $50', range: under50 })
+  }
+
+  const between50And100: [number, number] = [Math.max(bounds.min, 50), Math.min(bounds.max, 100)]
+  if (between50And100[0] <= between50And100[1]) {
+    presets.push({ label: '$50 - $100', range: between50And100 })
+  }
+
+  const between100And150: [number, number] = [Math.max(bounds.min, 100), Math.min(bounds.max, 150)]
+  if (between100And150[0] <= between100And150[1]) {
+    presets.push({ label: '$100 - $150', range: between100And150 })
+  }
+
+  const over150: [number, number] = [Math.max(bounds.min, 150), bounds.max]
+  if (over150[0] <= over150[1]) {
+    presets.push({ label: '$150+', range: over150 })
+  }
+
+  return presets
+}
+
+export function ProductFilters({
+  filters,
+  availableSizes,
+  availableColors,
+  searchSuggestions,
+  priceBounds,
+  onFilterChange,
+  onClearAll,
+}: ProductFiltersProps) {
+  const [isSearchFocused, setIsSearchFocused] = useState(false)
 
   const updateFilters = (updates: Partial<FilterState>) => {
-    const newFilters = { ...filters, ...updates }
-    setFilters(newFilters)
-    onFilterChange(newFilters)
+    onFilterChange({ ...filters, ...updates })
   }
+
+  const filteredSearchSuggestions = useMemo(() => {
+    const query = filters.search.trim().toLowerCase()
+    if (query.length < 1) {
+      return []
+    }
+
+    const seen = new Set<string>()
+    const nextSuggestions: string[] = []
+
+    searchSuggestions.forEach((suggestion) => {
+      const trimmed = suggestion.trim()
+      if (!trimmed) {
+        return
+      }
+
+      const normalized = trimmed.toLowerCase()
+      if (seen.has(normalized) || !normalized.includes(query)) {
+        return
+      }
+
+      seen.add(normalized)
+      nextSuggestions.push(trimmed)
+    })
+
+    return nextSuggestions.slice(0, 8)
+  }, [filters.search, searchSuggestions])
 
   const toggleSize = (size: string) => {
-    const newSizes = filters.sizes.includes(size)
-      ? filters.sizes.filter(s => s !== size)
+    const nextSizes = filters.sizes.includes(size)
+      ? filters.sizes.filter((value) => value !== size)
       : [...filters.sizes, size]
-    updateFilters({ sizes: newSizes })
+
+    updateFilters({ sizes: nextSizes })
   }
 
-  const clearFilters = () => {
-    setFilters(DEFAULT_FILTERS)
-    onFilterChange(DEFAULT_FILTERS)
+  const toggleColor = (colorKey: string) => {
+    const nextColors = filters.colors.includes(colorKey)
+      ? filters.colors.filter((value) => value !== colorKey)
+      : [...filters.colors, colorKey]
+
+    updateFilters({ colors: nextColors })
   }
 
-  const hasActiveFilters = filters.search || 
-    filters.sizes.length > 0 || 
-    filters.inStockOnly || 
-    filters.priceRange[1] < 500
+  const [selectedMin, selectedMax] = filters.priceRange
+  const minPercent = ((selectedMin - priceBounds.min) / Math.max(priceBounds.max - priceBounds.min, 1)) * 100
+  const maxPercent = ((selectedMax - priceBounds.min) / Math.max(priceBounds.max - priceBounds.min, 1)) * 100
 
-  const activeFilterCount = [
-    filters.search,
-    filters.sizes.length > 0,
-    filters.inStockOnly,
-    filters.priceRange[1] < 500
-  ].filter(Boolean).length
+  const handleMinPriceChange = (value: number) => {
+    const nextMin = clamp(value, priceBounds.min, selectedMax)
+    updateFilters({ priceRange: [nextMin, selectedMax] })
+  }
+
+  const handleMaxPriceChange = (value: number) => {
+    const nextMax = clamp(value, selectedMin, priceBounds.max)
+    updateFilters({ priceRange: [selectedMin, nextMax] })
+  }
+
+  const pricePresets = createPricePresets(priceBounds)
 
   return (
-    <div className="space-y-8">
-      {/* Search - Premium Style */}
-      <div className="space-y-3">
-        <label className="flex items-center gap-2 text-xs font-bold text-black/50 uppercase tracking-[0.2em]">
+    <div className="space-y-8" data-testid="products-filter-panel">
+      <section className="space-y-3">
+        <label
+          htmlFor="products-search-filter"
+          className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-black/55"
+        >
           <MagnifyingGlass size={14} weight="bold" />
           Search
         </label>
-        <div className="relative group">
+        <div className="relative">
           <input
-            type="text"
-            placeholder="What are you looking for?"
+            id="products-search-filter"
+            type="search"
             value={filters.search}
-            onChange={(e) => updateFilters({ search: e.target.value })}
-            className="w-full px-4 py-3.5 bg-black/[0.02] border-0 border-b-2 border-black/10 focus:border-black focus:bg-white text-black placeholder-black/30 transition-all duration-300 text-sm"
+            placeholder="Search products"
+            onChange={(event) => updateFilters({ search: event.target.value })}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
+            className="h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-sm text-black outline-none transition-colors placeholder:text-black/35 focus:border-black"
           />
+          {isSearchFocused && filteredSearchSuggestions.length > 0 ? (
+            <div
+              className="absolute left-0 right-0 top-[calc(100%+8px)] z-10 overflow-hidden rounded-xl border border-black/10 bg-white shadow-[0_12px_28px_rgba(0,0,0,0.08)]"
+              data-testid="products-filter-autocomplete-list"
+            >
+              <div className="border-b border-black/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-black/45">
+                Suggestions
+              </div>
+              <div className="max-h-56 overflow-y-auto">
+                {filteredSearchSuggestions.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      updateFilters({ search: suggestion })
+                      setIsSearchFocused(false)
+                    }}
+                    className="flex w-full items-center justify-between border-b border-black/5 px-3 py-2.5 text-left text-sm text-black/75 transition-colors hover:bg-black/[0.03] hover:text-black last:border-b-0"
+                  >
+                    <span className="truncate">{suggestion}</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-black/35">
+                      Product
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {filters.search && (
             <button
+              type="button"
               onClick={() => updateFilters({ search: '' })}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-black/30 hover:text-black transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-black/40 transition-colors hover:text-black"
+              aria-label="Clear search filter"
             >
               <X size={16} weight="bold" />
             </button>
           )}
         </div>
-      </div>
+      </section>
 
-      {/* Sort By - Card Style */}
-      <div className="space-y-3">
-        <label className="flex items-center gap-2 text-xs font-bold text-black/50 uppercase tracking-[0.2em]">
+      <section className="space-y-3">
+        <label
+          htmlFor="products-sort-filter"
+          className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-black/55"
+        >
           <SlidersHorizontal size={14} weight="bold" />
-          Sort By
+          Sort
         </label>
-        <div className="grid grid-cols-1 gap-2">
-          {SORT_OPTIONS.map(option => {
-            const isSelected = filters.sortBy === option.value
-            return (
-              <button
-                key={option.value}
-                onClick={() => updateFilters({ sortBy: option.value })}
-                className={`flex items-center justify-between px-4 py-3 text-left transition-all duration-200 ${
-                  isSelected 
-                    ? 'bg-black text-white' 
-                    : 'bg-black/[0.02] text-black/70 hover:bg-black/[0.05] hover:text-black'
-                }`}
-              >
-                <span className="text-sm font-medium">{option.label}</span>
-                {isSelected && <Check size={16} weight="bold" />}
-              </button>
-            )
-          })}
+        <div className="relative">
+          <select
+            id="products-sort-filter"
+            value={filters.sortBy}
+            onChange={(event) => updateFilters({ sortBy: event.target.value as ProductSortBy })}
+            className="h-11 w-full appearance-none rounded-xl border border-black/15 bg-white px-3 pr-10 text-sm font-medium text-black outline-none transition-colors focus:border-black"
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-black/55">▼</span>
         </div>
-      </div>
+      </section>
 
-      {/* Divider */}
-      <div className="h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
-
-      {/* Price Range - Modern Slider */}
-      <div className="space-y-4">
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <label className="flex items-center gap-2 text-xs font-bold text-black/50 uppercase tracking-[0.2em]">
-            <CurrencyDollar size={14} weight="bold" />
-            Price Range
-          </label>
-          <span className="text-sm font-bold text-black">
-            ${filters.priceRange[0]} – ${filters.priceRange[1]}
-          </span>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-black/55">Price</p>
+          <p className="text-sm font-semibold text-black">
+            ${selectedMin} - ${selectedMax}
+          </p>
         </div>
-        <div className="relative pt-2 pb-1">
-          <div className="absolute top-1/2 left-0 right-0 h-1 bg-black/10 -translate-y-1/2" />
-          <div 
-            className="absolute top-1/2 left-0 h-1 bg-black -translate-y-1/2 transition-all duration-150"
-            style={{ width: `${(filters.priceRange[1] / 500) * 100}%` }}
-          />
-          <input
-            type="range"
-            min="0"
-            max="500"
-            step="10"
-            value={filters.priceRange[1]}
-            onChange={(e) => updateFilters({ 
-              priceRange: [0, parseInt(e.target.value)] 
-            })}
-            className="relative w-full h-5 bg-transparent appearance-none cursor-pointer z-10
-              [&::-webkit-slider-thumb]:appearance-none
-              [&::-webkit-slider-thumb]:w-5
-              [&::-webkit-slider-thumb]:h-5
-              [&::-webkit-slider-thumb]:bg-black
-              [&::-webkit-slider-thumb]:border-2
-              [&::-webkit-slider-thumb]:border-white
-              [&::-webkit-slider-thumb]:shadow-md
-              [&::-webkit-slider-thumb]:cursor-pointer
-              [&::-webkit-slider-thumb]:transition-transform
-              [&::-webkit-slider-thumb]:hover:scale-110
-              [&::-moz-range-thumb]:w-5
-              [&::-moz-range-thumb]:h-5
-              [&::-moz-range-thumb]:bg-black
-              [&::-moz-range-thumb]:border-2
-              [&::-moz-range-thumb]:border-white
-              [&::-moz-range-thumb]:shadow-md
-              [&::-moz-range-thumb]:cursor-pointer"
-          />
-        </div>
-        <div className="flex justify-between text-xs text-black/40">
-          <span>$0</span>
-          <span>$500+</span>
-        </div>
-      </div>
 
-      {/* Sizes - Pill Style */}
-      <div className="space-y-4">
-        <label className="flex items-center gap-2 text-xs font-bold text-black/50 uppercase tracking-[0.2em]">
+        <div className="space-y-3">
+          <div className="relative h-10">
+            <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-black/10" />
+            <div
+              className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-black"
+              style={{ left: `${minPercent}%`, width: `${Math.max(maxPercent - minPercent, 0)}%` }}
+            />
+
+            <input
+              type="range"
+              min={priceBounds.min}
+              max={priceBounds.max}
+              step={1}
+              value={selectedMin}
+              onChange={(event) => handleMinPriceChange(Number(event.target.value))}
+              aria-label="Minimum price"
+              className="pointer-events-none absolute inset-0 h-10 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-black [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-black"
+            />
+
+            <input
+              type="range"
+              min={priceBounds.min}
+              max={priceBounds.max}
+              step={1}
+              value={selectedMax}
+              onChange={(event) => handleMaxPriceChange(Number(event.target.value))}
+              aria-label="Maximum price"
+              className="pointer-events-none absolute inset-0 h-10 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-black [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-black"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <label className="space-y-1">
+              <span className="text-[10px] uppercase tracking-[0.16em] text-black/45">Min</span>
+              <input
+                type="number"
+                min={priceBounds.min}
+                max={selectedMax}
+                value={selectedMin}
+                onChange={(event) => handleMinPriceChange(Number(event.target.value))}
+                className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm text-black outline-none focus:border-black"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-[10px] uppercase tracking-[0.16em] text-black/45">Max</span>
+              <input
+                type="number"
+                min={selectedMin}
+                max={priceBounds.max}
+                value={selectedMax}
+                onChange={(event) => handleMaxPriceChange(Number(event.target.value))}
+                className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm text-black outline-none focus:border-black"
+              />
+            </label>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {pricePresets.map((preset) => {
+              const isActive =
+                filters.priceRange[0] === preset.range[0] &&
+                filters.priceRange[1] === preset.range[1]
+
+              return (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => updateFilters({ priceRange: preset.range })}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    isActive
+                      ? 'border-black bg-black text-white'
+                      : 'border-black/15 bg-white text-black/70 hover:border-black/35 hover:text-black'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-black/55">
           <Package size={14} weight="bold" />
           Sizes
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {SIZES.map(size => {
-            const isSelected = filters.sizes.includes(size)
-            return (
-              <button
-                key={size}
-                onClick={() => toggleSize(size)}
-                className={`relative px-4 py-2.5 min-w-[52px] font-bold text-sm transition-all duration-200 ${
-                  isSelected
-                    ? 'bg-black text-white shadow-lg shadow-black/20 scale-105'
-                    : 'bg-black/[0.02] text-black/60 hover:bg-black/[0.06] hover:text-black'
-                }`}
-              >
-                {size}
-                {isSelected && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-white border-2 border-black rounded-full flex items-center justify-center">
-                    <Check size={10} weight="bold" className="text-black" />
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+        </p>
 
-      {/* In Stock Toggle - Switch Style */}
-      <div className="space-y-3">
-        <button
-          onClick={() => updateFilters({ inStockOnly: !filters.inStockOnly })}
-          className={`w-full flex items-center justify-between px-4 py-4 transition-all duration-200 ${
-            filters.inStockOnly 
-              ? 'bg-green-50 border-l-4 border-green-500' 
-              : 'bg-black/[0.02] border-l-4 border-transparent hover:bg-black/[0.04]'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-6 rounded-full relative transition-colors duration-200 ${
-              filters.inStockOnly ? 'bg-green-500' : 'bg-black/20'
-            }`}>
-              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-200 ${
-                filters.inStockOnly ? 'left-5' : 'left-1'
-              }`} />
-            </div>
-            <span className={`text-sm font-medium transition-colors ${
-              filters.inStockOnly ? 'text-green-700' : 'text-black/60'
-            }`}>
-              In Stock Only
-            </span>
+        {availableSizes.length === 0 ? (
+          <p className="text-sm text-black/45">No size variants available.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2" data-testid="size-filter-options">
+            {availableSizes.map((size) => {
+              const isActive = filters.sizes.includes(size)
+              return (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => toggleSize(size)}
+                  className={`min-w-[48px] rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] transition-colors ${
+                    isActive
+                      ? 'border-black bg-black text-white'
+                      : 'border-black/15 bg-white text-black/70 hover:border-black/35 hover:text-black'
+                  }`}
+                  aria-pressed={isActive}
+                  aria-label={`Filter size ${size}`}
+                >
+                  {size}
+                </button>
+              )
+            })}
           </div>
-          {filters.inStockOnly && (
-            <span className="text-xs font-bold text-green-600 uppercase tracking-wider">Active</span>
-          )}
-        </button>
-      </div>
+        )}
+      </section>
 
-      {/* Clear Filters - Accent Button */}
-      {hasActiveFilters && (
-        <div className="pt-4 border-t border-black/5">
-          <button
-            onClick={clearFilters}
-            className="group w-full flex items-center justify-center gap-3 px-4 py-4 bg-black/[0.02] hover:bg-red-50 text-black/60 hover:text-red-600 transition-all duration-200"
-          >
-            <X size={18} weight="bold" className="transition-transform group-hover:rotate-90" />
-            <span className="text-sm font-bold uppercase tracking-wider">
-              Clear {activeFilterCount} Filter{activeFilterCount > 1 ? 's' : ''}
-            </span>
-          </button>
-        </div>
-      )}
+      <section className="space-y-3">
+        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-black/55">
+          <Palette size={14} weight="bold" />
+          Colors
+        </p>
+
+        {availableColors.length === 0 ? (
+          <p className="text-sm text-black/45">No color variants available.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2" data-testid="color-filter-options">
+            {availableColors.map((option) => {
+              const isActive = filters.colors.includes(option.key)
+              const safeHex = sanitizeHexColor(option.hex)
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => toggleColor(option.key)}
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors ${
+                    isActive
+                      ? 'border-black bg-black text-white'
+                      : 'border-black/15 bg-white text-black/75 hover:border-black/35 hover:text-black'
+                  }`}
+                  aria-pressed={isActive}
+                  aria-label={`Filter color ${option.label}`}
+                >
+                  <span
+                    className={`h-4 w-4 rounded-full border ${isActive ? 'border-white/60' : 'border-black/20'}`}
+                    style={safeHex ? { backgroundColor: safeHex } : undefined}
+                  >
+                    {!safeHex && (
+                      <span className={`block h-full w-full rounded-full ${isActive ? 'bg-white/40' : 'bg-black/20'}`} />
+                    )}
+                  </span>
+                  <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                    <span className="truncate text-xs font-semibold uppercase tracking-[0.08em]">{option.label}</span>
+                    <span className={`text-[10px] ${isActive ? 'text-white/75' : 'text-black/45'}`}>{option.count}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <button
+          type="button"
+          onClick={() => updateFilters({ inStockOnly: !filters.inStockOnly })}
+          className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition-colors ${
+            filters.inStockOnly
+              ? 'border-black bg-black text-white'
+              : 'border-black/15 bg-white text-black hover:border-black/35'
+          }`}
+          aria-pressed={filters.inStockOnly}
+        >
+          <span className="text-sm font-semibold uppercase tracking-[0.08em]">In Stock Only</span>
+          {filters.inStockOnly ? <Check size={16} weight="bold" /> : null}
+        </button>
+      </section>
+
+      <button
+        type="button"
+        onClick={onClearAll}
+        className="w-full rounded-xl border border-black/15 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.08em] text-black/70 transition-colors hover:border-black/30 hover:text-black"
+      >
+        Clear all filters
+      </button>
     </div>
   )
 }
+
+export type { FilterState }

@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { Prisma } from '@prisma/client'
 import { isValidGuestEmail } from '@/lib/security/guest-session'
 import { getPaginationParams, createPaginatedResponse } from '@/lib/validation/schemas'
+import { auth } from '@/lib/auth/auth'
 
 // Validation schemas
 const AddressSchema = z.object({
@@ -44,17 +45,28 @@ const CreateOrderSchema = z.object({
   promotionId: z.string().optional(), // For marketing promotions
 })
 
+const CANONICAL_CUSTOMER_ORDER = [
+  { totalOrders: 'desc' as const },
+  { lifetimePoints: 'desc' as const },
+  { currentPoints: 'desc' as const },
+  { createdAt: 'asc' as const },
+]
+
 // POST /api/orders - Create a new order
 // For guest checkouts: validates guest email against x-guest-email header
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const validatedData = CreateOrderSchema.parse(body)
+    const normalizedEmail = validatedData.customerEmail.toLowerCase().trim()
+    const session = await auth()
+    const authenticatedCustomerId =
+      session?.user?.id || request.cookies.get('auth_session')?.value || null
 
     // Validate guest email if provided
     const headerEmail = request.headers.get('x-guest-email')
     if (headerEmail) {
-      const bodyEmail = validatedData.customerEmail.toLowerCase().trim()
+      const bodyEmail = normalizedEmail
       const cleanHeaderEmail = headerEmail.toLowerCase().trim()
 
       // For guests: email in request must match header to prevent manipulation
@@ -77,14 +89,37 @@ export async function POST(request: NextRequest) {
     // Start a transaction to ensure all operations succeed or fail together
     const result = await prisma.$transaction(async (tx) => {
       // 1. Create or find customer
-      let customer = await tx.customer.findUnique({
-        where: { email: validatedData.customerEmail },
-      })
+      let customer = null as Awaited<ReturnType<typeof tx.customer.findFirst>>
+
+      if (authenticatedCustomerId) {
+        const authenticatedCustomer = await tx.customer.findUnique({
+          where: { id: authenticatedCustomerId },
+        })
+
+        // Always attach authenticated checkouts to the signed-in customer account.
+        // Checkout email can still differ (for receipts), but loyalty/order history
+        // must stay tied to the active account to avoid split points.
+        if (authenticatedCustomer) {
+          customer = authenticatedCustomer
+        }
+      }
+
+      if (!customer) {
+        customer = await tx.customer.findFirst({
+          where: {
+            email: {
+              equals: normalizedEmail,
+              mode: 'insensitive',
+            },
+          },
+          orderBy: CANONICAL_CUSTOMER_ORDER,
+        })
+      }
 
       if (!customer) {
         customer = await tx.customer.create({
           data: {
-            email: validatedData.customerEmail,
+            email: normalizedEmail,
             phone: validatedData.customerPhone,
           },
         })
@@ -201,7 +236,7 @@ export async function POST(request: NextRequest) {
         data: {
           orderNumber,
           customerId: customer.id,
-          customerEmail: validatedData.customerEmail,
+          customerEmail: normalizedEmail,
           customerPhone: validatedData.customerPhone,
           shippingAddressId: shippingAddress.id,
           billingAddressId: billingAddress.id,

@@ -1,54 +1,150 @@
 'use client'
 
-import { useState, useEffect, useMemo, Suspense, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { motion, AnimatePresence, useDragControls, PanInfo } from 'framer-motion'
+import { AnimatePresence, motion, PanInfo } from 'framer-motion'
+import { ArrowRight, CircleNotch, Faders, FunnelSimple, X } from '@phosphor-icons/react'
 import { Navigation } from '@/components/layout/Navigation'
-import { productApi, Product } from '@/lib/api/products'
+import { Product, productApi } from '@/lib/api/products'
 import { ProductCard } from '@/components/products/ProductCard'
-import { ProductFilters, FilterState } from '@/components/products/ProductFilters'
-import { CircleNotch, Faders, ArrowRight, X } from '@phosphor-icons/react'
+import { ProductFilters } from '@/components/products/ProductFilters'
+import {
+  applyProductFilters,
+  countActiveFilters,
+  deriveAvailableColors,
+  deriveAvailableSizes,
+  FilterState,
+  getDefaultFilterState,
+  getPriceBounds,
+  isDefaultPriceRange,
+  parseFilterStateFromSearchParams,
+  ProductSortBy,
+  serializeFilterStateToSearchParams,
+} from '@/components/products/product-filtering'
+
+const FALLBACK_PRICE_BOUNDS = { min: 0, max: 500 }
+const SEARCH_SYNC_DEBOUNCE_MS = 250
+
+function arraysEqual(first: string[], second: string[]): boolean {
+  if (first.length !== second.length) {
+    return false
+  }
+
+  return first.every((value, index) => value === second[index])
+}
+
+function areFilterStatesEqual(first: FilterState, second: FilterState): boolean {
+  return (
+    first.search === second.search &&
+    first.priceRange[0] === second.priceRange[0] &&
+    first.priceRange[1] === second.priceRange[1] &&
+    arraysEqual(first.sizes, second.sizes) &&
+    arraysEqual(first.colors, second.colors) &&
+    first.inStockOnly === second.inStockOnly &&
+    first.sortBy === second.sortBy
+  )
+}
+
+function areFilterStatesEqualExceptSearch(first: FilterState, second: FilterState): boolean {
+  return (
+    first.priceRange[0] === second.priceRange[0] &&
+    first.priceRange[1] === second.priceRange[1] &&
+    arraysEqual(first.sizes, second.sizes) &&
+    arraysEqual(first.colors, second.colors) &&
+    first.inStockOnly === second.inStockOnly &&
+    first.sortBy === second.sortBy
+  )
+}
+
+function formatCategoryName(slug: string): string {
+  const categoryNames: Record<string, string> = {
+    hoodies: 'Hoodies & Sweatshirts',
+    tees: 'T-Shirts',
+    tshirts: 'T-Shirts',
+    't-shirts': 'T-Shirts',
+    tops: 'Tops',
+    jackets: 'Jackets',
+    bottoms: 'Bottoms',
+    accessories: 'Accessories',
+  }
+
+  return categoryNames[slug] || slug
+}
+
+function getCategoryDescription(slug: string): string {
+  const descriptions: Record<string, string> = {
+    hoodies:
+      'Stay warm in style with premium hoodies and sweatshirts made for comfort and statement fits.',
+    tees: 'Essential everyday pieces for a modern streetwear wardrobe.',
+    tshirts: 'Essential everyday pieces for a modern streetwear wardrobe.',
+    't-shirts': 'Essential everyday pieces for a modern streetwear wardrobe.',
+    tops: 'Essential tops designed to layer, style, and repeat.',
+    jackets: 'Outerwear built for style and function through every season.',
+    bottoms: 'From relaxed joggers to tailored pants, complete the full look.',
+    accessories: 'Complete your look with elevated accessories and everyday essentials.',
+  }
+
+  return (
+    descriptions[slug] ||
+    'Discover premium streetwear pieces designed for authentic expression.'
+  )
+}
 
 function ProductsContent() {
+  const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
-  const searchQuery = searchParams.get('search') || ''
+  const searchParamsString = searchParams.toString()
+
   const categorySlug = searchParams.get('category') || ''
-  
+
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
-  const [filters, setFilters] = useState<FilterState>({
-    search: searchQuery,
-    priceRange: [0, 500],
-    sizes: [],
-    inStockOnly: false,
-    sortBy: 'newest',
-  })
+  const [filters, setFilters] = useState<FilterState>(() =>
+    parseFilterStateFromSearchParams(new URLSearchParams(), FALLBACK_PRICE_BOUNDS)
+  )
 
-  // Update filters when search param changes
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const filtersRef = useRef(filters)
+
   useEffect(() => {
-    if (searchQuery) {
-      setFilters(prev => ({ ...prev, search: searchQuery }))
-    }
-  }, [searchQuery])
+    filtersRef.current = filters
+  }, [filters])
 
-  // Load products
+  const priceBounds = useMemo(() => getPriceBounds(products), [products])
+
+  useEffect(() => {
+    const nextFromUrl = parseFilterStateFromSearchParams(
+      new URLSearchParams(searchParamsString),
+      priceBounds
+    )
+
+    setFilters((previous) =>
+      areFilterStatesEqual(previous, nextFromUrl) ? previous : nextFromUrl
+    )
+  }, [searchParamsString, priceBounds.min, priceBounds.max])
+
   useEffect(() => {
     const loadProducts = async () => {
       setLoading(true)
       try {
-        const response = await productApi.getAll({ 
+        const response = await productApi.getAll({
           isActive: true,
-          limit: 100 
+          limit: 100,
         })
-        
-        if (response.data && response.data.data) {
+
+        if (response.data?.data) {
           setProducts(response.data.data)
-        } else if (response.error) {
-          console.error('API Error:', response.error)
-          setProducts([])
+          return
         }
+
+        if (response.error) {
+          console.error('API Error:', response.error)
+        }
+
+        setProducts([])
       } catch (error) {
         console.error('Failed to load products:', error)
         setProducts([])
@@ -60,348 +156,516 @@ function ProductsContent() {
     loadProducts()
   }, [])
 
-  // Filter and sort products
-  const filteredProducts = useMemo(() => {
-    // Ensure products is an array
-    if (!Array.isArray(products)) return []
-    
-    let filtered = [...products]
+  useEffect(() => {
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current)
+      }
+    }
+  }, [])
 
-    // Category filter (from URL parameter)
-    if (categorySlug) {
-      filtered = filtered.filter(p => 
-        p.category?.slug === categorySlug
+  const replaceUrlFromFilters = useCallback(
+    (nextFilters: FilterState, options?: { clearCategory?: boolean }) => {
+      const params = serializeFilterStateToSearchParams(
+        new URLSearchParams(searchParamsString),
+        nextFilters,
+        priceBounds
       )
+
+      if (options?.clearCategory) {
+        params.delete('category')
+      }
+
+      const nextQuery = params.toString()
+      const currentQuery = searchParamsString
+
+      if (nextQuery === currentQuery) {
+        return
+      }
+
+      const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname
+      router.replace(nextUrl, { scroll: false })
+    },
+    [pathname, priceBounds, router, searchParamsString]
+  )
+
+  const syncFiltersToUrl = useCallback(
+    (nextFilters: FilterState, options?: { debounceSearch?: boolean; clearCategory?: boolean }) => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current)
+        syncTimeoutRef.current = null
+      }
+
+      if (options?.debounceSearch) {
+        syncTimeoutRef.current = setTimeout(() => {
+          replaceUrlFromFilters(nextFilters, { clearCategory: options.clearCategory })
+          syncTimeoutRef.current = null
+        }, SEARCH_SYNC_DEBOUNCE_MS)
+        return
+      }
+
+      replaceUrlFromFilters(nextFilters, { clearCategory: options?.clearCategory })
+    },
+    [replaceUrlFromFilters]
+  )
+
+  const handleFilterChange = useCallback(
+    (nextFilters: FilterState) => {
+      const previousFilters = filtersRef.current
+      const shouldDebounceSearch =
+        previousFilters.search !== nextFilters.search &&
+        areFilterStatesEqualExceptSearch(previousFilters, nextFilters)
+
+      setFilters(nextFilters)
+      syncFiltersToUrl(nextFilters, { debounceSearch: shouldDebounceSearch })
+    },
+    [syncFiltersToUrl]
+  )
+
+  const scopedProducts = useMemo(() => {
+    if (!categorySlug) {
+      return products
     }
 
-    // Search filter
-    if (filters.search) {
-      const search = filters.search.toLowerCase()
-      filtered = filtered.filter(p => 
-        p.name.toLowerCase().includes(search) ||
-        p.description?.toLowerCase().includes(search)
-      )
-    }
+    return products.filter((product) => product.category?.slug === categorySlug)
+  }, [categorySlug, products])
 
-    // Price range filter
-    filtered = filtered.filter(p => 
-      p.price >= filters.priceRange[0] && 
-      p.price <= filters.priceRange[1]
-    )
+  const availableSizes = useMemo(() => deriveAvailableSizes(scopedProducts), [scopedProducts])
+  const availableColors = useMemo(() => deriveAvailableColors(scopedProducts), [scopedProducts])
+  const searchSuggestions = useMemo(() => {
+    const seen = new Set<string>()
+    const suggestions: string[] = []
 
-    // Size filter
-    if (filters.sizes.length > 0) {
-      filtered = filtered.filter(p =>
-        p.variants.some(v => 
-          v.size && filters.sizes.includes(v.size)
-        )
-      )
-    }
+    scopedProducts.forEach((product) => {
+      const candidate = product.name.trim()
+      if (!candidate) {
+        return
+      }
 
-    // In stock filter
-    if (filters.inStockOnly) {
-      filtered = filtered.filter(p => {
-        const totalStock = p.variants.reduce((sum, v) => sum + v.inventory, 0)
-        return totalStock > 0
+      const normalized = candidate.toLowerCase()
+      if (seen.has(normalized)) {
+        return
+      }
+
+      seen.add(normalized)
+      suggestions.push(candidate)
+    })
+
+    return suggestions.slice(0, 12)
+  }, [scopedProducts])
+
+  const filteredProducts = useMemo(
+    () => applyProductFilters(products, filters, categorySlug || undefined),
+    [categorySlug, filters, products]
+  )
+
+  const activeFilterCount =
+    countActiveFilters(filters, priceBounds) +
+    (categorySlug ? 1 : 0)
+
+  const hasActiveFilters = activeFilterCount > 0
+
+  const clearAllFilters = useCallback(() => {
+    const nextFilters = getDefaultFilterState(priceBounds)
+    setFilters(nextFilters)
+    syncFiltersToUrl(nextFilters, { clearCategory: true })
+  }, [priceBounds, syncFiltersToUrl])
+
+  const clearCategoryChip = useCallback(() => {
+    const params = new URLSearchParams(searchParamsString)
+    params.delete('category')
+
+    const nextQuery = params.toString()
+    const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname
+    router.replace(nextUrl, { scroll: false })
+  }, [pathname, router, searchParamsString])
+
+  const removeSize = useCallback(
+    (size: string) => {
+      handleFilterChange({
+        ...filters,
+        sizes: filters.sizes.filter((value) => value !== size),
       })
-    }
+    },
+    [filters, handleFilterChange]
+  )
 
-    // Sort
-    switch (filters.sortBy) {
-      case 'price-asc':
-        filtered.sort((a, b) => a.price - b.price)
-        break
-      case 'price-desc':
-        filtered.sort((a, b) => b.price - a.price)
-        break
-      case 'name':
-        filtered.sort((a, b) => a.name.localeCompare(b.name))
-        break
-      case 'newest':
-      default:
-        filtered.sort((a, b) => 
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        )
-    }
+  const removeColor = useCallback(
+    (colorKey: string) => {
+      handleFilterChange({
+        ...filters,
+        colors: filters.colors.filter((value) => value !== colorKey),
+      })
+    },
+    [filters, handleFilterChange]
+  )
 
-    return filtered
-  }, [products, filters, categorySlug])
+  const removeSearch = useCallback(() => {
+    handleFilterChange({ ...filters, search: '' })
+  }, [filters, handleFilterChange])
 
-  // Get category name for display
-  const getCategoryName = (slug: string) => {
-    const categoryNames: { [key: string]: string } = {
-      'hoodies': 'Hoodies & Sweatshirts',
-      'tees': 'T - Shirts',
-      'tshirts': 'T - Shirts',
-      't-shirts': 'T - Shirts',
-      'tops': 'T - Shirts',
-      'jackets': 'Jackets',
-      'bottoms': 'Bottoms',
-      'accessories': 'Accessories'
-    }
-    return categoryNames[slug] || 'Products'
-  }
+  const removePrice = useCallback(() => {
+    handleFilterChange({
+      ...filters,
+      priceRange: [priceBounds.min, priceBounds.max],
+    })
+  }, [filters, handleFilterChange, priceBounds.max, priceBounds.min])
 
-  const getCategoryDescription = (slug: string) => {
-    const descriptions: { [key: string]: string } = {
-      'hoodies': 'Stay warm in style with our premium hoodies and sweatshirts. Crafted for comfort and designed to make a statement.',
-      'tees': 'Essential everyday pieces for your streetwear collection. Quality basics that never go out of style.',
-      'tshirts': 'Essential everyday pieces for your streetwear collection. Quality basics that never go out of style.',
-      't-shirts': 'Essential everyday pieces for your streetwear collection. Quality basics that never go out of style.',
-      'jackets': 'Outerwear built for style and function — explore jackets that stand up to the elements while keeping you on-trend.',
-      'bottoms': 'From relaxed joggers to tailored pants, find the perfect bottoms to complete your look.',
-      'accessories': 'Complete your look with our curated accessories. The perfect finishing touches for any outfit.'
-    }
-    return descriptions[slug] || 'Discover our latest collection of premium streetwear pieces designed for authentic expression.'
-  }
+  const removeInStock = useCallback(() => {
+    handleFilterChange({
+      ...filters,
+      inStockOnly: false,
+    })
+  }, [filters, handleFilterChange])
 
-  const pageTitle = categorySlug 
-    ? getCategoryName(categorySlug)
-    : 'All Products'
+  const removeSort = useCallback(() => {
+    handleFilterChange({
+      ...filters,
+      sortBy: 'newest',
+    })
+  }, [filters, handleFilterChange])
 
+  const colorLabelByKey = useMemo(
+    () =>
+      new Map(
+        availableColors.map((option) => [option.key, option.label.toUpperCase()])
+      ),
+    [availableColors]
+  )
+
+  const pageTitle = categorySlug ? formatCategoryName(categorySlug) : 'All Products'
   const pageDescription = getCategoryDescription(categorySlug)
 
   return (
     <div className="min-h-screen bg-white">
       <Navigation />
-      
-      {/* Hero Section - Full Width */}
-      <section className="relative min-h-[280px] sm:min-h-[400px] bg-white py-8 sm:py-12 lg:py-16 pt-20 sm:pt-24 lg:pt-32">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 flex flex-col justify-center">
-          {/* Breadcrumb */}
-          {categorySlug && (
-            <Link 
-              href="/products" 
-              className="inline-flex items-center gap-2 text-xs sm:text-sm text-black/70 hover:text-black transition-colors mb-2 sm:mb-3 w-fit"
+
+      <section className="relative min-h-[260px] bg-white pb-8 pt-20 sm:min-h-[360px] sm:pb-10 sm:pt-24 lg:min-h-[420px] lg:pb-14 lg:pt-32">
+        <div className="mx-auto flex max-w-7xl flex-col justify-center px-4 sm:px-6 lg:px-12">
+          {categorySlug ? (
+            <Link
+              href="/products"
+              className="mb-3 inline-flex w-fit items-center gap-2 text-xs text-black/60 transition-colors hover:text-black sm:text-sm"
             >
               <span>←</span>
               <span>All Products</span>
             </Link>
-          )}
-          
-          <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black text-black mb-2 sm:mb-4 tracking-tight max-w-3xl">
+          ) : null}
+
+          <h1 className="mb-3 max-w-3xl text-3xl font-black tracking-tight text-black sm:text-5xl lg:text-7xl">
             {pageTitle}
           </h1>
-          
-          <p className="text-base sm:text-xl lg:text-2xl text-black/70 max-w-2xl leading-relaxed mb-4 sm:mb-6">
+
+          <p className="mb-5 max-w-2xl text-base leading-relaxed text-black/65 sm:text-xl lg:text-2xl">
             {pageDescription}
           </p>
 
-          <div className="flex items-center gap-4">
-            <span className="text-black/60 text-xs sm:text-sm uppercase tracking-wider">
-              {loading ? 'Loading...' : `${filteredProducts.length} ${filteredProducts.length === 1 ? 'Product' : 'Products'}`}
-            </span>
-          </div>
+          <p className="text-xs uppercase tracking-[0.16em] text-black/50 sm:text-sm">
+            {loading
+              ? 'Loading products...'
+              : `${filteredProducts.length} ${filteredProducts.length === 1 ? 'Product' : 'Products'}`}
+          </p>
         </div>
       </section>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-12 py-4 sm:py-6 lg:py-8">
-        {/* Top Bar: Filters Button + Results Count */}
-        <div className="flex items-center justify-between mb-4 sm:mb-8 pb-4 sm:pb-6 border-b border-black/5">
-          {/* Left: Filters Button with Badge */}
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="group relative flex items-center gap-3 px-6 py-3.5 text-sm font-bold text-white bg-black hover:bg-black/90 transition-all uppercase tracking-wider shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15 hover:-translate-y-0.5"
-          >
-            <Faders size={20} weight="bold" className="transition-transform group-hover:rotate-12" />
-            <span>Filter & Sort</span>
-            {(filters.search || filters.sizes.length > 0 || filters.inStockOnly || filters.priceRange[1] < 500) && (
-              <span className="absolute -top-2 -right-2 w-6 h-6 bg-white text-black rounded-full flex items-center justify-center text-xs font-black shadow-md">
-                {[filters.search, filters.sizes.length > 0, filters.inStockOnly, filters.priceRange[1] < 500].filter(Boolean).length}
-              </span>
-            )}
-          </button>
+      <div className="mx-auto max-w-7xl px-3 pb-8 sm:px-6 sm:pb-10 lg:px-12 lg:pb-14">
+        <div className="sticky top-[72px] z-30 border-y border-black/10 bg-white/95 backdrop-blur">
+          <div className="flex flex-wrap items-center gap-3 px-3 py-3 sm:px-4 sm:py-4 lg:px-6">
+            <button
+              type="button"
+              onClick={() => setShowFilters(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-black bg-black px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white transition-colors hover:bg-black/90"
+              data-testid="products-filter-trigger"
+            >
+              <FunnelSimple size={16} weight="bold" />
+              Filters
+              {activeFilterCount > 0 ? (
+                <span
+                  className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-bold text-black"
+                  data-testid="products-active-count"
+                >
+                  {activeFilterCount}
+                </span>
+              ) : null}
+            </button>
 
-          {/* Right: Results Count */}
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-black/50 font-medium tracking-wide">
-              {loading ? (
-                <span className="inline-flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-black/20 border-t-black/60 rounded-full animate-spin" />
-                  Loading...
-                </span>
-              ) : (
-                <span>
-                  <span className="font-bold text-black">{filteredProducts.length}</span> {filteredProducts.length === 1 ? 'product' : 'products'}
-                </span>
-              )}
-            </span>
+            <div className="flex items-center gap-2 rounded-full border border-black/15 px-3 py-2">
+              <label
+                htmlFor="products-toolbar-sort"
+                className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/55"
+              >
+                Sort
+              </label>
+              <select
+                id="products-toolbar-sort"
+                value={filters.sortBy}
+                onChange={(event) =>
+                  handleFilterChange({
+                    ...filters,
+                    sortBy: event.target.value as ProductSortBy,
+                  })
+                }
+                className="border-0 bg-transparent pr-1 text-sm font-semibold text-black outline-none"
+                data-testid="products-sort-control"
+              >
+                <option value="newest">Newest</option>
+                <option value="price-asc">Price ↑</option>
+                <option value="price-desc">Price ↓</option>
+                <option value="name">Name A-Z</option>
+              </select>
+            </div>
+
+            <p
+              className="ml-auto text-xs font-semibold uppercase tracking-[0.12em] text-black/55 sm:text-sm"
+              data-testid="products-result-count"
+            >
+              {loading ? 'Loading...' : `${filteredProducts.length} results`}
+            </p>
           </div>
+
+          {hasActiveFilters ? (
+            <div
+              className="flex flex-wrap items-center gap-2 border-t border-black/10 px-3 py-3 sm:px-4 lg:px-6"
+              data-testid="products-active-chips"
+            >
+              {categorySlug ? (
+                <button
+                  type="button"
+                  onClick={clearCategoryChip}
+                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-black"
+                  data-testid="filter-chip-category"
+                >
+                  Category: {formatCategoryName(categorySlug)}
+                  <X size={12} weight="bold" />
+                </button>
+              ) : null}
+
+              {filters.search.trim() ? (
+                <button
+                  type="button"
+                  onClick={removeSearch}
+                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-black"
+                  data-testid="filter-chip-search"
+                >
+                  Search: {filters.search.trim()}
+                  <X size={12} weight="bold" />
+                </button>
+              ) : null}
+
+              {filters.sizes.map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => removeSize(size)}
+                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-black"
+                  data-testid={`filter-chip-size-${size}`}
+                >
+                  Size: {size}
+                  <X size={12} weight="bold" />
+                </button>
+              ))}
+
+              {filters.colors.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => removeColor(color)}
+                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-black"
+                  data-testid={`filter-chip-color-${color}`}
+                >
+                  Color: {colorLabelByKey.get(color) || color.toUpperCase()}
+                  <X size={12} weight="bold" />
+                </button>
+              ))}
+
+              {!isDefaultPriceRange(filters.priceRange, priceBounds) ? (
+                <button
+                  type="button"
+                  onClick={removePrice}
+                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-black"
+                  data-testid="filter-chip-price"
+                >
+                  Price: ${filters.priceRange[0]} - ${filters.priceRange[1]}
+                  <X size={12} weight="bold" />
+                </button>
+              ) : null}
+
+              {filters.inStockOnly ? (
+                <button
+                  type="button"
+                  onClick={removeInStock}
+                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-black"
+                  data-testid="filter-chip-instock"
+                >
+                  In Stock
+                  <X size={12} weight="bold" />
+                </button>
+              ) : null}
+
+              {filters.sortBy !== 'newest' ? (
+                <button
+                  type="button"
+                  onClick={removeSort}
+                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-black"
+                  data-testid="filter-chip-sort"
+                >
+                  Sorted
+                  <X size={12} weight="bold" />
+                </button>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="ml-auto text-xs font-semibold uppercase tracking-[0.12em] text-black/55 transition-colors hover:text-black"
+                data-testid="clear-all-filters"
+              >
+                Clear all
+              </button>
+            </div>
+          ) : null}
         </div>
 
-        {/* Filters Overlay - Swipeable Bottom Sheet on Mobile, Side Panel on Desktop */}
         <AnimatePresence>
-          {showFilters && (
+          {showFilters ? (
             <>
-              {/* Backdrop */}
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+                className="fixed inset-0 z-[60] bg-black/55 backdrop-blur-sm"
                 onClick={() => setShowFilters(false)}
               />
-              
-              {/* Desktop: Side Panel */}
-              <motion.div 
-                initial={{ x: '-100%' }}
+
+              <motion.aside
+                initial={{ x: '100%' }}
                 animate={{ x: 0 }}
-                exit={{ x: '-100%' }}
-                transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-                className="hidden lg:block fixed inset-y-0 left-0 z-50 w-[340px] max-w-[85vw] bg-white shadow-2xl"
-                onClick={(e) => e.stopPropagation()}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+                className="fixed inset-y-0 right-0 z-[61] hidden w-[420px] max-w-[92vw] border-l border-black/10 bg-white lg:flex lg:flex-col"
+                onClick={(event) => event.stopPropagation()}
               >
-                {/* Panel Header */}
-                <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-xl font-black text-black tracking-tight">Filters</h2>
-                      <p className="text-xs text-black/40 mt-0.5">Refine your search</p>
-                    </div>
-                    <button
-                      onClick={() => setShowFilters(false)}
-                      className="w-10 h-10 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/5 transition-all rounded-full"
-                    >
-                      <X size={22} weight="bold" />
-                    </button>
+                <div className="flex items-center justify-between border-b border-black/10 px-6 py-5">
+                  <div>
+                    <h2 className="text-xl font-black tracking-tight text-black">Filters</h2>
+                    <p className="text-xs uppercase tracking-[0.12em] text-black/45">
+                      {activeFilterCount} active
+                    </p>
                   </div>
-                </div>
-                
-                {/* Panel Content */}
-                <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 140px)' }}>
-                  <ProductFilters 
-                    onFilterChange={(newFilters) => {
-                      setFilters(newFilters)
-                    }} 
-                    initialFilters={filters}
-                  />
-                </div>
-                
-                {/* Panel Footer - Apply Button */}
-                <div 
-                  className="sticky bottom-0 p-4 bg-gradient-to-t from-white via-white to-white/90 border-t border-black/5"
-                >
                   <button
+                    type="button"
                     onClick={() => setShowFilters(false)}
-                    className="w-full py-4 bg-black text-white font-bold uppercase tracking-wider text-sm hover:bg-black/90 transition-all shadow-lg"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/10 text-black/65 transition-colors hover:border-black/25 hover:text-black"
+                    aria-label="Close filters"
                   >
-                    View Results ({filteredProducts.length})
+                    <X size={18} weight="bold" />
                   </button>
                 </div>
-              </motion.div>
 
-              {/* Mobile: Swipeable Bottom Sheet */}
-              <motion.div 
+                <div className="flex-1 overflow-y-auto px-6 py-5">
+                  <ProductFilters
+                    filters={filters}
+                    availableSizes={availableSizes}
+                    availableColors={availableColors}
+                    searchSuggestions={searchSuggestions}
+                    priceBounds={priceBounds}
+                    onFilterChange={handleFilterChange}
+                    onClearAll={clearAllFilters}
+                  />
+                </div>
+              </motion.aside>
+
+              <motion.aside
                 initial={{ y: '100%' }}
                 animate={{ y: 0 }}
                 exit={{ y: '100%' }}
-                transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                transition={{ type: 'spring', damping: 30, stiffness: 320 }}
                 drag="y"
                 dragConstraints={{ top: 0, bottom: 0 }}
-                dragElastic={{ top: 0, bottom: 0.5 }}
+                dragElastic={{ top: 0, bottom: 0.45 }}
                 onDragEnd={(_, info: PanInfo) => {
-                  // Close if dragged down more than 100px or with velocity
-                  if (info.offset.y > 100 || info.velocity.y > 500) {
+                  if (info.offset.y > 120 || info.velocity.y > 550) {
                     setShowFilters(false)
                   }
                 }}
-                className="lg:hidden fixed inset-x-0 bottom-0 z-50 max-h-[85vh] bg-white shadow-2xl rounded-t-3xl"
-                onClick={(e) => e.stopPropagation()}
+                className="fixed inset-x-0 bottom-0 z-[61] h-[92vh] rounded-t-3xl border-t border-black/10 bg-white lg:hidden"
+                onClick={(event) => event.stopPropagation()}
               >
-                {/* Drag Handle - swipe indicator */}
-                <div className="flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing touch-none">
-                  <div className="w-12 h-1.5 bg-black/20 rounded-full" />
+                <div className="flex justify-center pb-2 pt-3">
+                  <div className="h-1.5 w-12 rounded-full bg-black/20" />
                 </div>
 
-                {/* Panel Header */}
-                <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-xl font-black text-black tracking-tight">Filters</h2>
-                      <p className="text-xs text-black/40 mt-0.5">Refine your search</p>
-                    </div>
-                    <button
-                      onClick={() => setShowFilters(false)}
-                      className="w-10 h-10 flex items-center justify-center text-black/40 hover:text-black hover:bg-black/5 transition-all rounded-full"
-                    >
-                      <X size={22} weight="bold" />
-                    </button>
+                <div className="flex items-center justify-between border-b border-black/10 px-5 py-4">
+                  <div>
+                    <h2 className="text-lg font-black tracking-tight text-black">Filters</h2>
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-black/45">
+                      {activeFilterCount} active
+                    </p>
                   </div>
-                </div>
-                
-                {/* Panel Content */}
-                <div className="p-6 overflow-y-auto touch-pan-y" style={{ maxHeight: 'calc(85vh - 180px)' }}>
-                  <ProductFilters 
-                    onFilterChange={(newFilters) => {
-                      setFilters(newFilters)
-                    }} 
-                    initialFilters={filters}
-                  />
-                </div>
-                
-                {/* Panel Footer - Apply Button */}
-                <div 
-                  className="sticky bottom-0 p-4 bg-gradient-to-t from-white via-white to-white/90 border-t border-black/5"
-                  style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
-                >
                   <button
+                    type="button"
                     onClick={() => setShowFilters(false)}
-                    className="w-full py-4 bg-black text-white font-bold uppercase tracking-wider text-sm hover:bg-black/90 transition-all shadow-lg"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/10 text-black/65 transition-colors hover:border-black/25 hover:text-black"
+                    aria-label="Close filters"
                   >
-                    View Results ({filteredProducts.length})
+                    <X size={18} weight="bold" />
                   </button>
                 </div>
-              </motion.div>
+
+                <div className="h-[calc(92vh-84px)] overflow-y-auto px-5 py-5">
+                  <ProductFilters
+                    filters={filters}
+                    availableSizes={availableSizes}
+                    availableColors={availableColors}
+                    searchSuggestions={searchSuggestions}
+                    priceBounds={priceBounds}
+                    onFilterChange={handleFilterChange}
+                    onClearAll={clearAllFilters}
+                  />
+                </div>
+              </motion.aside>
             </>
-          )}
+          ) : null}
         </AnimatePresence>
 
-        {/* Products Grid - Full Width */}
-        <div>
-          {/* Loading State */}
-          {loading && (
-            <div className="flex flex-col justify-center items-center py-20">
-              <CircleNotch size={48} weight="bold" className="animate-spin text-black mb-4" />
-              <p className="text-black/70">Loading products...</p>
+        <div className="pt-6 sm:pt-8">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <CircleNotch size={46} weight="bold" className="mb-4 animate-spin text-black" />
+              <p className="text-black/65">Loading products...</p>
             </div>
-          )}
+          ) : null}
 
-          {/* Empty State */}
-          {!loading && filteredProducts.length === 0 && (
-            <div className="text-center py-20 px-6">
-              <div className="max-w-md mx-auto">
-                <div className="w-20 h-20 mx-auto mb-6 rounded-none bg-black/5 flex items-center justify-center">
-                  <Faders size={40} weight="bold" className="text-black/40" />
+          {!loading && filteredProducts.length === 0 ? (
+            <div className="px-6 py-20 text-center">
+              <div className="mx-auto max-w-md">
+                <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-black/5">
+                  <Faders size={30} weight="bold" className="text-black/40" />
                 </div>
-                <h3 className="text-2xl font-black text-black mb-3">No products found</h3>
-                <p className="text-black/70 mb-6">Try adjusting your filters or search criteria to find what you&apos;re looking for.</p>
+                <h3 className="mb-3 text-2xl font-black text-black">No products found</h3>
+                <p className="mb-6 text-black/65">
+                  Try removing a filter chip or reset all filters to broaden your results.
+                </p>
                 <button
-                  onClick={() => setFilters({
-                    search: '',
-                    priceRange: [0, 500],
-                    sizes: [],
-                    inStockOnly: false,
-                    sortBy: 'newest',
-                  })}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white rounded-none hover:bg-black/90 transition-all font-bold uppercase tracking-wider"
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="inline-flex items-center gap-2 rounded-full bg-black px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white transition-colors hover:bg-black/90"
                 >
                   Clear all filters
-                  <ArrowRight size={16} weight="bold" />
+                  <ArrowRight size={15} weight="bold" />
                 </button>
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Products Grid - 2 cols on mobile, 3 on tablet, 4 on desktop */}
-          {!loading && filteredProducts.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 lg:gap-6">
-              {filteredProducts.map(product => (
+          {!loading && filteredProducts.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4 lg:gap-6">
+              {filteredProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
@@ -410,11 +674,13 @@ function ProductsContent() {
 
 export default function ProductsPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <CircleNotch size={32} weight="bold" className="animate-spin text-black" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-white">
+          <CircleNotch size={32} weight="bold" className="animate-spin text-black" />
+        </div>
+      }
+    >
       <ProductsContent />
     </Suspense>
   )
