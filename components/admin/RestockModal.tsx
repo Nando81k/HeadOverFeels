@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Package, Warning, X } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
-import { X, Package, Warning } from '@phosphor-icons/react'
 
 interface Variant {
   id: string
@@ -21,6 +21,10 @@ interface RestockModalProps {
   onSuccess: () => void
 }
 
+function formatVariantLabel(variant: Variant): string {
+  return [variant.size, variant.color].filter(Boolean).join(' / ') || 'Default'
+}
+
 export function RestockModal({
   isOpen,
   onClose,
@@ -30,39 +34,75 @@ export function RestockModal({
   onSuccess,
 }: RestockModalProps) {
   const [inventoryUpdates, setInventoryUpdates] = useState<Record<string, number>>(
-    variants.reduce((acc, v) => ({ ...acc, [v.id]: v.inventory }), {})
+    variants.reduce((accumulator, variant) => ({ ...accumulator, [variant.id]: variant.inventory }), {})
   )
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleInventoryChange = (variantId: string, value: number) => {
-    setInventoryUpdates((prev) => ({
-      ...prev,
-      [variantId]: Math.max(0, value),
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !loading) {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isOpen, loading, onClose])
+
+  useEffect(() => {
+    setInventoryUpdates(variants.reduce((accumulator, variant) => ({ ...accumulator, [variant.id]: variant.inventory }), {}))
+    setNotes('')
+    setError('')
+  }, [variants, isOpen])
+
+  const hasChanges = useMemo(
+    () => variants.some((variant) => inventoryUpdates[variant.id] !== variant.inventory),
+    [variants, inventoryUpdates]
+  )
+
+  const totalChange = useMemo(
+    () =>
+      variants.reduce((sum, variant) => {
+        const nextValue = inventoryUpdates[variant.id]
+        return sum + (nextValue - variant.inventory)
+      }, 0),
+    [variants, inventoryUpdates]
+  )
+
+  const handleInventoryChange = (variantId: string, nextValue: number) => {
+    setInventoryUpdates((previous) => ({
+      ...previous,
+      [variantId]: Math.max(0, nextValue),
     }))
   }
 
-  const hasChanges = variants.some(
-    (v) => inventoryUpdates[v.id] !== v.inventory
-  )
-
-  const getTotalChange = () => {
-    return variants.reduce((sum, v) => {
-      const change = inventoryUpdates[v.id] - v.inventory
-      return sum + change
-    }, 0)
+  const applyQuickIncrement = (variantId: string, increment: number) => {
+    setInventoryUpdates((previous) => ({
+      ...previous,
+      [variantId]: Math.max(0, (previous[variantId] || 0) + increment),
+    }))
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleReset = () => {
+    setInventoryUpdates(variants.reduce((accumulator, variant) => ({ ...accumulator, [variant.id]: variant.inventory }), {}))
+    setNotes('')
+  }
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
     setLoading(true)
     setError('')
 
     try {
-      const updates = variants.map((v) => ({
-        id: v.id,
-        inventory: inventoryUpdates[v.id],
+      const updates = variants.map((variant) => ({
+        id: variant.id,
+        inventory: inventoryUpdates[variant.id],
       }))
 
       const response = await fetch(`/api/products/${productId}/restock`, {
@@ -78,221 +118,177 @@ export function RestockModal({
 
       onSuccess()
       onClose()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Failed to update inventory')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleReset = () => {
-    setInventoryUpdates(
-      variants.reduce((acc, v) => ({ ...acc, [v.id]: v.inventory }), {})
-    )
-    setNotes('')
+  if (!isOpen) {
+    return null
   }
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 transition-opacity"
-        onClick={onClose}
-      />
+    <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-label="Restock inventory">
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={loading ? undefined : onClose} />
 
-      {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="relative w-full max-w-4xl max-h-[92vh] overflow-hidden rounded-2xl border border-white/10 bg-neutral-950 shadow-2xl">
+          <div className="flex items-center justify-between p-4 border-b border-white/10">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Package size={20} weight="bold" className="text-blue-600" />
+              <div className="w-10 h-10 rounded-lg bg-[#FF3131]/20 flex items-center justify-center">
+                <Package size={18} className="text-[#FF3131]" weight="bold" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Restock Inventory
-                </h2>
-                <p className="text-sm text-gray-500">{productName}</p>
+                <h2 className="text-base sm:text-lg font-semibold text-white">Restock Inventory</h2>
+                <p className="text-xs text-white/45">{productName}</p>
               </div>
             </div>
+
             <button
+              type="button"
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors"
+              disabled={loading}
             >
-              <X size={24} weight="bold" />
+              <X size={18} />
             </button>
           </div>
 
-          {/* Content */}
-          <form onSubmit={handleSubmit}>
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
+          <form onSubmit={handleSubmit} className="flex flex-col max-h-[calc(92vh-64px)]">
+            <div className="p-4 space-y-3 overflow-y-auto">
               {error && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                  <Warning size={20} weight="bold" className="text-red-600 shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-800">{error}</p>
+                <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+                  <Warning size={18} className="text-red-300 shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-200">{error}</p>
                 </div>
               )}
 
-              {/* Variants Table */}
-              <div className="space-y-3 mb-6">
-                <div className="grid grid-cols-12 gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider px-4">
-                  <div className="col-span-3">Variant</div>
-                  <div className="col-span-2">SKU</div>
-                  <div className="col-span-2 text-center">Current</div>
-                  <div className="col-span-2 text-center">New</div>
-                  <div className="col-span-3 text-right">Change</div>
-                </div>
-
-                {variants.map((variant) => {
-                  const currentInventory = variant.inventory
-                  const newInventory = inventoryUpdates[variant.id]
-                  const change = newInventory - currentInventory
-                  const isLowStock = newInventory <= 5 && newInventory > 0
-                  const isOutOfStock = newInventory === 0
-
-                  return (
-                    <div
-                      key={variant.id}
-                      className="grid grid-cols-12 gap-4 items-center p-4 bg-gray-50 rounded-lg border border-gray-200"
-                    >
-                      {/* Variant Info */}
-                      <div className="col-span-3">
-                        <div className="font-medium text-gray-900">
-                          {[variant.size, variant.color]
-                            .filter(Boolean)
-                            .join(' / ') || 'Default'}
-                        </div>
-                      </div>
-
-                      {/* SKU */}
-                      <div className="col-span-2">
-                        <code className="text-xs text-gray-600 bg-white px-2 py-1 rounded border border-gray-200">
-                          {variant.sku}
-                        </code>
-                      </div>
-
-                      {/* Current Inventory */}
-                      <div className="col-span-2 text-center">
-                        <span
-                          className={`inline-flex items-center justify-center w-16 h-8 rounded font-semibold text-sm ${
-                            currentInventory === 0
-                              ? 'bg-red-100 text-red-700'
-                              : currentInventory <= 5
-                              ? 'bg-orange-100 text-orange-700'
-                              : 'bg-green-100 text-green-700'
-                          }`}
-                        >
-                          {currentInventory}
-                        </span>
-                      </div>
-
-                      {/* New Inventory Input */}
-                      <div className="col-span-2">
-                        <input
-                          type="number"
-                          min="0"
-                          value={newInventory}
-                          onChange={(e) =>
-                            handleInventoryChange(
-                              variant.id,
-                              parseInt(e.target.value) || 0
-                            )
-                          }
-                          className={`w-full px-3 py-2 border rounded-lg text-center font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            isOutOfStock
-                              ? 'border-red-300 bg-red-50'
-                              : isLowStock
-                              ? 'border-orange-300 bg-orange-50'
-                              : 'border-gray-300'
-                          }`}
-                        />
-                      </div>
-
-                      {/* Change */}
-                      <div className="col-span-3 text-right">
-                        {change !== 0 && (
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-1 rounded text-sm font-semibold ${
-                              change > 0
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-red-100 text-red-700'
-                            }`}
-                          >
-                            {change > 0 ? '+' : ''}
-                            {change}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+              <div className="grid grid-cols-12 px-3 text-[10px] uppercase tracking-[0.14em] text-white/40">
+                <div className="col-span-3">Variant</div>
+                <div className="col-span-3">SKU</div>
+                <div className="col-span-2 text-center">Current</div>
+                <div className="col-span-2 text-center">New</div>
+                <div className="col-span-2 text-center">Quick</div>
               </div>
 
-              {/* Summary */}
-              {hasChanges && (
-                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-blue-900">
-                      Total Change:
-                    </span>
-                    <span
-                      className={`text-lg font-bold ${
-                        getTotalChange() > 0
-                          ? 'text-green-700'
-                          : getTotalChange() < 0
-                          ? 'text-red-700'
-                          : 'text-gray-700'
-                      }`}
-                    >
-                      {getTotalChange() > 0 ? '+' : ''}
-                      {getTotalChange()} units
-                    </span>
-                  </div>
-                </div>
-              )}
+              <div className="space-y-2">
+                {[...variants]
+                  .sort((a, b) => inventoryUpdates[a.id] - inventoryUpdates[b.id])
+                  .map((variant) => {
+                    const currentInventory = variant.inventory
+                    const nextInventory = inventoryUpdates[variant.id]
+                    const change = nextInventory - currentInventory
+                    const isOutOfStock = nextInventory === 0
+                    const isLowStock = nextInventory > 0 && nextInventory <= 5
 
-              {/* Notes */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Restock Notes (Optional)
-                </label>
+                    return (
+                      <div key={variant.id} className="grid grid-cols-12 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                        <div className="col-span-3 min-w-0">
+                          <div className="text-sm text-white font-medium truncate">{formatVariantLabel(variant)}</div>
+                          {change !== 0 && (
+                            <div className={`text-[11px] ${change > 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                              {change > 0 ? '+' : ''}
+                              {change} units
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="col-span-3 min-w-0">
+                          <code className="inline-flex max-w-full truncate rounded bg-black/30 border border-white/10 px-2 py-1 text-[11px] text-white/70">
+                            {variant.sku}
+                          </code>
+                        </div>
+
+                        <div className="col-span-2 text-center">
+                          <span
+                            className={`inline-flex min-w-[50px] justify-center rounded px-2 py-1 text-sm font-semibold ${
+                              currentInventory === 0
+                                ? 'bg-red-500/15 text-red-300'
+                                : currentInventory <= 5
+                                ? 'bg-amber-500/15 text-amber-300'
+                                : 'bg-emerald-500/15 text-emerald-300'
+                            }`}
+                          >
+                            {currentInventory}
+                          </span>
+                        </div>
+
+                        <div className="col-span-2">
+                          <input
+                            type="number"
+                            min="0"
+                            value={nextInventory}
+                            onChange={(event) => handleInventoryChange(variant.id, parseInt(event.target.value, 10) || 0)}
+                            className={`w-full h-9 rounded-md border px-2 text-center text-sm font-semibold bg-neutral-900 text-white focus:outline-none focus:ring-1 focus:ring-[#FF3131]/45 ${
+                              isOutOfStock
+                                ? 'border-red-500/40'
+                                : isLowStock
+                                ? 'border-amber-500/40'
+                                : 'border-white/15'
+                            }`}
+                          />
+                        </div>
+
+                        <div className="col-span-2 flex items-center justify-center gap-1">
+                          {[5, 10, 25].map((increment) => (
+                            <button
+                              key={increment}
+                              type="button"
+                              onClick={() => applyQuickIncrement(variant.id, increment)}
+                              className="h-7 min-w-8 rounded border border-white/15 bg-white/[0.02] px-1 text-[11px] text-white/70 hover:bg-white/10 hover:text-white"
+                            >
+                              +{increment}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+              </div>
+
+              <div className="pt-2">
+                <label className="block text-[10px] uppercase tracking-[0.14em] text-white/40 mb-1.5">Restock Notes</label>
                 <textarea
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="e.g., New shipment arrived, seasonal restock, returned items..."
+                  onChange={(event) => setNotes(event.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Shipment source, damaged items, reason for adjustment..."
+                  className="w-full rounded-md border border-white/15 bg-neutral-900 px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-[#FF3131]/45"
                 />
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="flex items-center justify-between gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleReset}
-                disabled={!hasChanges || loading}
-              >
-                Reset
-              </Button>
-              <div className="flex gap-3">
+            <div className="border-t border-white/10 bg-black/20 px-4 py-3 flex items-center justify-between gap-3">
+              <div className="text-sm">
+                <span className="text-white/45 mr-2">Net change</span>
+                <span className={`font-semibold ${totalChange > 0 ? 'text-emerald-300' : totalChange < 0 ? 'text-red-300' : 'text-white/70'}`}>
+                  {totalChange > 0 ? '+' : ''}
+                  {totalChange} units
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleReset}
+                  disabled={!hasChanges || loading}
+                  className="bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+                >
+                  Reset
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={onClose}
                   disabled={loading}
+                  className="bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
                 >
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={!hasChanges || loading}
-                  className="min-w-32"
-                >
+                <Button type="submit" disabled={!hasChanges || loading} className="min-w-32 bg-[#FF3131] hover:bg-[#E02828]">
                   {loading ? 'Updating...' : 'Update Inventory'}
                 </Button>
               </div>

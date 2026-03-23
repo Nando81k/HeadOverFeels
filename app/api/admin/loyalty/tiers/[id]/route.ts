@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyAdmin } from '@/lib/auth/admin'
+import { normalizeTierColor } from '@/lib/loyalty/tier-theme'
 
 // GET /api/admin/loyalty/tiers/[id] - Get single tier
 export async function GET(
@@ -82,6 +83,8 @@ export async function PATCH(
       data: {
         name: body.name,
         description: body.description ?? existing.description,
+        primaryColor: normalizeTierColor(body.primaryColor, existing.primaryColor),
+        secondaryColor: normalizeTierColor(body.secondaryColor, existing.secondaryColor),
         minAnnualPoints: body.minAnnualPoints ?? existing.minAnnualPoints,
         minAnnualSpend: body.minAnnualSpend ?? existing.minAnnualSpend,
         pointMultiplier: body.pointMultiplier ?? existing.pointMultiplier,

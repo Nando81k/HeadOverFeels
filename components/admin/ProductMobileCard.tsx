@@ -61,10 +61,10 @@ export function ProductMobileCard({
   const stockStatus = getStockStatus()
 
   return (
-    <div className={`border-b border-white/5 last:border-0 ${isSelected ? 'bg-[#FF3131]/10' : ''}`}>
-      <div className="p-4">
+    <div className={`border-b border-white/5 last:border-0 ${isSelected ? 'bg-[#FF3131]/8' : ''}`}>
+      <div className="p-3">
         {/* Product Header: Image, Name, Price */}
-        <div className="flex gap-3 mb-3">
+        <div className="flex gap-2.5 mb-2.5">
           {/* Checkbox & Image */}
           <div className="relative shrink-0">
             <button
@@ -84,8 +84,8 @@ export function ProductMobileCard({
             <Image
               src={imageUrl}
               alt={product.name}
-              width={56}
-              height={56}
+              width={48}
+              height={48}
               className="rounded object-cover"
             />
           </div>
@@ -98,9 +98,9 @@ export function ProductMobileCard({
             >
               {product.name}
             </Link>
-            <div className="text-xs text-white/40 truncate mb-1">{product.slug}</div>
+            <div className="text-[11px] text-white/40 truncate mb-0.5">{product.slug}</div>
             <div className="flex items-center gap-2">
-              <span className="text-lg font-bold text-white">${product.price.toFixed(2)}</span>
+              <span className="text-base font-bold text-white">${product.price.toFixed(2)}</span>
               <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${
                 product.isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/10 text-white/50'
               }`}>
@@ -119,39 +119,39 @@ export function ProductMobileCard({
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-3 gap-2 mb-3">
+        <div className="grid grid-cols-3 gap-1.5 mb-2.5">
           {/* Stock */}
-          <div className="bg-white/5 rounded p-2 text-center">
+          <div className="bg-white/5 rounded p-1.5 text-center">
             <div className="flex items-center justify-center gap-1 mb-0.5">
               <Package size={12} className="text-white/40" />
-              <span className={`text-sm font-bold ${
+              <span className={`text-xs font-bold ${
                 totalInventory === 0 ? 'text-red-400' : 
                 totalInventory <= 10 ? 'text-amber-400' : 'text-white'
               }`}>
                 {totalInventory}
               </span>
             </div>
-            <span className="text-[9px] text-white/40 uppercase tracking-wider">Stock</span>
+            <span className="text-[8px] text-white/40 uppercase tracking-wider">Stock</span>
           </div>
 
           {/* Revenue */}
-          <div className="bg-white/5 rounded p-2 text-center">
+          <div className="bg-white/5 rounded p-1.5 text-center">
             <div className="flex items-center justify-center gap-1 mb-0.5">
               <TrendUp size={12} className="text-emerald-400" />
-              <span className="text-sm font-bold text-emerald-400">
+              <span className="text-xs font-bold text-emerald-400">
                 ${financial?.revenue ? financial.revenue.toFixed(0) : '0'}
               </span>
             </div>
-            <span className="text-[9px] text-white/40 uppercase tracking-wider">Revenue</span>
+            <span className="text-[8px] text-white/40 uppercase tracking-wider">Revenue</span>
           </div>
 
           {/* Margin */}
-          <div className="bg-white/5 rounded p-2 text-center">
+          <div className="bg-white/5 rounded p-1.5 text-center">
             <div className="flex items-center justify-center gap-1 mb-0.5">
               {marginPercent < 20 && financial?.costPrice !== null && (
                 <Warning size={12} className="text-red-400" />
               )}
-              <span className={`text-sm font-bold ${
+              <span className={`text-xs font-bold ${
                 financial?.costPrice === null || financial?.costPrice === undefined ? 'text-white/40' :
                 marginPercent >= 40 ? 'text-emerald-400' :
                 marginPercent >= 20 ? 'text-amber-400' : 'text-red-400'
@@ -159,13 +159,13 @@ export function ProductMobileCard({
                 {financial?.costPrice !== null && financial?.costPrice !== undefined ? `${marginPercent.toFixed(0)}%` : '—'}
               </span>
             </div>
-            <span className="text-[9px] text-white/40 uppercase tracking-wider">Margin</span>
+            <span className="text-[8px] text-white/40 uppercase tracking-wider">Margin</span>
           </div>
         </div>
 
         {/* Bottom Row: Stock Badge & Quick Actions */}
         <div className="flex items-center justify-between">
-          <span className={`px-2 py-1 rounded text-[10px] font-medium ${stockStatus.color}`}>
+          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${stockStatus.color}`}>
             {stockStatus.label} ({totalInventory} units)
           </span>
 
@@ -176,7 +176,7 @@ export function ProductMobileCard({
                 e.stopPropagation()
                 onRestock()
               }}
-              className="px-2 py-1 text-[10px] font-medium bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 transition-colors"
+              className="px-1.5 py-1 text-[10px] font-medium bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 transition-colors"
             >
               Restock
             </button>
@@ -186,7 +186,7 @@ export function ProductMobileCard({
                 e.stopPropagation()
                 onToggleStatus()
               }}
-              className="px-2 py-1 text-[10px] font-medium bg-white/10 text-white/70 rounded hover:bg-white/20 transition-colors"
+              className="px-1.5 py-1 text-[10px] font-medium bg-white/10 text-white/70 rounded hover:bg-white/20 transition-colors"
             >
               {product.isActive ? 'Hide' : 'Show'}
             </button>
@@ -196,7 +196,7 @@ export function ProductMobileCard({
                 e.stopPropagation()
                 onQuickEdit()
               }}
-              className="px-2 py-1 text-[10px] font-medium bg-white/10 text-white/70 rounded hover:bg-white/20 transition-colors"
+              className="px-1.5 py-1 text-[10px] font-medium bg-white/10 text-white/70 rounded hover:bg-white/20 transition-colors"
             >
               Edit
             </button>
@@ -208,7 +208,7 @@ export function ProductMobileCard({
                   onDelete()
                 }
               }}
-              className="px-2 py-1 text-[10px] font-medium bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-colors"
+              className="px-1.5 py-1 text-[10px] font-medium bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-colors"
             >
               Del
             </button>

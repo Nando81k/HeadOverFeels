@@ -5,6 +5,14 @@ import { Prisma } from '@prisma/client'
 import { isValidGuestEmail } from '@/lib/security/guest-session'
 import { getPaginationParams, createPaginatedResponse } from '@/lib/validation/schemas'
 import { auth } from '@/lib/auth/auth'
+import { subscribeToNewsletter } from '@/lib/newsletter/subscribers'
+import {
+  parseStatuses,
+  parsePaymentStatus,
+  parsePositiveNumber,
+  parseDateValue,
+  parseSort,
+} from '@/lib/orders/admin-order-query'
 
 // Validation schemas
 const AddressSchema = z.object({
@@ -29,6 +37,7 @@ const OrderItemSchema = z.object({
 const CreateOrderSchema = z.object({
   customerEmail: z.string().email('Invalid email'),
   customerPhone: z.string().optional(),
+  newsletterOptIn: z.boolean().optional(),
   shippingAddress: AddressSchema,
   billingAddress: AddressSchema,
   items: z.array(OrderItemSchema).min(1, 'Order must have at least one item'),
@@ -323,6 +332,19 @@ export async function POST(request: NextRequest) {
       return order
     })
 
+    if (validatedData.newsletterOptIn) {
+      try {
+        await subscribeToNewsletter({
+          email: normalizedEmail,
+          source: 'checkout',
+          sourceDetails: 'checkout_newsletter_opt_in',
+        })
+      } catch (newsletterError) {
+        // Do not fail order creation when newsletter opt-in fails.
+        console.error('Checkout newsletter opt-in failed:', newsletterError)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       order: result,
@@ -360,7 +382,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const { page, limit } = getPaginationParams(new URL(request.url).searchParams)
     const status = searchParams.get('status')
-    const search = searchParams.get('search') // New unified search param
+    const search = searchParams.get('search')
+    const statuses = parseStatuses(searchParams.get('statuses'), status)
+    const paymentStatus = parsePaymentStatus(searchParams.get('paymentStatus'))
+    const minTotal = parsePositiveNumber(searchParams.get('minTotal'))
+    const maxTotal = parsePositiveNumber(searchParams.get('maxTotal'))
+    const dateFrom = parseDateValue(searchParams.get('dateFrom'))
+    const dateTo = parseDateValue(searchParams.get('dateTo'))
+    const { sortBy, sortDir } = parseSort(
+      searchParams.get('sortBy'),
+      searchParams.get('sortDir')
+    )
 
     const where: Prisma.OrderWhereInput = {}
     
@@ -369,35 +401,62 @@ export async function GET(request: NextRequest) {
       where.customerEmail = userEmail
     }
     
-    // Admin can filter by specific status
-    if (status) {
+    // Admin filtering
+    if (isAdmin && statuses.length > 0) {
+      where.status = { in: statuses }
+    } else if (!isAdmin && status) {
       where.status = status as Prisma.EnumOrderStatusFilter
+    }
+
+    if (isAdmin && paymentStatus) {
+      where.paymentStatus = paymentStatus
+    }
+
+    if (isAdmin && (typeof minTotal === 'number' || typeof maxTotal === 'number')) {
+      where.total = {
+        ...(typeof minTotal === 'number' ? { gte: minTotal } : {}),
+        ...(typeof maxTotal === 'number' ? { lte: maxTotal } : {}),
+      }
+    }
+
+    if (isAdmin && (dateFrom || dateTo)) {
+      where.createdAt = {
+        ...(dateFrom ? { gte: dateFrom } : {}),
+        ...(dateTo ? { lte: dateTo } : {}),
+      }
     }
     
     // Admin can search by email, order number, or customer name
     if (search && isAdmin) {
-      const cleanSearch = search.substring(0, 255).trim().toLowerCase()
+      const cleanSearch = search.substring(0, 255).trim()
       where.OR = [
-        { orderNumber: { contains: cleanSearch } },
-        { customerEmail: { contains: cleanSearch } },
+        { orderNumber: { contains: cleanSearch, mode: 'insensitive' } },
+        { customerEmail: { contains: cleanSearch, mode: 'insensitive' } },
         { 
           shippingAddress: { 
             OR: [
-              { firstName: { contains: cleanSearch } },
-              { lastName: { contains: cleanSearch } },
+              { firstName: { contains: cleanSearch, mode: 'insensitive' } },
+              { lastName: { contains: cleanSearch, mode: 'insensitive' } },
             ]
           } 
         },
         {
           customer: {
             OR: [
-              { name: { contains: cleanSearch } },
-              { email: { contains: cleanSearch } },
+              { name: { contains: cleanSearch, mode: 'insensitive' } },
+              { email: { contains: cleanSearch, mode: 'insensitive' } },
             ]
           }
         }
       ]
     }
+
+    const orderBy: Prisma.OrderOrderByWithRelationInput[] =
+      sortBy === 'status'
+        ? [{ status: sortDir }, { createdAt: 'desc' }]
+        : sortBy === 'total'
+        ? [{ total: sortDir }, { createdAt: 'desc' }]
+        : [{ createdAt: sortDir }]
 
     const [orders, total] = await Promise.all([
       prisma.order.findMany({
@@ -412,9 +471,7 @@ export async function GET(request: NextRequest) {
           customer: true,
           shippingAddress: true,
         },
-        orderBy: {
-          createdAt: 'desc',
-        },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),

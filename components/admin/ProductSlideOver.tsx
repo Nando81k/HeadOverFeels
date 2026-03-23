@@ -8,9 +8,9 @@ import { ImageUpload } from '@/components/admin/ImageUpload'
 import { productApi, Product, CreateProductData } from '@/lib/api/products'
 import { toast } from '@/lib/toast'
 import {
-  X, Package, CurrencyDollar, Percent, TrendUp, TrendDown,
+  X, Package, CurrencyDollar, TrendUp, TrendDown,
   Plus, Trash, CaretDown, CaretUp, Image as ImageIcon,
-  Tag, Barcode, Palette, Warning, CheckCircle, SpinnerGap,
+  Tag, Barcode, Warning, CheckCircle, SpinnerGap,
   Cube, ChartLineUp, ArrowSquareOut
 } from '@phosphor-icons/react'
 import Link from 'next/link'
@@ -81,11 +81,10 @@ const defaultFormData: FormData = {
 export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: ProductSlideOverProps) {
   const [formData, setFormData] = useState<FormData>(defaultFormData)
   const [loading, setLoading] = useState(false)
-  const [activeSection, setActiveSection] = useState<'basic' | 'pricing' | 'variants' | 'images'>('basic')
   const [expandedSections, setExpandedSections] = useState({
     basic: true,
     pricing: true,
-    variants: false,
+    variants: true,
     images: false
   })
 
@@ -282,7 +281,7 @@ export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: Produc
         onSuccess()
         onClose()
       }
-    } catch (error) {
+    } catch {
       toast.dismiss(loadingToast)
       toast.error('Error', 'An unexpected error occurred')
     } finally {
@@ -312,10 +311,10 @@ export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: Produc
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed right-0 top-0 h-full w-full max-w-[600px] bg-neutral-950 border-l border-white/10 z-50 flex flex-col"
+            className="fixed right-0 top-0 h-full w-full max-w-[560px] bg-neutral-950 border-l border-white/10 z-50 flex flex-col"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-white/10">
+            <div className="flex items-center justify-between p-3 border-b border-white/10">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#FF3131]/20 rounded-lg flex items-center justify-center">
                   <Package size={20} weight="bold" className="text-[#FF3131]" />
@@ -352,16 +351,16 @@ export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: Produc
             </div>
 
             {/* Quick Stats Bar */}
-            <div className="grid grid-cols-4 gap-2 p-4 border-b border-white/10 bg-white/[0.02]">
+            <div className="grid grid-cols-4 gap-1.5 p-3 border-b border-white/10 bg-white/[0.02]">
               <div className="text-center">
-                <div className="text-[10px] font-medium text-white/40 uppercase tracking-wider mb-1">Price</div>
-                <div className="text-lg font-bold text-white">
+                <div className="text-[9px] font-medium text-white/40 uppercase tracking-wider mb-0.5">Price</div>
+                <div className="text-base font-bold text-white">
                   ${formData.price.toFixed(2)}
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-[10px] font-medium text-white/40 uppercase tracking-wider mb-1">Margin</div>
-                <div className={`text-lg font-bold flex items-center justify-center gap-1 ${
+                <div className="text-[9px] font-medium text-white/40 uppercase tracking-wider mb-0.5">Margin</div>
+                <div className={`text-base font-bold flex items-center justify-center gap-1 ${
                   !profitMargin ? 'text-white/30' :
                   profitMargin.isNegative ? 'text-red-400' :
                   profitMargin.isLow ? 'text-amber-400' : 'text-emerald-400'
@@ -375,8 +374,8 @@ export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: Produc
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-[10px] font-medium text-white/40 uppercase tracking-wider mb-1">Stock</div>
-                <div className={`text-lg font-bold ${
+                <div className="text-[9px] font-medium text-white/40 uppercase tracking-wider mb-0.5">Stock</div>
+                <div className={`text-base font-bold ${
                   revenueProjection?.totalInventory === 0 ? 'text-red-400' :
                   (revenueProjection?.totalInventory || 0) <= 10 ? 'text-amber-400' : 'text-white'
                 }`}>
@@ -384,8 +383,8 @@ export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: Produc
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-[10px] font-medium text-white/40 uppercase tracking-wider mb-1">Proj. Rev</div>
-                <div className="text-lg font-bold text-emerald-400">
+                <div className="text-[9px] font-medium text-white/40 uppercase tracking-wider mb-0.5">Proj. Rev</div>
+                <div className="text-base font-bold text-emerald-400">
                   ${revenueProjection ? (revenueProjection.grossRevenue / 1000).toFixed(1) : '0'}k
                 </div>
               </div>
@@ -393,14 +392,14 @@ export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: Produc
 
             {/* Content */}
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-              <div className="p-4 space-y-4">
+              <div className="p-3 space-y-3">
                 
                 {/* Basic Info Section */}
                 <div className="border border-white/10 rounded-lg overflow-hidden">
                   <button
                     type="button"
                     onClick={() => toggleSection('basic')}
-                    className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/[0.07] transition-colors"
+                    className="w-full flex items-center justify-between p-2.5 bg-white/5 hover:bg-white/[0.07] transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       <Tag size={16} className="text-[#FF3131]" />
@@ -417,7 +416,7 @@ export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: Produc
                         exit={{ height: 0, opacity: 0 }}
                         className="overflow-hidden"
                       >
-                        <div className="p-4 space-y-4">
+                        <div className="p-3 space-y-3">
                           <div>
                             <label className={labelClassName}>Product Name *</label>
                             <input
@@ -505,7 +504,7 @@ export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: Produc
                   <button
                     type="button"
                     onClick={() => toggleSection('pricing')}
-                    className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/[0.07] transition-colors"
+                    className="w-full flex items-center justify-between p-2.5 bg-white/5 hover:bg-white/[0.07] transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       <CurrencyDollar size={16} className="text-emerald-400" />
@@ -522,7 +521,7 @@ export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: Produc
                         exit={{ height: 0, opacity: 0 }}
                         className="overflow-hidden"
                       >
-                        <div className="p-4 space-y-4">
+                        <div className="p-3 space-y-3">
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <label className={labelClassName}>Sale Price *</label>
@@ -667,7 +666,7 @@ export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: Produc
                   <button
                     type="button"
                     onClick={() => toggleSection('variants')}
-                    className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/[0.07] transition-colors"
+                    className="w-full flex items-center justify-between p-2.5 bg-white/5 hover:bg-white/[0.07] transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       <Cube size={16} className="text-blue-400" />
@@ -684,9 +683,9 @@ export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: Produc
                         exit={{ height: 0, opacity: 0 }}
                         className="overflow-hidden"
                       >
-                        <div className="p-4 space-y-3">
+                        <div className="p-3 space-y-2.5">
                           {formData.variants.map((variant, index) => (
-                            <div key={index} className="p-3 bg-white/5 rounded-lg border border-white/10 space-y-3">
+                            <div key={index} className="p-2.5 bg-white/5 rounded-lg border border-white/10 space-y-2.5">
                               <div className="flex items-center justify-between">
                                 <span className="text-xs font-medium text-white/40 uppercase tracking-wider">Variant {index + 1}</span>
                                 <button
@@ -785,7 +784,7 @@ export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: Produc
                   <button
                     type="button"
                     onClick={() => toggleSection('images')}
-                    className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/[0.07] transition-colors"
+                    className="w-full flex items-center justify-between p-2.5 bg-white/5 hover:bg-white/[0.07] transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       <ImageIcon size={16} className="text-purple-400" />
@@ -802,7 +801,7 @@ export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: Produc
                         exit={{ height: 0, opacity: 0 }}
                         className="overflow-hidden"
                       >
-                        <div className="p-4">
+                        <div className="p-3">
                           <ImageUpload
                             images={formData.images}
                             onImagesChange={(images) => setFormData(prev => ({ ...prev, images }))}
@@ -836,7 +835,7 @@ export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: Produc
                 </div>
 
                 {/* Limited Edition Toggle */}
-                <div className="p-4 border border-white/10 rounded-lg bg-white/[0.02]">
+                <div className="p-3 border border-white/10 rounded-lg bg-white/[0.02]">
                   <label className="flex items-center justify-between cursor-pointer">
                     <div>
                       <span className="text-sm font-medium text-white">Limited Edition Drop</span>
@@ -851,7 +850,7 @@ export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: Produc
                   </label>
                   
                   {formData.isLimitedEdition && (
-                    <div className="mt-4 grid grid-cols-3 gap-3">
+                    <div className="mt-3 grid grid-cols-3 gap-2">
                       <div>
                         <label className={labelClassName}>Release Date</label>
                         <input
@@ -888,7 +887,7 @@ export function ProductSlideOver({ isOpen, onClose, product, onSuccess }: Produc
             </form>
 
             {/* Footer */}
-            <div className="p-4 border-t border-white/10 bg-white/[0.02]">
+            <div className="p-3 border-t border-white/10 bg-white/[0.02]">
               <div className="flex items-center justify-between gap-3">
                 <Button
                   type="button"

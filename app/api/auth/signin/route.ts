@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
@@ -69,6 +70,8 @@ export async function POST(request: NextRequest) {
             name: true,
             slug: true,
             description: true,
+            primaryColor: true,
+            secondaryColor: true,
             minAnnualPoints: true,
             minAnnualSpend: true,
             pointMultiplier: true,
@@ -144,6 +147,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: error.issues[0].message },
         { status: 400 }
+      )
+    }
+
+    if (error instanceof Prisma.PrismaClientInitializationError) {
+      console.error('Signin database initialization error:', error)
+      return NextResponse.json(
+        { error: 'Service temporarily unavailable. Please try again in a moment.' },
+        { status: 503 }
+      )
+    }
+
+    if (
+      error instanceof Prisma.PrismaClientValidationError ||
+      (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2022')
+    ) {
+      console.error('Signin schema mismatch error:', error)
+      return NextResponse.json(
+        { error: 'Authentication service is updating. Please retry shortly.' },
+        { status: 503 }
       )
     }
 

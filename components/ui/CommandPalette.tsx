@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { Command } from 'cmdk'
-import { Layout, Package, ShoppingCart, Users, Tag, Star, ChartBar, Wallet, Gift, Lightning, MagnifyingGlass, Plus, FileText } from '@phosphor-icons/react'
+import { Layout, Package, ShoppingCart, Users, Tag, Star, ChartBar, Wallet, Gift, Lightning, MagnifyingGlass, Plus, FileText, EnvelopeSimple } from '@phosphor-icons/react'
 
 interface CommandPaletteProps {
   isAdmin?: boolean
@@ -52,6 +52,7 @@ export function CommandPalette({ isAdmin = false }: CommandPaletteProps) {
         { icon: ChartBar, label: 'Analytics', href: '/admin/analytics', shortcut: 'G → A' as const },
         { icon: Wallet, label: 'Financial', href: '/admin/financial', shortcut: 'G → F' as const },
         { icon: Gift, label: 'Loyalty', href: '/admin/loyalty', shortcut: 'G → Y' as const },
+        { icon: EnvelopeSimple, label: 'Newsletter', href: '/admin/newsletter', shortcut: 'G → N' as const },
         { icon: Lightning, label: 'Drops', href: '/admin/drops', shortcut: 'G → R' as const },
       ],
     },

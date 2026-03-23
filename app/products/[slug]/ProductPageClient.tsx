@@ -23,6 +23,11 @@ import {
   isSizeAvailableForSelection,
   resolveVariantForSelection,
 } from '@/components/products/variant-selection'
+import {
+  buildProductPlaceholderImages,
+  buildVariantPlaceholderImages,
+  parseImageList,
+} from '@/lib/commerce/product-placeholders'
 import { useProductView } from '@/hooks/useProductView'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
@@ -64,22 +69,6 @@ function isLightColor(hexColor: string): boolean {
   const b = parseInt(hex.substr(4, 2), 16)
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
   return luminance > 0.5
-}
-
-// Helper to parse images
-const parseImageArray = (imagesStr: string | undefined): string[] => {
-  if (!imagesStr) return []
-  try {
-    const parsed = JSON.parse(imagesStr)
-    if (Array.isArray(parsed)) {
-      return parsed.map((img: string | { url: string }) => 
-        typeof img === 'string' ? img : img.url
-      ).filter((url: string) => url && url.trim() !== '')
-    }
-  } catch {
-    // Parse failed
-  }
-  return []
 }
 
 export default function ProductPageClient({ slug }: ProductPageClientProps) {
@@ -407,7 +396,7 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
   const variantImagesById = useMemo(() => {
     const imageMap = new Map<string, string[]>()
     for (const variant of variants) {
-      imageMap.set(variant.id, parseImageArray(variant.images))
+      imageMap.set(variant.id, parseImageList(variant.images))
     }
     return imageMap
   }, [variants])
@@ -435,9 +424,24 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
 
     if (selectedColorImages.length > 0) return selectedColorImages
 
-    const productImages = parseImageArray(product.images)
-    return productImages.length > 0 ? productImages : ['/placeholder-product.jpg']
-  }, [product, selectedVariant, selectedColorImages, variantImagesById])
+    const productImages = parseImageList(product.images)
+    if (productImages.length > 0) return productImages
+
+    if (selectedVariant || selectedColor) {
+      return buildVariantPlaceholderImages({
+        productName: product.name,
+        productSlug: product.slug,
+        color: selectedVariant?.color || selectedColor,
+        colorHex: selectedVariant?.colorHex,
+        size: selectedVariant?.size || selectedSize,
+      })
+    }
+
+    return buildProductPlaceholderImages({
+      productName: product.name,
+      productSlug: product.slug,
+    })
+  }, [product, selectedVariant, selectedColorImages, variantImagesById, selectedColor, selectedSize])
 
   const imageSelectionKey = `${selectedVariant?.id || 'none'}::${selectedColor || 'none'}`
 

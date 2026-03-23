@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { resend, emailConfig } from '@/lib/email/config'
 import { generatePromoCodeEmail } from '@/lib/email/templates/promo-code'
+import { ensureCanonicalSubscriberFromCustomer } from '@/lib/newsletter/subscribers'
 
 // Schema for claiming a popup promo code
 const ClaimCodeSchema = z.object({
@@ -15,6 +16,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { popupId, email } = ClaimCodeSchema.parse(body)
+    const normalizedEmail = email.toLowerCase().trim()
     
     // Find the popup with its linked promotion
     const popup = await prisma.marketingPopup.findUnique({
@@ -34,15 +36,17 @@ export async function POST(request: NextRequest) {
     // Create or find customer for email storage
     try {
       await prisma.customer.upsert({
-        where: { email },
+        where: { email: normalizedEmail },
         create: { 
-          email,
+          email: normalizedEmail,
           newsletter: true, // Opt them in since they signed up via popup
         },
         update: {
           newsletter: true, // Enable newsletter for existing customers
         },
       })
+
+      await ensureCanonicalSubscriberFromCustomer(normalizedEmail, 'popup_claim_code')
     } catch {
       // Ignore if customer already exists with conflicts
     }
@@ -110,7 +114,7 @@ export async function POST(request: NextRequest) {
       
       await resend.emails.send({
         from: emailConfig.from,
-        to: email,
+        to: normalizedEmail,
         replyTo: emailConfig.replyTo,
         subject: `🎉 Your exclusive discount code: ${promo.code}`,
         html: emailHtml,

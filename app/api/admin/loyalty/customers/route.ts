@@ -2,12 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { createPaginatedResponse, getPaginationParams } from '@/lib/validation/schemas'
+import { verifyAdmin } from '@/lib/auth/admin'
+
+const ALLOWED_SORT_FIELDS = new Set([
+  'currentPoints',
+  'lifetimePoints',
+  'annualPointsEarned',
+  'totalSpent',
+  'createdAt',
+  'name',
+  'email',
+])
 
 // GET /api/admin/loyalty/customers - List customers with loyalty info
 export async function GET(request: NextRequest) {
   try {
-    // Check admin auth
-    const adminId = request.cookies.get('admin_session')?.value
+    const adminId = await verifyAdmin(request)
     if (!adminId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -17,7 +27,8 @@ export async function GET(request: NextRequest) {
     
     const search = searchParams.get('search') || ''
     const tierId = searchParams.get('tier') || ''
-    const sortBy = searchParams.get('sortBy') || 'currentPoints'
+    const requestedSort = searchParams.get('sortBy') || 'currentPoints'
+    const sortBy = ALLOWED_SORT_FIELDS.has(requestedSort) ? requestedSort : 'currentPoints'
     const sortOrder = searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc'
 
     // Build where clause - exclude admin accounts from customer list
@@ -27,13 +38,13 @@ export async function GET(request: NextRequest) {
     
     if (search) {
       where.OR = [
-        { email: { contains: search } },
-        { name: { contains: search } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search, mode: 'insensitive' } },
       ]
     }
 
     if (tierId) {
-      where.tierId = tierId
+      where.loyaltyTierId = tierId
     }
 
     // Get customers with loyalty data
@@ -110,8 +121,7 @@ const AdjustCustomerSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Check admin auth
-    const adminId = request.cookies.get('admin_session')?.value
+    const adminId = await verifyAdmin(request)
     if (!adminId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

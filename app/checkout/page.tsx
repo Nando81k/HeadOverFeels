@@ -11,6 +11,7 @@ import { ShippingForm, ShippingFormData } from '@/components/checkout/ShippingFo
 import { PaymentForm } from '@/components/checkout/PaymentForm'
 import { CouponInput } from '@/components/checkout/CouponInput'
 import { PointsPreview } from '@/components/checkout/PointsPreview'
+import { calculateCheckoutSavings } from '@/lib/checkout/insights'
 import { isValidPhoneNumber } from '@/lib/utils/phone'
 import { useAuth } from '@/lib/auth/context'
 import { Navigation } from '@/components/layout/Navigation'
@@ -94,6 +95,7 @@ export default function CheckoutPage() {
     firstName: '',
     lastName: '',
     email: '',
+    newsletterOptIn: false,
     phone: '',
     address: '',
     apartment: '',
@@ -120,6 +122,7 @@ export default function CheckoutPage() {
 
   const subtotal = getTotalPrice()
   const selectedOption = SHIPPING_OPTIONS.find(opt => opt.id === selectedShippingMethod)!
+  const taxRate = 0.08
   
   // Check if user is admin
   const isAdmin = user?.isAdmin === true
@@ -139,7 +142,7 @@ export default function CheckoutPage() {
   // Calculate final totals with coupon applied
   // We pass baseShipping which already accounts for free standard shipping
   // The cart store's free_shipping coupon logic is overridden here
-  const cartTotals = getFinalTotal(baseShipping)
+  const cartTotals = getFinalTotal(baseShipping, taxRate)
   
   // Override shipping if user selected non-standard method (cart store may have zeroed it for free_shipping coupons)
   const shipping = selectedShippingMethod !== 'STANDARD' ? selectedOption.price : cartTotals.shipping
@@ -147,6 +150,30 @@ export default function CheckoutPage() {
   const tax = cartTotals.tax
   // Recalculate total with correct shipping
   const total = subtotal - discount + shipping + tax
+  const savings = calculateCheckoutSavings({
+    subtotal,
+    discount,
+    shipping,
+    baseShippingPrice: selectedOption.price,
+    tax,
+    taxRate,
+  })
+  const activeOfferTags: string[] = []
+  if (appliedCoupon) {
+    activeOfferTags.push(`${appliedCoupon.rewardName}${appliedCoupon.code ? ` (${appliedCoupon.code})` : ''}`)
+  }
+  if (selectedShippingMethod === 'STANDARD' && shipping === 0) {
+    if (isAdmin) {
+      activeOfferTags.push('Admin Free Shipping')
+    } else if (hasTierFreeShipping) {
+      activeOfferTags.push(`${user?.loyaltyTier?.name || 'Tier'} Free Shipping`)
+    } else if (hasFreeShippingCoupon && !appliedCoupon) {
+      activeOfferTags.push('Free Shipping Coupon')
+    } else if (subtotal > 100) {
+      activeOfferTags.push('Free Shipping Over $100')
+    }
+  }
+  const activePromotionText = activeOfferTags.join(' • ') || null
 
   // Redirect if cart is empty (but not if payment was successful)
   useEffect(() => {
@@ -213,6 +240,7 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           customerEmail: shippingData.email,
           customerPhone: shippingData.phone,
+          newsletterOptIn: shippingData.newsletterOptIn,
           shippingAddress: {
             firstName: shippingData.firstName,
             lastName: shippingData.lastName,
@@ -522,6 +550,15 @@ export default function CheckoutPage() {
                             <span className="text-xs md:text-sm font-black text-black tabular-nums">-${discount.toFixed(2)}</span>
                           </div>
                         )}
+
+                        {activePromotionText && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs md:text-sm text-black/60">Active offer</span>
+                            <span className="text-[10px] md:text-xs font-bold text-black uppercase tracking-wide text-right">
+                              {activePromotionText}
+                            </span>
+                          </div>
+                        )}
                         
                         <div className="flex justify-between items-center">
                           <div>
@@ -543,6 +580,15 @@ export default function CheckoutPage() {
                           <span className="text-xs md:text-sm font-black text-black tabular-nums">${tax.toFixed(2)}</span>
                         </div>
 
+                        {savings.totalSavings > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs md:text-sm text-black/60">You save today</span>
+                            <span className="text-xs md:text-sm font-black text-emerald-700 tabular-nums">
+                              ${savings.totalSavings.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+
                         {/* Total */}
                         <div className="pt-3 md:pt-4 mt-3 md:mt-4 border-t-2 border-black">
                           <div className="flex justify-between items-baseline">
@@ -554,7 +600,12 @@ export default function CheckoutPage() {
 
                       {/* Care Points Preview */}
                       <div className="mt-4 md:mt-6">
-                        <PointsPreview orderTotal={total} isSignedIn={!!user} />
+                        <PointsPreview
+                          pointsEligibleAmount={total}
+                          isSignedIn={!!user}
+                          activePromotionText={activePromotionText}
+                          totalSavings={savings.totalSavings}
+                        />
                       </div>
                     </div>
 
@@ -760,7 +811,7 @@ export default function CheckoutPage() {
                         <div className="lg:hidden mt-6 border-t border-black/10 pt-4">
                           {/* Mini cart items preview */}
                           <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-2">
-                            {items.slice(0, 4).map((item, idx) => {
+                            {items.slice(0, 4).map((item) => {
                               const imageUrl = getImageUrl(item.product.images)
                               return (
                                 <div key={`mini-${item.product.id}-${item.variant.id}`} className="relative w-10 h-10 bg-black/5 shrink-0 overflow-hidden">

@@ -23,6 +23,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={allura.variable}>
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://fonts.cdnfonts.com/css/harlow-solid-italic"
+        />
+      </head>
       <body className="antialiased">
         <Providers>
           {children}

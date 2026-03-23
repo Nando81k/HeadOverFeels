@@ -1,12 +1,21 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ReactNode } from 'react'
 import ProfilePage from '@/app/profile/page'
 
-const { pushMock, refreshUserMock, signoutMock, mockUser } = vi.hoisted(() => ({
+const {
+  pushMock,
+  refreshUserMock,
+  signoutMock,
+  getDailyMentalHealthQuoteMock,
+  getMsUntilNextLocalMidnightMock,
+  mockUser,
+} = vi.hoisted(() => ({
   pushMock: vi.fn(),
   refreshUserMock: vi.fn(async () => undefined),
   signoutMock: vi.fn(async () => undefined),
+  getDailyMentalHealthQuoteMock: vi.fn(),
+  getMsUntilNextLocalMidnightMock: vi.fn(),
   mockUser: {
     id: 'user-1',
     name: 'Test User',
@@ -22,6 +31,8 @@ const { pushMock, refreshUserMock, signoutMock, mockUser } = vi.hoisted(() => ({
     loyaltyTier: {
       slug: 'friend',
       name: 'Friend',
+      primaryColor: '#2563EB',
+      secondaryColor: '#3730A3',
       freeShipping: false,
       earlyDropAccess: false,
     },
@@ -65,12 +76,24 @@ vi.mock('@/lib/auth/context', () => ({
   }),
 }))
 
+vi.mock('@/lib/profile/daily-mental-health-quote', () => ({
+  getDailyMentalHealthQuote: getDailyMentalHealthQuoteMock,
+  getMsUntilNextLocalMidnight: getMsUntilNextLocalMidnightMock,
+}))
+
 describe('ProfilePage tabs', () => {
   beforeEach(() => {
     pushMock.mockReset()
     refreshUserMock.mockReset()
     refreshUserMock.mockResolvedValue(undefined)
     signoutMock.mockReset()
+    getDailyMentalHealthQuoteMock.mockReset()
+    getMsUntilNextLocalMidnightMock.mockReset()
+    getDailyMentalHealthQuoteMock.mockReturnValue({
+      text: 'Progress is still progress, even when it feels slow.',
+      author: 'Head Over Feels',
+    })
+    getMsUntilNextLocalMidnightMock.mockReturnValue(24 * 60 * 60 * 1000)
     localStorage.clear()
     window.history.pushState({}, '', '/profile')
 
@@ -108,6 +131,7 @@ describe('ProfilePage tabs', () => {
     expect(screen.getByRole('tab', { name: 'Profile' }).getAttribute('aria-selected')).toBe('true')
     expect(screen.getByRole('tab', { name: 'Rewards' }).getAttribute('aria-selected')).toBe('false')
     expect(screen.queryByTestId('rewards-hub')).toBeNull()
+    expect(screen.getByText('"Progress is still progress, even when it feels slow."')).toBeTruthy()
   })
 
   it('opens Rewards tab from hash and keeps rewards mounted after switching back', async () => {
@@ -166,5 +190,59 @@ describe('ProfilePage tabs', () => {
 
     fireEvent.keyDown(profileTab, { key: 'End' })
     expect(screen.getByRole('tab', { name: 'Rewards' }).getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('does not show max tier messaging when user tier is Friend even if lifetime points are high', async () => {
+    const originalLifetimePoints = mockUser.lifetimePoints
+    const originalAnnualPoints = mockUser.annualPointsEarned
+    const originalTier = { ...mockUser.loyaltyTier }
+
+    mockUser.lifetimePoints = 9000
+    mockUser.annualPointsEarned = 1450
+    mockUser.loyaltyTier = {
+      ...mockUser.loyaltyTier,
+      slug: 'friend',
+      name: 'Friend',
+    }
+
+    try {
+      render(<ProfilePage />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Next: Bestie')).toBeTruthy()
+      })
+
+      expect(screen.queryByText(/Maximum tier achieved/i)).toBeNull()
+    } finally {
+      mockUser.lifetimePoints = originalLifetimePoints
+      mockUser.annualPointsEarned = originalAnnualPoints
+      mockUser.loyaltyTier = originalTier
+    }
+  })
+
+  it('updates the daily quote after the midnight refresh timer fires', async () => {
+    vi.useFakeTimers()
+    const quoteQueue = [
+      { text: 'Breathe. You are doing better than you think.', author: 'Head Over Feels' },
+      { text: 'Breathe. You are doing better than you think.', author: 'Head Over Feels' },
+      { text: 'A new day is another chance to care for yourself.', author: 'Head Over Feels' },
+    ]
+
+    getDailyMentalHealthQuoteMock.mockImplementation(() => quoteQueue.shift())
+    getMsUntilNextLocalMidnightMock.mockReturnValue(10)
+
+    try {
+      render(<ProfilePage />)
+
+      expect(screen.getByText('"Breathe. You are doing better than you think."')).toBeTruthy()
+
+      await act(async () => {
+        vi.advanceTimersByTime(11)
+      })
+
+      expect(screen.getByText('"A new day is another chance to care for yourself."')).toBeTruthy()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

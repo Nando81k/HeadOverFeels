@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { MagnifyingGlass, X, CircleNotch } from '@phosphor-icons/react'
 import { productApi, Product } from '@/lib/api/products'
 import ProductImage from '@/components/ui/ProductImage'
+import { getPrimaryImageWithFallback } from '@/lib/commerce/product-placeholders'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface ModernSearchBarProps {
@@ -27,6 +28,25 @@ const POPULAR_SEARCHES = [
   't-shirts',
   'new arrivals',
 ]
+
+function getPrimaryColorContext(product: Product): { color?: string; colorHex?: string } | null {
+  const withHex = product.variants.find((variant) => variant.colorHex)
+  if (withHex) {
+    return {
+      color: withHex.color,
+      colorHex: withHex.colorHex,
+    }
+  }
+
+  const withLabel = product.variants.find((variant) => variant.color)
+  if (withLabel) {
+    return {
+      color: withLabel.color,
+    }
+  }
+
+  return null
+}
 
 export function ModernSearchBar({
   placeholder = 'Search products...',
@@ -302,13 +322,14 @@ export function ModernSearchBar({
                 </div>
                 <div className="px-3 pb-4">
                   {productResults.slice(0, 6).map((product) => {
-                    let imageUrl = '/placeholder-product.jpg'
-                    try {
-                      const images = typeof product.images === 'string' ? JSON.parse(product.images) : product.images
-                      if (images && images.length > 0) {
-                        imageUrl = typeof images[0] === 'string' ? images[0] : images[0]?.url
-                      }
-                    } catch {}
+                    const colorContext = getPrimaryColorContext(product)
+                    const imageUrl = getPrimaryImageWithFallback({
+                      images: product.images,
+                      productName: product.name,
+                      productSlug: product.slug,
+                      color: colorContext?.color,
+                      colorHex: colorContext?.colorHex,
+                    })
 
                     const variantPrices = product.variants?.map(v => v.price).filter((p): p is number => p !== null && p !== undefined) || []
                     const price = variantPrices.length > 0 ? Math.min(...variantPrices) : (typeof product.price === 'number' ? product.price : 0)
@@ -324,6 +345,9 @@ export function ModernSearchBar({
                           <ProductImage 
                             src={imageUrl} 
                             alt={product.name} 
+                            productSlug={product.slug}
+                            color={colorContext?.color}
+                            colorHex={colorContext?.colorHex}
                             width={64} 
                             height={64} 
                             className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300" 
@@ -379,13 +403,14 @@ export function ModernSearchBar({
                 <div className="px-4 pb-4">
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                     {bestSellers.slice(0, 8).map((product) => {
-                      let imageUrl = '/placeholder-product.jpg'
-                      try {
-                        const images = typeof product.images === 'string' ? JSON.parse(product.images) : product.images
-                        if (images && images.length > 0) {
-                          imageUrl = typeof images[0] === 'string' ? images[0] : images[0]?.url
-                        }
-                      } catch {}
+                      const colorContext = getPrimaryColorContext(product)
+                      const imageUrl = getPrimaryImageWithFallback({
+                        images: product.images,
+                        productName: product.name,
+                        productSlug: product.slug,
+                        color: colorContext?.color,
+                        colorHex: colorContext?.colorHex,
+                      })
 
                       const variantPrices = product.variants?.map(v => v.price).filter((p): p is number => p !== null && p !== undefined) || []
                       const price = variantPrices.length > 0 ? Math.min(...variantPrices) : (typeof product.price === 'number' ? product.price : 0)
@@ -401,6 +426,9 @@ export function ModernSearchBar({
                             <ProductImage 
                               src={imageUrl} 
                               alt={product.name} 
+                              productSlug={product.slug}
+                              color={colorContext?.color}
+                              colorHex={colorContext?.colorHex}
                               width={120} 
                               height={120} 
                               className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300" 

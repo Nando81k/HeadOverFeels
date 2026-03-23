@@ -7,6 +7,7 @@ import { Sparkle, Gift, Heart, Truck, Lightning, Users, Download, Package, Circl
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { EarlyAccessDrops } from '@/components/loyalty/EarlyAccessDrops'
+import { buildTierGradient, hexToRgba, resolveTierTheme } from '@/lib/loyalty/tier-theme'
 
 interface Reward {
   id: string
@@ -49,6 +50,20 @@ interface RedemptionResult {
 interface RewardsHubSectionProps {
   embedded?: boolean
   openTierModalSignal?: number
+}
+
+interface LoyaltyTierDefinition {
+  id: string
+  name: string
+  slug: string
+  minAnnualPoints: number
+  pointMultiplier: number
+  freeShipping: boolean
+  earlyDropAccess: boolean
+  perks: string | null
+  primaryColor?: string | null
+  secondaryColor?: string | null
+  sortOrder?: number | null
 }
 
 const rewardTypeIcons = {
@@ -165,74 +180,155 @@ const defaultColors = {
   hoverBg: 'hover:bg-gray-50',
 }
 
-// Tier configuration with colors and benefits (matching profile page and seeded data)
-const tierColors: Record<string, { gradient: string; iconBg: string; progressBg: string; progressFill: string; badge: string; glow: string; emoji: string; benefits: string[] }> = {
-  newcomer: {
-    gradient: 'from-slate-400 via-slate-500 to-slate-600',
-    iconBg: 'bg-slate-400/30',
-    progressBg: 'bg-slate-400/30',
-    progressFill: 'bg-slate-300',
-    badge: 'bg-slate-400/30',
-    glow: 'shadow-slate-500/30',
-    emoji: '👋',
-    benefits: [
-      'Earn 10 Care Points per $1 spent',
-      'Birthday surprise',
-      'Early sale access',
-    ],
-  },
-  friend: {
-    gradient: 'from-blue-500 via-blue-600 to-indigo-700',
-    iconBg: 'bg-blue-400/30',
-    progressBg: 'bg-blue-400/30',
-    progressFill: 'bg-blue-300',
-    badge: 'bg-blue-400/30',
-    glow: 'shadow-blue-500/30',
-    emoji: '💙',
-    benefits: [
-      'Earn 12.5 Care Points per $1 spent (1.25x)',
-      'Birthday bonus points',
-      'Early access to sales',
-      'Free shipping on orders $75+',
-    ],
-  },
-  bestie: {
-    gradient: 'from-pink-500 via-rose-500 to-pink-600',
-    iconBg: 'bg-pink-400/30',
-    progressBg: 'bg-pink-400/30',
-    progressFill: 'bg-pink-300',
-    badge: 'bg-pink-400/30',
-    glow: 'shadow-pink-500/30',
-    emoji: '💖',
-    benefits: [
-      'Earn 15 Care Points per $1 spent (1.5x)',
-      'FREE shipping on all orders',
-      '24-hour early access to sales',
-      'Exclusive Bestie-only products',
-    ],
-  },
-  soulmate: {
-    gradient: 'from-purple-500 via-violet-500 to-purple-700',
-    iconBg: 'bg-purple-400/30',
-    progressBg: 'bg-purple-400/30',
-    progressFill: 'bg-purple-300',
-    badge: 'bg-purple-400/30',
-    glow: 'shadow-purple-500/30',
-    emoji: '💜',
-    benefits: [
-      'Earn 20 Care Points per $1 spent (2x)',
-      'FREE express shipping',
-      '48-hour early access to limited drops',
-      'Annual surprise gift',
-      'Priority support',
-    ],
-  },
+const FALLBACK_TIER_BENEFITS: Record<string, string[]> = {
+  newcomer: ['Earn 1x points on purchases', 'Birthday surprise', 'Early sale access'],
+  friend: ['Earn 1.25x points on purchases', 'Birthday bonus points', 'Early access to sales', 'Free shipping on orders $75+'],
+  bestie: ['Earn 1.5x points on purchases', 'FREE shipping on all orders', '24-hour early access to sales', 'Exclusive Bestie-only products'],
+  soulmate: ['Earn 2x points on purchases', 'FREE express shipping', '48-hour early access to limited drops', 'Annual surprise gift', 'Priority support'],
+  head: ['Earn 1x points on purchases'],
+  heart: ['Earn 1.25x points on purchases'],
+  mind: ['Earn 1.5x points on purchases'],
+}
+
+const PERK_FLAG_LABELS: Record<string, string> = {
+  careBox: 'Annual care box',
+  birthdayGift: 'Birthday gift',
+  exclusiveEvents: 'Exclusive events access',
+  personalStylist: 'Personal stylist session',
+  customItems: 'Custom item personalization',
+  prioritySupport: 'Priority support',
+}
+
+const FALLBACK_TIER_DEFINITIONS: LoyaltyTierDefinition[] = TIER_HIERARCHY.map((tier, index) => ({
+  id: `fallback-${tier.slug}`,
+  name: tier.name,
+  slug: tier.slug,
+  minAnnualPoints: tier.minAnnualPoints,
+  pointMultiplier: tier.pointMultiplier,
+  freeShipping: false,
+  earlyDropAccess: false,
+  perks: JSON.stringify(FALLBACK_TIER_BENEFITS[tier.slug] || []),
+  sortOrder: index,
+}))
+
+function formatMultiplier(multiplier: number): string {
+  if (!Number.isFinite(multiplier)) return '1'
+  if (Number.isInteger(multiplier)) return String(multiplier)
+  return multiplier.toFixed(2).replace(/\.?0+$/, '')
+}
+
+function humanizePerkKey(key: string): string {
+  return key
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+    .trim()
+}
+
+function parseTierPerks(rawPerks: string | null): string[] {
+  if (!rawPerks) return []
+
+  let parsed: unknown = rawPerks
+  if (typeof rawPerks === 'string') {
+    try {
+      parsed = JSON.parse(rawPerks)
+    } catch {
+      return rawPerks
+        .split('\n')
+        .map((value) => value.trim())
+        .filter(Boolean)
+    }
+  }
+
+  if (Array.isArray(parsed)) {
+    return parsed
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+
+  if (parsed && typeof parsed === 'object') {
+    const entries = Object.entries(parsed as Record<string, unknown>)
+    return entries.flatMap(([key, value]) => {
+      if (typeof value === 'boolean') {
+        return value ? [PERK_FLAG_LABELS[key] || humanizePerkKey(key)] : []
+      }
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return [value.trim()]
+      }
+      return []
+    })
+  }
+
+  return []
+}
+
+function buildTierBenefits(tier: LoyaltyTierDefinition): string[] {
+  const benefits = new Set<string>()
+  benefits.add(`Earn ${formatMultiplier(tier.pointMultiplier)}x points on purchases`)
+
+  if (tier.freeShipping) {
+    benefits.add('Free shipping benefit')
+  }
+  if (tier.earlyDropAccess) {
+    benefits.add('Early drop access')
+  }
+
+  for (const perk of parseTierPerks(tier.perks)) {
+    benefits.add(perk)
+  }
+
+  if (benefits.size === 0 || benefits.size === 1) {
+    for (const fallback of FALLBACK_TIER_BENEFITS[tier.slug] || []) {
+      benefits.add(fallback)
+    }
+  }
+
+  return Array.from(benefits)
+}
+
+function normalizeTierDefinitions(payload: unknown): LoyaltyTierDefinition[] {
+  if (!Array.isArray(payload)) return []
+
+  const normalized = payload.flatMap((rawTier): LoyaltyTierDefinition[] => {
+    if (!rawTier || typeof rawTier !== 'object') return []
+    const tier = rawTier as Record<string, unknown>
+
+    const slug = typeof tier.slug === 'string' ? tier.slug.toLowerCase() : ''
+    if (!slug) return []
+
+    const minAnnualPoints = Number(tier.minAnnualPoints)
+    const pointMultiplier = Number(tier.pointMultiplier)
+
+    return [{
+      id: typeof tier.id === 'string' ? tier.id : `tier-${slug}`,
+      name: typeof tier.name === 'string' ? tier.name : slug,
+      slug,
+      minAnnualPoints: Number.isFinite(minAnnualPoints) ? minAnnualPoints : 0,
+      pointMultiplier: Number.isFinite(pointMultiplier) ? pointMultiplier : 1,
+      freeShipping: Boolean(tier.freeShipping),
+      earlyDropAccess: Boolean(tier.earlyDropAccess),
+      perks: typeof tier.perks === 'string' ? tier.perks : null,
+      primaryColor: typeof tier.primaryColor === 'string' ? tier.primaryColor : null,
+      secondaryColor: typeof tier.secondaryColor === 'string' ? tier.secondaryColor : null,
+      sortOrder: typeof tier.sortOrder === 'number' ? tier.sortOrder : null,
+    }]
+  })
+
+  return normalized.sort((a, b) => {
+    const orderA = a.sortOrder ?? Number.MAX_SAFE_INTEGER
+    const orderB = b.sortOrder ?? Number.MAX_SAFE_INTEGER
+    if (orderA !== orderB) return orderA - orderB
+    if (a.minAnnualPoints !== b.minAnnualPoints) return a.minAnnualPoints - b.minAnnualPoints
+    return a.name.localeCompare(b.name)
+  })
 }
 
 export function RewardsHubSection({ embedded = false, openTierModalSignal = 0 }: RewardsHubSectionProps) {
   const { user, loading: authLoading, refreshUser } = useAuth()
   const [rewards, setRewards] = useState<Reward[]>([])
   const [customerPoints, setCustomerPoints] = useState(0)
+  const [tierDefinitions, setTierDefinitions] = useState<LoyaltyTierDefinition[]>(FALLBACK_TIER_DEFINITIONS)
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [showTierModal, setShowTierModal] = useState(false)
@@ -255,6 +351,33 @@ export function RewardsHubSection({ embedded = false, openTierModalSignal = 0 }:
       setShowTierModal(true)
     }
   }, [openTierModalSignal])
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    const fetchTierDefinitions = async () => {
+      try {
+        const response = await fetch('/api/loyalty/tiers', {
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+        if (!response.ok) return
+
+        const data = await response.json()
+        const normalizedTiers = normalizeTierDefinitions(data)
+        if (normalizedTiers.length > 0) {
+          setTierDefinitions(normalizedTiers)
+        }
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return
+        console.error('Failed to fetch loyalty tiers:', error)
+      }
+    }
+
+    fetchTierDefinitions()
+
+    return () => controller.abort()
+  }, [])
 
   const fetchRewards = async () => {
     try {
@@ -335,6 +458,15 @@ export function RewardsHubSection({ embedded = false, openTierModalSignal = 0 }:
     { value: 'DIGITAL_CONTENT', label: 'Digital', icon: Download },
     { value: 'PHYSICAL_PERK', label: 'Physical', icon: Package },
   ]
+
+  const annualPointsEarned = user.annualPointsEarned ?? 0
+  const currentTierIndexFromSlug = user.loyaltyTier
+    ? tierDefinitions.findIndex((tier) => tier.slug === user.loyaltyTier.slug.toLowerCase())
+    : -1
+  const inferredTierIndex = tierDefinitions.reduce((highestIndex, tier, index) => {
+    return annualPointsEarned >= tier.minAnnualPoints ? index : highestIndex
+  }, 0)
+  const currentTierIndex = currentTierIndexFromSlug >= 0 ? currentTierIndexFromSlug : inferredTierIndex
 
   return (
     <section
@@ -636,32 +768,54 @@ export function RewardsHubSection({ embedded = false, openTierModalSignal = 0 }:
               {/* Tier Cards */}
               <div className="p-4 md:p-6">
                 <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
-                  {TIER_HIERARCHY.map((tier, index) => {
-                    const currentTierIndex = user?.loyaltyTier ? TIER_HIERARCHY.findIndex(t => t.slug === user.loyaltyTier?.slug) : 0
-                    const isCurrentTier = user?.loyaltyTier?.slug === tier.slug
+                  {tierDefinitions.map((tier, index) => {
+                    const isCurrentTier = index === currentTierIndex
                     const isCompletedTier = index < currentTierIndex
                     const isNextTier = index === currentTierIndex + 1
-                    const gradientColors = tierColors[tier.slug as keyof typeof tierColors]
+                    const tierTheme = resolveTierTheme(tier.slug, {
+                      primaryColor: tier.primaryColor || undefined,
+                      secondaryColor: tier.secondaryColor || undefined,
+                    })
+                    const tierBenefits = buildTierBenefits(tier)
+                    const previousTierMinPoints = tierDefinitions[index - 1]?.minAnnualPoints ?? 0
+                    const pointsNeededForTier = Math.max(0, tier.minAnnualPoints - annualPointsEarned)
+                    const progressRange = Math.max(1, tier.minAnnualPoints - previousTierMinPoints)
+                    const tierProgress = Math.min(
+                      100,
+                      Math.max(0, ((annualPointsEarned - previousTierMinPoints) / progressRange) * 100)
+                    )
 
                     return (
                       <div
                         key={tier.slug}
                         className={`p-3 md:p-5 transition-all flex flex-col h-full relative overflow-hidden ${
-                          isCurrentTier 
-                            ? `bg-linear-to-br ${gradientColors.gradient} text-white shadow-xl` 
-                            : 'bg-white border border-black/10 hover:shadow-lg'
+                          isCurrentTier
+                            ? 'text-white shadow-xl'
+                            : 'bg-white border hover:shadow-lg'
                         }`}
+                        style={
+                          isCurrentTier
+                            ? {
+                                backgroundImage: buildTierGradient(tierTheme, 135),
+                                boxShadow: `0 18px 36px -22px ${hexToRgba(tierTheme.secondaryColor, 0.7)}`,
+                              }
+                            : { borderColor: hexToRgba(tierTheme.primaryColor, 0.22) }
+                        }
                       >
                         {isCurrentTier && (
                           <div className="absolute top-0 right-0 w-16 md:w-20 h-16 md:h-20 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-xl" />
                         )}
-                        
+
                         <div className="relative">
-                          {/* Header */}
                           <div className="mb-2 md:mb-4">
-                            <div className={`w-9 h-9 md:w-12 md:h-12 flex items-center justify-center mb-2 md:mb-3 ${
-                              isCurrentTier ? gradientColors.iconBg : 'bg-black/5'
-                            }`}>
+                            <div
+                              className="w-9 h-9 md:w-12 md:h-12 flex items-center justify-center mb-2 md:mb-3"
+                              style={{
+                                backgroundColor: isCurrentTier
+                                  ? 'rgba(255, 255, 255, 0.2)'
+                                  : hexToRgba(tierTheme.primaryColor, 0.14),
+                              }}
+                            >
                               <Medal className={`w-4 h-4 md:w-6 md:h-6 ${isCurrentTier ? 'text-white' : 'text-black/60'}`} weight="fill" />
                             </div>
                             <div className="flex items-center gap-1 md:gap-2 mb-0.5 md:mb-1 flex-wrap">
@@ -680,40 +834,39 @@ export function RewardsHubSection({ embedded = false, openTierModalSignal = 0 }:
                               )}
                             </div>
                             <p className={`text-[10px] md:text-xs ${isCurrentTier ? 'text-white/70' : 'text-black/50'}`}>
-                              {tier.minAnnualPoints === 0 
-                                ? 'Start'
-                                : `${tier.minAnnualPoints.toLocaleString()}+ pts`
-                              }
+                              {tier.minAnnualPoints === 0 ? 'Start' : `${tier.minAnnualPoints.toLocaleString()}+ pts`}
                             </p>
                           </div>
 
-                          {/* Points Multiplier Badge */}
-                          <div className={`inline-flex items-center gap-1 md:gap-1.5 px-2 py-1 md:px-3 md:py-1.5 mb-2 md:mb-4 ${
-                            isCurrentTier ? gradientColors.iconBg : 'bg-black/5'
-                          }`}>
+                          <div
+                            className="inline-flex items-center gap-1 md:gap-1.5 px-2 py-1 md:px-3 md:py-1.5 mb-2 md:mb-4"
+                            style={{
+                              backgroundColor: isCurrentTier
+                                ? 'rgba(255, 255, 255, 0.2)'
+                                : hexToRgba(tierTheme.primaryColor, 0.14),
+                            }}
+                          >
                             <Sparkle size={10} weight="fill" className={`${isCurrentTier ? 'text-white' : 'text-black/60'} md:hidden`} />
                             <Sparkle size={14} weight="fill" className={`${isCurrentTier ? 'text-white' : 'text-black/60'} hidden md:block`} />
                             <span className={`text-[10px] md:text-sm font-black ${isCurrentTier ? 'text-white' : 'text-black'}`}>
-                              {tier.pointMultiplier}x
+                              {formatMultiplier(tier.pointMultiplier)}x
                             </span>
                           </div>
 
-                          {/* Tier Benefits */}
                           <div className="space-y-1 md:space-y-2 grow">
-                            {gradientColors.benefits.slice(0, 3).map((benefit, benefitIndex) => (
+                            {tierBenefits.slice(0, 3).map((benefit, benefitIndex) => (
                               <div key={benefitIndex} className={`flex items-start gap-1.5 md:gap-2 text-[10px] md:text-xs ${isCurrentTier ? 'text-white/80' : 'text-black/60'}`}>
                                 <CheckCircle size={12} weight="fill" className={`${isCurrentTier ? 'text-white' : 'text-emerald-500'} shrink-0 mt-0.5`} />
                                 <span className="line-clamp-2">{benefit}</span>
                               </div>
                             ))}
-                            {gradientColors.benefits.length > 3 && (
+                            {tierBenefits.length > 3 && (
                               <p className={`text-[9px] md:text-[10px] ${isCurrentTier ? 'text-white/60' : 'text-black/40'}`}>
-                                +{gradientColors.benefits.length - 3} more
+                                +{tierBenefits.length - 3} more
                               </p>
                             )}
                           </div>
 
-                          {/* Progress Indicator for Next Tier */}
                           {isNextTier && user?.loyaltyTier && (
                             <div className="mt-2 md:mt-4 pt-2 md:pt-4 border-t border-black/10">
                               <div className="flex items-center justify-between text-[10px] md:text-xs mb-1 md:mb-2">
@@ -722,14 +875,15 @@ export function RewardsHubSection({ embedded = false, openTierModalSignal = 0 }:
                                   Progress
                                 </span>
                                 <span className="text-black font-bold">
-                                  {(tier.minAnnualPoints - (user.annualPointsEarned ?? 0)).toLocaleString()}
+                                  {pointsNeededForTier.toLocaleString()}
                                 </span>
                               </div>
                               <div className="h-1.5 md:h-2 bg-black/10 overflow-hidden">
                                 <div
-                                  className={`h-full bg-linear-to-r ${gradientColors.gradient} transition-all duration-500`}
-                                  style={{ 
-                                    width: `${Math.min(100, ((user.annualPointsEarned ?? 0) / tier.minAnnualPoints) * 100)}%` 
+                                  className="h-full transition-all duration-500"
+                                  style={{
+                                    width: `${tierProgress}%`,
+                                    backgroundImage: buildTierGradient(tierTheme, 90),
                                   }}
                                 />
                               </div>

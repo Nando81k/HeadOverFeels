@@ -1,15 +1,16 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useCartStore } from '@/lib/store/cart'
 import { useAuth } from '@/lib/auth/context'
 import { WishlistIcon } from '@/components/wishlist/WishlistIcon'
 import { NotificationCenter } from '@/components/notifications/NotificationCenter'
 import { SearchModal } from '@/components/search'
+import { NAV_CATEGORY_LINKS, NAV_FEATURED_LINKS } from '@/components/layout/navigation-menu-config'
 import { 
   Bag, 
   MagnifyingGlass, 
@@ -18,12 +19,8 @@ import {
   X, 
   Trophy, 
   CaretRight,
-  TShirt, 
-  Hoodie, 
-  Watch,
   Sparkle,
   ArrowRight,
-  Fire,
   TrendUp,
   Heart,
   Bell,
@@ -35,7 +32,9 @@ import {
   Gift,
   Lightning
 } from '@phosphor-icons/react'
-import { calculateTierProgressFromPoints, getTierFromPoints } from '@/lib/loyalty/tier-progress'
+import { calculateTierProgressWithTiers, getTierFromPoints } from '@/lib/loyalty/tier-progress'
+import { buildTierGradient, hexToRgba, resolveTierTheme } from '@/lib/loyalty/tier-theme'
+import { getPrimaryImageWithFallback, parseImageList, resolveColorHex } from '@/lib/commerce/product-placeholders'
 
 // Animated counter component for smooth number transitions
 function AnimatedPoints({ value, previousValue }: { value: number; previousValue: number | null }) {
@@ -94,7 +93,7 @@ function AnimatedPoints({ value, previousValue }: { value: number; previousValue
   return (
     <div className="relative flex items-center">
       <motion.span 
-        className="text-xs font-black tabular-nums tracking-wide"
+        className="text-sm font-black tabular-nums tracking-wide"
         animate={isAnimating ? { 
           scale: [1, 1.15, 1],
           color: ['currentColor', '#10b981', 'currentColor']
@@ -111,9 +110,9 @@ function AnimatedPoints({ value, previousValue }: { value: number; previousValue
             animate={{ opacity: 1, y: -16, scale: 1 }}
             exit={{ opacity: 0, y: -24, scale: 0.8 }}
             transition={{ duration: 0.5 }}
-            className="absolute -top-1 left-full ml-1 flex items-center gap-0.5 text-[10px] font-black text-emerald-500 whitespace-nowrap"
+            className="absolute -top-1 left-full ml-1 flex items-center gap-0.5 text-xs font-black text-emerald-500 whitespace-nowrap"
           >
-            <Sparkle size={8} weight="fill" />
+            <Sparkle size={10} weight="fill" />
             +{pointsGained}
           </motion.div>
         )}
@@ -123,23 +122,78 @@ function AnimatedPoints({ value, previousValue }: { value: number; previousValue
 }
 
 const NAV_POINTS_CACHE_KEY = 'hof_nav_points_cache'
+const SHOP_DROPDOWN_OPEN_DELAY_MS = 90
+const SHOP_DROPDOWN_CLOSE_DELAY_MS = 130
 
-const categories = [
-  { href: '/products?category=hoodies', label: 'Hoodies', icon: Hoodie, description: 'Cozy essentials' },
-  { href: '/products?category=tshirts', label: 'T-Shirts', icon: TShirt, description: 'Everyday basics' },
-  { href: '/products?category=accessories', label: 'Accessories', icon: Watch, description: 'Complete your look' },
-]
+interface NavTierDefinition {
+  name: string
+  slug: string
+  minAnnualPoints: number
+  pointMultiplier: number
+  primaryColor?: string | null
+  secondaryColor?: string | null
+}
+
+interface NavShopColorSwatch {
+  label: string
+  hex: string
+}
+
+interface NavShopProduct {
+  id: string
+  slug: string
+  name: string
+  price: number
+  compareAtPrice: number | null
+  images: unknown
+  inStock: boolean
+  categoryName: string | null
+  colors: NavShopColorSwatch[]
+}
+
+const USD_CURRENCY_FORMATTER = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 2,
+})
+
+function formatCurrency(value: number): string {
+  if (!Number.isFinite(value) || value < 0) return '$0.00'
+  return USD_CURRENCY_FORMATTER.format(value)
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+function formatMultiplier(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '1'
+  if (Number.isInteger(value)) return String(value)
+  return value.toFixed(2).replace(/\.?0+$/, '')
+}
 
 export function Navigation() {
   const pathname = usePathname()
   const router = useRouter()
+  const shouldReduceMotion = useReducedMotion()
   const [mounted, setMounted] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const showNav = true
   const [shopDropdownOpen, setShopDropdownOpen] = useState(false)
+  const [shopDropdownPinned, setShopDropdownPinned] = useState(false)
+  const [shopMenuFocusTarget, setShopMenuFocusTarget] = useState<'first' | 'last' | null>(null)
+  const [shopMenuProducts, setShopMenuProducts] = useState<NavShopProduct[]>([])
+  const [shopMenuProductsLoading, setShopMenuProductsLoading] = useState(false)
+  const [shopMenuProductsLoaded, setShopMenuProductsLoaded] = useState(false)
   const [userPoints, setUserPoints] = useState<number | null>(null)
   const [previousPoints, setPreviousPoints] = useState<number | null>(null)
+  const [loyaltyTiers, setLoyaltyTiers] = useState<NavTierDefinition[]>([])
   
   // Tier animation states for cycling through tiers when skipping
   const [displayedTierSlug, setDisplayedTierSlug] = useState<string | null>(null)
@@ -147,6 +201,12 @@ export function Navigation() {
   const previousTierSlugRef = useRef<string | null>(null)
   
   const shopDropdownRef = useRef<HTMLDivElement>(null)
+  const shopDropdownTriggerRef = useRef<HTMLButtonElement>(null)
+  const shopDropdownPanelRef = useRef<HTMLDivElement>(null)
+  const shopMenuFirstItemRef = useRef<HTMLAnchorElement>(null)
+  const shopMenuLastItemRef = useRef<HTMLAnchorElement>(null)
+  const shopDropdownOpenTimerRef = useRef<number | null>(null)
+  const shopDropdownCloseTimerRef = useRef<number | null>(null)
   const cartItemCount = useCartStore(state => mounted ? state.getTotalItems() : 0)
   const { user, loading: authLoading, signout } = useAuth()
 
@@ -220,12 +280,346 @@ export function Navigation() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [searchOpen])
 
+  const clearShopDropdownTimers = useCallback(() => {
+    if (shopDropdownOpenTimerRef.current !== null) {
+      window.clearTimeout(shopDropdownOpenTimerRef.current)
+      shopDropdownOpenTimerRef.current = null
+    }
+
+    if (shopDropdownCloseTimerRef.current !== null) {
+      window.clearTimeout(shopDropdownCloseTimerRef.current)
+      shopDropdownCloseTimerRef.current = null
+    }
+  }, [])
+
+  const getShopMenuItems = useCallback(() => {
+    const menuRoot =
+      shopDropdownPanelRef.current ??
+      document.getElementById('nav-shop-mega-menu')
+    if (!menuRoot) {
+      return [] as HTMLElement[]
+    }
+    return Array.from(
+      menuRoot.querySelectorAll<HTMLElement>('[data-shop-menu-item="true"]')
+    )
+  }, [])
+
+  const closeShopDropdown = useCallback((options?: { returnFocus?: boolean }) => {
+    clearShopDropdownTimers()
+    setShopDropdownOpen(false)
+    setShopDropdownPinned(false)
+    setShopMenuFocusTarget(null)
+
+    if (options?.returnFocus) {
+      window.setTimeout(() => {
+        shopDropdownTriggerRef.current?.focus()
+      }, 0)
+    }
+  }, [clearShopDropdownTimers])
+
+  const openShopDropdownWithDelay = useCallback(() => {
+    clearShopDropdownTimers()
+    if (shopDropdownPinned || shopDropdownOpen) {
+      return
+    }
+
+    shopDropdownOpenTimerRef.current = window.setTimeout(() => {
+      setShopDropdownOpen(true)
+    }, SHOP_DROPDOWN_OPEN_DELAY_MS)
+  }, [clearShopDropdownTimers, shopDropdownOpen, shopDropdownPinned])
+
+  const closeShopDropdownWithDelay = useCallback(() => {
+    clearShopDropdownTimers()
+    if (shopDropdownPinned) {
+      return
+    }
+
+    shopDropdownCloseTimerRef.current = window.setTimeout(() => {
+      setShopDropdownOpen(false)
+    }, SHOP_DROPDOWN_CLOSE_DELAY_MS)
+  }, [clearShopDropdownTimers, shopDropdownPinned])
+
+  const openShopDropdownFromKeyboard = useCallback((focusTarget: 'first' | 'last') => {
+    clearShopDropdownTimers()
+    setShopDropdownPinned(true)
+    setShopDropdownOpen(true)
+    setShopMenuFocusTarget(focusTarget)
+  }, [clearShopDropdownTimers])
+
+  const handleShopTriggerClick = useCallback(() => {
+    clearShopDropdownTimers()
+    setShopDropdownPinned((isPinned) => {
+      const nextPinned = !isPinned
+      setShopDropdownOpen(nextPinned)
+      if (!nextPinned) {
+        setShopMenuFocusTarget(null)
+      }
+      return nextPinned
+    })
+  }, [clearShopDropdownTimers])
+
+  const handleShopTriggerKeyDown = useCallback((event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
+      event.preventDefault()
+      openShopDropdownFromKeyboard('first')
+      return
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      openShopDropdownFromKeyboard('last')
+      return
+    }
+
+    if (event.key === 'Escape' && shopDropdownOpen) {
+      event.preventDefault()
+      closeShopDropdown({ returnFocus: true })
+    }
+  }, [closeShopDropdown, openShopDropdownFromKeyboard, shopDropdownOpen])
+
+  const handleShopDropdownKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeShopDropdown({ returnFocus: true })
+      return
+    }
+
+    if (event.key !== 'Tab') {
+      return
+    }
+
+    const items = getShopMenuItems()
+    if (items.length === 0) {
+      return
+    }
+
+    const firstItem = items[0]
+    const lastItem = items[items.length - 1]
+    const activeElement = document.activeElement
+
+    if (!event.shiftKey && activeElement === lastItem) {
+      closeShopDropdown()
+      return
+    }
+
+    if (event.shiftKey && activeElement === firstItem) {
+      closeShopDropdown()
+    }
+  }, [closeShopDropdown, getShopMenuItems])
+
+  useEffect(() => {
+    if (!shopDropdownOpen || !shopMenuFocusTarget) {
+      return
+    }
+
+    const focusWithRetry = (attempt: number): number | null => {
+      const targetFromRef =
+        shopMenuFocusTarget === 'first'
+          ? shopMenuFirstItemRef.current
+          : shopMenuLastItemRef.current
+
+      if (targetFromRef) {
+        targetFromRef.focus()
+        setShopMenuFocusTarget(null)
+        return null
+      }
+
+      const items = getShopMenuItems()
+      if (items.length === 0 && attempt < 2) {
+        return window.setTimeout(() => focusWithRetry(attempt + 1), 16)
+      }
+
+      if (items.length > 0) {
+        const targetItem = shopMenuFocusTarget === 'first' ? items[0] : items[items.length - 1]
+        targetItem.focus()
+      }
+
+      setShopMenuFocusTarget(null)
+      return null
+    }
+
+    const focusTimeout = window.setTimeout(() => {
+      focusWithRetry(0)
+    }, 0)
+
+    return () => window.clearTimeout(focusTimeout)
+  }, [getShopMenuItems, shopDropdownOpen, shopMenuFocusTarget])
+
+  useEffect(() => {
+    return () => {
+      clearShopDropdownTimers()
+    }
+  }, [clearShopDropdownTimers])
+
+  useEffect(() => {
+    if (!shopDropdownOpen) {
+      return
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeShopDropdown({ returnFocus: true })
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [closeShopDropdown, shopDropdownOpen])
+
+  const fetchShopMenuProducts = useCallback(async () => {
+    if (shopMenuProductsLoading || shopMenuProductsLoaded) {
+      return
+    }
+
+    setShopMenuProductsLoading(true)
+
+    try {
+      const response = await fetch('/api/products?isActive=true&limit=18', { cache: 'no-store' })
+      if (!response.ok) {
+        return
+      }
+
+      const payload = await response.json() as { data?: unknown; products?: unknown }
+      const rawProducts = Array.isArray(payload.data)
+        ? payload.data
+        : Array.isArray(payload.products)
+          ? payload.products
+          : []
+
+      const normalizedProducts = rawProducts.flatMap((candidate): NavShopProduct[] => {
+        if (!candidate || typeof candidate !== 'object') return []
+        const source = candidate as Record<string, unknown>
+
+        const id = typeof source.id === 'string' ? source.id.trim() : ''
+        const slug = typeof source.slug === 'string' ? source.slug.trim() : ''
+        const name = typeof source.name === 'string' ? source.name.trim() : ''
+        if (!id || !slug || !name) {
+          return []
+        }
+
+        const basePrice = toFiniteNumber(source.price)
+        if (basePrice === null || basePrice <= 0) {
+          return []
+        }
+
+        const compareAtPrice = toFiniteNumber(source.compareAtPrice)
+        const variants = Array.isArray(source.variants) ? source.variants : []
+        const colorsByKey = new Map<string, NavShopColorSwatch>()
+        const variantPriceCandidates: number[] = []
+        let hasInStockVariant = false
+        let preferredImageSource: unknown = source.images
+
+        variants.forEach((variantCandidate) => {
+          if (!variantCandidate || typeof variantCandidate !== 'object') return
+          const variant = variantCandidate as Record<string, unknown>
+
+          const isActive = variant.isActive !== false
+          if (!isActive) {
+            return
+          }
+
+          const inventory = toFiniteNumber(variant.inventory) ?? 0
+          if (inventory > 0) {
+            hasInStockVariant = true
+            if (parseImageList(preferredImageSource).length === 0 && parseImageList(variant.images).length > 0) {
+              preferredImageSource = variant.images
+            }
+          }
+
+          const variantPrice = toFiniteNumber(variant.price)
+          if (variantPrice !== null && variantPrice > 0) {
+            variantPriceCandidates.push(variantPrice)
+          }
+
+          const colorLabel = typeof variant.color === 'string' ? variant.color.trim() : ''
+          const colorHex = resolveColorHex(
+            typeof variant.colorHex === 'string' ? variant.colorHex : null,
+            colorLabel || null
+          )
+
+          if (!colorHex) return
+
+          const normalizedLabel = colorLabel || 'Color'
+          const key = `${normalizedLabel.toLowerCase()}__${colorHex}`
+          if (!colorsByKey.has(key)) {
+            colorsByKey.set(key, { label: normalizedLabel, hex: colorHex })
+          }
+        })
+
+        const lowestVariantPrice = variantPriceCandidates.length > 0
+          ? Math.min(...variantPriceCandidates)
+          : null
+        const resolvedPrice = lowestVariantPrice !== null ? Math.min(basePrice, lowestVariantPrice) : basePrice
+        const category = source.category && typeof source.category === 'object'
+          ? (source.category as { name?: unknown }).name
+          : null
+
+        return [{
+          id,
+          slug,
+          name,
+          price: resolvedPrice,
+          compareAtPrice: compareAtPrice && compareAtPrice > resolvedPrice ? compareAtPrice : null,
+          images: preferredImageSource,
+          inStock: variants.length === 0 || hasInStockVariant,
+          categoryName: typeof category === 'string' ? category : null,
+          colors: Array.from(colorsByKey.values()).slice(0, 5),
+        }]
+      })
+
+      const prioritizedProducts = [
+        ...normalizedProducts.filter((product) => product.inStock),
+        ...normalizedProducts.filter((product) => !product.inStock),
+      ]
+
+      setShopMenuProducts(prioritizedProducts.slice(0, 8))
+    } catch (error) {
+      console.error('Failed to load shop menu products:', error)
+    } finally {
+      setShopMenuProductsLoading(false)
+      setShopMenuProductsLoaded(true)
+    }
+  }, [shopMenuProductsLoaded, shopMenuProductsLoading])
+
+  useEffect(() => {
+    if (!shopDropdownOpen || shopMenuProductsLoaded || shopMenuProductsLoading) {
+      return
+    }
+
+    void fetchShopMenuProducts()
+  }, [fetchShopMenuProducts, shopDropdownOpen, shopMenuProductsLoaded, shopMenuProductsLoading])
+
   const fetchUserPoints = useCallback(async () => {
     try {
       const response = await fetch('/api/loyalty/me', { cache: 'no-store' })
       if (response.ok) {
         const data = await response.json()
         const newPoints = data.points
+
+        if (Array.isArray(data?.tiers)) {
+          const normalizedTiers = data.tiers.flatMap((tier: unknown): NavTierDefinition[] => {
+            if (!tier || typeof tier !== 'object') return []
+            const source = tier as Record<string, unknown>
+            const slug = typeof source.slug === 'string' ? source.slug.trim().toLowerCase() : ''
+            if (!slug) return []
+
+            const minAnnualPoints = Number(source.minAnnualPoints)
+            const pointMultiplier = Number(source.pointMultiplier)
+            const primaryColor = typeof source.primaryColor === 'string' ? source.primaryColor.trim() : null
+            const secondaryColor = typeof source.secondaryColor === 'string' ? source.secondaryColor.trim() : null
+
+            return [{
+              name: typeof source.name === 'string' && source.name.trim().length > 0 ? source.name.trim() : slug,
+              slug,
+              minAnnualPoints: Number.isFinite(minAnnualPoints) ? Math.max(0, minAnnualPoints) : 0,
+              pointMultiplier: Number.isFinite(pointMultiplier) ? Math.max(1, pointMultiplier) : 1,
+              primaryColor: primaryColor && primaryColor.length > 0 ? primaryColor : null,
+              secondaryColor: secondaryColor && secondaryColor.length > 0 ? secondaryColor : null,
+            }]
+          }).sort((a, b) => a.minAnnualPoints - b.minAnnualPoints)
+
+          setLoyaltyTiers(normalizedTiers)
+        }
         
         if (user) {
           const cacheKey = `${NAV_POINTS_CACHE_KEY}_${user.id}`
@@ -286,12 +680,12 @@ export function Navigation() {
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (shopDropdownRef.current && !shopDropdownRef.current.contains(e.target as Node)) {
-        setShopDropdownOpen(false)
+        closeShopDropdown()
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  }, [closeShopDropdown])
 
   const navLinks = [
     { href: '/collections', label: 'Collections' },
@@ -301,6 +695,8 @@ export function Navigation() {
   const isActive = (href: string) => pathname === href
   const isShopActive = pathname === '/products' || pathname.startsWith('/products?')
   const displayedUserPoints = userPoints ?? user?.currentPoints ?? 0
+  const shopMenuFeaturedProducts = shopMenuProducts.slice(0, 3)
+  const shopMenuGridProducts = shopMenuProducts.slice(0, 4)
 
   return (
     <>
@@ -308,122 +704,352 @@ export function Navigation() {
         className={`bg-white/98 backdrop-blur-xl fixed top-0 left-0 right-0 z-50 border-b border-black/5 transform transition-transform duration-300 ${showNav ? 'translate-y-0' : '-translate-y-full'}`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between h-16 md:h-18">
+          <div className="flex items-center justify-between h-[4.5rem] md:h-[5rem]">
           
             {/* Left - Mobile Logo + Desktop Navigation */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-5">
               {/* Mobile & Tablet Logo - Left side */}
               <Link 
                 href="/" 
-                className="lg:hidden flex items-center gap-1.5 sm:gap-2 transition-all duration-300 hover:opacity-80"
+                className="lg:hidden flex items-center gap-2.5 sm:gap-3 transition-all duration-300 hover:opacity-80"
               >
                 <Image
                   src="/assets/head-over-feels-logo.png"
                   alt="Head Over Feels Logo"
-                  width={32}
-                  height={32}
-                  className="object-contain w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10"
+                  width={44}
+                  height={44}
+                  className="object-contain w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11"
                 />
-                <span 
-                  className="text-sm sm:text-base md:text-lg whitespace-nowrap" 
-                  style={{ 
-                    fontFamily: 'var(--font-logo)',
-                    WebkitTextStroke: '1.5px #1A1A1A',
-                    WebkitTextFillColor: 'transparent',
-                    paintOrder: 'stroke fill'
-                  }}
-                >
+                <span className="logo-font text-base sm:text-lg md:text-xl whitespace-nowrap">
                   Head Over Feels
                 </span>
                 <Image
                   src="/assets/head-over-feels-logo.png"
                   alt="Head Over Feels Logo"
-                  width={32}
-                  height={32}
-                  className="object-contain w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10"
+                  width={44}
+                  height={44}
+                  className="object-contain w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11"
                 />
               </Link>
               
               {/* Desktop Navigation Links */}
-              <div className="hidden lg:flex items-center gap-8">
+              <div className="hidden lg:flex items-center gap-10">
               {/* Shop Dropdown */}
               <div 
                 ref={shopDropdownRef}
                 className="relative"
-                onMouseEnter={() => setShopDropdownOpen(true)}
-                onMouseLeave={() => setShopDropdownOpen(false)}
+                data-testid="nav-shop-dropdown"
+                onMouseEnter={openShopDropdownWithDelay}
+                onMouseLeave={closeShopDropdownWithDelay}
               >
                 <button
-                  onClick={() => setShopDropdownOpen(!shopDropdownOpen)}
-                  className={`flex items-center gap-1.5 text-xs font-black uppercase tracking-widest transition-colors duration-200 ${
+                  ref={shopDropdownTriggerRef}
+                  id="nav-shop-trigger"
+                  data-testid="nav-shop-trigger"
+                  type="button"
+                  onClick={handleShopTriggerClick}
+                  onKeyDown={handleShopTriggerKeyDown}
+                  aria-expanded={shopDropdownOpen}
+                  aria-controls="nav-shop-mega-menu"
+                  aria-haspopup="menu"
+                  className={`flex items-center gap-2 text-sm font-black uppercase tracking-widest transition-colors duration-200 ${
                     isShopActive ? 'text-black' : 'text-black/50 hover:text-black'
                   }`}
                 >
                   Shop
                   <CaretRight 
-                    size={10} 
+                    size={12} 
                     weight="bold" 
                     className={`transition-transform duration-200 ${shopDropdownOpen ? 'rotate-90' : ''}`}
                   />
                 </button>
                 
-                {/* Modern Dropdown Menu */}
+                {/* Modern Mega Menu */}
                 <AnimatePresence>
                   {shopDropdownOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      transition={{ duration: 0.15, ease: "easeOut" }}
-                      className="absolute top-full left-0 pt-3 z-50"
+                      id="nav-shop-mega-menu"
+                      ref={shopDropdownPanelRef}
+                      data-testid="nav-shop-menu"
+                      role="menu"
+                      aria-labelledby="nav-shop-trigger"
+                      onKeyDown={handleShopDropdownKeyDown}
+                      initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.985 }}
+                      animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+                      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.985 }}
+                      transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.18, ease: 'easeOut' }}
+                      className="absolute top-full left-0 xl:-left-10 2xl:-left-14 pt-5 z-50"
                     >
-                      <div className="absolute -top-3 left-0 w-full h-3" />
-                      <div className="w-72 bg-white border border-black/10 shadow-2xl shadow-black/10 overflow-hidden">
-                        {/* Featured Link */}
-                        <Link
-                          href="/products"
-                          onClick={() => setShopDropdownOpen(false)}
-                          className="flex items-center justify-between p-4 bg-black text-white group"
-                        >
-                          <div>
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-white/50">Browse</span>
-                            <p className="text-sm font-black uppercase tracking-wide mt-0.5">All Products</p>
+                      <div className="absolute -top-4 left-0 h-4 w-full" />
+                      <div className="w-[58rem] max-w-[calc(100vw-3rem)] overflow-hidden border border-black/10 bg-white shadow-xl shadow-black/8">
+                        <div className="grid grid-cols-12">
+                          <div className="col-span-4 border-r border-black/8 p-5">
+                            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-black/40">
+                              Featured
+                            </p>
+                            <div className="space-y-2.5">
+                              {NAV_FEATURED_LINKS.map((featuredLink, index) => {
+                                const Icon = featuredLink.icon
+                                return (
+                                  <Link
+                                    key={featuredLink.href}
+                                    href={featuredLink.href}
+                                    role="menuitem"
+                                    data-shop-menu-item="true"
+                                    ref={index === 0 ? shopMenuFirstItemRef : undefined}
+                                    autoFocus={index === 0 && shopMenuFocusTarget === 'first'}
+                                    onClick={() => closeShopDropdown()}
+                                    className="group block border border-black/10 px-3.5 py-3 transition-colors hover:bg-black hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-black/40 transition-colors group-hover:text-white/60">
+                                          {featuredLink.eyebrow}
+                                        </p>
+                                        <p className="mt-1 text-sm font-black uppercase tracking-wide">{featuredLink.label}</p>
+                                        <p className="mt-1 text-xs text-black/60 transition-colors group-hover:text-white/75">
+                                          {featuredLink.description}
+                                        </p>
+                                      </div>
+                                      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center bg-black/5 transition-colors group-hover:bg-white/15">
+                                        <Icon size={15} weight="bold" />
+                                      </span>
+                                    </div>
+                                  </Link>
+                                )
+                              })}
+                            </div>
                           </div>
-                          <ArrowRight size={16} weight="bold" className="opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                        </Link>
-                        
-                        {/* Categories */}
-                        <div className="p-2">
-                          <p className="px-3 py-2 text-[9px] font-black uppercase tracking-widest text-black/30">Categories</p>
-                          
-                          {categories.map((category) => {
-                            const Icon = category.icon
-                            return (
-                              <Link
-                                key={category.href}
-                                href={category.href}
-                                onClick={() => setShopDropdownOpen(false)}
-                                className="flex items-center gap-3 px-3 py-3 text-sm group hover:bg-black/3 transition-colors"
-                              >
-                                <span className="w-9 h-9 bg-black/5 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
-                                  <Icon size={18} weight="bold" />
-                                </span>
-                                <div className="flex-1">
-                                  <p className="text-xs font-bold text-black uppercase tracking-wide">{category.label}</p>
-                                  <p className="text-[10px] text-black/40">{category.description}</p>
-                                </div>
-                                <CaretRight size={12} weight="bold" className="text-black/20 group-hover:text-black/50 transition-colors" />
-                              </Link>
-                            )
-                          })}
+
+                          <div className="col-span-4 border-r border-black/8 p-5">
+                            <div className="mb-3 flex items-center justify-between">
+                              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-black/40">
+                                Categories
+                              </p>
+                              <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/35">
+                                Quick Browse
+                              </span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {NAV_CATEGORY_LINKS.map((category) => {
+                                const Icon = category.icon
+                                return (
+                                  <Link
+                                    key={category.href}
+                                    href={category.href}
+                                    role="menuitem"
+                                    data-shop-menu-item="true"
+                                    onClick={() => closeShopDropdown()}
+                                    className="group flex items-center gap-3 border border-transparent px-3 py-3 transition-colors hover:border-black/10 hover:bg-black/3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                                  >
+                                    <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-black/5 transition-colors group-hover:bg-black group-hover:text-white">
+                                      <Icon size={18} weight="bold" />
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-black uppercase tracking-wide text-black">{category.label}</p>
+                                      <p className="mt-0.5 text-xs text-black/55">{category.description}</p>
+                                    </div>
+                                    <ArrowRight size={14} weight="bold" className="text-black/30 transition-transform group-hover:translate-x-0.5 group-hover:text-black/70" />
+                                  </Link>
+                                )
+                              })}
+                            </div>
+                          </div>
+
+                          <div className="col-span-4 p-5">
+                            <div className="mb-3 flex items-center justify-between">
+                              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-black/40">
+                                Buy Now
+                              </p>
+                              <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/35">
+                                Live Catalog
+                              </span>
+                            </div>
+
+                            {shopMenuProductsLoading ? (
+                              <div className="space-y-2.5">
+                                {[0, 1, 2].map((skeleton) => (
+                                  <div key={`shop-menu-skeleton-${skeleton}`} className="animate-pulse border border-black/10 p-2.5">
+                                    <div className="flex items-center gap-2.5">
+                                      <div className="h-12 w-12 bg-black/10" />
+                                      <div className="flex-1 space-y-2">
+                                        <div className="h-2.5 w-3/4 bg-black/10" />
+                                        <div className="h-2 w-1/2 bg-black/8" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : shopMenuFeaturedProducts.length > 0 ? (
+                              <div className="space-y-2.5">
+                                {shopMenuFeaturedProducts.map((product) => {
+                                  const primaryColor = product.colors[0]
+                                  const imageUrl = getPrimaryImageWithFallback({
+                                    images: product.images,
+                                    productName: product.name,
+                                    productSlug: product.slug,
+                                    color: primaryColor?.label ?? null,
+                                    colorHex: primaryColor?.hex ?? null,
+                                  })
+
+                                  return (
+                                    <Link
+                                      key={`shop-featured-product-${product.id}`}
+                                      href={`/products/${product.slug}`}
+                                      role="menuitem"
+                                      data-shop-menu-item="true"
+                                      onClick={() => closeShopDropdown()}
+                                      className="group block border border-black/10 p-2.5 transition-colors hover:border-black/20 hover:bg-black/[0.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                                    >
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="relative h-12 w-12 overflow-hidden bg-black/5">
+                                          <Image
+                                            src={imageUrl}
+                                            alt={product.name}
+                                            fill
+                                            sizes="96px"
+                                            className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                          />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                          <p className="truncate text-xs font-black uppercase tracking-[0.08em] text-black">
+                                            {product.name}
+                                          </p>
+                                          <div className="mt-1 flex items-center gap-1.5 text-[11px]">
+                                            <span className="font-black text-black">{formatCurrency(product.price)}</span>
+                                            {product.compareAtPrice && product.compareAtPrice > product.price ? (
+                                              <span className="font-semibold text-black/45 line-through">
+                                                {formatCurrency(product.compareAtPrice)}
+                                              </span>
+                                            ) : null}
+                                          </div>
+                                          <p className={`mt-1 text-[10px] font-bold uppercase tracking-[0.14em] ${product.inStock ? 'text-emerald-700' : 'text-red-600'}`}>
+                                            {product.inStock ? 'In Stock' : 'Sold Out'}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </Link>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <div className="border border-dashed border-black/15 p-3 text-xs text-black/50">
+                                Live products are unavailable right now.
+                              </div>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Promo Banner */}
-                        <div className="mx-2 mb-2 p-3 bg-linear-to-r from-black/5 to-black/0 border-l-2 border-black">
-                          <div className="flex items-center gap-2">
-                            <Fire size={14} weight="fill" className="text-orange-500" />
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-black/70">New Drops Weekly</p>
+                        <div className="border-t border-black/8 px-5 py-4">
+                          <div className="mb-3 flex items-center justify-between">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-black/40">
+                              Shop Right Now
+                            </p>
+                            <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/35">
+                              Real Products
+                            </span>
                           </div>
+
+                          {shopMenuProductsLoading ? (
+                            <div className="grid grid-cols-4 gap-3">
+                              {[0, 1, 2, 3].map((skeleton) => (
+                                <div key={`shop-grid-skeleton-${skeleton}`} className="animate-pulse border border-black/10 p-2.5">
+                                  <div className="mb-2 h-24 bg-black/10" />
+                                  <div className="space-y-1.5">
+                                    <div className="h-2.5 w-3/4 bg-black/10" />
+                                    <div className="h-2.5 w-1/2 bg-black/8" />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : shopMenuGridProducts.length > 0 ? (
+                            <div className="grid grid-cols-4 gap-3">
+                              {shopMenuGridProducts.map((product) => {
+                                const primaryColor = product.colors[0]
+                                const imageUrl = getPrimaryImageWithFallback({
+                                  images: product.images,
+                                  productName: product.name,
+                                  productSlug: product.slug,
+                                  color: primaryColor?.label ?? null,
+                                  colorHex: primaryColor?.hex ?? null,
+                                })
+
+                                return (
+                                  <Link
+                                    key={`shop-grid-product-${product.id}`}
+                                    href={`/products/${product.slug}`}
+                                    role="menuitem"
+                                    data-shop-menu-item="true"
+                                    onClick={() => closeShopDropdown()}
+                                    className="group border border-black/10 p-2.5 transition-colors hover:border-black/20 hover:bg-black/[0.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                                  >
+                                    <div className="relative mb-2 h-24 w-full overflow-hidden bg-black/5">
+                                      <Image
+                                        src={imageUrl}
+                                        alt={product.name}
+                                        fill
+                                        sizes="(min-width: 1024px) 180px, 120px"
+                                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <p className="line-clamp-2 text-xs font-black uppercase tracking-[0.08em] text-black/90">
+                                        {product.name}
+                                      </p>
+                                      <div className="flex items-center gap-1.5 text-xs">
+                                        <span className="font-black text-black/85">{formatCurrency(product.price)}</span>
+                                        {product.compareAtPrice && product.compareAtPrice > product.price ? (
+                                          <span className="font-semibold text-black/45 line-through">
+                                            {formatCurrency(product.compareAtPrice)}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      {product.colors.length > 0 ? (
+                                        <div className="flex items-center gap-1 pt-0.5">
+                                          {product.colors.slice(0, 4).map((color) => (
+                                            <span
+                                              key={`${product.id}-${color.hex}-${color.label}`}
+                                              title={color.label}
+                                              className="h-2.5 w-2.5 rounded-full border border-black/20"
+                                              style={{ backgroundColor: color.hex }}
+                                            />
+                                          ))}
+                                          {product.colors.length > 4 ? (
+                                            <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-black/40">
+                                              +{product.colors.length - 4}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                      ) : (
+                                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/35">
+                                          {product.categoryName || 'Apparel'}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </Link>
+                                )
+                              })}
+                            </div>
+                          ) : (
+                            <div className="border border-dashed border-black/15 p-3 text-xs text-black/50">
+                              We couldn&apos;t load product previews. Use View all products below.
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="border-t border-black/8 bg-black/[0.02] px-5 py-3.5">
+                          <Link
+                            href="/products"
+                            role="menuitem"
+                            data-shop-menu-item="true"
+                            ref={shopMenuLastItemRef}
+                            autoFocus={shopMenuFocusTarget === 'last'}
+                            onClick={() => closeShopDropdown()}
+                            className="group inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em] text-black/80 transition-colors hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+                          >
+                            View all products
+                            <ArrowRight size={16} weight="bold" className="transition-transform group-hover:translate-x-0.5" />
+                          </Link>
                         </div>
                       </div>
                     </motion.div>
@@ -435,7 +1061,7 @@ export function Navigation() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`text-xs font-black uppercase tracking-widest transition-colors duration-200 ${
+                  className={`text-sm font-black uppercase tracking-widest transition-colors duration-200 ${
                     isActive(link.href)
                       ? 'text-black'
                       : 'text-black/50 hover:text-black'
@@ -450,58 +1076,50 @@ export function Navigation() {
             {/* Center - Logo (Desktop only, centered) */}
             <Link 
               href="/" 
-              className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-2 xl:gap-3 transition-all duration-300 hover:opacity-80"
+              className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-3 xl:gap-4 transition-all duration-300 hover:opacity-80"
             >
               <Image
                 src="/assets/head-over-feels-logo.png"
                 alt="Head Over Feels Logo"
-                width={60}
-                height={60}
-                className="object-contain w-12 h-12 xl:w-16 xl:h-16"
+                width={72}
+                height={72}
+                className="object-contain w-14 h-14 xl:w-[4.5rem] xl:h-[4.5rem]"
               />
-              <span 
-                className="text-xl xl:text-2xl 2xl:text-3xl whitespace-nowrap" 
-                style={{ 
-                  fontFamily: 'var(--font-logo)',
-                  WebkitTextStroke: '1.5px #1A1A1A',
-                  WebkitTextFillColor: 'transparent',
-                  paintOrder: 'stroke fill'
-                }}
-              >
+              <span className="logo-font text-2xl xl:text-3xl 2xl:text-4xl whitespace-nowrap">
                 Head Over Feels
               </span>
               <Image
                 src="/assets/head-over-feels-logo.png"
                 alt="Head Over Feels Logo"
-                width={60}
-                height={60}
-                className="object-contain w-12 h-12 xl:w-16 xl:h-16"
+                width={72}
+                height={72}
+                className="object-contain w-14 h-14 xl:w-[4.5rem] xl:h-[4.5rem]"
               />
             </Link>
 
             {/* Right - Icons + Mobile Menu Toggle */}
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-1">
               {/* Rewards - Pill style (Desktop) */}
               {user && (
                 <Link
                   href="/profile#rewards"
-                  className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-black/5 hover:bg-black hover:text-white text-black transition-all duration-200"
+                  className="hidden lg:flex items-center gap-2.5 px-4 py-2 bg-black/5 hover:bg-black hover:text-white text-black transition-all duration-200"
                   title="View Profile & Rewards"
                 >
-                  <Trophy size={14} weight="fill" />
+                  <Trophy size={16} weight="fill" />
                   <AnimatedPoints value={displayedUserPoints} previousValue={previousPoints} />
-                  <span className="text-[9px] font-bold uppercase tracking-wider opacity-50">pts</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider opacity-50">pts</span>
                 </Link>
               )}
               
               {/* Search Trigger - Clean minimal style (Desktop) */}
               <button
                 onClick={() => setSearchOpen(true)}
-                className="hidden lg:flex items-center justify-center w-10 h-10 text-black/40 hover:text-black hover:bg-black/5 transition-all duration-200"
+                className="hidden lg:flex items-center justify-center w-11 h-11 text-black/40 hover:text-black hover:bg-black/5 transition-all duration-200"
                 aria-label="Search"
                 data-testid="nav-search-trigger-desktop"
               >
-                <MagnifyingGlass size={18} weight="bold" />
+                <MagnifyingGlass size={20} weight="bold" />
               </button>
 
               {/* Notifications - Desktop only */}
@@ -517,12 +1135,12 @@ export function Navigation() {
               {/* Cart - Desktop only */}
               <Link
                 href="/cart"
-                className="hidden lg:flex relative p-2 text-black/50 hover:text-black hover:bg-black/5 transition-all duration-200"
+                className="hidden lg:flex relative p-2.5 text-black/50 hover:text-black hover:bg-black/5 transition-all duration-200"
                 aria-label="Shopping cart"
               >
-                <Bag size={20} weight="bold" />
+                <Bag size={22} weight="bold" />
                 {cartItemCount > 0 && (
-                  <span className="absolute top-0 right-0 bg-black text-white text-[9px] font-black h-4 min-w-4 px-1 flex items-center justify-center">
+                  <span className="absolute top-0 right-0 bg-black text-white text-[10px] font-black h-[18px] min-w-[18px] px-1 flex items-center justify-center">
                     {cartItemCount > 9 ? '9+' : cartItemCount}
                   </span>
                 )}
@@ -533,7 +1151,7 @@ export function Navigation() {
                 !user && (
                   <Link
                     href="/signin"
-                    className="hidden lg:flex items-center gap-2 px-4 py-2 bg-black text-white text-[11px] font-black uppercase tracking-widest hover:bg-black/90 transition-all duration-200"
+                    className="hidden lg:flex items-center gap-2 px-5 py-2.5 bg-black text-white text-xs font-black uppercase tracking-widest hover:bg-black/90 transition-all duration-200"
                   >
                     Sign In
                   </Link>
@@ -543,20 +1161,20 @@ export function Navigation() {
               {/* Search Trigger - Mobile */}
               <button
                 onClick={() => setSearchOpen(true)}
-                className="lg:hidden p-2 text-black/60 hover:text-black transition-colors"
+                className="lg:hidden p-2.5 text-black/60 hover:text-black transition-colors"
                 aria-label="Search"
                 data-testid="nav-search-trigger-mobile"
               >
-                <MagnifyingGlass size={20} weight="bold" />
+                <MagnifyingGlass size={22} weight="bold" />
               </button>
 
               {/* Mobile Menu Toggle - Right side on mobile and tablet */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2 -mr-2 ml-2 text-black/60 hover:text-black transition-colors"
+                className="lg:hidden p-2.5 -mr-2 ml-2.5 text-black/60 hover:text-black transition-colors"
                 aria-label="Toggle menu"
               >
-                {mobileMenuOpen ? <X size={20} weight="bold" /> : <List size={20} weight="bold" />}
+                {mobileMenuOpen ? <X size={22} weight="bold" /> : <List size={22} weight="bold" />}
               </button>
             </div>
           </div>
@@ -584,31 +1202,33 @@ export function Navigation() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="lg:hidden fixed inset-0 w-full bg-[#F6F1EE] z-50 overflow-y-auto"
+              className="lg:hidden fixed inset-0 w-full bg-white z-50 overflow-y-auto"
             >
               {/* Header */}
-              <div className="sticky top-0 bg-[#F6F1EE] border-b border-black/5 px-5 py-4 flex items-center justify-between safe-area-inset-top z-10">
-                <span className="text-xs font-black uppercase tracking-widest text-black">Menu</span>
+              <div className="sticky top-0 bg-white border-b border-black/8 px-5 py-[1.125rem] flex items-center justify-between safe-area-inset-top z-10">
+                <span className="text-sm font-black uppercase tracking-widest text-black">Menu</span>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-2 -mr-2 text-black/50 hover:text-black transition-colors"
+                  className="p-2.5 -mr-2 text-black/50 hover:text-black transition-colors"
                 >
-                  <X size={24} weight="bold" />
+                  <X size={26} weight="bold" />
                 </button>
               </div>
               
-              <div className="px-4 py-5 space-y-5 pb-safe">
+              <div className="px-4 py-4 space-y-4 pb-safe">
                 
                 {/* User Loyalty Tier Card - For signed in users */}
                 {user && userPoints !== null && (() => {
-                  // Use lifetime points for tier calculation (more intuitive for users)
-                  // Fall back to annual points if lifetime is 0
-                  const pointsForTier = user.lifetimePoints || user.annualPointsEarned || 0
-                  const tierProgress = calculateTierProgressFromPoints(pointsForTier)
-                  const actualTierSlug = tierProgress.currentTier.slug
+                  const tierProgress = calculateTierProgressWithTiers({
+                    currentTierSlug: user.loyaltyTier?.slug ?? null,
+                    annualPointsEarned: user.annualPointsEarned ?? 0,
+                    tiers: loyaltyTiers,
+                  })
+                  const actualTierSlug = (user.loyaltyTier?.slug || tierProgress.currentTier.slug).toLowerCase()
+                  const displayMultiplier = user.loyaltyTier?.pointMultiplier ?? tierProgress.currentTier.pointMultiplier
                   
                   // Use displayed tier for visual animation, actual tier for data
-                  const animatedTierSlug = displayedTierSlug || actualTierSlug
+                  const animatedTierSlug = (displayedTierSlug || actualTierSlug).toLowerCase()
                   
                   const tierIcons: Record<string, typeof Star> = {
                     newcomer: Star,
@@ -617,56 +1237,45 @@ export function Navigation() {
                     soulmate: Sparkle,
                   }
                   
-                  // Tier names for display during animation
                   const tierNames: Record<string, string> = {
                     newcomer: 'Newcomer',
                     friend: 'Friend',
                     bestie: 'Bestie',
                     soulmate: 'Soulmate',
                   }
-                  
-                  // Tier colors matching profile and rewards pages
-                  const tierColors: Record<string, { gradient: string; iconBg: string; progressBg: string; progressFill: string }> = {
-                    newcomer: {
-                      gradient: 'from-slate-400 via-slate-500 to-slate-600',
-                      iconBg: 'bg-slate-400/30',
-                      progressBg: 'bg-slate-400/30',
-                      progressFill: 'bg-slate-300',
-                    },
-                    friend: {
-                      gradient: 'from-blue-500 via-blue-600 to-indigo-700',
-                      iconBg: 'bg-blue-400/30',
-                      progressBg: 'bg-blue-400/30',
-                      progressFill: 'bg-blue-300',
-                    },
-                    bestie: {
-                      gradient: 'from-pink-500 via-rose-500 to-pink-600',
-                      iconBg: 'bg-pink-400/30',
-                      progressBg: 'bg-pink-400/30',
-                      progressFill: 'bg-pink-300',
-                    },
-                    soulmate: {
-                      gradient: 'from-purple-500 via-violet-500 to-purple-700',
-                      iconBg: 'bg-purple-400/30',
-                      progressBg: 'bg-purple-400/30',
-                      progressFill: 'bg-purple-300',
-                    },
+                  loyaltyTiers.forEach((tier) => {
+                    tierNames[tier.slug.toLowerCase()] = tier.name
+                  })
+                  if (user.loyaltyTier?.slug && user.loyaltyTier?.name) {
+                    tierNames[user.loyaltyTier.slug.toLowerCase()] = user.loyaltyTier.name
                   }
                   
                   // Use animated tier for visuals
                   const TierIcon = tierIcons[animatedTierSlug] || Star
-                  const colors = tierColors[animatedTierSlug] || tierColors.newcomer
-                  const displayTierName = tierNames[animatedTierSlug] || 'Newcomer'
+                  const displayTierName = tierNames[animatedTierSlug] || tierProgress.currentTier.name || 'Tier'
+                  const tierThemeBySlug = loyaltyTiers.reduce<Record<string, { primaryColor?: string; secondaryColor?: string }>>((acc, tier) => {
+                    acc[tier.slug] = {
+                      primaryColor: tier.primaryColor ?? undefined,
+                      secondaryColor: tier.secondaryColor ?? undefined,
+                    }
+                    return acc
+                  }, {})
+                  if (user.loyaltyTier?.slug) {
+                    tierThemeBySlug[user.loyaltyTier.slug.toLowerCase()] = {
+                      primaryColor: user.loyaltyTier.primaryColor,
+                      secondaryColor: user.loyaltyTier.secondaryColor,
+                    }
+                  }
+                  const activeTierTheme = resolveTierTheme(animatedTierSlug, tierThemeBySlug[animatedTierSlug])
+                  const iconBadgeColor = hexToRgba(activeTierTheme.primaryColor, 0.22)
+                  const progressTrackColor = hexToRgba(activeTierTheme.primaryColor, 0.26)
+                  const progressFillColor = hexToRgba(activeTierTheme.primaryColor, 0.94)
+                  const cardShadow = `0 22px 36px -24px ${hexToRgba(activeTierTheme.secondaryColor, 0.78)}`
                   
                   return (
                     <motion.div 
-                      className={`text-white p-4 space-y-4 shadow-lg relative overflow-hidden`}
-                      animate={{
-                        background: isTierAnimating ? undefined : undefined,
-                      }}
-                      style={{
-                        backgroundImage: `linear-gradient(to bottom right, var(--tw-gradient-stops))`,
-                      }}
+                      className="relative overflow-hidden rounded-xl border border-black/10 p-3 text-white shadow-sm"
+                      style={{ boxShadow: cardShadow }}
                     >
                       {/* Animated gradient background */}
                       <motion.div
@@ -674,44 +1283,47 @@ export function Navigation() {
                         initial={isTierAnimating ? { opacity: 0, scale: 1.1 } : false}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.4 }}
-                        className={`absolute inset-0 bg-gradient-to-br ${colors.gradient}`}
+                        className="absolute inset-0"
+                        style={{ backgroundImage: buildTierGradient(activeTierTheme, 135) }}
                       />
+                      <div className="absolute inset-0 bg-black/10" />
                       
                       {/* Decorative elements */}
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-                      <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+                      <div className="absolute top-0 right-0 h-24 w-24 rounded-full bg-white/5 -translate-y-1/2 translate-x-1/2" />
+                      <div className="absolute bottom-0 left-0 h-20 w-20 rounded-full bg-white/5 translate-y-1/2 -translate-x-1/2" />
                       
                       {/* Tier Header */}
-                      <div className="flex items-center justify-between relative">
-                        <div className="flex items-center gap-3">
+                      <div className="relative flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-2.5">
                           <motion.div 
                             key={`icon-${animatedTierSlug}`}
                             initial={isTierAnimating ? { scale: 0, rotate: -180 } : false}
                             animate={{ scale: 1, rotate: 0 }}
                             transition={{ type: 'spring', damping: 15, stiffness: 300 }}
-                            className={`w-10 h-10 ${colors.iconBg} flex items-center justify-center`}
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                            style={{ backgroundColor: iconBadgeColor }}
                           >
-                            <TierIcon size={20} weight="fill" />
+                            <TierIcon size={16} weight="fill" />
                           </motion.div>
-                          <div>
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-white/60">
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/70">
                               {isTierAnimating ? 'Leveling Up!' : 'Your Tier'}
                             </p>
                             <motion.p 
                               key={`name-${animatedTierSlug}`}
                               initial={isTierAnimating ? { opacity: 0, y: 10 } : false}
                               animate={{ opacity: 1, y: 0 }}
-                              className="text-base font-black uppercase tracking-wide"
+                              className="truncate text-sm font-black uppercase tracking-[0.08em]"
                             >
                               {displayTierName}
                             </motion.p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-white/60">Points</p>
+                          <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/70">Points</p>
                           <div className="flex items-center gap-1">
                             <motion.span 
-                              className="text-xl font-black tabular-nums"
+                              className="text-base font-black tabular-nums"
                               animate={previousPoints !== null && userPoints > previousPoints ? {
                                 scale: [1, 1.15, 1],
                               } : {}}
@@ -727,7 +1339,7 @@ export function Navigation() {
                         <motion.div
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
-                          className="flex items-center justify-center gap-2 py-2 relative"
+                          className="relative flex items-center justify-center gap-2 py-1.5"
                         >
                           <motion.div
                             animate={{ rotate: 360 }}
@@ -742,38 +1354,39 @@ export function Navigation() {
                       {/* Progress to next tier - always show accurate data */}
                       {!tierProgress.isMaxTier && tierProgress.nextTier && tierProgress.pointsNeeded > 0 && (
                         <motion.div 
-                          className="space-y-2 relative"
+                          className="relative mt-2.5 space-y-1.5"
                           initial={isTierAnimating ? { opacity: 0 } : false}
                           animate={{ opacity: 1 }}
                           transition={{ delay: isTierAnimating ? 0.3 : 0 }}
                         >
-                          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider">
-                            <span className="text-white/60">Progress to {tierProgress.nextTier.name}</span>
+                          <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-[0.14em]">
+                            <span className="text-white/70">Progress to {tierProgress.nextTier.name}</span>
                             <span className="text-white/80">{Math.round(tierProgress.progressPercentage)}%</span>
                           </div>
-                          <div className={`h-1.5 ${colors.progressBg} overflow-hidden rounded-full`}>
+                          <div className="h-1.5 overflow-hidden rounded-full" style={{ backgroundColor: progressTrackColor }}>
                             <motion.div
                               initial={{ width: 0 }}
                               animate={{ width: `${tierProgress.progressPercentage}%` }}
                               transition={{ duration: 0.8, ease: 'easeOut' }}
-                              className={`h-full ${colors.progressFill} rounded-full`}
+                              className="h-full rounded-full"
+                              style={{ backgroundColor: progressFillColor }}
                             />
                           </div>
-                          <p className="text-[10px] text-white/50">
+                          <p className="text-[10px] text-white/70">
                             {tierProgress.pointsNeeded.toLocaleString()} pts needed
                           </p>
                         </motion.div>
                       )}
                       
                       {tierProgress.isMaxTier && (
-                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-white/70 relative">
+                        <div className="relative mt-2.5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/85">
                           <Sparkle size={12} weight="fill" className="text-amber-300" />
                           Max tier achieved!
                         </div>
                       )}
                       
                       {/* Quick tier perks */}
-                      <div className="flex flex-wrap gap-3 pt-1 relative">
+                      <div className="relative mt-2.5 flex flex-wrap gap-x-3 gap-y-1">
                         {user.loyaltyTier?.freeShipping && (
                           <div className="flex items-center gap-1.5 text-[10px] font-bold text-white/80">
                             <Package size={12} weight="bold" />
@@ -786,22 +1399,22 @@ export function Navigation() {
                             Early Access
                           </div>
                         )}
-                        {tierProgress.currentTier.pointMultiplier > 1 && (
+                        {displayMultiplier > 1 && (
                           <div className="flex items-center gap-1.5 text-[10px] font-bold text-white/80">
                             <TrendUp size={12} weight="bold" />
-                            {tierProgress.currentTier.pointMultiplier}x Points
+                            {formatMultiplier(displayMultiplier)}x Points
                           </div>
                         )}
                       </div>
                       
-                      {/* View Rewards Link */}
+                      {/* View Profile + Rewards Link */}
                       <Link
-                        href="/profile#rewards"
+                        href="/profile"
                         onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center justify-between pt-3 border-t border-white/20 group relative"
+                        className="relative mt-2.5 flex items-center justify-between border-t border-white/25 pt-2.5 group"
                       >
                         <span className="text-xs font-bold uppercase tracking-wider text-white/80 group-hover:text-white transition-colors">
-                          View Rewards
+                          Open Profile & Rewards
                         </span>
                         <ArrowRight size={14} weight="bold" className="text-white/60 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                       </Link>
@@ -814,10 +1427,10 @@ export function Navigation() {
                   <Link
                     href="/signin"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center justify-between p-4 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 text-white group shadow-lg"
+                    className="flex items-center justify-between p-4 border border-black/15 bg-black text-white group shadow-sm"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-white/10 flex items-center justify-center">
+                      <div className="w-10 h-10 bg-white/15 flex items-center justify-center">
                         <UserCircle size={20} weight="bold" />
                       </div>
                       <div>
@@ -860,6 +1473,40 @@ export function Navigation() {
                     <p className="text-xs font-black uppercase tracking-wider">Wishlist</p>
                   </Link>
                 </div>
+
+                {/* Quick Links */}
+                <div className="space-y-1 bg-white p-1">
+                  <p className="px-3 pt-2 text-[9px] font-black uppercase tracking-widest text-black/30">Quick Access</p>
+                  {NAV_FEATURED_LINKS.map((featured) => {
+                    const Icon = featured.icon
+                    const isFeaturedActive =
+                      featured.href === '/products'
+                        ? isShopActive
+                        : isActive(featured.href)
+
+                    return (
+                      <Link
+                        key={featured.href}
+                        href={featured.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center justify-between px-4 py-3.5 transition-all ${
+                          isFeaturedActive ? 'bg-black text-white' : 'text-black hover:bg-black/5'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon size={16} weight="bold" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-black uppercase tracking-wider leading-none">{featured.label}</p>
+                            <p className={`mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${isFeaturedActive ? 'text-white/60' : 'text-black/40'}`}>
+                              {featured.eyebrow}
+                            </p>
+                          </div>
+                        </div>
+                        <CaretRight size={14} weight="bold" className="opacity-40" />
+                      </Link>
+                    )
+                  })}
+                </div>
                 
                 {/* Shop Section */}
                 <div className="space-y-1 bg-white p-1">
@@ -882,7 +1529,7 @@ export function Navigation() {
                   </Link>
                   
                   {/* Categories */}
-                  {categories.map((category) => {
+                  {NAV_CATEGORY_LINKS.map((category) => {
                     const Icon = category.icon
                     return (
                       <Link
@@ -933,10 +1580,22 @@ export function Navigation() {
                       className="flex items-center justify-between px-4 py-3.5 text-black hover:bg-black/5 transition-all"
                     >
                       <div className="flex items-center gap-3">
-                        <UserCircle size={18} weight="fill" />
-                        <span className="text-sm font-black uppercase tracking-wider">My Profile</span>
+                        <Trophy size={18} weight="fill" />
+                        <span className="text-sm font-black uppercase tracking-wider">Profile & Rewards</span>
                       </div>
                       <CaretRight size={14} weight="bold" className="opacity-40" />
+                    </Link>
+                    
+                    <Link
+                      href="/profile#rewards"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-4 py-3 text-black/70 hover:text-black hover:bg-black/5 transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Gift size={16} weight="bold" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Redeem Rewards</span>
+                      </div>
+                      <CaretRight size={12} weight="bold" className="opacity-30" />
                     </Link>
                     
                     <Link
@@ -947,18 +1606,6 @@ export function Navigation() {
                       <div className="flex items-center gap-3">
                         <Package size={16} weight="bold" />
                         <span className="text-xs font-bold uppercase tracking-wider">My Orders</span>
-                      </div>
-                      <CaretRight size={12} weight="bold" className="opacity-30" />
-                    </Link>
-                    
-                    <Link
-                      href="/profile#rewards"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center justify-between px-4 py-3 text-black/70 hover:text-black hover:bg-black/5 transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Gift size={16} weight="bold" />
-                        <span className="text-xs font-bold uppercase tracking-wider">Rewards</span>
                       </div>
                       <CaretRight size={12} weight="bold" className="opacity-30" />
                     </Link>
@@ -975,7 +1622,7 @@ export function Navigation() {
                     >
                       <div className="flex items-center gap-3">
                         <Bell size={16} weight="bold" />
-                        <span className="text-xs font-bold uppercase tracking-wider">Notifications</span>
+                        <span className="text-xs font-bold uppercase tracking-wider">Open Notifications</span>
                       </div>
                       <CaretRight size={12} weight="bold" className="opacity-30" />
                     </button>
@@ -987,10 +1634,24 @@ export function Navigation() {
                     >
                       <div className="flex items-center gap-3">
                         <Gear size={16} weight="bold" />
-                        <span className="text-xs font-bold uppercase tracking-wider">Settings</span>
+                        <span className="text-xs font-bold uppercase tracking-wider">Notifications & Preferences</span>
                       </div>
                       <CaretRight size={12} weight="bold" className="opacity-30" />
                     </Link>
+
+                    {user.isAdmin && (
+                      <Link
+                        href="/admin"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center justify-between px-4 py-3 text-black/70 hover:text-black hover:bg-black/5 transition-all"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Gear size={16} weight="bold" />
+                          <span className="text-xs font-bold uppercase tracking-wider">Admin Dashboard</span>
+                        </div>
+                        <CaretRight size={12} weight="bold" className="opacity-30" />
+                      </Link>
+                    )}
                   </div>
                 )}
                 

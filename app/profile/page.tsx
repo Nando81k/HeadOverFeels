@@ -11,10 +11,21 @@ import {
 } from '@phosphor-icons/react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { calculateTierProgressFromPoints } from '@/lib/loyalty/tier-progress'
+import { calculateTierProgressWithTiers } from '@/lib/loyalty/tier-progress'
 import { toast } from '@/lib/toast'
 import { RewardsHubSection } from '@/components/profile/RewardsHubSection'
 import { LoyaltyTierMeter } from '@/components/profile/LoyaltyTierMeter'
+import {
+  getDailyMentalHealthQuote,
+  getMsUntilNextLocalMidnight,
+  type MentalHealthQuote,
+} from '@/lib/profile/daily-mental-health-quote'
+import {
+  buildTierGlowShadow,
+  buildTierGradient,
+  hexToRgba,
+  resolveTierTheme,
+} from '@/lib/loyalty/tier-theme'
 
 interface PointsTransaction {
   id: string
@@ -54,27 +65,22 @@ interface PendingLoyaltyAnimation {
   createdAt: number
 }
 
-// Tier configuration with colors
+interface ProfileTierDefinition {
+  name: string
+  slug: string
+  minAnnualPoints: number
+  pointMultiplier: number
+}
+
+// Tier configuration for labels and benefit copy
 const tierConfig: Record<string, { 
   name: string
-  gradient: string
-  iconBg: string
-  progressBg: string
-  progressFill: string
-  badge: string
-  glow: string
   emoji: string
   multiplier: number
   benefits: string[]
 }> = {
   newcomer: {
     name: 'Newcomer',
-    gradient: 'from-slate-400 via-slate-500 to-slate-600',
-    iconBg: 'bg-slate-400/30',
-    progressBg: 'bg-slate-400/30',
-    progressFill: 'bg-slate-300',
-    badge: 'bg-slate-400/30',
-    glow: 'shadow-slate-500/50',
     emoji: '👋',
     multiplier: 1.0,
     benefits: [
@@ -85,12 +91,6 @@ const tierConfig: Record<string, {
   },
   friend: {
     name: 'Friend',
-    gradient: 'from-blue-500 via-blue-600 to-indigo-700',
-    iconBg: 'bg-blue-400/30',
-    progressBg: 'bg-blue-400/30',
-    progressFill: 'bg-blue-300',
-    badge: 'bg-blue-400/30',
-    glow: 'shadow-blue-500/50',
     emoji: '💙',
     multiplier: 1.25,
     benefits: [
@@ -102,12 +102,6 @@ const tierConfig: Record<string, {
   },
   bestie: {
     name: 'Bestie',
-    gradient: 'from-pink-500 via-rose-500 to-pink-600',
-    iconBg: 'bg-pink-400/30',
-    progressBg: 'bg-pink-400/30',
-    progressFill: 'bg-pink-300',
-    badge: 'bg-pink-400/30',
-    glow: 'shadow-pink-500/50',
     emoji: '💖',
     multiplier: 1.5,
     benefits: [
@@ -119,12 +113,6 @@ const tierConfig: Record<string, {
   },
   soulmate: {
     name: 'Soulmate',
-    gradient: 'from-purple-500 via-violet-500 to-purple-700',
-    iconBg: 'bg-purple-400/30',
-    progressBg: 'bg-purple-400/30',
-    progressFill: 'bg-purple-300',
-    badge: 'bg-purple-400/30',
-    glow: 'shadow-purple-500/50',
     emoji: '💜',
     multiplier: 2.0,
     benefits: [
@@ -138,6 +126,12 @@ const tierConfig: Record<string, {
 }
 
 const getTierConfig = (slug: string) => tierConfig[slug] || tierConfig.newcomer
+
+function formatTierMultiplier(multiplier: number): string {
+  if (!Number.isFinite(multiplier) || multiplier <= 0) return '1'
+  if (Number.isInteger(multiplier)) return String(multiplier)
+  return multiplier.toFixed(2).replace(/\.?0+$/, '')
+}
 
 type ProfileTab = 'profile' | 'rewards'
 
@@ -173,6 +167,9 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<ProfileTab>('profile')
   const [hasLoadedRewards, setHasLoadedRewards] = useState(false)
   const [openTierModalSignal, setOpenTierModalSignal] = useState(0)
+  const [dailyQuote, setDailyQuote] = useState<MentalHealthQuote>(() => getDailyMentalHealthQuote())
+  const [tierThemeOverrides, setTierThemeOverrides] = useState<Record<string, { primaryColor?: string; secondaryColor?: string }>>({})
+  const [tierDefinitions, setTierDefinitions] = useState<ProfileTierDefinition[]>([])
   const tabButtonRefs = useRef<Record<ProfileTab, HTMLButtonElement | null>>({
     profile: null,
     rewards: null,
@@ -239,6 +236,86 @@ export default function ProfilePage() {
     return () => window.removeEventListener('hashchange', syncFromHash)
   }, [])
 
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof window.setTimeout> | null = null
+
+    const scheduleQuoteRefresh = () => {
+      const delay = getMsUntilNextLocalMidnight()
+      timeoutId = window.setTimeout(() => {
+        setDailyQuote(getDailyMentalHealthQuote())
+        scheduleQuoteRefresh()
+      }, delay)
+    }
+
+    setDailyQuote(getDailyMentalHealthQuote())
+    scheduleQuoteRefresh()
+
+    return () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!user) return
+
+    const controller = new AbortController()
+    const loadTierThemes = async () => {
+      try {
+        const response = await fetch('/api/loyalty/tiers', {
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+        if (!response.ok) return
+
+        const payload = await response.json()
+        if (!Array.isArray(payload)) return
+
+        const definitions = payload.flatMap((tier): ProfileTierDefinition[] => {
+          if (!tier || typeof tier !== 'object') return []
+          const slug = typeof tier.slug === 'string' ? tier.slug.toLowerCase() : null
+          if (!slug) return []
+
+          const minAnnualPoints = Number(tier.minAnnualPoints)
+          const pointMultiplier = Number(tier.pointMultiplier)
+
+          return [{
+            name: typeof tier.name === 'string' && tier.name.trim().length > 0 ? tier.name.trim() : slug,
+            slug,
+            minAnnualPoints: Number.isFinite(minAnnualPoints) ? Math.max(0, minAnnualPoints) : 0,
+            pointMultiplier: Number.isFinite(pointMultiplier) ? Math.max(1, pointMultiplier) : 1,
+          }]
+        }).sort((a, b) => {
+          if (a.minAnnualPoints !== b.minAnnualPoints) {
+            return a.minAnnualPoints - b.minAnnualPoints
+          }
+          return a.slug.localeCompare(b.slug)
+        })
+
+        const overrides = payload.reduce<Record<string, { primaryColor?: string; secondaryColor?: string }>>((acc, tier) => {
+          if (!tier || typeof tier !== 'object') return acc
+          const slug = typeof tier.slug === 'string' ? tier.slug.toLowerCase() : null
+          if (!slug) return acc
+
+          acc[slug] = {
+            primaryColor: typeof tier.primaryColor === 'string' ? tier.primaryColor : undefined,
+            secondaryColor: typeof tier.secondaryColor === 'string' ? tier.secondaryColor : undefined,
+          }
+          return acc
+        }, {})
+
+        setTierDefinitions(definitions)
+        setTierThemeOverrides(overrides)
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return
+      }
+    }
+
+    loadTierThemes()
+    return () => controller.abort()
+  }, [user])
+
   const getPendingLoyaltyAnimation = useCallback((): PendingLoyaltyAnimation | null => {
     if (!user) return null
 
@@ -283,7 +360,11 @@ export default function ProfilePage() {
     const runPointsAnimation = (pointsDelta: number) => {
       const gained = Math.max(0, pointsDelta)
       const previousAnnualPoints = Math.max(0, annualPoints - gained)
-      const previousProgress = calculateTierProgressFromPoints(previousAnnualPoints).progressPercentage
+      const previousProgress = calculateTierProgressWithTiers({
+        currentTierSlug: user.loyaltyTier?.slug ?? null,
+        annualPointsEarned: previousAnnualPoints,
+        tiers: tierDefinitions,
+      }).progressPercentage
 
       setPointsGained(gained)
       setProgressAnimationStart(previousProgress)
@@ -331,10 +412,10 @@ export default function ProfilePage() {
       }, 4200)
     }
 
-    let expectedTierSlug = 'newcomer'
-    if (annualPoints >= 7500) expectedTierSlug = 'soulmate'
-    else if (annualPoints >= 3000) expectedTierSlug = 'bestie'
-    else if (annualPoints >= 1000) expectedTierSlug = 'friend'
+    const expectedTierSlug = calculateTierProgressWithTiers({
+      annualPointsEarned: annualPoints,
+      tiers: tierDefinitions,
+    }).currentTier.slug
 
     if (cachedData) {
       try {
@@ -391,7 +472,7 @@ export default function ProfilePage() {
       lastVisit: Date.now()
     }
     localStorage.setItem(cacheKey, JSON.stringify(newCache))
-  }, [user, getPendingLoyaltyAnimation, clearPendingLoyaltyAnimation, refreshUser])
+  }, [user, getPendingLoyaltyAnimation, clearPendingLoyaltyAnimation, refreshUser, tierDefinitions])
 
   // Dev mode tier animation trigger
   useEffect(() => {
@@ -509,10 +590,12 @@ export default function ProfilePage() {
 
   const tierProgress = useMemo(() => {
     if (!user) return null
-    // Use lifetime points for tier calculation (tiers never reset)
-    const pointsForTier = user.lifetimePoints || user.annualPointsEarned || 0
-    return calculateTierProgressFromPoints(pointsForTier)
-  }, [user])
+    return calculateTierProgressWithTiers({
+      currentTierSlug: user.loyaltyTier?.slug ?? null,
+      annualPointsEarned: user.annualPointsEarned ?? 0,
+      tiers: tierDefinitions,
+    })
+  }, [tierDefinitions, user])
 
   useEffect(() => {
     if (tierProgress && shouldAnimatePoints && !shouldAnimateTier) {
@@ -545,12 +628,58 @@ export default function ProfilePage() {
     )
   }
 
-  // Use calculated tier from lifetimePoints, not database tier (tiers never reset)
-  const calculatedTierSlug = tierProgress?.currentTier.slug || 'newcomer'
-  const currentTierConfig = getTierConfig(calculatedTierSlug)
-  const previousTierConfig = previousTierSlug ? getTierConfig(previousTierSlug) : null
-  const activeTierSlug = displayTierSlug || calculatedTierSlug
-  const activeTierConfig = getTierConfig(activeTierSlug)
+  const tierThemeBySlug = {
+    ...tierThemeOverrides,
+    ...(user.loyaltyTier?.slug
+      ? {
+          [user.loyaltyTier.slug.toLowerCase()]: {
+            primaryColor: user.loyaltyTier.primaryColor,
+            secondaryColor: user.loyaltyTier.secondaryColor,
+          },
+        }
+      : {}),
+  }
+  const currentThemeSlug = user.loyaltyTier?.slug || tierProgress?.currentTier.slug || 'newcomer'
+  const currentTierConfig = getTierConfig((user.loyaltyTier?.slug || currentThemeSlug).toLowerCase())
+  const tierDisplayBySlug = tierDefinitions.reduce<Record<string, { name: string; pointMultiplier: number }>>((acc, tier) => {
+    acc[tier.slug.toLowerCase()] = {
+      name: tier.name,
+      pointMultiplier: tier.pointMultiplier,
+    }
+    return acc
+  }, {})
+  if (user.loyaltyTier?.slug) {
+    tierDisplayBySlug[user.loyaltyTier.slug.toLowerCase()] = {
+      name: user.loyaltyTier.name,
+      pointMultiplier: user.loyaltyTier.pointMultiplier,
+    }
+  }
+  const resolveTierDisplay = (slug: string | null | undefined) => {
+    const normalized = (slug || '').toLowerCase()
+    const fromDefinitions = tierDisplayBySlug[normalized]
+    if (fromDefinitions) {
+      return fromDefinitions
+    }
+    const fallback = getTierConfig(normalized || 'newcomer')
+    return {
+      name: fallback.name,
+      pointMultiplier: fallback.multiplier,
+    }
+  }
+  const currentTierDisplay = resolveTierDisplay(currentThemeSlug)
+  const currentTierTheme = resolveTierTheme(currentThemeSlug, tierThemeBySlug[currentThemeSlug.toLowerCase()])
+  const previousTierTheme = previousTierSlug
+    ? resolveTierTheme(previousTierSlug, tierThemeBySlug[previousTierSlug.toLowerCase()])
+    : null
+  const activeTierSlug = displayTierSlug || currentThemeSlug
+  const activeTierDisplay = resolveTierDisplay(activeTierSlug)
+  const activeMultiplier = displayTierSlug
+    ? activeTierDisplay.pointMultiplier
+    : (user.loyaltyTier?.pointMultiplier ?? currentTierDisplay.pointMultiplier)
+  const activeTierName = displayTierSlug
+    ? activeTierDisplay.name
+    : (user.loyaltyTier?.name || currentTierDisplay.name)
+  const activeTierTheme = resolveTierTheme(activeTierSlug, tierThemeBySlug[activeTierSlug.toLowerCase()])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -670,7 +799,10 @@ export default function ProfilePage() {
               onClick={(e) => e.stopPropagation()}
               className="relative w-full max-w-lg bg-white shadow-2xl overflow-hidden"
             >
-              <div className={`bg-linear-to-br ${currentTierConfig.gradient} p-8 text-white text-center relative overflow-hidden`}>
+              <div
+                className="p-8 text-white text-center relative overflow-hidden"
+                style={{ backgroundImage: buildTierGradient(currentTierTheme, 135) }}
+              >
                 <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-xl" />
                 
@@ -707,7 +839,10 @@ export default function ProfilePage() {
                         transition={{ delay: 0.4 + index * 0.1 }}
                         className="flex items-start gap-3"
                       >
-                        <div className={`w-6 h-6 bg-linear-to-br ${currentTierConfig.gradient} flex items-center justify-center shrink-0 mt-0.5`}>
+                        <div
+                          className="w-6 h-6 flex items-center justify-center shrink-0 mt-0.5"
+                          style={{ backgroundImage: buildTierGradient(currentTierTheme, 135) }}
+                        >
                           <Star size={12} weight="fill" className="text-white" />
                         </div>
                         <p className="text-black/80 text-sm">{benefit}</p>
@@ -742,7 +877,8 @@ export default function ProfilePage() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setShowTierUpgradeModal(false)}
-                  className={`w-full mt-6 py-4 bg-linear-to-r ${currentTierConfig.gradient} text-white font-bold text-lg uppercase tracking-wider`}
+                  className="w-full mt-6 py-4 text-white font-bold text-lg uppercase tracking-wider"
+                  style={{ backgroundImage: buildTierGradient(currentTierTheme, 90) }}
                 >
                   Start Earning {currentTierConfig.multiplier}x Points
                 </motion.button>
@@ -760,45 +896,8 @@ export default function ProfilePage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 lg:gap-8"
+            className="w-full"
           >
-            <div className="flex-1 min-w-0 space-y-4">
-              {/* User Info */}
-              <div className="flex items-start gap-3 md:gap-4">
-                <div className="w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 bg-black flex items-center justify-center shrink-0">
-                  <User size={24} weight="bold" className="text-white md:hidden" />
-                  <User size={30} weight="bold" className="text-white hidden md:block" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] md:text-xs font-medium text-black/50 uppercase tracking-wider mb-0.5 md:mb-1">My Account</p>
-                  <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-black tracking-tight leading-tight break-words whitespace-normal">
-                    {user.name || 'Welcome'}
-                  </h1>
-                  <p className="text-xs md:text-sm text-black/60 mt-0.5 md:mt-1 break-all whitespace-normal">{user.email}</p>
-                </div>
-              </div>
-
-              {/* Action Buttons - Full width on mobile */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                {user.isAdmin && (
-                  <Link
-                    href="/admin"
-                    className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-black/80 transition-colors"
-                  >
-                    <Gear size={14} weight="bold" />
-                    Admin
-                  </Link>
-                )}
-                <button
-                  onClick={handleSignout}
-                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 border-2 border-black text-black text-xs font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors"
-                >
-                  <SignOut size={14} weight="bold" />
-                  Sign Out
-                </button>
-              </div>
-            </div>
-
             {user.loyaltyTier && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -808,21 +907,22 @@ export default function ProfilePage() {
                   scale: tierTransitionPhase === 'celebrating' ? [1, 1.01, 1] : 1,
                 }}
                 transition={{ delay: 0.1, scale: { duration: 0.6 } }}
-                className={`relative overflow-hidden text-white w-full lg:w-[760px] xl:w-[840px] shrink-0 transition-all duration-500 ${
-                  tierTransitionPhase === 'celebrating' ? `shadow-2xl ${currentTierConfig.glow}` : ''
-                }`}
+                className="relative w-full overflow-hidden rounded-xl text-white transition-all duration-500 lg:min-h-[240px]"
+                style={tierTransitionPhase === 'celebrating' ? { boxShadow: buildTierGlowShadow(currentTierTheme) } : undefined}
               >
                 <motion.div
                   initial={{ opacity: 1 }}
                   animate={{ opacity: tierTransitionPhase === 'resetting' || tierTransitionPhase === 'complete' ? 0 : 1 }}
                   transition={{ duration: 0.8 }}
-                  className={`absolute inset-0 bg-linear-to-br ${previousTierConfig?.gradient || activeTierConfig.gradient}`}
+                  className="absolute inset-0"
+                  style={{ backgroundImage: buildTierGradient(previousTierTheme || activeTierTheme, 135) }}
                 />
                 <motion.div
                   initial={{ opacity: shouldAnimateTier ? 0 : 1 }}
                   animate={{ opacity: tierTransitionPhase === 'resetting' || tierTransitionPhase === 'complete' ? 1 : (shouldAnimateTier ? 0 : 1) }}
                   transition={{ duration: 0.8 }}
-                  className={`absolute inset-0 bg-linear-to-br ${currentTierConfig.gradient}`}
+                  className="absolute inset-0"
+                  style={{ backgroundImage: buildTierGradient(currentTierTheme, 135) }}
                 />
 
                 <motion.div
@@ -858,135 +958,240 @@ export default function ProfilePage() {
                   )}
                 </AnimatePresence>
 
-                <div className="relative p-3 md:p-4">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between gap-2 md:gap-4">
-                      <motion.div
-                        animate={tierTransitionPhase === 'celebrating' ? { rotate: [0, -15, 15, -10, 10, 0], scale: [1, 1.3, 1] } : {}}
-                        transition={{ duration: 0.8 }}
-                        className={`w-10 h-10 md:w-12 md:h-12 ${activeTierConfig.iconBg} backdrop-blur-sm flex items-center justify-center shrink-0`}
-                      >
-                        <Crown size={18} weight="fill" className="text-white md:hidden" />
-                        <Crown size={22} weight="fill" className="text-white hidden md:block" />
-                      </motion.div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[10px] md:text-xs font-medium uppercase tracking-wider text-white/70 mb-0.5">Loyalty Tier</p>
-                        <AnimatePresence mode="wait">
-                          <motion.h2
-                            key={activeTierSlug}
-                            initial={{ opacity: 0, y: 20, scale: 0.8 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -20, scale: 0.8 }}
-                            transition={{ duration: 0.5, type: 'spring', stiffness: 200 }}
-                            className="text-lg md:text-xl font-black"
-                          >
-                            {displayTierSlug ? getTierConfig(displayTierSlug).name : user.loyaltyTier.name}
-                          </motion.h2>
-                        </AnimatePresence>
-                        <AnimatePresence mode="wait">
-                          <motion.p
-                            key={activeTierSlug}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="text-white/80 mt-0.5 text-[11px] md:text-xs"
-                          >
-                            Earning {displayTierSlug ? getTierConfig(displayTierSlug).multiplier : currentTierConfig.multiplier}x points
-                          </motion.p>
-                        </AnimatePresence>
-                      </div>
-                      <div className="flex flex-col items-end gap-1.5 shrink-0">
-                        <div className={`${activeTierConfig.iconBg} backdrop-blur-sm px-2 py-1.5`}>
-                          <p className="text-[9px] uppercase tracking-wider text-white/70">Multiplier</p>
-                          <p className="text-sm md:text-base font-black">
-                            {displayTierSlug ? getTierConfig(displayTierSlug).multiplier : currentTierConfig.multiplier}x
-                          </p>
+                <div className="relative p-4 md:p-5 lg:p-6">
+                  <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.45fr)] gap-4 md:gap-5 lg:gap-6 items-stretch">
+                    <div
+                      className="backdrop-blur-sm rounded-xl p-4 md:p-5 flex flex-col justify-between gap-4"
+                      style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-11 h-11 md:w-12 md:h-12 bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0">
+                          <User size={20} weight="bold" className="text-white md:hidden" />
+                          <User size={24} weight="bold" className="text-white hidden md:block" />
                         </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/75 mb-1">My Account</p>
+                          <h1 className="text-xl md:text-2xl font-black text-white tracking-tight leading-tight break-words whitespace-normal">
+                            {user.name || 'Welcome'}
+                          </h1>
+                          <p className="text-sm text-white/80 mt-1 break-all whitespace-normal">{user.email}</p>
+                          <div className="mt-2 border-l-2 border-white/35 pl-3">
+                            <p className="heading-font text-base md:text-lg text-white/95 leading-relaxed tracking-[0.02em]">
+                              {`"${dailyQuote.text}"`}
+                            </p>
+                            {dailyQuote.author && (
+                              <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/65">
+                                {dailyQuote.author}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-1">
+                        {user.isAdmin && (
+                          <Link
+                            href="/admin"
+                            className="min-h-10 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white text-black text-[11px] font-semibold uppercase tracking-[0.12em] hover:bg-white/90 transition-colors"
+                          >
+                            <Gear size={14} weight="bold" />
+                            Admin
+                          </Link>
+                        )}
                         <button
-                          type="button"
-                          onClick={handleViewBenefits}
-                          className="bg-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white transition-colors hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/90 focus-visible:ring-offset-1 focus-visible:ring-offset-black/10"
+                          onClick={handleSignout}
+                          className="min-h-10 flex items-center justify-center gap-1.5 px-4 py-2.5 border border-white/55 text-white text-[11px] font-semibold uppercase tracking-[0.12em] hover:bg-white hover:text-black transition-colors"
                         >
-                          View Benefits
+                          <SignOut size={14} weight="bold" />
+                          Sign Out
                         </button>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                      <motion.div
-                        animate={shouldAnimatePoints || tierTransitionPhase === 'celebrating' ? { scale: [1, 1.05, 1] } : {}}
-                        transition={{ duration: 0.5, delay: 0.3 }}
-                        className={`${activeTierConfig.iconBg} backdrop-blur-sm p-2.5 md:p-3 relative`}
-                      >
-                        <AnimatePresence>
-                          {(shouldAnimatePoints || shouldAnimateTier) && pointsGained > 0 && (
-                            <motion.div
-                              initial={{ opacity: 1, y: 0 }}
-                              animate={{ opacity: 0, y: -30 }}
-                              exit={{ opacity: 0 }}
-                              transition={{ duration: 1.5, delay: 1 }}
-                              className="absolute top-1 right-2 text-[10px] md:text-xs font-bold text-green-300"
-                            >
-                              +{pointsGained.toLocaleString()}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                        <p className="text-[10px] uppercase tracking-wider text-white/70 mb-0.5">Available</p>
-                        <motion.p
-                          animate={shouldAnimatePoints ? { scale: [1, 1.1, 1] } : {}}
-                          transition={{ duration: 0.4, delay: 0.5 }}
-                          className="text-base md:text-xl font-black"
+                    <div className="flex h-full flex-col gap-3 md:gap-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <motion.div
+                          animate={tierTransitionPhase === 'celebrating' ? { rotate: [0, -15, 15, -10, 10, 0], scale: [1, 1.3, 1] } : {}}
+                          transition={{ duration: 0.8 }}
+                          className="w-10 h-10 md:w-11 md:h-11 backdrop-blur-sm flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
                         >
-                          {user.currentPoints.toLocaleString()}
-                        </motion.p>
-                      </motion.div>
-
-                      <div className={`${activeTierConfig.iconBg} backdrop-blur-sm p-2.5 md:p-3`}>
-                        <p className="text-[10px] uppercase tracking-wider text-white/70 mb-0.5">Total Spent</p>
-                        <p className="text-base md:text-xl font-black">${user.totalSpent.toFixed(0)}</p>
+                          <Crown size={18} weight="fill" className="text-white md:hidden" />
+                          <Crown size={22} weight="fill" className="text-white hidden md:block" />
+                        </motion.div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/75 mb-1">Loyalty Tier</p>
+                          <AnimatePresence mode="wait">
+                            <motion.h2
+                              key={activeTierSlug}
+                              initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: -20, scale: 0.8 }}
+                              transition={{ duration: 0.5, type: 'spring', stiffness: 200 }}
+                              className="text-xl md:text-2xl font-black leading-none"
+                            >
+                              {activeTierName}
+                            </motion.h2>
+                          </AnimatePresence>
+                          <AnimatePresence mode="wait">
+                            <motion.p
+                              key={activeTierSlug}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              className="text-white/85 mt-1 text-xs md:text-sm"
+                            >
+                              Earning {formatTierMultiplier(activeMultiplier)}x points
+                            </motion.p>
+                          </AnimatePresence>
+                        </div>
+                        <div className="flex flex-col items-end gap-2 shrink-0">
+                          <div
+                            className="backdrop-blur-sm px-2.5 py-2 min-w-[88px] text-right"
+                            style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
+                          >
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/75">Multiplier</p>
+                            <p className="text-base md:text-lg font-black leading-none mt-0.5">
+                              {formatTierMultiplier(activeMultiplier)}x
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleViewBenefits}
+                            className="h-9 bg-white/15 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-white transition-colors hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/90 focus-visible:ring-offset-1 focus-visible:ring-offset-black/10"
+                          >
+                            View Benefits
+                          </button>
+                        </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setTabAndHash('rewards')}
-                        className="col-span-2 md:col-span-1 flex items-center justify-center gap-1.5 bg-white text-black px-2.5 md:px-3 py-2.5 md:py-3 font-bold uppercase tracking-wider text-[11px] hover:bg-white/90 transition-colors"
-                      >
-                        Redeem Rewards
-                        <ArrowRight size={14} weight="bold" />
-                      </button>
-                    </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <motion.div
+                          animate={shouldAnimatePoints || tierTransitionPhase === 'celebrating' ? { scale: [1, 1.05, 1] } : {}}
+                          transition={{ duration: 0.5, delay: 0.3 }}
+                          className="backdrop-blur-sm p-3 md:p-3.5 rounded-md min-h-[74px] flex flex-col justify-center relative"
+                          style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
+                        >
+                          <AnimatePresence>
+                            {(shouldAnimatePoints || shouldAnimateTier) && pointsGained > 0 && (
+                              <motion.div
+                                initial={{ opacity: 1, y: 0 }}
+                                animate={{ opacity: 0, y: -30 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 1.5, delay: 1 }}
+                                className="absolute top-1.5 right-2 text-[11px] font-semibold text-green-300"
+                              >
+                                +{pointsGained.toLocaleString()}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/75 mb-0.5">Available</p>
+                          <motion.p
+                            animate={shouldAnimatePoints ? { scale: [1, 1.1, 1] } : {}}
+                            transition={{ duration: 0.4, delay: 0.5 }}
+                            className="text-lg md:text-xl font-black leading-tight"
+                          >
+                            {user.currentPoints.toLocaleString()}
+                          </motion.p>
+                        </motion.div>
 
-                    {tierProgress && (
-                      <LoyaltyTierMeter
-                        className="w-full"
-                        compact
-                        isMaxTier={tierProgress.isMaxTier}
-                        nextTierName={tierProgress.nextTier?.name}
-                        pointsNeeded={tierProgress.pointsNeeded}
-                        progressPercentage={animatedProgress}
-                        title={
-                          tierTransitionPhase === 'filling' || tierTransitionPhase === 'celebrating'
-                            ? 'Leveling up'
-                            : `Next: ${tierProgress.nextTier?.name || 'Next Tier'}`
-                        }
-                        statusLabel={
-                          tierTransitionPhase === 'filling'
-                            ? 'Progressing...'
-                            : tierTransitionPhase === 'celebrating'
-                              ? 'Level up'
-                              : `${tierProgress.pointsNeeded.toLocaleString()} pts`
-                        }
-                        isAnimating={
-                          shouldAnimatePoints ||
-                          tierTransitionPhase === 'filling' ||
-                          tierTransitionPhase === 'celebrating'
-                        }
-                        showShimmer={shouldAnimatePoints || tierTransitionPhase === 'filling'}
-                      />
-                    )}
+                        <div
+                          className="backdrop-blur-sm p-3 md:p-3.5 rounded-md min-h-[74px] flex flex-col justify-center"
+                          style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
+                        >
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/75 mb-0.5">Total Spent</p>
+                          <p className="text-lg md:text-xl font-black leading-tight">${user.totalSpent.toFixed(0)}</p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setTabAndHash('rewards')}
+                          className="flex items-center justify-center gap-1.5 rounded-md bg-white text-black px-3 py-3 min-h-[74px] text-[11px] font-semibold uppercase tracking-[0.12em] hover:bg-white/90 transition-colors"
+                        >
+                          Redeem Rewards
+                          <ArrowRight size={14} weight="bold" />
+                        </button>
+                      </div>
+
+                      {tierProgress && (
+                        <LoyaltyTierMeter
+                          className="w-full"
+                          compact
+                          isMaxTier={tierProgress.isMaxTier}
+                          nextTierName={tierProgress.nextTier?.name}
+                          pointsNeeded={tierProgress.pointsNeeded}
+                          progressPercentage={animatedProgress}
+                          title={
+                            tierTransitionPhase === 'filling' || tierTransitionPhase === 'celebrating'
+                              ? 'Leveling up'
+                              : `Next: ${tierProgress.nextTier?.name || 'Next Tier'}`
+                          }
+                          statusLabel={
+                            tierTransitionPhase === 'filling'
+                              ? 'Progressing...'
+                              : tierTransitionPhase === 'celebrating'
+                                ? 'Level up'
+                                : `${tierProgress.pointsNeeded.toLocaleString()} pts`
+                          }
+                          isAnimating={
+                            shouldAnimatePoints ||
+                            tierTransitionPhase === 'filling' ||
+                            tierTransitionPhase === 'celebrating'
+                          }
+                          showShimmer={shouldAnimatePoints || tierTransitionPhase === 'filling'}
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
               </motion.div>
+            )}
+
+            {!user.loyaltyTier && (
+              <div className="min-w-0 rounded-xl border border-black/10 bg-white p-4 md:p-5 lg:p-6 flex flex-col justify-between gap-4 lg:min-h-[240px]">
+                <div className="flex items-start gap-3">
+                  <div className="w-11 h-11 md:w-12 md:h-12 bg-black flex items-center justify-center shrink-0">
+                    <User size={20} weight="bold" className="text-white md:hidden" />
+                    <User size={24} weight="bold" className="text-white hidden md:block" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-semibold text-black/55 uppercase tracking-[0.14em] mb-1">My Account</p>
+                    <h1 className="text-xl md:text-2xl font-black text-black tracking-tight leading-tight break-words whitespace-normal">
+                      {user.name || 'Welcome'}
+                    </h1>
+                    <p className="text-sm text-black/65 mt-1 break-all whitespace-normal">{user.email}</p>
+                    <div className="mt-2 border-l-2 border-black/20 pl-3">
+                      <p className="heading-font text-base md:text-lg text-black/80 leading-relaxed tracking-[0.02em]">
+                        {`"${dailyQuote.text}"`}
+                      </p>
+                      {dailyQuote.author && (
+                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-black/45">
+                          {dailyQuote.author}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-1">
+                  {user.isAdmin && (
+                    <Link
+                      href="/admin"
+                      className="min-h-10 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-black text-white text-[11px] font-semibold uppercase tracking-[0.12em] hover:bg-black/80 transition-colors"
+                    >
+                      <Gear size={14} weight="bold" />
+                      Admin
+                    </Link>
+                  )}
+                  <button
+                    onClick={handleSignout}
+                    className="min-h-10 flex items-center justify-center gap-1.5 px-4 py-2.5 border-2 border-black text-black text-[11px] font-semibold uppercase tracking-[0.12em] hover:bg-black hover:text-white transition-colors"
+                  >
+                    <SignOut size={14} weight="bold" />
+                    Sign Out
+                  </button>
+                </div>
+              </div>
             )}
           </motion.div>
         </div>

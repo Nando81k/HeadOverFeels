@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Product } from '@/lib/api/products'
 import { Check } from '@phosphor-icons/react'
+import { getPrimaryImageWithFallback, parseImageList } from '@/lib/commerce/product-placeholders'
 
 // Helper function to determine if color is light (for contrast)
 function isLightColor(hexColor: string): boolean {
@@ -23,6 +24,8 @@ interface ProductCardProps {
 
 export function ProductCard({ product, badge }: ProductCardProps) {
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
+  const [previewColor, setPreviewColor] = useState<string | null>(null)
+  const activeColor = previewColor ?? selectedColor
 
   // Get unique colors with their variants (one per color)
   const colorVariants = useMemo(() => {
@@ -36,39 +39,34 @@ export function ProductCard({ product, badge }: ProductCardProps) {
     })
   }, [product.variants])
 
-  // Parse images from string to array
-  const parseImages = (imagesStr: string | undefined): string[] => {
-    if (!imagesStr) return []
-    try {
-      const parsed = JSON.parse(imagesStr)
-      if (Array.isArray(parsed)) {
-        return parsed.map((img: string | { url: string }) => 
-          typeof img === 'string' ? img : img.url
-        ).filter((url: string) => url && url.trim() !== '')
-      }
-    } catch {
-      // Parse failed
-    }
-    return []
-  }
-
   // Get the current image based on selected color
   const currentImage = useMemo(() => {
     // If a color is selected, use that variant's first image
-    if (selectedColor) {
-      const variant = colorVariants.find(v => v.color === selectedColor)
-      if (variant?.images) {
-        const variantImages = parseImages(variant.images)
-        if (variantImages.length > 0) return variantImages[0]
+    if (activeColor) {
+      const variant = colorVariants.find(v => v.color === activeColor)
+      if (variant) {
+        const variantImages = parseImageList(variant.images)
+        if (variantImages.length > 0) {
+          return variantImages[0]
+        }
+
+        return getPrimaryImageWithFallback({
+          images: '',
+          productName: product.name,
+          productSlug: product.slug,
+          color: variant.color,
+          colorHex: variant.colorHex,
+          size: variant.size,
+        })
       }
     }
-    
-    // Fall back to first product image
-    const productImages = parseImages(product.images)
-    if (productImages.length > 0) return productImages[0]
-    
-    return '/placeholder-product.jpg'
-  }, [selectedColor, colorVariants, product.images])
+
+    return getPrimaryImageWithFallback({
+      images: product.images,
+      productName: product.name,
+      productSlug: product.slug,
+    })
+  }, [activeColor, colorVariants, product.images, product.name, product.slug])
 
   // Check if on sale
   const onSale = product.compareAtPrice && product.compareAtPrice > product.price
@@ -141,7 +139,7 @@ export function ProductCard({ product, badge }: ProductCardProps) {
                 onClick={(e) => e.preventDefault()}
               >
                 {colorVariants.slice(0, 4).map((variant) => {
-                  const isSelected = selectedColor === variant.color
+                  const isSelected = activeColor === variant.color
                   return (
                     <button
                       key={variant.id}
@@ -150,6 +148,10 @@ export function ProductCard({ product, badge }: ProductCardProps) {
                         e.stopPropagation()
                         setSelectedColor(isSelected ? null : variant.color || null)
                       }}
+                      onMouseEnter={() => setPreviewColor(variant.color || null)}
+                      onMouseLeave={() => setPreviewColor(null)}
+                      onFocus={() => setPreviewColor(variant.color || null)}
+                      onBlur={() => setPreviewColor(null)}
                       title={variant.color || undefined}
                       className={`
                         relative w-5 h-5 sm:w-7 sm:h-7 border-2 transition-all

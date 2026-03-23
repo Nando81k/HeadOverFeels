@@ -20,7 +20,8 @@ import {
   Tag,
   Megaphone,
   Heart,
-  Pulse
+  Pulse,
+  EnvelopeSimple
 } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -57,6 +58,7 @@ export function AdminMobileNav() {
         { name: 'Drops', href: '/admin/drops', icon: Lightning },
         { name: 'Promotions', href: '/admin/promotions', icon: Tag },
         { name: 'Popups', href: '/admin/popups', icon: Megaphone },
+        { name: 'Newsletter', href: '/admin/newsletter', icon: EnvelopeSimple },
         { name: 'Goals', href: '/admin/goals', icon: Target },
       ]
     },

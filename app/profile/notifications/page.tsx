@@ -127,12 +127,14 @@ function ChannelBadge({ channel }: { channel: string }) {
 
 export default function NotificationPreferencesPage() {
   const router = useRouter()
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, refreshUser } = useAuth()
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
   const [initialPrefs, setInitialPrefs] = useState<NotificationPreferences | null>(null)
+  const [newsletterSubscribed, setNewsletterSubscribed] = useState(false)
+  const [newsletterSaving, setNewsletterSaving] = useState(false)
 
   const fetchPreferences = useCallback(async () => {
     try {
@@ -158,6 +160,7 @@ export default function NotificationPreferencesPage() {
 
   useEffect(() => {
     if (user) {
+      setNewsletterSubscribed(Boolean(user.newsletter))
       fetchPreferences()
     }
   }, [user, fetchPreferences])
@@ -223,6 +226,37 @@ export default function NotificationPreferencesPage() {
     setPreferences(allDisabled)
   }
 
+  const handleNewsletterToggle = async () => {
+    if (newsletterSaving) {
+      return
+    }
+
+    const nextSubscribed = !newsletterSubscribed
+    setNewsletterSaving(true)
+
+    try {
+      const response = await fetch('/api/profile/newsletter', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscribed: nextSubscribed }),
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update newsletter preference')
+      }
+
+      setNewsletterSubscribed(Boolean(data.subscribed))
+      await refreshUser()
+      toast.success(nextSubscribed ? 'Subscribed to newsletter' : 'Unsubscribed from newsletter')
+    } catch (error) {
+      console.error('Failed to update newsletter status:', error)
+      toast.error('Failed to update newsletter preference')
+    } finally {
+      setNewsletterSaving(false)
+    }
+  }
+
   if (authLoading || !user) {
     return (
       <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center">
@@ -281,6 +315,35 @@ export default function NotificationPreferencesPage() {
                     className="text-xs font-medium text-red-600 hover:text-red-700 px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
                   >
                     Disable All
+                  </button>
+                </div>
+              </div>
+
+              {/* Newsletter Subscription */}
+              <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Newsletter</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">Drop alerts, restocks, and exclusive offers</p>
+                  </div>
+                  <ChannelBadge channel="email" />
+                </div>
+                <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
+                  <span className="text-sm text-gray-700">
+                    {newsletterSubscribed ? 'Subscribed' : 'Not subscribed'}
+                  </span>
+                  <button
+                    onClick={handleNewsletterToggle}
+                    disabled={newsletterSaving}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${
+                      newsletterSubscribed ? 'bg-black' : 'bg-gray-200'
+                    } ${newsletterSaving ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
+                        newsletterSubscribed ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
                   </button>
                 </div>
               </div>

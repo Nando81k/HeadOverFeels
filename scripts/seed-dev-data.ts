@@ -10,6 +10,11 @@
 
 import { PrismaClient, AdminRole, OrderStatus, PaymentStatus, AddressType } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import {
+  buildProductPlaceholderImages,
+  buildVariantPlaceholderImages,
+  resolveColorHex,
+} from '../lib/commerce/product-placeholders';
 
 const prisma = new PrismaClient();
 
@@ -85,10 +90,12 @@ const generateFakeProducts = () => {
     description: `High-quality ${p.name.toLowerCase()} from Head Over Feels. Perfect for everyday wear.`,
     compareAtPrice: p.price * 1.2,
     costPrice: p.price * 0.4,
-    images: JSON.stringify([
-      `https://placehold.co/800x1000/1a1a1a/white?text=${encodeURIComponent(p.name)}`,
-      `https://placehold.co/800x1000/2a2a2a/white?text=${encodeURIComponent(p.name + ' Back')}`,
-    ]),
+    images: JSON.stringify(
+      buildProductPlaceholderImages({
+        productName: p.name,
+        productSlug: p.slug,
+      })
+    ),
     isActive: true,
     isFeatured: p.isFeatured || false,
     isLimitedEdition: p.isLimitedEdition || false,
@@ -110,6 +117,7 @@ const generateProductVariants = (products: ReturnType<typeof generateFakeProduct
     size: string;
     color: string;
     colorHex: string;
+    images: string;
     inventory: number;
     isActive: boolean;
   }> = [];
@@ -130,6 +138,15 @@ const generateProductVariants = (products: ReturnType<typeof generateFakeProduct
           size,
           color: color.name,
           colorHex: color.hex,
+          images: JSON.stringify(
+            buildVariantPlaceholderImages({
+              productName: product.name,
+              productSlug: product.slug,
+              color: color.name,
+              colorHex: resolveColorHex(color.hex, color.name) ?? color.hex,
+              size,
+            })
+          ),
           inventory: Math.floor(Math.random() * 50) + 5,
           isActive: true,
         });

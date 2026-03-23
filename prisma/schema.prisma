@@ -199,6 +199,7 @@ model Customer {
   backInStockNotifications BackInStockNotification[]
   cartItems                CartItem[]
   notes                    CustomerNote[]
+  newsletterCampaignsCreated NewsletterCampaign[]
   notifications            CustomerNotification[]
   earlyAccessGrants        EarlyAccessGrant[]
   loyaltyTier              LoyaltyTier?              @relation(fields: [loyaltyTierId], references: [id])
@@ -285,10 +286,60 @@ model NewsletterSubscriber {
   utmCampaign       String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+  campaignDeliveries NewsletterCampaignDelivery[]
 
   @@index([email])
   @@index([isActive])
   @@map("newsletter_subscribers")
+}
+
+model NewsletterCampaign {
+  id               String                     @id @default(cuid())
+  name             String?
+  subject          String
+  preheader        String?
+  heroImageUrl     String?
+  ctaLabel         String?
+  ctaUrl           String?
+  bodyMarkdown     String
+  status           NewsletterCampaignStatus   @default(DRAFT)
+  audienceFilter   Json?
+  audienceCount    Int                        @default(0)
+  sentCount        Int                        @default(0)
+  failedCount      Int                        @default(0)
+  createdByAdminId String
+  sentAt           DateTime?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+  deliveries       NewsletterCampaignDelivery[]
+  createdByAdmin   Customer                   @relation(fields: [createdByAdminId], references: [id])
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([createdByAdminId])
+  @@map("newsletter_campaigns")
+}
+
+model NewsletterCampaignDelivery {
+  id                String                   @id @default(cuid())
+  campaignId        String
+  subscriberId      String?
+  email             String
+  status            NewsletterDeliveryStatus
+  providerMessageId String?
+  errorMessage      String?
+  sentAt            DateTime?
+  isTest            Boolean                  @default(false)
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  campaign          NewsletterCampaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  subscriber        NewsletterSubscriber?    @relation(fields: [subscriberId], references: [id], onDelete: SetNull)
+
+  @@unique([campaignId, email, isTest])
+  @@index([campaignId, status])
+  @@index([email])
+  @@index([isTest])
+  @@map("newsletter_campaign_deliveries")
 }
 
 model Account {
@@ -743,6 +794,8 @@ model LoyaltyTier {
   name              String            @unique
   slug              String            @unique
   description       String?
+  primaryColor      String            @default("#64748B")
+  secondaryColor    String            @default("#475569")
   minAnnualSpend    Float             @default(0)
   isInviteOnly      Boolean           @default(false)
   pointMultiplier   Float             @default(1.0)
@@ -1638,6 +1691,19 @@ enum GiftCardTransactionType {
   REFUND
   ADJUSTMENT
   EXPIRATION
+}
+
+enum NewsletterCampaignStatus {
+  DRAFT
+  QUEUED
+  SENDING
+  SENT
+  FAILED
+}
+
+enum NewsletterDeliveryStatus {
+  SENT
+  FAILED
 }
 
 // ==================== Early Access System ====================

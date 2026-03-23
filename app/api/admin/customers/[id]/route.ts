@@ -7,39 +7,26 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/lib/auth/auth';
+import { requireAdmin } from '@/lib/auth/admin';
+import { z } from 'zod';
+
+const updateCustomerSchema = z.object({
+  name: z.string().max(120).nullable().optional(),
+  phone: z.string().max(40).nullable().optional(),
+  birthday: z.string().nullable().optional(),
+  newsletter: z.boolean().optional(),
+  smsOptIn: z.boolean().optional(),
+});
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Check admin auth using NextAuth session or cookie fallback
-    const session = await auth();
-    let userId: string | null = null;
-
-    if (session?.user?.id) {
-      userId = session.user.id;
-    } else {
-      // Fall back to cookie-based session
-      const sessionId = request.cookies.get('auth_session')?.value;
-      if (sessionId) {
-        userId = sessionId;
-      }
-    }
-
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Verify user is an admin
-    const adminUser = await prisma.customer.findUnique({
-      where: { id: userId },
-      select: { isAdmin: true },
-    });
-
-    if (!adminUser?.isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 403 });
+    try {
+      await requireAdmin(request);
+    } catch {
+      return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -220,6 +207,102 @@ export async function GET(
     console.error('Failed to fetch customer details:', error);
     return NextResponse.json(
       { error: 'Failed to fetch customer details' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    try {
+      await requireAdmin(request);
+    } catch {
+      return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const body = await request.json();
+    const validated = updateCustomerSchema.parse(body);
+
+    const existing = await prisma.customer.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+    }
+
+    const updates: Record<string, unknown> = {};
+
+    if ('name' in validated) {
+      updates.name = validated.name === null ? null : validated.name?.trim() || null;
+    }
+
+    if ('phone' in validated) {
+      updates.phone = validated.phone === null ? null : validated.phone?.trim() || null;
+    }
+
+    if ('birthday' in validated) {
+      if (!validated.birthday) {
+        updates.birthday = null;
+      } else {
+        const parsedBirthday = new Date(validated.birthday);
+        if (Number.isNaN(parsedBirthday.getTime())) {
+          return NextResponse.json({ error: 'Invalid birthday value' }, { status: 400 });
+        }
+        updates.birthday = parsedBirthday;
+      }
+    }
+
+    if (typeof validated.newsletter === 'boolean') {
+      updates.newsletter = validated.newsletter;
+    }
+
+    if (typeof validated.smsOptIn === 'boolean') {
+      updates.smsOptIn = validated.smsOptIn;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No valid fields provided' }, { status: 400 });
+    }
+
+    const updated = await prisma.customer.update({
+      where: { id },
+      data: updates,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        birthday: true,
+        newsletter: true,
+        smsOptIn: true,
+        updatedAt: true,
+      },
+    });
+
+    return NextResponse.json({
+      customer: {
+        ...updated,
+        birthday: updated.birthday?.toISOString() || null,
+        updatedAt: updated.updatedAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: error.issues[0]?.message || 'Invalid request data' },
+        { status: 400 }
+      );
+    }
+
+    console.error('Failed to update customer profile:', error);
+    return NextResponse.json(
+      { error: 'Failed to update customer' },
       { status: 500 }
     );
   }

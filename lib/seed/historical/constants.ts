@@ -1,0 +1,166 @@
+export const PRODUCT_CATEGORIES = [
+  { name: 'Hoodies', slug: 'hoodies', description: 'Everyday comfort with premium weight fleece' },
+  { name: 'T-Shirts', slug: 't-shirts', description: 'Core fits made for layering and daily wear' },
+  { name: 'Accessories', slug: 'accessories', description: 'Bags, hats, and essentials' },
+  { name: 'Bottoms', slug: 'bottoms', description: 'Joggers and elevated lounge silhouettes' },
+  { name: 'Outerwear', slug: 'outerwear', description: 'Seasonal jackets and light layers' },
+  { name: 'Sets', slug: 'sets', description: 'Matching sets with curated palettes' },
+] as const
+
+export const PRODUCT_COLLECTIONS = [
+  { name: 'New Arrivals', slug: 'new-arrivals', description: 'Fresh products added weekly', isFeatured: true },
+  { name: 'Best Sellers', slug: 'best-sellers', description: 'Most loved by the community', isFeatured: true },
+  { name: 'Core Essentials', slug: 'core-essentials', description: 'Always available staples', isFeatured: false },
+  { name: 'Limited Drop', slug: 'limited-drop', description: 'Low stock and limited-run releases', isFeatured: true },
+  { name: 'Wellness Edit', slug: 'wellness-edit', description: 'Comfort-first picks for daily routines', isFeatured: false },
+  { name: 'Travel Ready', slug: 'travel-ready', description: 'Easy-to-pack favorites', isFeatured: false },
+] as const
+
+export const COLOR_PALETTE = [
+  { name: 'Black', hex: '#111111' },
+  { name: 'White', hex: '#F7F7F5' },
+  { name: 'Cream', hex: '#F2EBDD' },
+  { name: 'Heather Grey', hex: '#B8BCC4' },
+  { name: 'Navy', hex: '#1D2E4F' },
+  { name: 'Forest', hex: '#2F4A3C' },
+  { name: 'Sand', hex: '#C7B79D' },
+  { name: 'Mocha', hex: '#6E5443' },
+  { name: 'Rose', hex: '#C4878A' },
+  { name: 'Sky', hex: '#90AED7' },
+] as const
+
+export const SIZE_SCALE = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const
+
+export const PRODUCT_NOUNS = [
+  'Calm Hoodie',
+  'Grounded Tee',
+  'Ease Jogger',
+  'Drift Crew',
+  'Breathable Tank',
+  'Shift Jacket',
+  'Cloud Zip',
+  'Balance Pant',
+  'Quiet Cap',
+  'Essential Tote',
+  'Focus Long Sleeve',
+  'Rest Day Short',
+] as const
+
+export const LOYALTY_TIER_PRESETS = [
+  {
+    id: 'tier-newcomer',
+    name: 'Newcomer',
+    slug: 'newcomer',
+    description: 'Welcome to Care Points.',
+    minAnnualSpend: 0,
+    minAnnualPoints: 0,
+    pointMultiplier: 1,
+    freeShipping: false,
+    earlyDropAccess: false,
+    primaryColor: '#6B7280',
+    secondaryColor: '#4B5563',
+    sortOrder: 0,
+    perks: JSON.stringify(['Earn points on every purchase', 'Birthday bonus', 'Members-only announcements']),
+  },
+  {
+    id: 'tier-friend',
+    name: 'Friend',
+    slug: 'friend',
+    description: 'Steady momentum and better perks.',
+    minAnnualSpend: 600,
+    minAnnualPoints: 6000,
+    pointMultiplier: 1.25,
+    freeShipping: false,
+    earlyDropAccess: false,
+    primaryColor: '#4F46E5',
+    secondaryColor: '#3730A3',
+    sortOrder: 1,
+    perks: JSON.stringify(['1.25x points multiplier', 'Early sale access', 'Lower free-shipping threshold']),
+  },
+  {
+    id: 'tier-heart',
+    name: 'Heart',
+    slug: 'heart',
+    description: 'High loyalty with premium value.',
+    minAnnualSpend: 1800,
+    minAnnualPoints: 18000,
+    pointMultiplier: 1.5,
+    freeShipping: true,
+    earlyDropAccess: false,
+    primaryColor: '#DB2777',
+    secondaryColor: '#9D174D',
+    sortOrder: 2,
+    perks: JSON.stringify(['1.5x points multiplier', 'Free shipping', 'Early access to select launches']),
+  },
+  {
+    id: 'tier-bestie',
+    name: 'Bestie',
+    slug: 'bestie',
+    description: 'Top-tier status with all-access perks.',
+    minAnnualSpend: 4200,
+    minAnnualPoints: 42000,
+    pointMultiplier: 2,
+    freeShipping: true,
+    earlyDropAccess: true,
+    primaryColor: '#14B8A6',
+    secondaryColor: '#0F766E',
+    sortOrder: 3,
+    perks: JSON.stringify(['2x points multiplier', 'Priority support', 'Early drop access', 'Exclusive reward redemptions']),
+  },
+] as const
+
+export const REWARD_PRESETS = [
+  {
+    id: 'reward-discount-5',
+    name: '$5 Off',
+    slug: 'discount-5',
+    description: 'Take $5 off your next order.',
+    pointsCost: 500,
+    rewardType: 'DISCOUNT' as const,
+    value: 5,
+    sortOrder: 0,
+  },
+  {
+    id: 'reward-discount-15',
+    name: '$15 Off',
+    slug: 'discount-15',
+    description: 'Take $15 off your next order.',
+    pointsCost: 1400,
+    rewardType: 'DISCOUNT' as const,
+    value: 15,
+    sortOrder: 1,
+  },
+  {
+    id: 'reward-free-shipping',
+    name: 'Free Shipping',
+    slug: 'free-shipping',
+    description: 'Free shipping on your next order.',
+    pointsCost: 300,
+    rewardType: 'FREE_SHIPPING' as const,
+    value: null,
+    sortOrder: 2,
+  },
+  {
+    id: 'reward-early-access',
+    name: 'Early Drop Access',
+    slug: 'early-drop-access',
+    description: 'Unlock early access for one limited drop.',
+    pointsCost: 900,
+    rewardType: 'EARLY_ACCESS' as const,
+    value: null,
+    sortOrder: 3,
+  },
+] as const
+
+export const POPUP_TEMPLATES = ['MODAL', 'BANNER', 'SLIDE_IN', 'FULL_SCREEN', 'EMAIL_CAPTURE'] as const
+
+export const PROMOTION_CODES = [
+  'WELCOME15',
+  'SPRING20',
+  'SUMMER15',
+  'FALL18',
+  'WINTER22',
+  'BUNDLE10',
+  'DROPVIP',
+  'CAREPOINTS',
+] as const

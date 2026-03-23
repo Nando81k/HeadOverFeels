@@ -259,7 +259,7 @@ export default function ExclusiveDropPage({ product }: ExclusiveDropPageProps) {
           <div className="flex flex-col justify-center space-y-6">
             {/* Title & Price */}
             <div>
-              <h1 className="text-4xl lg:text-5xl font-black text-black leading-tight logo-font mb-4">
+              <h1 className="text-4xl lg:text-5xl leading-tight logo-font mb-4">
                 {product.name}
               </h1>
               <div className="flex items-baseline gap-4">

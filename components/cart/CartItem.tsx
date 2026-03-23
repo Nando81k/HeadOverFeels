@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { CartItem as CartItemType } from '@/lib/store/cart'
 import { Trash, Plus, Minus, Warning } from '@phosphor-icons/react'
 import { motion } from 'framer-motion'
+import { getPrimaryImageWithFallback } from '@/lib/commerce/product-placeholders'
 
 interface CartItemProps {
   item: CartItemType
@@ -15,23 +16,14 @@ interface CartItemProps {
 export function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
   const { product, variant, quantity } = item
 
-  // Parse images - handle both flat string arrays and object arrays
-  let imageUrl = '/placeholder-product.jpg'
-  try {
-    const images = JSON.parse(product.images)
-    if (images && images.length > 0) {
-      const firstImg = images[0]
-      // Handle both string URLs and {url: string} objects
-      imageUrl = (typeof firstImg === 'string' ? firstImg : firstImg?.url) || '/placeholder-product.jpg'
-    }
-  } catch {
-    // Use placeholder
-  }
-  
-  // Ensure we never have an empty string
-  if (!imageUrl || imageUrl.trim() === '') {
-    imageUrl = '/placeholder-product.jpg'
-  }
+  const imageUrl = getPrimaryImageWithFallback({
+    images: variant.images || product.images,
+    productName: product.name,
+    productSlug: product.slug,
+    color: variant.color,
+    colorHex: variant.colorHex,
+    size: variant.size,
+  })
 
   const price = variant.price || product.price
   const subtotal = price * quantity

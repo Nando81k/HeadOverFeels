@@ -25,6 +25,8 @@ export interface User {
     name: string
     slug: string
     description: string | null
+    primaryColor: string
+    secondaryColor: string
     minAnnualPoints: number   // Points required for this tier
     minAnnualSpend: number    // Legacy
     pointMultiplier: number

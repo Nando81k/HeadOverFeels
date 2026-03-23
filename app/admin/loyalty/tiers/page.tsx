@@ -30,6 +30,8 @@ interface Tier {
   name: string
   slug: string
   description: string | null
+  primaryColor: string
+  secondaryColor: string
   minAnnualPoints: number
   minAnnualSpend: number
   pointMultiplier: number
@@ -71,6 +73,12 @@ const PERK_LABELS: Record<keyof ParsedPerks, { label: string; description: strin
   prioritySupport: { label: 'Priority Support', description: 'Dedicated customer service' },
 }
 
+const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
+
+const getColorInputValue = (value: string, fallback: string) => (
+  HEX_COLOR_PATTERN.test(value) ? value : fallback
+)
+
 export default function AdminTiersPage() {
   const [tiers, setTiers] = useState<Tier[]>([])
   const [loading, setLoading] = useState(true)
@@ -83,6 +91,8 @@ export default function AdminTiersPage() {
     name: '',
     slug: '',
     description: '',
+    primaryColor: '#64748B',
+    secondaryColor: '#475569',
     minAnnualPoints: 0,
     pointMultiplier: 1.0,
     freeShipping: false,
@@ -254,6 +264,8 @@ export default function AdminTiersPage() {
         name: '',
         slug: '',
         description: '',
+        primaryColor: '#64748B',
+        secondaryColor: '#475569',
         minAnnualPoints: 0,
         pointMultiplier: 1.0,
         freeShipping: false,
@@ -385,6 +397,45 @@ export default function AdminTiersPage() {
                     className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none"
                     placeholder="Brief description of this tier"
                   />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-white/70 mb-2">Gradient Start</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={getColorInputValue(newTier.primaryColor, '#64748B')}
+                        onChange={(e) => setNewTier(prev => ({ ...prev, primaryColor: e.target.value }))}
+                        className="h-10 w-12 border border-white/15 bg-transparent p-1"
+                      />
+                      <input
+                        type="text"
+                        value={newTier.primaryColor}
+                        onChange={(e) => setNewTier(prev => ({ ...prev, primaryColor: e.target.value }))}
+                        className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none uppercase"
+                        placeholder="#64748B"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-white/70 mb-2">Gradient End</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={getColorInputValue(newTier.secondaryColor, '#475569')}
+                        onChange={(e) => setNewTier(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                        className="h-10 w-12 border border-white/15 bg-transparent p-1"
+                      />
+                      <input
+                        type="text"
+                        value={newTier.secondaryColor}
+                        onChange={(e) => setNewTier(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                        className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:border-[#FF3131]/50 focus:outline-none uppercase"
+                        placeholder="#475569"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -534,8 +585,13 @@ export default function AdminTiersPage() {
                     onClick={() => setExpandedTier(isExpanded ? null : tier.id)}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-[#FF3131]/10 rounded-lg flex items-center justify-center">
-                        <Medal size={20} weight="bold" className="text-[#FF3131]" />
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        style={{
+                          backgroundImage: `linear-gradient(135deg, ${getTierValue(tier, 'primaryColor')} 0%, ${getTierValue(tier, 'secondaryColor')} 100%)`,
+                        }}
+                      >
+                        <Medal size={20} weight="bold" className="text-white" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
@@ -606,6 +662,43 @@ export default function AdminTiersPage() {
                           <div className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-lg">
                             <Users size={16} className="text-white/60" />
                             <span className="font-medium text-white">{tier._count.customers.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-white/70 mb-2">Gradient Start</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={getColorInputValue(getTierValue(tier, 'primaryColor'), '#64748B')}
+                              onChange={(e) => handleChange(tier.id, 'primaryColor', e.target.value)}
+                              className="h-10 w-12 border border-white/15 bg-transparent p-1"
+                            />
+                            <input
+                              type="text"
+                              value={getTierValue(tier, 'primaryColor')}
+                              onChange={(e) => handleChange(tier.id, 'primaryColor', e.target.value)}
+                              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-[#FF3131]/50 focus:outline-none uppercase"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-white/70 mb-2">Gradient End</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={getColorInputValue(getTierValue(tier, 'secondaryColor'), '#475569')}
+                              onChange={(e) => handleChange(tier.id, 'secondaryColor', e.target.value)}
+                              className="h-10 w-12 border border-white/15 bg-transparent p-1"
+                            />
+                            <input
+                              type="text"
+                              value={getTierValue(tier, 'secondaryColor')}
+                              onChange={(e) => handleChange(tier.id, 'secondaryColor', e.target.value)}
+                              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-[#FF3131]/50 focus:outline-none uppercase"
+                            />
                           </div>
                         </div>
                       </div>

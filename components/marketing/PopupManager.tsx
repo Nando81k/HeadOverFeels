@@ -257,10 +257,14 @@ export function PopupManager({ page }: PopupManagerProps) {
         
         // Fallback: just save the email directly
         try {
-          await fetch('/api/drop-notifications', {
+          await fetch('/api/newsletter', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
+            body: JSON.stringify({
+              email,
+              source: 'popup_fallback',
+              sourceDetails: visiblePopup?.id || 'popup_fallback',
+            }),
           })
         } catch {
           console.error('Failed to save email')

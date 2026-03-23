@@ -9,6 +9,7 @@ import { Product } from '@/lib/api/products'
 
 interface CollectionPreviewProps {
   name: string
+  slug?: string
   description: string
   imageUrl?: string
   products: Product[]
@@ -17,6 +18,7 @@ interface CollectionPreviewProps {
 
 export function CollectionPreview({
   name,
+  slug,
   description,
   products,
   defaultExpanded = false
@@ -42,7 +44,7 @@ export function CollectionPreview({
             </p>
           </div>
           <Link
-            href={`/collections/${name.toLowerCase().replace(/\s+/g, '-')}`}
+            href={`/collections/${slug || name.toLowerCase().replace(/\s+/g, '-')}`}
             className="hidden lg:inline-flex items-center gap-2 text-black hover:text-black/70 transition-colors text-sm font-bold uppercase tracking-wider"
           >
             View All

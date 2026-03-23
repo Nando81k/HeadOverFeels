@@ -1,37 +1,47 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Medal, Sparkle, ArrowUp, Fire } from '@phosphor-icons/react'
+import { Medal, Sparkle, ArrowUpRight, Fire } from '@phosphor-icons/react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
+import { calculateCheckoutLoyaltyPreview, roundMoney, type CheckoutTierInfo } from '@/lib/checkout/insights'
 
 interface PointsPreviewProps {
-  orderTotal: number
+  pointsEligibleAmount?: number
+  orderTotal?: number
   isSignedIn: boolean
+  activePromotionText?: string | null
+  totalSavings?: number
 }
 
 interface UserLoyaltyData {
   currentPoints: number
+  annualPointsEarned: number
   tierName: string
   tierSlug: string
   pointMultiplier: number
+  tiers: CheckoutTierInfo[]
   activeEvent: {
     name: string
     multiplier: number
   } | null
-  nextTier: {
-    name: string
-    pointsNeeded: number
-  } | null
 }
 
-export function PointsPreview({ orderTotal, isSignedIn }: PointsPreviewProps) {
+export function PointsPreview({
+  pointsEligibleAmount,
+  orderTotal,
+  isSignedIn,
+  activePromotionText,
+  totalSavings = 0,
+}: PointsPreviewProps) {
   const [loyaltyData, setLoyaltyData] = useState<UserLoyaltyData | null>(null)
   const [loading, setLoading] = useState(false)
 
+  const previewAmount = Math.max(0, pointsEligibleAmount ?? orderTotal ?? 0)
+
   const fetchLoyaltyData = useCallback(async () => {
     if (!isSignedIn) return
-    
+
     setLoading(true)
     try {
       const res = await fetch('/api/loyalty/me')
@@ -39,11 +49,12 @@ export function PointsPreview({ orderTotal, isSignedIn }: PointsPreviewProps) {
         const data = await res.json()
         setLoyaltyData({
           currentPoints: data.points || 0,
-          tierName: data.tierName || 'Friend',
-          tierSlug: data.tierSlug || 'friend',
+          annualPointsEarned: data.annualPointsEarned || 0,
+          tierName: data.tierName || 'Newcomer',
+          tierSlug: data.tierSlug || 'newcomer',
           pointMultiplier: data.pointMultiplier || 1,
+          tiers: Array.isArray(data.tiers) ? data.tiers : [],
           activeEvent: data.activeEvent || null,
-          nextTier: data.nextTier || null,
         })
       }
     } catch (error) {
@@ -57,34 +68,35 @@ export function PointsPreview({ orderTotal, isSignedIn }: PointsPreviewProps) {
     fetchLoyaltyData()
   }, [fetchLoyaltyData])
 
-  // Calculate points to be earned
-  const basePoints = Math.floor(orderTotal)
-  const tierMultiplier = loyaltyData?.pointMultiplier || 1
-  const eventMultiplier = loyaltyData?.activeEvent?.multiplier || 1
-  const totalMultiplier = tierMultiplier * eventMultiplier
-  const totalPoints = Math.floor(basePoints * totalMultiplier)
-  const bonusPoints = totalPoints - basePoints
-
-  // Check if they'd reach next tier
-  const wouldReachNextTier = loyaltyData?.nextTier 
-    && (loyaltyData.currentPoints + totalPoints >= (loyaltyData.nextTier.pointsNeeded + loyaltyData.currentPoints))
+  const loyaltyPreview = calculateCheckoutLoyaltyPreview({
+    orderTotal: previewAmount,
+    currentPoints: loyaltyData?.currentPoints ?? 0,
+    annualPointsEarned: loyaltyData?.annualPointsEarned ?? 0,
+    pointMultiplier: loyaltyData?.pointMultiplier ?? 1,
+    activeEventMultiplier: loyaltyData?.activeEvent?.multiplier ?? 1,
+    currentTierSlug: loyaltyData?.tierSlug,
+    tiers: loyaltyData?.tiers,
+  })
 
   if (!isSignedIn) {
     return (
-      <div className="bg-linear-to-r from-amber-50 to-orange-50 rounded-lg p-4 border border-amber-100">
+      <div className="rounded-lg border border-black/10 bg-black/[0.02] p-4">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center shrink-0">
-            <Medal size={20} weight="fill" className="text-amber-600" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black text-white">
+            <Medal size={18} weight="fill" />
           </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900">Earn Care Points on this order!</p>
-            <p className="text-xs text-gray-600 mt-1">
-              <Link href="/signin" className="text-amber-600 font-medium hover:underline">Sign in</Link>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-black">Earn Care Points on this order</p>
+            <p className="mt-1 text-xs text-black/60">
+              <Link href="/signin" className="font-semibold text-black underline underline-offset-2">
+                Sign in
+              </Link>
               {' or '}
-              <Link href="/signin?mode=signup" className="text-amber-600 font-medium hover:underline">create an account</Link>
+              <Link href="/signin?mode=signup" className="font-semibold text-black underline underline-offset-2">
+                create an account
+              </Link>
               {' to earn '}
-              <span className="font-semibold">{basePoints} Care Points</span>
-              {' on this purchase!'}
+              <span className="font-semibold text-black">{loyaltyPreview.basePoints.toLocaleString()} points</span>.
             </p>
           </div>
         </div>
@@ -94,135 +106,133 @@ export function PointsPreview({ orderTotal, isSignedIn }: PointsPreviewProps) {
 
   if (loading) {
     return (
-      <div className="bg-gray-50 rounded-lg p-4 animate-pulse">
+      <div className="rounded-lg border border-black/10 bg-black/[0.02] p-4 animate-pulse">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gray-200 rounded-full" />
-          <div className="flex-1">
-            <div className="h-4 bg-gray-200 rounded w-32 mb-2" />
-            <div className="h-3 bg-gray-200 rounded w-48" />
+          <div className="h-10 w-10 rounded-full bg-black/10" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-40 rounded bg-black/10" />
+            <div className="h-3 w-56 rounded bg-black/10" />
           </div>
         </div>
       </div>
     )
   }
 
-  const hasBonus = bonusPoints > 0
+  const hasMultiplierBonus = loyaltyPreview.eventBonusPoints > 0 || loyaltyPreview.tierBonusPoints > 0
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`rounded-lg p-4 border ${
-        hasBonus
-          ? 'bg-linear-to-r from-amber-50 via-orange-50 to-red-50 border-amber-200'
-          : 'bg-linear-to-r from-amber-50 to-orange-50 border-amber-100'
-      }`}
+      className="rounded-lg border border-black/10 bg-black/[0.02] p-4"
     >
-      {/* Active Multiplier Event Banner */}
+      {(activePromotionText || totalSavings > 0) && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          {activePromotionText ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-black/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-black/80">
+              <Sparkle size={10} weight="fill" />
+              {activePromotionText}
+            </span>
+          ) : null}
+          {totalSavings > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+              Saving ${roundMoney(totalSavings).toFixed(2)}
+            </span>
+          ) : null}
+        </div>
+      )}
+
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black text-white">
+          <Medal size={18} weight="fill" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-black">
+              You&apos;ll earn{' '}
+              <span className="font-black">{loyaltyPreview.totalPoints.toLocaleString()} Care Points</span>
+            </p>
+            {hasMultiplierBonus ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-black px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                <ArrowUpRight size={10} weight="bold" />
+                +{(loyaltyPreview.eventBonusPoints + loyaltyPreview.tierBonusPoints).toLocaleString()}
+              </span>
+            ) : null}
+          </div>
+
+          <div className="mt-1.5 space-y-1 text-xs text-black/60">
+            <div className="flex items-center justify-between">
+              <span>Base points (1 per $1 on order total)</span>
+              <span className="font-semibold text-black">{loyaltyPreview.basePoints.toLocaleString()}</span>
+            </div>
+
+            {loyaltyPreview.eventBonusPoints > 0 && loyaltyData?.activeEvent ? (
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1">
+                  <Fire size={12} weight="fill" />
+                  {loyaltyData.activeEvent.name} bonus
+                </span>
+                <span className="font-semibold text-black">+{loyaltyPreview.eventBonusPoints.toLocaleString()}</span>
+              </div>
+            ) : null}
+
+            {loyaltyPreview.tierBonusPoints > 0 ? (
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1">
+                  <Sparkle size={12} weight="fill" />
+                  {loyaltyPreview.currentTier.name} tier bonus
+                </span>
+                <span className="font-semibold text-black">+{loyaltyPreview.tierBonusPoints.toLocaleString()}</span>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mt-3 border-t border-black/10 pt-2.5">
+            {loyaltyPreview.willUpgradeTier ? (
+              <p className="text-xs font-semibold text-black">
+                Tier after purchase: {loyaltyPreview.projectedTier.name}
+                <span className="ml-1 text-black/60">
+                  (up from {loyaltyPreview.currentTier.name})
+                </span>
+              </p>
+            ) : (
+              <p className="text-xs text-black/70">
+                Tier after purchase: <span className="font-semibold text-black">{loyaltyPreview.projectedTier.name}</span>
+              </p>
+            )}
+
+            {loyaltyPreview.nextTierAfterPurchase ? (
+              <p className="mt-1 text-xs text-black/50">
+                {loyaltyPreview.pointsToNextTierAfterPurchase.toLocaleString()} points to reach{' '}
+                {loyaltyPreview.nextTierAfterPurchase.name}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
       <AnimatePresence>
-        {loyaltyData?.activeEvent && (
+        {loyaltyData?.activeEvent ? (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="mb-3"
+            className="mt-3 border-t border-black/10 pt-2.5"
           >
-            <div className="bg-linear-to-r from-red-500 to-orange-500 text-white rounded-lg px-3 py-2 flex items-center gap-2">
-              <Fire size={18} weight="fill" className="animate-pulse" />
-              <span className="text-xs font-bold uppercase tracking-wide">
-                {loyaltyData.activeEvent.name} — {loyaltyData.activeEvent.multiplier}x Points!
-              </span>
-            </div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-black/70">
+              Active event: {loyaltyData.activeEvent.name} ({loyaltyData.activeEvent.multiplier}x)
+            </p>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
 
-      <div className="flex items-start gap-3">
-        {/* Icon */}
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-          hasBonus ? 'bg-linear-to-br from-amber-400 to-orange-500' : 'bg-amber-100'
-        }`}>
-          <Medal size={20} weight="fill" className={hasBonus ? 'text-white' : 'text-amber-600'} />
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-medium text-gray-900">
-              You&apos;ll earn{' '}
-              <span className={`font-bold ${hasBonus ? 'text-orange-600' : 'text-amber-600'}`}>
-                {totalPoints.toLocaleString()} Care Points
-              </span>
-            </p>
-            {hasBonus && (
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded-full"
-              >
-                <ArrowUp size={10} weight="bold" />
-                +{bonusPoints}
-              </motion.span>
-            )}
-          </div>
-
-          {/* Breakdown */}
-          <div className="mt-1.5 space-y-0.5 text-xs text-gray-600">
-            <div className="flex items-center justify-between">
-              <span>Base points (1 per $1)</span>
-              <span className="font-medium">{basePoints}</span>
-            </div>
-            
-            {tierMultiplier > 1 && (
-              <div className="flex items-center justify-between text-purple-600">
-                <span className="flex items-center gap-1">
-                  <Sparkle size={12} weight="fill" />
-                  {loyaltyData?.tierName} tier bonus ({tierMultiplier}x)
-                </span>
-                <span className="font-medium">+{Math.floor(basePoints * (tierMultiplier - 1))}</span>
-              </div>
-            )}
-            
-            {loyaltyData?.activeEvent && eventMultiplier > 1 && (
-              <div className="flex items-center justify-between text-orange-600">
-                <span className="flex items-center gap-1">
-                  <Fire size={12} weight="fill" />
-                  {loyaltyData.activeEvent.name} ({eventMultiplier}x)
-                </span>
-                <span className="font-medium">
-                  +{Math.floor(basePoints * tierMultiplier * (eventMultiplier - 1))}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Next Tier Progress */}
-          {loyaltyData?.nextTier && (
-            <div className="mt-3 pt-2 border-t border-amber-200/50">
-              {wouldReachNextTier ? (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-xs font-medium text-green-600 flex items-center gap-1"
-                >
-                  <Sparkle size={14} weight="fill" />
-                  This purchase unlocks {loyaltyData.nextTier.name} tier! 🎉
-                </motion.p>
-              ) : (
-                <p className="text-xs text-gray-500">
-                  {Math.max(0, loyaltyData.nextTier.pointsNeeded - (loyaltyData.currentPoints + totalPoints)).toLocaleString()} more points to reach {loyaltyData.nextTier.name}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Current Balance Footer */}
-      <div className="mt-3 pt-2 border-t border-amber-200/30 flex items-center justify-between text-xs">
-        <span className="text-gray-500">Current balance: {loyaltyData?.currentPoints.toLocaleString() || 0} pts</span>
-        <Link href="/loyalty" className="text-amber-600 font-medium hover:underline">
-          View rewards →
+      <div className="mt-3 border-t border-black/10 pt-2.5 flex items-center justify-between text-xs">
+        <span className="text-black/50">
+          Balance after order: {loyaltyPreview.projectedCurrentPoints.toLocaleString()} pts
+        </span>
+        <Link href="/loyalty" className="font-semibold text-black underline underline-offset-2">
+          View rewards
         </Link>
       </div>
     </motion.div>

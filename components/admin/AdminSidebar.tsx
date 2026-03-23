@@ -21,7 +21,8 @@ import {
   CaretRight, 
   Headset,
   Percent,
-  Megaphone
+  Megaphone,
+  EnvelopeSimple
 } from '@phosphor-icons/react'
 import { useState, useEffect } from 'react'
 import { useLiveChatNotifications } from '@/lib/hooks/useLiveChatNotifications'
@@ -146,6 +147,7 @@ export function AdminSidebar({ pendingOrders: _pendingOrdersProp }: AdminSidebar
   const marketingItems: NavItem[] = [
     { name: 'Promotions', href: '/admin/promotions', icon: Percent },
     { name: 'Popups', href: '/admin/popups', icon: Megaphone },
+    { name: 'Newsletter', href: '/admin/newsletter', icon: EnvelopeSimple },
     { name: 'Loyalty', href: '/admin/loyalty', icon: Gift },
     { name: 'Live Feed', href: '/admin/live-feed', icon: Bell },
   ]

@@ -160,6 +160,8 @@ export async function POST(request: NextRequest) {
             name: true,
             slug: true,
             description: true,
+            primaryColor: true,
+            secondaryColor: true,
             minAnnualPoints: true,
             minAnnualSpend: true,
             pointMultiplier: true,

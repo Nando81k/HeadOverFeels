@@ -2,6 +2,7 @@
 
 import ProductImage from '@/components/ui/ProductImage'
 import { Product } from '@/lib/api/products'
+import { getPrimaryImageWithFallback } from '@/lib/commerce/product-placeholders'
 import { ArrowUpRight, Clock, Fire, LinkSimple, TrendUp, X } from '@phosphor-icons/react'
 
 export interface QuickLink {
@@ -22,19 +23,6 @@ interface SearchSuggestionsProps {
   onRemoveRecent: (search: string) => void
   onClearRecent: () => void
   onItemHover: (itemKey: string) => void
-}
-
-function getFirstImage(images: string): string {
-  try {
-    const parsed = JSON.parse(images)
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      const first = parsed[0]
-      return (typeof first === 'string' ? first : first?.url) || '/placeholder-product.jpg'
-    }
-  } catch {
-    // Fall back below
-  }
-  return images || '/placeholder-product.jpg'
 }
 
 function getDisplayPrice(product: Product): number {
@@ -64,6 +52,25 @@ function getColorSwatches(product: Product): Array<{ hex: string; name: string }
   })
 
   return swatches
+}
+
+function getPrimaryColorVariant(product: Product): { color?: string; colorHex?: string } | null {
+  const withHex = product.variants.find((variant) => variant.colorHex)
+  if (withHex) {
+    return {
+      color: withHex.color,
+      colorHex: withHex.colorHex,
+    }
+  }
+
+  const withLabel = product.variants.find((variant) => variant.color)
+  if (withLabel) {
+    return {
+      color: withLabel.color,
+    }
+  }
+
+  return null
 }
 
 export function SearchSuggestions({
@@ -212,6 +219,7 @@ export function SearchSuggestions({
               const itemKey = `featured:${product.id}`
               const isActive = activeItemKey === itemKey
               const swatches = getColorSwatches(product)
+              const colorContext = getPrimaryColorVariant(product)
               return (
                 <button
                   key={product.id}
@@ -226,8 +234,17 @@ export function SearchSuggestions({
                 >
                   <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-black/5">
                     <ProductImage
-                      src={getFirstImage(product.images)}
+                      src={getPrimaryImageWithFallback({
+                        images: product.images,
+                        productName: product.name,
+                        productSlug: product.slug,
+                        color: colorContext?.color,
+                        colorHex: colorContext?.colorHex,
+                      })}
                       alt={product.name}
+                      productSlug={product.slug}
+                      color={colorContext?.color}
+                      colorHex={colorContext?.colorHex}
                       fill
                       className="object-cover"
                       sizes="48px"

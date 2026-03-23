@@ -126,7 +126,7 @@ export default function AdminAvatarItemsPage() {
           <div className="flex items-center gap-3">
             <Sparkle size={32} weight="fill" className="text-purple-400" />
             <div>
-              <h1 className="text-4xl font-bold text-white logo-font">
+              <h1 className="text-4xl logo-font">
                 Avatar Items
               </h1>
               <p className="text-white/40 mt-1">

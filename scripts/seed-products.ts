@@ -1,5 +1,10 @@
 // Script to seed database with categories and products
 import { PrismaClient } from '@prisma/client';
+import {
+  buildProductPlaceholderImages,
+  buildVariantPlaceholderImages,
+  resolveColorHex,
+} from '../lib/commerce/product-placeholders';
 
 const prisma = new PrismaClient();
 
@@ -390,13 +395,30 @@ async function main() {
   // Create products with variants
   for (const productData of products) {
     const { variants, ...product } = productData;
+    const productImages = JSON.stringify(
+      buildProductPlaceholderImages({
+        productName: product.name,
+        productSlug: product.slug,
+      })
+    );
 
     await prisma.product.create({
       data: {
         ...product,
+        images: productImages,
         variants: {
           create: variants.map((v) => ({
             ...v,
+            colorHex: resolveColorHex(null, v.color),
+            images: JSON.stringify(
+              buildVariantPlaceholderImages({
+                productName: product.name,
+                productSlug: product.slug,
+                color: v.color,
+                colorHex: resolveColorHex(null, v.color),
+                size: v.size,
+              })
+            ),
             isActive: true,
           })),
         },

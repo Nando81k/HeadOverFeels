@@ -15,7 +15,8 @@ import {
   Star,
   ArrowRight,
   Gift,
-  Receipt
+  Receipt,
+  EnvelopeSimple
 } from '@phosphor-icons/react/dist/ssr';
 import { prisma } from "@/lib/prisma";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -755,10 +756,10 @@ export default async function AdminDashboard() {
         </DashboardCard>
       )}
 
-      {/* Quick Access Links - Expanded to 8 */}
+      {/* Quick Access Links */}
       <div className="mt-4 sm:mt-8">
         <h2 className="text-xs sm:text-sm font-medium tracking-[0.15em] text-white/70 uppercase mb-3 sm:mb-4">Quick Access</h2>
-        <div className="grid grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3">
+        <div className="grid grid-cols-4 md:grid-cols-4 lg:grid-cols-9 gap-2 sm:gap-3">
           <Link
             href="/admin/products/new"
             className="p-2 sm:p-4 bg-neutral-900 border border-white/10 hover:border-[#FF3131]/30 hover:bg-neutral-900/80 transition-all group text-center"
@@ -805,6 +806,14 @@ export default async function AdminDashboard() {
           >
             <Heart size={18} weight="fill" className="mx-auto mb-1 sm:mb-2 text-white/40 group-hover:text-pink-400 transition-colors sm:w-6 sm:h-6" />
             <div className="text-[9px] sm:text-[10px] font-medium text-white/70 uppercase tracking-wide">Loyalty</div>
+          </Link>
+
+          <Link
+            href="/admin/newsletter"
+            className="p-2 sm:p-4 bg-neutral-900 border border-white/10 hover:border-blue-500/30 hover:bg-neutral-900/80 transition-all group text-center"
+          >
+            <EnvelopeSimple size={18} weight="bold" className="mx-auto mb-1 sm:mb-2 text-white/40 group-hover:text-blue-300 transition-colors sm:w-6 sm:h-6" />
+            <div className="text-[9px] sm:text-[10px] font-medium text-white/70 uppercase tracking-wide">Newsletter</div>
           </Link>
           
           <Link

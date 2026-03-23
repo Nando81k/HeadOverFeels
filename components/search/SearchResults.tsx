@@ -2,6 +2,7 @@
 
 import ProductImage from '@/components/ui/ProductImage'
 import { Product } from '@/lib/api/products'
+import { getPrimaryImageWithFallback } from '@/lib/commerce/product-placeholders'
 import { MagnifyingGlass } from '@phosphor-icons/react'
 
 interface SearchResultsProps {
@@ -12,19 +13,6 @@ interface SearchResultsProps {
   onProductClick: (slug: string) => void
   onViewAll: () => void
   onItemHover: (itemKey: string) => void
-}
-
-function getFirstImage(images: string): string {
-  try {
-    const parsed = JSON.parse(images)
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      const first = parsed[0]
-      return (typeof first === 'string' ? first : first?.url) || '/placeholder-product.jpg'
-    }
-  } catch {
-    // Fall back below
-  }
-  return images || '/placeholder-product.jpg'
 }
 
 function getDisplayPrice(product: Product): number {
@@ -54,6 +42,25 @@ function getColorSwatches(product: Product): Array<{ hex: string; name: string }
   })
 
   return swatches
+}
+
+function getPrimaryColorVariant(product: Product): { color?: string; colorHex?: string } | null {
+  const withHex = product.variants.find((variant) => variant.colorHex)
+  if (withHex) {
+    return {
+      color: withHex.color,
+      colorHex: withHex.colorHex,
+    }
+  }
+
+  const withLabel = product.variants.find((variant) => variant.color)
+  if (withLabel) {
+    return {
+      color: withLabel.color,
+    }
+  }
+
+  return null
 }
 
 function escapeRegExp(value: string): string {
@@ -139,6 +146,7 @@ export function SearchResults({
           const itemKey = `product:${product.id}`
           const isActive = activeItemKey === itemKey
           const swatches = getColorSwatches(product)
+          const colorContext = getPrimaryColorVariant(product)
 
           return (
             <button
@@ -154,8 +162,17 @@ export function SearchResults({
             >
               <div className={`relative aspect-[4/5] w-full ${isActive ? 'bg-white/10' : 'bg-black/[0.04]'}`}>
                 <ProductImage
-                  src={getFirstImage(product.images)}
+                  src={getPrimaryImageWithFallback({
+                    images: product.images,
+                    productName: product.name,
+                    productSlug: product.slug,
+                    color: colorContext?.color,
+                    colorHex: colorContext?.colorHex,
+                  })}
                   alt={product.name}
+                  productSlug={product.slug}
+                  color={colorContext?.color}
+                  colorHex={colorContext?.colorHex}
                   fill
                   className="object-cover"
                   sizes="(max-width: 1280px) 50vw, 20vw"

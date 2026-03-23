@@ -24,12 +24,12 @@ export function WishlistIcon({}: WishlistIconProps = {}) {
   return (
     <Link
       href="/wishlist"
-      className="relative p-2 text-black/50 hover:text-black hover:bg-black/5 transition-all duration-200"
+      className="relative p-2.5 text-black/50 hover:text-black hover:bg-black/5 transition-all duration-200"
       aria-label={`Wishlist (${count} items)`}
     >
-      <Heart size={20} weight={count > 0 ? 'fill' : 'bold'} />
+      <Heart size={22} weight={count > 0 ? 'fill' : 'bold'} />
       {count > 0 && (
-        <span className="absolute top-0 right-0 bg-black text-white text-[9px] font-black h-4 min-w-4 px-1 flex items-center justify-center">
+        <span className="absolute top-0 right-0 bg-black text-white text-[10px] font-black h-[18px] min-w-[18px] px-1 flex items-center justify-center">
           {count > 9 ? '9+' : count}
         </span>
       )}

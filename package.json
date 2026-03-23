@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "prisma generate",
     "dev": "next dev",
     "dev:fresh": "npm run db:reset:dev && next dev",
     "build": "prisma generate && next build",
@@ -15,6 +16,11 @@
     "db:push:dev": "npx prisma db push",
     "db:seed:dev": "npx tsx scripts/seed-dev-data.ts",
     "db:reset:dev": "npm run db:push:dev && npm run db:seed:dev",
+    "db:seed:historical": "npx tsx scripts/seed-historical.ts --scale large --seed 20260321 --from 2023-03-21 --to 2026-03-21",
+    "db:verify:historical": "npx tsx scripts/verify-historical-seed.ts --from 2023-03-21 --to 2026-03-21",
+    "db:reset:historical": "npx tsx scripts/reset-historical-db.ts --confirm-reset YES_RESET_DATABASE --scale large --seed 20260321 --from 2023-03-21 --to 2026-03-21",
+    "db:backfill:product-placeholders": "npx tsx scripts/backfill-product-placeholder-images.ts --apply",
+    "db:backfill:product-placeholders:dry": "npx tsx scripts/backfill-product-placeholder-images.ts --dry-run",
     "db:studio:dev": "npx prisma studio",
     "db:studio:prod": "cp .env.production .env && npx prisma studio",
     "env:dev": "cp .env.development .env && echo 'Switched to DEVELOPMENT environment'",
@@ -94,6 +100,7 @@
     "eslint-config-next": "16.0.0",
     "jsdom": "^27.4.0",
     "tailwindcss": "^4",
+    "tsx": "^4.20.6",
     "typescript": "^5",
     "vitest": "^4.0.17"
   }

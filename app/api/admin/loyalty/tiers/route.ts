@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyAdmin } from '@/lib/auth/admin'
+import { getDefaultTierTheme, normalizeTierColor } from '@/lib/loyalty/tier-theme'
 
 // GET /api/admin/loyalty/tiers - Get all tiers
 export async function GET(request: NextRequest) {
@@ -77,11 +78,14 @@ export async function POST(request: NextRequest) {
     })
 
     // Create tier
+    const defaultTheme = getDefaultTierTheme(body.slug)
     const tier = await prisma.loyaltyTier.create({
       data: {
         name: body.name,
         slug: body.slug.toLowerCase(),
         description: body.description || null,
+        primaryColor: normalizeTierColor(body.primaryColor, defaultTheme.primaryColor),
+        secondaryColor: normalizeTierColor(body.secondaryColor, defaultTheme.secondaryColor),
         minAnnualPoints: body.minAnnualPoints || 0,
         minAnnualSpend: body.minAnnualSpend || 0,
         pointMultiplier: body.pointMultiplier || 1.0,

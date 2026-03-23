@@ -1,638 +1,871 @@
-/**
- * Customer Management Page (Revamped)
- * 
- * Admin page for viewing and managing customers with:
- * - Analytics-style metric cards
- * - Segment distribution chart
- * - Activity trends chart
- * - Retention trends chart
- * - Search/filter/sort functionality
- * - CSV export
- * - Glass morphism dark theme with animations
- */
+'use client'
 
-'use client';
-
-import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
-import { SegmentBadge } from '@/components/admin/SegmentBadge';
-import { AdminLayout } from '@/components/admin/AdminLayout';
-import { TableSkeleton } from '@/components/ui/skeleton';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { toast } from '@/lib/toast';
-import CustomerMetricCards from '@/components/customers/CustomerMetricCards';
-import CustomerSegmentChart from '@/components/customers/CustomerSegmentChart';
-import CustomerActivityChart from '@/components/customers/CustomerActivityChart';
-import CustomerRetentionChart from '@/components/customers/CustomerRetentionChart';
-import { CustomerMobileCard } from '@/components/admin/CustomerMobileCard';
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import {
-  fetchCustomers,
-  downloadCustomersCSV,
-  type CustomerListItem,
-  type CustomerListFilters
-} from '@/lib/api/customers';
-import { type CustomerSegment } from '@/lib/customer-segments';
-import { 
-  Download, 
-  Users, 
-  MagnifyingGlass, 
-  Funnel, 
-  SortAscending,
+  ArrowsClockwise,
   CaretDown,
-  ChartLine,
-  Table,
-  ArrowsClockwise
-} from '@phosphor-icons/react';
+  CaretUp,
+  ChartBar,
+  Download,
+  Funnel,
+  Gift,
+  MagnifyingGlass,
+  Users,
+  X,
+} from '@phosphor-icons/react'
+import { AdminLayout } from '@/components/admin/AdminLayout'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { TableSkeleton } from '@/components/ui/skeleton'
+import CustomerMetricCards from '@/components/customers/CustomerMetricCards'
+import CustomerSegmentChart from '@/components/customers/CustomerSegmentChart'
+import CustomerActivityChart from '@/components/customers/CustomerActivityChart'
+import CustomerRetentionChart from '@/components/customers/CustomerRetentionChart'
+import { downloadCustomersCSV } from '@/lib/api/customers'
+import {
+  ADMIN_CUSTOMER_SEGMENTS,
+  AdminCustomerFilterState,
+  AdminCustomerSortDirection,
+  AdminCustomerSortField,
+  buildAdminCustomersSearchParams,
+  getActiveCustomerFilterChips,
+} from '@/lib/customers/admin-customer-query'
+import { toast } from '@/lib/toast'
 
-// View mode type
-type ViewMode = 'dashboard' | 'list';
+type Customer = {
+  id: string
+  email: string
+  name: string | null
+  phone: string | null
+  totalSpent: number
+  totalOrders: number
+  lastOrderDate: string | null
+  avgOrderValue: number
+  createdAt: string
+  currentPoints: number
+  lifetimePoints: number
+  annualPointsEarned: number
+  segment: string
+  tier: {
+    id: string
+    name: string
+    slug: string
+  } | null
+}
 
-// Animation variants
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 }
+type TierOption = {
+  id: string
+  name: string
+  slug: string
+}
+
+type CustomersResponse = {
+  data: Customer[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    pages: number
   }
-};
+  tiers: TierOption[]
+}
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } }
-};
+type CustomerAnalyticsResponse = {
+  success: boolean
+  data?: {
+    metrics: {
+      total: number
+      totalChange: number
+      newCustomers: number
+      newCustomersChange: number
+      vip: number
+      vipChange: number
+      active: number
+      activeChange: number
+      atRisk: number
+      atRiskChange: number
+      inactive: number
+      inactiveChange: number
+      avgOrderValue: number
+      avgOrderValueChange: number
+      retentionRate: number
+      retentionRateChange: number
+    }
+    segmentDistribution: Array<{ segment: string; count: number; color: string }>
+    activityTrends: Array<{ month: string; active: number; atRisk: number; inactive: number }>
+    retentionTrends: Array<{
+      month: string
+      newCustomers: number
+      returningCustomers: number
+      retentionRate: number
+    }>
+  }
+}
+
+const PAGE_SIZE = 20
+
+const defaultMetrics = {
+  total: 0,
+  totalChange: 0,
+  newCustomers: 0,
+  newCustomersChange: 0,
+  vip: 0,
+  vipChange: 0,
+  active: 0,
+  activeChange: 0,
+  atRisk: 0,
+  atRiskChange: 0,
+  inactive: 0,
+  inactiveChange: 0,
+  avgOrderValue: 0,
+  avgOrderValueChange: 0,
+  retentionRate: 0,
+  retentionRateChange: 0,
+}
+
+function formatDate(value: string | null) {
+  if (!value) return 'Never'
+  return new Date(value).toLocaleDateString()
+}
+
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount)
+}
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<CustomerListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [analyticsLoading, setAnalyticsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSegment, setSelectedSegment] = useState<CustomerSegment | ''>('');
-  const [sortBy, setSortBy] = useState<CustomerListFilters['sortBy']>('createdAt');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCustomers, setTotalCustomers] = useState(0);
-  const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
-  
-  // Analytics data state
-  const [analyticsData, setAnalyticsData] = useState<{
-    metrics: {
-      total: number;
-      totalChange: number;
-      newCustomers: number;
-      newCustomersChange: number;
-      vip: number;
-      vipChange: number;
-      active: number;
-      activeChange: number;
-      atRisk: number;
-      atRiskChange: number;
-      inactive: number;
-      inactiveChange: number;
-      avgOrderValue: number;
-      avgOrderValueChange: number;
-      retentionRate: number;
-      retentionRateChange: number;
-    };
-    segmentDistribution: Array<{ segment: string; count: number; color: string }>;
-    activityTrends: Array<{ month: string; active: number; atRisk: number; inactive: number }>;
-    retentionTrends: Array<{ month: string; newCustomers: number; returningCustomers: number; retentionRate: number }>;
-  } | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [tiers, setTiers] = useState<TierOption[]>([])
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalResults, setTotalResults] = useState(0)
 
-  // Fetch customers
+  const [searchInput, setSearchInput] = useState('')
+  const [searchDebounced, setSearchDebounced] = useState('')
+  const [segmentFilter, setSegmentFilter] = useState('')
+  const [tierFilter, setTierFilter] = useState('')
+  const [minSpent, setMinSpent] = useState('')
+  const [minOrders, setMinOrders] = useState('')
+  const [sortField, setSortField] = useState<AdminCustomerSortField>('createdAt')
+  const [sortDirection, setSortDirection] = useState<AdminCustomerSortDirection>('desc')
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+
+  const [showAnalytics, setShowAnalytics] = useState(false)
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+  const [analyticsLoaded, setAnalyticsLoaded] = useState(false)
+  const [analyticsData, setAnalyticsData] = useState<CustomerAnalyticsResponse['data'] | null>(null)
+
+  const [showGiftModal, setShowGiftModal] = useState(false)
+  const [showTierModal, setShowTierModal] = useState(false)
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [giftPoints, setGiftPoints] = useState('')
+  const [giftReason, setGiftReason] = useState('')
+  const [selectedTierId, setSelectedTierId] = useState('')
+  const [actionLoading, setActionLoading] = useState(false)
+
   useEffect(() => {
-    loadCustomers();
-  }, [searchTerm, selectedSegment, sortBy, sortOrder, currentPage]);
+    const timer = window.setTimeout(() => {
+      const next = searchInput.trim()
+      setSearchDebounced((prev) => {
+        if (prev !== next) {
+          setPage(1)
+        }
+        return next
+      })
+    }, 250)
 
-  // Fetch analytics data
-  useEffect(() => {
-    loadAnalytics();
-  }, []);
+    return () => window.clearTimeout(timer)
+  }, [searchInput])
 
-  async function loadCustomers() {
+  const filterState: AdminCustomerFilterState = useMemo(
+    () => ({
+      search: searchDebounced,
+      segment: segmentFilter,
+      tier: tierFilter,
+      minSpent,
+      minOrders,
+      sortBy: sortField,
+      sortDir: sortDirection,
+    }),
+    [searchDebounced, segmentFilter, tierFilter, minSpent, minOrders, sortField, sortDirection]
+  )
+
+  const activeFilterChips = useMemo(() => getActiveCustomerFilterChips(filterState), [filterState])
+
+  const fetchCustomers = useCallback(async () => {
     try {
-      setLoading(true);
-      const filters: CustomerListFilters = {
-        search: searchTerm || undefined,
-        segment: selectedSegment || undefined,
-        sortBy,
-        sortOrder,
-        page: currentPage,
-        limit: 20
-      };
+      setLoading(true)
+      const params = buildAdminCustomersSearchParams(filterState, {
+        page,
+        limit: PAGE_SIZE,
+      })
 
-      const response = await fetchCustomers(filters);
-      setCustomers(response.customers);
-      setTotalPages(response.pagination.totalPages);
-      setTotalCustomers(response.pagination.total);
-    } catch (error) {
-      console.error('Error loading customers:', error);
-      toast.error('Failed to load customers');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function loadAnalytics() {
-    try {
-      setAnalyticsLoading(true);
-      const response = await fetch('/api/analytics/customers?period=30d&compareWithPrevious=true');
-      const data = await response.json();
-      
-      if (data.success && data.data) {
-        setAnalyticsData({
-          metrics: data.data.metrics,
-          segmentDistribution: data.data.segmentDistribution,
-          activityTrends: data.data.activityTrends,
-          retentionTrends: data.data.retentionTrends
-        });
+      const response = await fetch(`/api/admin/customers?${params.toString()}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch customers')
       }
+
+      const result: CustomersResponse = await response.json()
+      setCustomers(result.data || [])
+      setTiers(result.tiers || [])
+      setTotalPages(Math.max(1, result.pagination?.pages || 1))
+      setTotalResults(result.pagination?.total || 0)
     } catch (error) {
-      console.error('Error loading analytics:', error);
+      console.error('Failed to load customers:', error)
+      toast.error('Failed to load customers', 'Please try again')
     } finally {
-      setAnalyticsLoading(false);
+      setLoading(false)
     }
-  }
+  }, [filterState, page])
 
-  const handleRefresh = useCallback(() => {
-    loadCustomers();
-    loadAnalytics();
-  }, [searchTerm, selectedSegment, sortBy, sortOrder, currentPage]);
+  useEffect(() => {
+    fetchCustomers()
+  }, [fetchCustomers])
 
-  function handleExportCSV() {
-    const loadingToast = toast.loading('Exporting customers...');
-    
+  const fetchAnalytics = useCallback(async () => {
     try {
-      downloadCustomersCSV(customers);
-      toast.dismiss(loadingToast);
-      toast.success('Customers exported successfully', `Downloaded ${customers.length} customers`);
-    } catch {
-      toast.dismiss(loadingToast);
-      toast.error('Export failed', 'Please try again');
+      setAnalyticsLoading(true)
+      const response = await fetch('/api/analytics/customers?period=30d&compareWithPrevious=true')
+      if (!response.ok) {
+        throw new Error('Failed to fetch analytics')
+      }
+
+      const result: CustomerAnalyticsResponse = await response.json()
+      if (result.success && result.data) {
+        setAnalyticsData(result.data)
+      }
+      setAnalyticsLoaded(true)
+    } catch (error) {
+      console.error('Failed to load customer analytics:', error)
+      toast.error('Failed to load analytics', 'Please try again')
+    } finally {
+      setAnalyticsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (showAnalytics && !analyticsLoaded && !analyticsLoading) {
+      fetchAnalytics()
+    }
+  }, [showAnalytics, analyticsLoaded, analyticsLoading, fetchAnalytics])
+
+  const handleRefresh = () => {
+    fetchCustomers()
+    if (showAnalytics) {
+      fetchAnalytics()
     }
   }
 
-  function handleSort(field: CustomerListFilters['sortBy']) {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortOrder('desc');
+  const clearAllFilters = () => {
+    setSearchInput('')
+    setSearchDebounced('')
+    setSegmentFilter('')
+    setTierFilter('')
+    setMinSpent('')
+    setMinOrders('')
+    setSortField('createdAt')
+    setSortDirection('desc')
+    setPage(1)
+  }
+
+  const removeFilterChip = (key: string) => {
+    setPage(1)
+    if (key === 'search') {
+      setSearchInput('')
+      setSearchDebounced('')
+      return
+    }
+    if (key === 'segment') {
+      setSegmentFilter('')
+      return
+    }
+    if (key === 'tier') {
+      setTierFilter('')
+      return
+    }
+    if (key === 'minSpent') {
+      setMinSpent('')
+      return
+    }
+    if (key === 'minOrders') {
+      setMinOrders('')
     }
   }
 
-  // Default metrics data for loading state
-  const defaultMetrics = {
-    total: 0,
-    totalChange: 0,
-    newCustomers: 0,
-    newCustomersChange: 0,
-    vip: 0,
-    vipChange: 0,
-    active: 0,
-    activeChange: 0,
-    atRisk: 0,
-    atRiskChange: 0,
-    inactive: 0,
-    inactiveChange: 0,
-    avgOrderValue: 0,
-    avgOrderValueChange: 0,
-    retentionRate: 0,
-    retentionRateChange: 0
-  };
+  const handleExportCSV = async () => {
+    const loadingToast = toast.loading('Exporting filtered customers...')
+    try {
+      const params = buildAdminCustomersSearchParams(filterState, {
+        page: 1,
+        limit: 5000,
+      })
+      const response = await fetch(`/api/admin/customers?${params.toString()}`)
+      if (!response.ok) {
+        throw new Error('Failed to export customers')
+      }
+      const result: CustomersResponse = await response.json()
+      downloadCustomersCSV(result.data || [])
+      toast.dismiss(loadingToast)
+      toast.success('Customer export ready', `Downloaded ${result.data?.length || 0} rows`)
+    } catch (error) {
+      console.error('Failed to export customers:', error)
+      toast.dismiss(loadingToast)
+      toast.error('Export failed', 'Please try again')
+    }
+  }
+
+  const openGiftModal = (customer: Customer) => {
+    setSelectedCustomer(customer)
+    setGiftPoints('')
+    setGiftReason('')
+    setShowGiftModal(true)
+  }
+
+  const openTierModal = (customer: Customer) => {
+    setSelectedCustomer(customer)
+    setSelectedTierId(customer.tier?.id || '')
+    setShowTierModal(true)
+  }
+
+  const submitGiftPoints = async () => {
+    if (!selectedCustomer) return
+    const parsedPoints = Number.parseInt(giftPoints, 10)
+    if (!Number.isFinite(parsedPoints) || parsedPoints <= 0) {
+      toast.error('Invalid points amount', 'Enter a value greater than 0')
+      return
+    }
+
+    setActionLoading(true)
+    try {
+      const response = await fetch('/api/admin/loyalty/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: selectedCustomer.id,
+          action: 'adjustPoints',
+          points: parsedPoints,
+          reason: giftReason.trim() || 'Admin gift points',
+        }),
+      })
+
+      const result = await response.json()
+      if (!response.ok) {
+        throw new Error(result?.error || 'Failed to gift points')
+      }
+
+      toast.success('Points gifted', `${parsedPoints} points added`)
+      setShowGiftModal(false)
+      setSelectedCustomer(null)
+      fetchCustomers()
+    } catch (error) {
+      console.error('Failed to gift points:', error)
+      toast.error('Gift failed', error instanceof Error ? error.message : 'Could not gift points')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const submitTierChange = async () => {
+    if (!selectedCustomer || !selectedTierId) return
+
+    setActionLoading(true)
+    try {
+      const response = await fetch('/api/admin/loyalty/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: selectedCustomer.id,
+          action: 'changeTier',
+          tierId: selectedTierId,
+        }),
+      })
+
+      const result = await response.json()
+      if (!response.ok) {
+        throw new Error(result?.error || 'Failed to change tier')
+      }
+
+      toast.success('Tier updated')
+      setShowTierModal(false)
+      setSelectedCustomer(null)
+      fetchCustomers()
+    } catch (error) {
+      console.error('Failed to change tier:', error)
+      toast.error('Tier update failed', error instanceof Error ? error.message : 'Could not update tier')
+    } finally {
+      setActionLoading(false)
+    }
+  }
 
   return (
     <AdminLayout
       title="Customer Management"
-      subtitle={`${totalCustomers} total customers`}
+      subtitle="Primary workspace for customer triage and loyalty operations"
       headerActions={
-        <div className="flex items-center gap-1.5 sm:gap-3">
-          {/* View Toggle */}
-          <div className="flex items-center bg-white/5 rounded-lg p-0.5 sm:p-1">
-            <button
-              onClick={() => setViewMode('dashboard')}
-              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded transition-all ${
-                viewMode === 'dashboard' 
-                  ? 'bg-white/10 text-white' 
-                  : 'text-white/50 hover:text-white/70'
-              }`}
-            >
-              <ChartLine size={14} weight="bold" className="sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">Dashboard</span>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded transition-all ${
-                viewMode === 'list' 
-                  ? 'bg-white/10 text-white' 
-                  : 'text-white/50 hover:text-white/70'
-              }`}
-            >
-              <Table size={14} weight="bold" className="sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">List</span>
-            </button>
-          </div>
-          
-          {/* Refresh Button */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowAnalytics((prev) => !prev)}
+            className="inline-flex items-center gap-2 h-10 px-4 border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white rounded-lg transition-colors"
+          >
+            <ChartBar size={15} weight="bold" />
+            Snapshot
+          </button>
+          <button
+            type="button"
             onClick={handleRefresh}
-            className="p-1.5 sm:p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/70 hover:text-white transition-all"
+            className="inline-flex items-center justify-center h-10 w-10 border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white rounded-lg transition-colors"
           >
-            <ArrowsClockwise size={16} weight="bold" className="sm:w-[18px] sm:h-[18px]" />
-          </motion.button>
-
-          {/* Export Button */}
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            <ArrowsClockwise size={16} weight="bold" />
+          </button>
+          <button
+            type="button"
             onClick={handleExportCSV}
-            className="px-2 sm:px-4 py-1.5 sm:py-2 bg-[#FF3131] hover:bg-[#E02828] text-white transition-colors flex items-center gap-1.5 sm:gap-2 rounded-lg text-xs sm:text-sm"
+            className="inline-flex items-center gap-2 h-10 px-4 border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white rounded-lg transition-colors"
           >
-            <Download size={14} weight="bold" className="sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">Export CSV</span>
-          </motion.button>
+            <Download size={14} weight="bold" />
+            Export
+          </button>
         </div>
       }
     >
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="space-y-6"
-      >
-        {/* Dashboard View */}
-        <AnimatePresence mode="wait">
-          {viewMode === 'dashboard' && (
-            <motion.div
-              key="dashboard"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-6"
-            >
-              {/* Metric Cards */}
-              <motion.div variants={itemVariants}>
-                <CustomerMetricCards 
-                  data={analyticsData?.metrics || defaultMetrics}
+      <div className="space-y-4">
+        {showAnalytics && (
+          <div className="border border-white/10 rounded-xl bg-neutral-900/70 p-4">
+            <div className="mb-3">
+              <p className="text-xs uppercase tracking-[0.16em] text-white/40">Performance Snapshot</p>
+            </div>
+            <div className="space-y-4">
+              <CustomerMetricCards data={analyticsData?.metrics || defaultMetrics} loading={analyticsLoading} />
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <CustomerSegmentChart
+                  data={analyticsData?.segmentDistribution || []}
                   loading={analyticsLoading}
                 />
-              </motion.div>
-
-              {/* Charts Row */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Segment Distribution */}
-                <motion.div variants={itemVariants}>
-                  <CustomerSegmentChart 
-                    data={analyticsData?.segmentDistribution || []}
-                    loading={analyticsLoading}
-                  />
-                </motion.div>
-
-                {/* Activity Trends */}
-                <motion.div variants={itemVariants}>
-                  <CustomerActivityChart 
-                    data={analyticsData?.activityTrends || []}
-                    loading={analyticsLoading}
-                  />
-                </motion.div>
+                <CustomerActivityChart
+                  data={analyticsData?.activityTrends || []}
+                  loading={analyticsLoading}
+                />
               </div>
-
-              {/* Retention Chart - Full Width */}
-              <motion.div variants={itemVariants}>
-                <CustomerRetentionChart 
-                  data={analyticsData?.retentionTrends || []}
-                  loading={analyticsLoading}
-                />
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Filters - Show in both views */}
-        <motion.div 
-          variants={itemVariants}
-          className="bg-neutral-900/80 backdrop-blur-sm border border-white/10 rounded-2xl p-4 sm:p-6"
-        >
-          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-            <Funnel size={16} weight="bold" className="text-white/40 sm:w-5 sm:h-5" />
-            <h3 className="text-xs sm:text-sm font-medium text-white/60">Filters & Search</h3>
+              <CustomerRetentionChart
+                data={analyticsData?.retentionTrends || []}
+                loading={analyticsLoading}
+              />
+            </div>
           </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-            {/* Search */}
-            <div className="relative">
-              <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">
-                Search
-              </label>
+        )}
+
+        <div className="sticky top-0 z-20 bg-neutral-950/95 backdrop-blur pb-4 space-y-3">
+          <div className="border border-white/10 rounded-xl bg-neutral-900 p-3">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto] lg:items-center">
               <div className="relative">
-                <MagnifyingGlass 
-                  size={16} 
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" 
-                />
+                <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/35" />
                 <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  placeholder="Search by name or email..."
-                  className="w-full pl-10 pr-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-white/30 transition-colors"
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  placeholder="Search customer by name or email"
+                  className="w-full h-10 pl-10 pr-3 rounded-lg border border-white/10 bg-white/5 text-sm text-white placeholder:text-white/35 focus:outline-none focus:border-[#FF3131]/50"
                 />
               </div>
-            </div>
 
-            {/* Segment Filter */}
-            <div className="relative">
-              <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">
-                Segment
-              </label>
-              <div className="relative">
-                <select
-                  value={selectedSegment}
-                  onChange={(e) => {
-                    setSelectedSegment(e.target.value as CustomerSegment | '');
-                    setCurrentPage(1);
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSegmentFilter('')
+                    setPage(1)
                   }}
-                  className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 appearance-none transition-colors"
+                  className={`h-9 px-3 rounded-md border text-xs uppercase tracking-[0.12em] whitespace-nowrap ${
+                    !segmentFilter
+                      ? 'bg-white text-black border-white'
+                      : 'bg-white/5 text-white/65 border-white/10 hover:bg-white/10 hover:text-white'
+                  }`}
                 >
-                  <option value="" className="bg-neutral-900">All Segments</option>
-                  <option value="VIP" className="bg-neutral-900">VIP</option>
-                  <option value="New" className="bg-neutral-900">New</option>
-                  <option value="Active" className="bg-neutral-900">Active</option>
-                  <option value="At-Risk" className="bg-neutral-900">At-Risk</option>
-                  <option value="Inactive" className="bg-neutral-900">Inactive</option>
-                </select>
-                <CaretDown 
-                  size={16} 
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" 
-                />
+                  All
+                </button>
+                {ADMIN_CUSTOMER_SEGMENTS.map((segment) => (
+                  <button
+                    key={segment}
+                    type="button"
+                    onClick={() => {
+                      setSegmentFilter(segment)
+                      setPage(1)
+                    }}
+                    className={`h-9 px-3 rounded-md border text-xs uppercase tracking-[0.12em] whitespace-nowrap ${
+                      segmentFilter === segment
+                        ? 'bg-white text-black border-white'
+                        : 'bg-white/5 text-white/65 border-white/10 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    {segment}
+                  </button>
+                ))}
               </div>
-            </div>
 
-            {/* Sort */}
-            <div className="relative">
-              <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-2">
-                Sort By
-              </label>
-              <div className="relative">
-                <SortAscending 
-                  size={16} 
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" 
-                />
+              <div className="flex items-center gap-2">
                 <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as CustomerListFilters['sortBy'])}
-                  className="w-full pl-10 pr-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 appearance-none transition-colors"
+                  value={sortField}
+                  onChange={(event) => {
+                    setSortField(event.target.value as AdminCustomerSortField)
+                    setPage(1)
+                  }}
+                  className="h-9 px-3 rounded-md border border-white/10 bg-white/5 text-xs uppercase tracking-[0.12em] text-white/70 focus:outline-none focus:border-white/30"
                 >
-                  <option value="createdAt" className="bg-neutral-900">Join Date</option>
-                  <option value="name" className="bg-neutral-900">Name</option>
-                  <option value="email" className="bg-neutral-900">Email</option>
+                  <option value="createdAt" className="bg-neutral-900">Newest</option>
                   <option value="totalSpent" className="bg-neutral-900">Total Spent</option>
-                  <option value="totalOrders" className="bg-neutral-900">Total Orders</option>
+                  <option value="totalOrders" className="bg-neutral-900">Orders</option>
                   <option value="lastOrderDate" className="bg-neutral-900">Last Order</option>
+                  <option value="currentPoints" className="bg-neutral-900">Points</option>
+                  <option value="name" className="bg-neutral-900">Name</option>
                 </select>
-                <CaretDown 
-                  size={16} 
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" 
-                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+                    setPage(1)
+                  }}
+                  className="h-9 w-9 inline-flex items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  {sortDirection === 'asc' ? <CaretUp size={14} weight="bold" /> : <CaretDown size={14} weight="bold" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedFilters((prev) => !prev)}
+                  className={`h-9 px-3 inline-flex items-center gap-2 rounded-md border text-xs uppercase tracking-[0.14em] ${
+                    showAdvancedFilters
+                      ? 'bg-white/15 border-white/20 text-white'
+                      : 'bg-white/5 border-white/10 text-white/65 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  <Funnel size={14} weight="bold" />
+                  Filters
+                </button>
+              </div>
+
+              <div className="text-xs text-white/55 text-right">
+                <span className="font-semibold text-white">{totalResults}</span> customers
               </div>
             </div>
-          </div>
-        </motion.div>
 
-        {/* Customer Table - Always visible */}
-        <motion.div 
-          variants={itemVariants}
-          className="bg-neutral-900/80 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden"
-        >
-          {/* Table Header */}
-          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-white/10 flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Users size={16} weight="bold" className="text-white/40 sm:w-5 sm:h-5" />
-              <h3 className="text-xs sm:text-sm font-medium text-white">Customer List</h3>
-              <span className="text-[10px] sm:text-xs text-white/40 bg-white/5 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
-                {totalCustomers} customers
-              </span>
+            {showAdvancedFilters && (
+              <div className="mt-3 pt-3 border-t border-white/10 grid gap-3 md:grid-cols-3">
+                <div>
+                  <label className="block mb-1 text-[10px] uppercase tracking-[0.14em] text-white/40">Tier</label>
+                  <select
+                    value={tierFilter}
+                    onChange={(event) => {
+                      setTierFilter(event.target.value)
+                      setPage(1)
+                    }}
+                    className="w-full h-9 px-3 rounded-md border border-white/10 bg-white/5 text-sm text-white/80 focus:outline-none focus:border-white/30"
+                  >
+                    <option value="" className="bg-neutral-900">All tiers</option>
+                    {tiers.map((tier) => (
+                      <option key={tier.id} value={tier.id} className="bg-neutral-900">
+                        {tier.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block mb-1 text-[10px] uppercase tracking-[0.14em] text-white/40">Min Spent</label>
+                  <input
+                    value={minSpent}
+                    onChange={(event) => {
+                      setMinSpent(event.target.value)
+                      setPage(1)
+                    }}
+                    inputMode="decimal"
+                    placeholder="0"
+                    className="w-full h-9 px-3 rounded-md border border-white/10 bg-white/5 text-sm text-white placeholder:text-white/35 focus:outline-none focus:border-white/30"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1 text-[10px] uppercase tracking-[0.14em] text-white/40">Min Orders</label>
+                  <input
+                    value={minOrders}
+                    onChange={(event) => {
+                      setMinOrders(event.target.value)
+                      setPage(1)
+                    }}
+                    inputMode="numeric"
+                    placeholder="0"
+                    className="w-full h-9 px-3 rounded-md border border-white/10 bg-white/5 text-sm text-white placeholder:text-white/35 focus:outline-none focus:border-white/30"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {activeFilterChips.length > 0 && (
+            <div className="border border-white/10 rounded-xl bg-neutral-900/70 px-3 py-2 flex flex-wrap items-center gap-2">
+              {activeFilterChips.map((chip) => (
+                <span key={chip.key} className="inline-flex items-center gap-2 px-2.5 py-1 text-xs bg-white/10 text-white/80 rounded-md border border-white/10">
+                  <span className="text-white/45 uppercase tracking-[0.12em]">{chip.label}</span>
+                  <span className="font-medium">{chip.value}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeFilterChip(chip.key)}
+                    className="text-white/55 hover:text-white"
+                    aria-label={`Remove ${chip.label}`}
+                  >
+                    <X size={12} weight="bold" />
+                  </button>
+                </span>
+              ))}
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="ml-auto text-xs uppercase tracking-[0.14em] text-white/60 hover:text-white"
+              >
+                Clear all
+              </button>
             </div>
-          </div>
+          )}
+        </div>
 
+        <div className="border border-white/10 bg-neutral-900 rounded-xl overflow-hidden">
           {loading ? (
-            <TableSkeleton rows={10} columns={6} />
+            <TableSkeleton rows={10} columns={8} />
           ) : customers.length === 0 ? (
             <EmptyState
               icon={Users}
-              title={searchTerm || selectedSegment ? "No Customers Found" : "No Customers Yet"}
-              description={
-                searchTerm || selectedSegment
-                  ? "No customers match your search criteria. Try adjusting your filters."
-                  : "Customers will appear here once they create an account or place an order. Start by sharing your store!"
-              }
-              action={
-                searchTerm || selectedSegment
-                  ? {
-                      label: 'Clear Filters',
-                      onClick: () => {
-                        setSearchTerm('');
-                        setSelectedSegment('');
-                        setCurrentPage(1);
-                      },
-                    }
-                  : {
-                      label: 'View Products',
-                      href: '/admin/products',
-                    }
-              }
-              secondaryAction={{
-                label: 'Go to Dashboard',
-                href: '/admin',
+              title="No Customers Found"
+              description="No customers match the current filters."
+              action={{
+                label: 'Clear Filters',
+                onClick: clearAllFilters,
               }}
             />
           ) : (
             <>
-              {/* Mobile Cards View */}
-              <div className="lg:hidden p-4 space-y-3">
-                {customers.map((customer, index) => (
-                  <CustomerMobileCard 
-                    key={customer.id} 
-                    customer={customer} 
-                    index={index} 
-                  />
+              <div className="lg:hidden divide-y divide-white/10">
+                {customers.map((customer) => (
+                  <div key={customer.id} className="p-4 space-y-3">
+                    <div>
+                      <p className="text-sm font-semibold text-white">{customer.name || 'Unnamed Customer'}</p>
+                      <p className="text-xs text-white/50">{customer.email}</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="rounded-md border border-white/10 bg-white/5 p-2">
+                        <p className="text-white/40">Spent</p>
+                        <p className="text-white font-medium">{formatCurrency(customer.totalSpent)}</p>
+                      </div>
+                      <div className="rounded-md border border-white/10 bg-white/5 p-2">
+                        <p className="text-white/40">Orders</p>
+                        <p className="text-white font-medium">{customer.totalOrders}</p>
+                      </div>
+                      <div className="rounded-md border border-white/10 bg-white/5 p-2">
+                        <p className="text-white/40">Points</p>
+                        <p className="text-white font-medium">{customer.currentPoints.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/admin/customers/${customer.id}`}
+                        className="h-8 px-3 inline-flex items-center rounded-md border border-white/10 text-xs uppercase tracking-[0.12em] text-white/70 hover:text-white hover:bg-white/10"
+                      >
+                        View
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => openGiftModal(customer)}
+                        className="h-8 px-3 inline-flex items-center rounded-md border border-white/10 text-xs uppercase tracking-[0.12em] text-white/70 hover:text-white hover:bg-white/10"
+                      >
+                        Gift
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openTierModal(customer)}
+                        className="h-8 px-3 inline-flex items-center rounded-md border border-white/10 text-xs uppercase tracking-[0.12em] text-white/70 hover:text-white hover:bg-white/10"
+                      >
+                        Tier
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
 
-              {/* Desktop Table View */}
-              <div className="hidden lg:block overflow-x-auto">
-                <table className="min-w-full divide-y divide-white/5">
-                  <thead className="bg-white/5">
-                    <tr>
-                      <th
-                        onClick={() => handleSort('name')}
-                        className="px-6 py-3 text-left text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] cursor-pointer hover:bg-white/5 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          Customer 
-                          {sortBy === 'name' && (
-                            <span className="text-[#FF3131]">{sortOrder === 'asc' ? '↑' : '↓'}</span>
-                          )}
-                        </div>
-                      </th>
-                      <th
-                        onClick={() => handleSort('totalOrders')}
-                        className="px-6 py-3 text-left text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] cursor-pointer hover:bg-white/5 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          Orders 
-                          {sortBy === 'totalOrders' && (
-                            <span className="text-[#FF3131]">{sortOrder === 'asc' ? '↑' : '↓'}</span>
-                          )}
-                        </div>
-                      </th>
-                      <th
-                        onClick={() => handleSort('totalSpent')}
-                        className="px-6 py-3 text-left text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] cursor-pointer hover:bg-white/5 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          Total Spent 
-                          {sortBy === 'totalSpent' && (
-                            <span className="text-[#FF3131]">{sortOrder === 'asc' ? '↑' : '↓'}</span>
-                          )}
-                        </div>
-                      </th>
-                      <th
-                        onClick={() => handleSort('lastOrderDate')}
-                        className="px-6 py-3 text-left text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] cursor-pointer hover:bg-white/5 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          Last Order 
-                          {sortBy === 'lastOrderDate' && (
-                            <span className="text-[#FF3131]">{sortOrder === 'asc' ? '↑' : '↓'}</span>
-                          )}
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-left text-[10px] font-medium text-white/40 uppercase tracking-[0.15em]">
-                        Segment
-                      </th>
-                      <th className="px-6 py-3 text-right text-[10px] font-medium text-white/40 uppercase tracking-[0.15em]">
-                        Actions
-                      </th>
+              <div className="hidden lg:block max-h-[70vh] overflow-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-neutral-950">
+                      <th className="sticky top-0 bg-neutral-950 px-4 py-3 text-left text-[10px] uppercase tracking-[0.16em] text-white/40">Customer</th>
+                      <th className="sticky top-0 bg-neutral-950 px-4 py-3 text-left text-[10px] uppercase tracking-[0.16em] text-white/40">Segment</th>
+                      <th className="sticky top-0 bg-neutral-950 px-4 py-3 text-left text-[10px] uppercase tracking-[0.16em] text-white/40">Tier</th>
+                      <th className="sticky top-0 bg-neutral-950 px-4 py-3 text-right text-[10px] uppercase tracking-[0.16em] text-white/40">Orders</th>
+                      <th className="sticky top-0 bg-neutral-950 px-4 py-3 text-right text-[10px] uppercase tracking-[0.16em] text-white/40">Spent</th>
+                      <th className="sticky top-0 bg-neutral-950 px-4 py-3 text-right text-[10px] uppercase tracking-[0.16em] text-white/40">Points</th>
+                      <th className="sticky top-0 bg-neutral-950 px-4 py-3 text-left text-[10px] uppercase tracking-[0.16em] text-white/40">Last Order</th>
+                      <th className="sticky top-0 bg-neutral-950 px-4 py-3 text-right text-[10px] uppercase tracking-[0.16em] text-white/40">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {customers.map((customer, index) => (
-                      <motion.tr 
-                        key={customer.id} 
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.03 }}
-                        className="hover:bg-white/5 transition-colors group"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-white group-hover:text-[#FF3131] transition-colors">
-                              {customer.name || 'N/A'}
-                            </div>
-                            <div className="text-sm text-white/40">{customer.email}</div>
-                            {customer.phone && (
-                              <div className="text-sm text-white/30">{customer.phone}</div>
-                            )}
+                    {customers.map((customer) => (
+                      <tr key={customer.id} className="hover:bg-white/[0.03]">
+                        <td className="px-4 py-3">
+                          <p className="text-sm text-white font-medium">{customer.name || 'Unnamed Customer'}</p>
+                          <p className="text-xs text-white/45">{customer.email}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex px-2 py-1 rounded text-xs bg-white/10 text-white/75">
+                            {customer.segment}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-white/70">{customer.tier?.name || 'None'}</td>
+                        <td className="px-4 py-3 text-sm text-white text-right">{customer.totalOrders}</td>
+                        <td className="px-4 py-3 text-sm text-white text-right">{formatCurrency(customer.totalSpent)}</td>
+                        <td className="px-4 py-3 text-sm text-white text-right">{customer.currentPoints.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm text-white/70">{formatDate(customer.lastOrderDate)}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openGiftModal(customer)}
+                              className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-white/10 text-white/70 hover:text-white hover:bg-white/10"
+                              title="Gift points"
+                            >
+                              <Gift size={14} weight="bold" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openTierModal(customer)}
+                              className="h-8 px-3 inline-flex items-center rounded-md border border-white/10 text-xs uppercase tracking-[0.12em] text-white/70 hover:text-white hover:bg-white/10"
+                            >
+                              Tier
+                            </button>
+                            <Link
+                              href={`/admin/customers/${customer.id}`}
+                              className="h-8 px-3 inline-flex items-center rounded-md border border-white/10 text-xs uppercase tracking-[0.12em] text-white/70 hover:text-white hover:bg-white/10"
+                            >
+                              View
+                            </Link>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-white">{customer.totalOrders}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-white">
-                            ${customer.totalSpent.toFixed(2)}
-                          </div>
-                          {customer.avgOrderValue > 0 && (
-                            <div className="text-xs text-white/40">
-                              Avg: ${customer.avgOrderValue.toFixed(2)}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white/70">
-                          {customer.lastOrderDate
-                            ? new Date(customer.lastOrderDate).toLocaleDateString()
-                            : 'Never'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <SegmentBadge segment={customer.segment as CustomerSegment} />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <Link
-                            href={`/admin/customers/${customer.id}`}
-                            className="inline-flex items-center gap-1 text-white/60 hover:text-[#FF3131] transition-colors"
-                          >
-                            View Details 
-                            <span className="group-hover:translate-x-1 transition-transform">→</span>
-                          </Link>
-                        </td>
-                      </motion.tr>
+                      </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
 
-              {/* Pagination */}
               {totalPages > 1 && (
-                <div className="bg-white/5 px-6 py-4 flex items-center justify-between border-t border-white/10">
-                  <div className="flex-1 flex justify-between sm:hidden">
-                    <motion.button
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                      className="relative inline-flex items-center px-4 py-2 border border-white/10 text-sm font-medium text-white/70 bg-white/5 rounded-lg hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                <div className="px-4 py-3 border-t border-white/10 bg-white/[0.02] flex items-center justify-between">
+                  <p className="text-xs uppercase tracking-[0.12em] text-white/45">
+                    Page <span className="text-white">{page}</span> of <span className="text-white">{totalPages}</span>
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                      disabled={page <= 1}
+                      className="h-8 px-3 rounded-md border border-white/10 text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       Previous
-                    </motion.button>
-                    <motion.button
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                      disabled={currentPage === totalPages}
-                      className="ml-3 relative inline-flex items-center px-4 py-2 border border-white/10 text-sm font-medium text-white/70 bg-white/5 rounded-lg hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={page >= totalPages}
+                      className="h-8 px-3 rounded-md border border-white/10 text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       Next
-                    </motion.button>
-                  </div>
-                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-white/40">
-                        Showing page <span className="font-medium text-white">{currentPage}</span> of{' '}
-                        <span className="font-medium text-white">{totalPages}</span>
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                        disabled={currentPage === 1}
-                        className="px-4 py-2 border border-white/10 bg-white/5 text-sm font-medium text-white/70 rounded-lg hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Previous
-                      </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                        disabled={currentPage === totalPages}
-                        className="px-4 py-2 border border-white/10 bg-white/5 text-sm font-medium text-white/70 rounded-lg hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Next
-                      </motion.button>
-                    </div>
+                    </button>
                   </div>
                 </div>
               )}
             </>
           )}
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
+
+      {showGiftModal && selectedCustomer && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-neutral-900 border border-white/10 rounded-xl p-5">
+            <h3 className="text-lg font-semibold text-white">Gift Points</h3>
+            <p className="text-sm text-white/60 mt-1 mb-4">
+              {selectedCustomer.name || selectedCustomer.email} currently has {selectedCustomer.currentPoints.toLocaleString()} points.
+            </p>
+            <div className="space-y-3">
+              <input
+                value={giftPoints}
+                onChange={(event) => setGiftPoints(event.target.value)}
+                inputMode="numeric"
+                placeholder="Points amount"
+                className="w-full h-10 px-3 rounded-md border border-white/10 bg-white/5 text-white placeholder:text-white/35 focus:outline-none focus:border-white/30"
+              />
+              <textarea
+                value={giftReason}
+                onChange={(event) => setGiftReason(event.target.value)}
+                placeholder="Reason (optional)"
+                rows={3}
+                className="w-full px-3 py-2 rounded-md border border-white/10 bg-white/5 text-white placeholder:text-white/35 focus:outline-none focus:border-white/30 resize-none"
+              />
+            </div>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowGiftModal(false)}
+                className="h-9 px-4 rounded-md border border-white/10 text-white/70 hover:text-white hover:bg-white/10"
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitGiftPoints}
+                className="h-9 px-4 rounded-md bg-[#FF3131] text-white hover:bg-[#ff4a4a] disabled:opacity-50"
+                disabled={actionLoading}
+              >
+                {actionLoading ? 'Saving...' : 'Gift Points'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showTierModal && selectedCustomer && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-neutral-900 border border-white/10 rounded-xl p-5">
+            <h3 className="text-lg font-semibold text-white">Change Tier</h3>
+            <p className="text-sm text-white/60 mt-1 mb-4">
+              Update tier for {selectedCustomer.name || selectedCustomer.email}.
+            </p>
+            <select
+              value={selectedTierId}
+              onChange={(event) => setSelectedTierId(event.target.value)}
+              className="w-full h-10 px-3 rounded-md border border-white/10 bg-white/5 text-white focus:outline-none focus:border-white/30"
+            >
+              <option value="" className="bg-neutral-900">Select tier</option>
+              {tiers.map((tier) => (
+                <option key={tier.id} value={tier.id} className="bg-neutral-900">
+                  {tier.name}
+                </option>
+              ))}
+            </select>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowTierModal(false)}
+                className="h-9 px-4 rounded-md border border-white/10 text-white/70 hover:text-white hover:bg-white/10"
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitTierChange}
+                className="h-9 px-4 rounded-md bg-[#FF3131] text-white hover:bg-[#ff4a4a] disabled:opacity-50"
+                disabled={actionLoading || !selectedTierId}
+              >
+                {actionLoading ? 'Saving...' : 'Update Tier'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
-  );
+  )
 }

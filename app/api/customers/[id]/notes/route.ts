@@ -1,65 +1,72 @@
 /**
- * Customer Notes API Route
- * 
- * POST /api/customers/[id]/notes - Add a note to customer
- * GET /api/customers/[id]/notes - Get all notes for customer
+ * Legacy compatibility route.
+ *
+ * Canonical admin notes routes are under /api/admin/customers/[id]/notes.
+ * This endpoint is retained for backwards compatibility and now requires admin auth.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { cookies } from 'next/headers';
-
-// Helper to get current admin user (simplified - you may have auth middleware)
-async function getCurrentAdmin() {
-  // TODO: Implement proper admin auth check
-  // For now, returning a default admin
-  return {
-    id: 'admin-1',
-    name: 'Admin User'
-  };
-}
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { verifyAdmin } from '@/lib/auth/admin'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const adminId = await verifyAdmin(request)
+  if (!adminId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
-    const { id: customerId } = await params;
-    const body = await request.json();
-    const { content, isImportant = false } = body;
-    
-    if (!content || content.trim() === '') {
+    const { id: customerId } = await params
+    const body = await request.json()
+    const content = typeof body?.content === 'string' ? body.content.trim() : ''
+    const isImportant = Boolean(body?.isImportant)
+
+    if (!content) {
       return NextResponse.json(
         { error: 'Note content is required' },
         { status: 400 }
-      );
+      )
     }
-    
-    // Get current admin user
-    const admin = await getCurrentAdmin();
-    
-    // Create note
+
+    const [admin, customer] = await Promise.all([
+      prisma.customer.findUnique({
+        where: { id: adminId },
+        select: { name: true, email: true },
+      }),
+      prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { id: true },
+      }),
+    ])
+
+    if (!customer) {
+      return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+    }
+
     const note = await prisma.customerNote.create({
       data: {
         customerId,
-        content: content.trim(),
+        content,
         isImportant,
-        authorId: admin.id,
-        authorName: admin.name
-      }
-    });
-    
+        authorId: adminId,
+        authorName: admin?.name || admin?.email || 'Admin',
+      },
+    })
+
     return NextResponse.json({
       success: true,
-      data: note
-    });
-    
+      data: note,
+      legacy: true,
+    })
   } catch (error) {
-    console.error('Error creating customer note:', error);
+    console.error('Error creating customer note:', error)
     return NextResponse.json(
       { error: 'Failed to create note' },
       { status: 500 }
-    );
+    )
   }
 }
 
@@ -67,26 +74,29 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const adminId = await verifyAdmin(request)
+  if (!adminId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
-    const { id: customerId } = await params;
-    
+    const { id: customerId } = await params
+
     const notes = await prisma.customerNote.findMany({
       where: { customerId },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
-    
+      orderBy: { createdAt: 'desc' },
+    })
+
     return NextResponse.json({
       success: true,
-      data: notes
-    });
-    
+      data: notes,
+      legacy: true,
+    })
   } catch (error) {
-    console.error('Error fetching customer notes:', error);
+    console.error('Error fetching customer notes:', error)
     return NextResponse.json(
       { error: 'Failed to fetch notes' },
       { status: 500 }
-    );
+    )
   }
 }

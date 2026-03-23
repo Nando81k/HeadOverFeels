@@ -6,38 +6,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/lib/auth/auth';
+import { verifyAdmin } from '@/lib/auth/admin';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Check admin auth using NextAuth session or cookie fallback
-    const session = await auth();
-    let userId: string | null = null;
-
-    if (session?.user?.id) {
-      userId = session.user.id;
-    } else {
-      const sessionId = request.cookies.get('auth_session')?.value;
-      if (sessionId) {
-        userId = sessionId;
-      }
-    }
+    const userId = await verifyAdmin(request);
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Verify user is an admin
-    const adminUser = await prisma.customer.findUnique({
-      where: { id: userId },
-      select: { isAdmin: true, name: true, email: true },
-    });
-
-    if (!adminUser?.isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 403 });
     }
 
     const { id: customerId } = await params;
@@ -53,17 +32,23 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { content, isImportant = false } = body;
+    const content = typeof body?.content === 'string' ? body.content.trim() : '';
+    const isImportant = Boolean(body?.isImportant);
 
-    if (!content || typeof content !== 'string') {
+    if (!content) {
       return NextResponse.json({ error: 'Content is required' }, { status: 400 });
     }
+
+    const adminUser = await prisma.customer.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true },
+    });
 
     // Create the note
     const note = await prisma.customerNote.create({
       data: {
         customerId,
-        content: content.trim(),
+        content,
         isImportant,
         authorId: userId,
         authorName: adminUser?.name || adminUser?.email || 'Admin',

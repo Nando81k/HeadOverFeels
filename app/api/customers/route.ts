@@ -1,117 +1,42 @@
 /**
- * Customer List API Route
- * 
- * GET /api/customers - List customers with filters, search, and pagination
+ * Legacy compatibility route.
+ *
+ * Canonical admin customer list is /api/admin/customers.
+ * This endpoint is retained for backwards compatibility and now requires admin auth.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { calculateCustomerSegment, type CustomerSegment } from '@/lib/customer-segments';
+import { NextRequest, NextResponse } from 'next/server'
+import { verifyAdmin } from '@/lib/auth/admin'
+import { parseAdminCustomerQuery } from '@/lib/customers/admin-customer-query'
+import { listAdminCustomers } from '@/lib/customers/admin-customer-service'
 
 export async function GET(request: NextRequest) {
+  const adminId = await verifyAdmin(request)
+  if (!adminId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
-    const { searchParams } = new URL(request.url);
-    
-    // Parse filters
-    const search = searchParams.get('search') || '';
-    const segment = searchParams.get('segment') as CustomerSegment | null;
-    const minSpent = searchParams.get('minSpent') ? parseFloat(searchParams.get('minSpent')!) : undefined;
-    const minOrders = searchParams.get('minOrders') ? parseInt(searchParams.get('minOrders')!) : undefined;
-    const sortBy = searchParams.get('sortBy') || 'createdAt';
-    const sortOrder = searchParams.get('sortOrder') || 'desc';
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
-    
-    // Build where clause - exclude admin accounts from customer list
-    const where: any = {
-      isAdmin: { not: true }
-    };
-    
-    // Search filter (name or email)
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } }
-      ];
-    }
-    
-    // Min spent filter
-    if (minSpent !== undefined) {
-      where.totalSpent = { gte: minSpent };
-    }
-    
-    // Min orders filter
-    if (minOrders !== undefined) {
-      where.totalOrders = { gte: minOrders };
-    }
-    
-    // Build order by
-    const orderBy: any = {};
-    if (sortBy === 'name') {
-      orderBy.name = sortOrder;
-    } else if (sortBy === 'email') {
-      orderBy.email = sortOrder;
-    } else if (sortBy === 'totalSpent') {
-      orderBy.totalSpent = sortOrder;
-    } else if (sortBy === 'totalOrders') {
-      orderBy.totalOrders = sortOrder;
-    } else if (sortBy === 'lastOrderDate') {
-      orderBy.lastOrderDate = sortOrder;
-    } else {
-      orderBy.createdAt = sortOrder;
-    }
-    
-    // Fetch customers with pagination
-    const [customers, total] = await Promise.all([
-      prisma.customer.findMany({
-        where,
-        orderBy,
-        skip: (page - 1) * limit,
-        take: limit,
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          phone: true,
-          totalSpent: true,
-          totalOrders: true,
-          lastOrderDate: true,
-          avgOrderValue: true,
-          createdAt: true,
-        }
-      }),
-      prisma.customer.count({ where })
-    ]);
-    
-    // Calculate segments for each customer
-    let customersWithSegments = customers.map(customer => ({
-      ...customer,
-      segment: calculateCustomerSegment(customer)
-    }));
-    
-    // Filter by segment if specified
-    if (segment) {
-      customersWithSegments = customersWithSegments.filter(c => c.segment === segment);
-    }
-    
-    // Recalculate total if segment filter applied
-    const finalTotal = segment ? customersWithSegments.length : total;
-    
+    const { searchParams } = new URL(request.url)
+    const query = parseAdminCustomerQuery(searchParams)
+    const result = await listAdminCustomers(query)
+
     return NextResponse.json({
-      customers: customersWithSegments,
+      customers: result.customers,
       pagination: {
-        page,
-        limit,
-        total: finalTotal,
-        totalPages: Math.ceil(finalTotal / limit)
-      }
-    });
-    
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: Math.ceil(result.total / result.limit),
+      },
+      tiers: result.tiers,
+      legacy: true,
+    })
   } catch (error) {
-    console.error('Error fetching customers:', error);
+    console.error('Failed to fetch legacy customers list:', error)
     return NextResponse.json(
       { error: 'Failed to fetch customers' },
       { status: 500 }
-    );
+    )
   }
 }

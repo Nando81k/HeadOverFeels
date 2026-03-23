@@ -20,6 +20,7 @@ export function NewsletterSignup({
   className = ''
 }: NewsletterSignupProps) {
   const [email, setEmail] = useState('')
+  const [honeypot, setHoneypot] = useState('')
   const [status, setStatus] = useState<Status>('idle')
   const [message, setMessage] = useState('')
 
@@ -44,6 +45,7 @@ export function NewsletterSignup({
           utmSource: urlParams.get('utm_source'),
           utmMedium: urlParams.get('utm_medium'),
           utmCampaign: urlParams.get('utm_campaign'),
+          honeypot,
         }),
       })
 
@@ -72,6 +74,15 @@ export function NewsletterSignup({
   if (variant === 'minimal') {
     return (
       <form onSubmit={handleSubmit} className={`relative ${className}`}>
+        <input
+          type="text"
+          value={honeypot}
+          onChange={(e) => setHoneypot(e.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          className="pointer-events-none absolute -left-[9999px] opacity-0"
+        />
         <input
           type="email"
           value={email}
@@ -131,6 +142,15 @@ export function NewsletterSignup({
               onSubmit={handleSubmit}
               className="flex gap-2"
             >
+              <input
+                type="text"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                className="pointer-events-none absolute -left-[9999px] opacity-0"
+              />
               <input
                 type="email"
                 value={email}
@@ -201,6 +221,15 @@ export function NewsletterSignup({
             onSubmit={handleSubmit}
             className="space-y-3"
           >
+            <input
+              type="text"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              className="pointer-events-none absolute -left-[9999px] opacity-0"
+            />
             <div className="relative">
               <input
                 type="email"

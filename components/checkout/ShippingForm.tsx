@@ -9,6 +9,7 @@ export interface ShippingFormData {
   firstName: string
   lastName: string
   email: string
+  newsletterOptIn: boolean
   phone: string
   address: string
   apartment?: string
@@ -79,7 +80,7 @@ const US_STATES = [
 ]
 
 export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
-  const handleChange = (field: keyof ShippingFormData, value: string) => {
+  const handleChange = <K extends keyof ShippingFormData>(field: K, value: ShippingFormData[K]) => {
     onChange({ ...data, [field]: value })
   }
 
@@ -113,6 +114,17 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
           placeholder="your@email.com"
           required
         />
+        <label className="mt-1 flex items-start gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={data.newsletterOptIn}
+            onChange={(event) => handleChange('newsletterOptIn', event.target.checked)}
+            className="mt-0.5 h-4 w-4 border border-black/20 text-black focus:ring-black"
+          />
+          <span className="text-xs text-black/65 leading-relaxed">
+            Keep me updated with new drops, restocks, and exclusive offers.
+          </span>
+        </label>
         <PhoneInput
           label="Phone"
           value={data.phone}

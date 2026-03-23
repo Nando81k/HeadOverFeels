@@ -36,7 +36,7 @@ export function LoyaltyTierMeter({
   compact = false,
 }: LoyaltyTierMeterProps) {
   const containerPadding = compact
-    ? 'px-2.5 py-2 md:px-3 md:py-2.5'
+    ? 'px-3 py-2.5 md:px-3.5 md:py-3'
     : 'px-3 py-3 md:px-4 md:py-4'
 
   if (isMaxTier) {
@@ -45,7 +45,7 @@ export function LoyaltyTierMeter({
         <div className={`rounded-xl border border-white/25 bg-black/20 backdrop-blur-sm ${containerPadding}`}>
           <div className="flex items-center gap-2 text-white/90">
             <Lightning size={compact ? 14 : 16} weight="fill" />
-            <span className={compact ? 'text-xs md:text-sm font-medium' : 'text-sm md:text-[15px] font-medium'}>
+            <span className={compact ? 'text-[11px] md:text-xs font-semibold uppercase tracking-[0.12em]' : 'text-sm md:text-[15px] font-medium'}>
               {maxTierLabel}
             </span>
           </div>
@@ -61,15 +61,15 @@ export function LoyaltyTierMeter({
   return (
     <div className={className}>
       <div className={`rounded-xl border border-white/25 bg-black/20 backdrop-blur-sm ${containerPadding}`}>
-        <div className={compact ? 'flex items-center justify-between gap-2 text-xs mb-1.5 md:mb-2' : 'flex items-center justify-between gap-2 text-sm mb-2.5 md:mb-3'}>
-          <span className="text-white/80 flex items-center gap-1.5 font-medium">
+        <div className={compact ? 'flex items-center justify-between gap-2 mb-2' : 'flex items-center justify-between gap-2 text-sm mb-2.5 md:mb-3'}>
+          <span className={compact ? 'text-white/80 flex items-center gap-1.5 text-[11px] md:text-xs font-semibold uppercase tracking-[0.12em]' : 'text-white/80 flex items-center gap-1.5 font-medium'}>
             <TrendUp size={compact ? 12 : 14} weight="bold" />
             {heading}
           </span>
           <motion.span
             animate={isAnimating ? { scale: [1, 1.06, 1] } : {}}
             transition={{ duration: 0.3 }}
-            className={compact ? 'text-white font-bold text-[11px] md:text-xs' : 'text-white font-bold text-xs md:text-sm'}
+            className={compact ? 'text-white font-semibold text-[11px] md:text-xs uppercase tracking-[0.12em]' : 'text-white font-bold text-xs md:text-sm'}
           >
             {label}
           </motion.span>

@@ -102,14 +102,14 @@ export async function GET(request: NextRequest) {
       // Continue with 0 annual spend if orders query fails
     }
 
-    // Find next tier
+    // Find next tier based on annual points earned (matches loyalty upgrade logic)
     const allTiers = await prisma.loyaltyTier.findMany({
-      where: { isActive: true },
-      orderBy: { minAnnualSpend: 'asc' },
+      where: { isActive: true, isInviteOnly: false },
+      orderBy: { minAnnualPoints: 'asc' },
     })
 
     const nextTier = allTiers.find(
-      (tier) => Number(tier.minAnnualSpend) > annualSpend
+      (tier) => tier.minAnnualPoints > customer.annualPointsEarned
     ) || null
 
     // Fetch recent points activity (last 10 transactions)
@@ -156,10 +156,21 @@ export async function GET(request: NextRequest) {
       tierName: customer.loyaltyTier?.name || 'Friend',
       tierSlug: customer.loyaltyTier?.slug || 'friend',
       pointMultiplier: customer.loyaltyTier?.pointMultiplier || 1,
+      annualPointsEarned: customer.annualPointsEarned,
       nextTier: nextTier ? {
         name: nextTier.name,
-        pointsNeeded: Number(nextTier.minAnnualSpend) - annualSpend,
+        slug: nextTier.slug,
+        minAnnualPoints: nextTier.minAnnualPoints,
+        pointsNeeded: Math.max(0, nextTier.minAnnualPoints - customer.annualPointsEarned),
       } : null,
+      tiers: allTiers.map((tier) => ({
+        name: tier.name,
+        slug: tier.slug,
+        minAnnualPoints: tier.minAnnualPoints,
+        pointMultiplier: tier.pointMultiplier,
+        primaryColor: tier.primaryColor,
+        secondaryColor: tier.secondaryColor,
+      })),
       activeEvent: activeEvent ? {
         name: activeEvent.eventName,
         multiplier: activeEvent.multiplier,

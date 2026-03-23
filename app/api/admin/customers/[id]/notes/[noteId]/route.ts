@@ -6,38 +6,75 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/lib/auth/auth';
+import { verifyAdmin } from '@/lib/auth/admin';
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; noteId: string }> }
+) {
+  try {
+    const userId = await verifyAdmin(request);
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id: customerId, noteId } = await params;
+    const body = await request.json();
+    const content = typeof body?.content === 'string' ? body.content.trim() : '';
+
+    if (!content) {
+      return NextResponse.json({ error: 'Content is required' }, { status: 400 });
+    }
+
+    const note = await prisma.customerNote.findFirst({
+      where: {
+        id: noteId,
+        customerId,
+      },
+      select: { id: true },
+    });
+
+    if (!note) {
+      return NextResponse.json({ error: 'Note not found' }, { status: 404 });
+    }
+
+    const updated = await prisma.customerNote.update({
+      where: { id: noteId },
+      data: {
+        content,
+        isImportant: Boolean(body?.isImportant),
+        authorId: userId,
+      },
+    });
+
+    return NextResponse.json({
+      note: {
+        id: updated.id,
+        content: updated.content,
+        authorName: updated.authorName,
+        isImportant: updated.isImportant,
+        createdAt: updated.createdAt.toISOString(),
+        updatedAt: updated.updatedAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Failed to update note:', error);
+    return NextResponse.json(
+      { error: 'Failed to update note' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; noteId: string }> }
 ) {
   try {
-    // Check admin auth using NextAuth session or cookie fallback
-    const session = await auth();
-    let userId: string | null = null;
-
-    if (session?.user?.id) {
-      userId = session.user.id;
-    } else {
-      const sessionId = request.cookies.get('auth_session')?.value;
-      if (sessionId) {
-        userId = sessionId;
-      }
-    }
+    const userId = await verifyAdmin(request);
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Verify user is an admin
-    const adminUser = await prisma.customer.findUnique({
-      where: { id: userId },
-      select: { isAdmin: true },
-    });
-
-    if (!adminUser?.isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 403 });
     }
 
     const { id: customerId, noteId } = await params;

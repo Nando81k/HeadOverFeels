@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { buildProductPlaceholderImages } from '../lib/commerce/product-placeholders';
 
 async function seedTestProducts() {
   console.log('🌱 Seeding test products...\n');
@@ -65,7 +66,15 @@ async function seedTestProducts() {
 
       if (!existing) {
         await prisma.product.create({
-          data: productData
+          data: {
+            ...productData,
+            images: JSON.stringify(
+              buildProductPlaceholderImages({
+                productName: productData.name,
+                productSlug: productData.slug,
+              })
+            ),
+          }
         });
         console.log(`✅ Created: ${productData.name}`);
       } else {

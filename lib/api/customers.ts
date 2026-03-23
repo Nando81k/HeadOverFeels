@@ -14,6 +14,14 @@ export interface CustomerListItem {
   lastOrderDate: Date | null;
   avgOrderValue: number;
   segment: string;
+  currentPoints?: number;
+  lifetimePoints?: number;
+  annualPointsEarned?: number;
+  tier?: {
+    id: string;
+    name: string;
+    slug?: string;
+  } | null;
   createdAt: Date;
 }
 
@@ -55,7 +63,8 @@ export interface CustomerListFilters {
   segment?: 'VIP' | 'New' | 'At-Risk' | 'Active' | 'Inactive';
   minSpent?: number;
   minOrders?: number;
-  sortBy?: 'name' | 'email' | 'totalSpent' | 'totalOrders' | 'lastOrderDate' | 'createdAt';
+  tier?: string;
+  sortBy?: 'name' | 'email' | 'totalSpent' | 'totalOrders' | 'lastOrderDate' | 'createdAt' | 'currentPoints';
   sortOrder?: 'asc' | 'desc';
   page?: number;
   limit?: number;
@@ -69,6 +78,11 @@ export interface PaginatedCustomerResponse {
     total: number;
     totalPages: number;
   };
+  tiers?: Array<{
+    id: string;
+    name: string;
+    slug: string;
+  }>;
 }
 
 export interface ApiResponse<T> {
@@ -90,32 +104,48 @@ export async function fetchCustomers(
   if (filters.segment) params.append('segment', filters.segment);
   if (filters.minSpent !== undefined) params.append('minSpent', filters.minSpent.toString());
   if (filters.minOrders !== undefined) params.append('minOrders', filters.minOrders.toString());
+  if (filters.tier) params.append('tier', filters.tier);
   if (filters.sortBy) params.append('sortBy', filters.sortBy);
-  if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
+  if (filters.sortOrder) params.append('sortDir', filters.sortOrder);
   if (filters.page) params.append('page', filters.page.toString());
   if (filters.limit) params.append('limit', filters.limit.toString());
   
-  const response = await fetch(`/api/customers?${params.toString()}`);
+  const response = await fetch(`/api/admin/customers?${params.toString()}`);
   
   if (!response.ok) {
     throw new Error(`Failed to fetch customers: ${response.statusText}`);
   }
   
-  return response.json();
+  const result = await response.json();
+
+  if (Array.isArray(result?.data) && result?.pagination) {
+    return {
+      customers: result.data,
+      pagination: {
+        page: result.pagination.page,
+        limit: result.pagination.limit,
+        total: result.pagination.total,
+        totalPages: result.pagination.pages,
+      },
+      tiers: result.tiers || [],
+    };
+  }
+
+  return result;
 }
 
 /**
  * Fetch single customer details
  */
 export async function fetchCustomerById(id: string): Promise<CustomerDetail> {
-  const response = await fetch(`/api/customers/${id}`);
+  const response = await fetch(`/api/admin/customers/${id}`);
   
   if (!response.ok) {
     throw new Error(`Failed to fetch customer: ${response.statusText}`);
   }
   
   const result = await response.json();
-  return result.data;
+  return result.customer || result.data;
 }
 
 /**
@@ -126,7 +156,7 @@ export async function addCustomerNote(
   content: string,
   isImportant: boolean = false
 ): Promise<ApiResponse<CustomerNote>> {
-  const response = await fetch(`/api/customers/${customerId}/notes`, {
+  const response = await fetch(`/api/admin/customers/${customerId}/notes`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -138,7 +168,17 @@ export async function addCustomerNote(
     throw new Error(`Failed to add note: ${response.statusText}`);
   }
   
-  return response.json();
+  const result = await response.json();
+
+  if (result?.note) {
+    return {
+      success: true,
+      data: result.note,
+      message: result.message,
+    };
+  }
+
+  return result;
 }
 
 /**
@@ -150,7 +190,7 @@ export async function updateCustomerNote(
   content: string,
   isImportant: boolean
 ): Promise<ApiResponse<CustomerNote>> {
-  const response = await fetch(`/api/customers/${customerId}/notes/${noteId}`, {
+  const response = await fetch(`/api/admin/customers/${customerId}/notes/${noteId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -172,7 +212,7 @@ export async function deleteCustomerNote(
   customerId: string,
   noteId: string
 ): Promise<ApiResponse<void>> {
-  const response = await fetch(`/api/customers/${customerId}/notes/${noteId}`, {
+  const response = await fetch(`/api/admin/customers/${customerId}/notes/${noteId}`, {
     method: 'DELETE',
   });
   

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
+import {
+  normalizeCollectionFeaturedFilter,
+  normalizeCollectionListSortBy,
+} from '@/lib/collections/public-collections'
 
 // Helper function to create slug from name
 function createSlug(name: string): string {
@@ -25,12 +30,55 @@ const createCollectionSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const isActive = searchParams.get('isActive') === 'true'
-    const isFeatured = searchParams.get('isFeatured') === 'true'
+    const isActiveParam = searchParams.get('isActive')
+    const isFeaturedParam = searchParams.get('isFeatured')
+    const featuredFilter = normalizeCollectionFeaturedFilter(searchParams.get('featured'))
+    const sortBy = normalizeCollectionListSortBy(searchParams.get('sortBy'))
+    const search = searchParams.get('search')?.trim() ?? ''
 
-    const where: { isActive?: boolean; isFeatured?: boolean } = {}
-    if (searchParams.has('isActive')) where.isActive = isActive
-    if (searchParams.has('isFeatured')) where.isFeatured = isFeatured
+    if (search.length > 120) {
+      return NextResponse.json(
+        { error: 'Search query is too long' },
+        { status: 400 }
+      )
+    }
+
+    const where: Prisma.CollectionWhereInput = {}
+
+    if (isActiveParam !== null) {
+      where.isActive = isActiveParam === 'true'
+    }
+
+    if (isFeaturedParam !== null) {
+      where.isFeatured = isFeaturedParam === 'true'
+    } else if (featuredFilter === 'featured') {
+      where.isFeatured = true
+    }
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search } },
+        { description: { contains: search } },
+      ]
+    }
+
+    let orderBy: Prisma.CollectionOrderByWithRelationInput[] = [
+      { sortOrder: 'asc' },
+      { createdAt: 'desc' },
+    ]
+
+    if (sortBy === 'name') {
+      orderBy = [
+        { name: 'asc' },
+        { sortOrder: 'asc' },
+      ]
+    } else if (sortBy === 'productCount') {
+      orderBy = [
+        { products: { _count: 'desc' } },
+        { sortOrder: 'asc' },
+        { name: 'asc' },
+      ]
+    }
 
     const collections = await prisma.collection.findMany({
       where,
@@ -51,10 +99,7 @@ export async function GET(request: NextRequest) {
           select: { products: true }
         }
       },
-      orderBy: [
-        { sortOrder: 'asc' },
-        { createdAt: 'desc' }
-      ]
+      orderBy
     })
 
     return NextResponse.json(collections)

@@ -25,6 +25,7 @@ import {
   Spinner,
   ArrowsClockwise,
   Gift,
+  CheckCircle,
 } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { AdminLayout } from '@/components/admin/AdminLayout';
@@ -34,6 +35,7 @@ import CarePointsSummaryCard from './CarePointsSummaryCard';
 import GiftPointsModal from './GiftPointsModal';
 import PointsHistoryTable from './PointsHistoryTable';
 import PurchaseHistoryTable from './PurchaseHistoryTable';
+import { toast } from '@/lib/toast';
 
 // Type definitions
 interface LoyaltyTier {
@@ -134,6 +136,15 @@ export function CustomerDetailClient({ customerId }: CustomerDetailClientProps) 
   const [error, setError] = useState<string | null>(null);
   const [showGiftModal, setShowGiftModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'points' | 'notes'>('overview');
+  const [showEditPanel, setShowEditPanel] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileDraft, setProfileDraft] = useState({
+    name: '',
+    phone: '',
+    birthday: '',
+    newsletter: false,
+    smsOptIn: false,
+  });
 
   // Fetch customer data
   const fetchCustomerData = useCallback(async () => {
@@ -156,9 +167,52 @@ export function CustomerDetailClient({ customerId }: CustomerDetailClientProps) 
     fetchCustomerData();
   }, [fetchCustomerData]);
 
+  useEffect(() => {
+    if (!data?.customer) return;
+    setProfileDraft({
+      name: data.customer.name || '',
+      phone: data.customer.phone || '',
+      birthday: data.customer.birthday ? data.customer.birthday.slice(0, 10) : '',
+      newsletter: data.customer.newsletter,
+      smsOptIn: data.customer.smsOptIn,
+    });
+  }, [data]);
+
   // Handle successful gift points
-  const handleGiftPointsSuccess = () => {
+  const handleGiftPointsSuccess = (newBalance: number) => {
+    toast.success('Points gifted', `New balance: ${newBalance.toLocaleString()} pts`);
     fetchCustomerData(); // Refresh data
+  };
+
+  const handleProfileSave = async () => {
+    setIsSavingProfile(true);
+    try {
+      const response = await fetch(`/api/admin/customers/${customerId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: profileDraft.name.trim() || null,
+          phone: profileDraft.phone.trim() || null,
+          birthday: profileDraft.birthday || null,
+          newsletter: profileDraft.newsletter,
+          smsOptIn: profileDraft.smsOptIn,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(result?.error || 'Failed to update customer profile');
+      }
+
+      toast.success('Customer updated');
+      setShowEditPanel(false);
+      fetchCustomerData();
+    } catch (err) {
+      console.error('Failed to update customer profile:', err);
+      toast.error('Update failed', err instanceof Error ? err.message : 'Please try again');
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   if (loading) {
@@ -250,14 +304,14 @@ export function CustomerDetailClient({ customerId }: CustomerDetailClientProps) 
             Gift Points
           </motion.button>
           
-          {/* Edit Button */}
-          <Link
-            href={`/admin/customers/${customerId}/edit`}
+          <button
+            type="button"
+            onClick={() => setShowEditPanel((prev) => !prev)}
             className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-colors text-white/80 hover:text-white"
           >
             <PencilSimple size={18} />
-            Edit
-          </Link>
+            {showEditPanel ? 'Close Edit' : 'Edit'}
+          </button>
         </div>
       }
     >
@@ -339,6 +393,95 @@ export function CustomerDetailClient({ customerId }: CustomerDetailClientProps) 
             />
           </div>
         </div>
+
+        {showEditPanel && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-4"
+          >
+            <div className="flex items-center gap-2">
+              <CheckCircle size={16} className="text-white/60" />
+              <p className="text-sm font-medium text-white">Edit profile details</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="text-xs text-white/50 space-y-1">
+                <span className="uppercase tracking-[0.14em]">Name</span>
+                <input
+                  value={profileDraft.name}
+                  onChange={(event) => setProfileDraft((prev) => ({ ...prev, name: event.target.value }))}
+                  className="w-full h-10 px-3 rounded-lg border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:border-white/30"
+                  placeholder="Customer name"
+                />
+              </label>
+
+              <label className="text-xs text-white/50 space-y-1">
+                <span className="uppercase tracking-[0.14em]">Phone</span>
+                <input
+                  value={profileDraft.phone}
+                  onChange={(event) => setProfileDraft((prev) => ({ ...prev, phone: event.target.value }))}
+                  className="w-full h-10 px-3 rounded-lg border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:border-white/30"
+                  placeholder="+1"
+                />
+              </label>
+
+              <label className="text-xs text-white/50 space-y-1">
+                <span className="uppercase tracking-[0.14em]">Birthday</span>
+                <input
+                  type="date"
+                  value={profileDraft.birthday}
+                  onChange={(event) => setProfileDraft((prev) => ({ ...prev, birthday: event.target.value }))}
+                  className="w-full h-10 px-3 rounded-lg border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:border-white/30"
+                />
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white/70">
+                  <input
+                    type="checkbox"
+                    checked={profileDraft.newsletter}
+                    onChange={(event) =>
+                      setProfileDraft((prev) => ({ ...prev, newsletter: event.target.checked }))
+                    }
+                    className="rounded border-white/20 bg-white/5 text-[#FF3131]"
+                  />
+                  Newsletter
+                </label>
+                <label className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white/70">
+                  <input
+                    type="checkbox"
+                    checked={profileDraft.smsOptIn}
+                    onChange={(event) =>
+                      setProfileDraft((prev) => ({ ...prev, smsOptIn: event.target.checked }))
+                    }
+                    className="rounded border-white/20 bg-white/5 text-[#FF3131]"
+                  />
+                  SMS Opt-in
+                </label>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowEditPanel(false)}
+                className="h-9 px-4 rounded-md border border-white/10 text-sm text-white/65 hover:text-white hover:bg-white/10"
+                disabled={isSavingProfile}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleProfileSave}
+                disabled={isSavingProfile}
+                className="h-9 px-4 rounded-md bg-[#FF3131] text-white text-sm hover:bg-[#ff4a4a] disabled:opacity-50"
+              >
+                {isSavingProfile ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </motion.div>
+        )}
 
         {/* Subscription Status */}
         <div className="mt-6 pt-6 border-t border-white/10 flex gap-4">
@@ -622,6 +765,8 @@ function CustomerNotesSection({ notes, customerId, onNotesUpdated }: CustomerNot
   const [newNote, setNewNote] = useState('');
   const [isImportant, setIsImportant] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmDeleteNoteId, setConfirmDeleteNoteId] = useState<string | null>(null);
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
 
   const handleSubmitNote = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -641,28 +786,40 @@ function CustomerNotesSection({ notes, customerId, onNotesUpdated }: CustomerNot
       if (response.ok) {
         setNewNote('');
         setIsImportant(false);
+        toast.success('Note added');
         onNotesUpdated();
+      } else {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || 'Failed to add note');
       }
     } catch (error) {
       console.error('Failed to add note:', error);
+      toast.error('Failed to add note', error instanceof Error ? error.message : 'Please try again');
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDeleteNote = async (noteId: string) => {
-    if (!confirm('Delete this note?')) return;
-
+    setDeletingNoteId(noteId);
     try {
       const response = await fetch(`/api/admin/customers/${customerId}/notes/${noteId}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
+        toast.success('Note deleted');
+        setConfirmDeleteNoteId(null);
         onNotesUpdated();
+      } else {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || 'Failed to delete note');
       }
     } catch (error) {
       console.error('Failed to delete note:', error);
+      toast.error('Failed to delete note', error instanceof Error ? error.message : 'Please try again');
+    } finally {
+      setDeletingNoteId(null);
     }
   };
 
@@ -727,12 +884,36 @@ function CustomerNotesSection({ notes, customerId, onNotesUpdated }: CustomerNot
                 </p>
               </div>
               <button
-                onClick={() => handleDeleteNote(note.id)}
+                onClick={() =>
+                  setConfirmDeleteNoteId((current) => (current === note.id ? null : note.id))
+                }
+                aria-label="Delete note"
                 className="p-1.5 text-white/40 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
               >
                 <Trash size={16} />
               </button>
             </div>
+
+            {confirmDeleteNoteId === note.id && (
+              <div className="mt-3 flex items-center justify-end gap-2 border-t border-white/10 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteNoteId(null)}
+                  className="h-8 px-3 rounded-md border border-white/10 text-xs text-white/65 hover:text-white hover:bg-white/10"
+                  disabled={deletingNoteId === note.id}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteNote(note.id)}
+                  className="h-8 px-3 rounded-md border border-red-400/30 bg-red-500/15 text-xs text-red-200 hover:bg-red-500/25"
+                  disabled={deletingNoteId === note.id}
+                >
+                  {deletingNoteId === note.id ? 'Deleting...' : 'Delete Note'}
+                </button>
+              </div>
+            )}
           </motion.div>
         ))}
         {notes.length === 0 && (

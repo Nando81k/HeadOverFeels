@@ -1,27 +1,49 @@
 'use client'
 
-import { useState, useEffect, useCallback, FormEvent } from 'react'
-import Link from 'next/link'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { productApi, Product } from '@/lib/api/products'
-import { RestockModal } from '@/components/admin/RestockModal'
-import { ProductSlideOver } from '@/components/admin/ProductSlideOver'
-import { 
-  Package, Plus, MagnifyingGlass, Funnel, TrendUp, CurrencyDollar, 
-  CaretUp, CaretDown, ChartLineUp, Percent, ShoppingCart, X, ArrowsDownUp,
-  PencilSimple
+import Link from 'next/link'
+import {
+  CaretDown,
+  CaretUp,
+  ChartLineUp,
+  CurrencyDollar,
+  Funnel,
+  MagnifyingGlass,
+  Package,
+  PencilSimple,
+  Percent,
+  Plus,
+  ShoppingCart,
+  TrendUp,
+  X,
 } from '@phosphor-icons/react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
-import { StatsGridSkeleton, TableSkeleton } from '@/components/ui/skeleton'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { toast } from '@/lib/toast'
-import { InlineEdit } from '@/components/ui/InlineEdit'
 import { ProductMobileCard } from '@/components/admin/ProductMobileCard'
-import { CheckSquare, Square } from '@phosphor-icons/react'
+import { ProductSlideOver } from '@/components/admin/ProductSlideOver'
+import { RestockModal } from '@/components/admin/RestockModal'
+import {
+  buildVariantInventoryUpdatePayload,
+  filterProducts,
+  formatVariantLabel,
+  getActiveFilterChips,
+  getProductInventory,
+  getProductPrimaryImage,
+  getQuickFilterFromState,
+  getStateFromQuickFilter,
+  ProductManagementSortDirection,
+  ProductManagementSortField,
+  ProductQuickFilter,
+  sortProducts,
+} from '@/components/admin/products/product-management'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { InlineEdit } from '@/components/ui/InlineEdit'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { StatsGridSkeleton, TableSkeleton } from '@/components/ui/skeleton'
+import { productApi, Product } from '@/lib/api/products'
+import { toast } from '@/lib/toast'
 
-// Financial data types
 interface ProductFinancial {
   productId: string
   productName: string
@@ -52,58 +74,113 @@ interface FinancialSummary {
   lowMarginCount: number
 }
 
-type SortField = 'name' | 'price' | 'inventory' | 'revenue' | 'margin' | 'unitsSold'
-type SortDirection = 'asc' | 'desc'
+interface ProductStats {
+  total: number
+  active: number
+  draft: number
+  lowStock: number
+}
+
+const QUICK_FILTERS: Array<{ key: ProductQuickFilter; label: string }> = [
+  { key: 'all', label: 'All' },
+  { key: 'active', label: 'Active' },
+  { key: 'draft', label: 'Draft' },
+  { key: 'lowStock', label: 'Low Stock' },
+  { key: 'outOfStock', label: 'Out of Stock' },
+]
+
+const SORT_OPTIONS: Array<{ value: ProductManagementSortField; label: string }> = [
+  { value: 'name', label: 'Name' },
+  { value: 'price', label: 'Price' },
+  { value: 'inventory', label: 'Inventory' },
+  { value: 'revenue', label: 'Revenue' },
+  { value: 'margin', label: 'Margin' },
+  { value: 'unitsSold', label: 'Units Sold' },
+]
+
+function deriveStats(products: Product[]): ProductStats {
+  const active = products.filter((product) => product.isActive).length
+  const draft = products.length - active
+  const lowStock = products.filter((product) => getProductInventory(product) < 10).length
+
+  return {
+    total: products.length,
+    active,
+    draft,
+    lowStock,
+  }
+}
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  const [restockModal, setRestockModal] = useState<{
-    isOpen: boolean
-    product: Product | null
-  }>({ isOpen: false, product: null })
-  
-  // Product slide-over state for inline add/edit
-  const [slideOver, setSlideOver] = useState<{
-    isOpen: boolean
-    product: Product | null
-  }>({ isOpen: false, product: null })
-  
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<ProductStats>({
     total: 0,
     active: 0,
     draft: 0,
-    lowStock: 0
+    lowStock: 0,
   })
-  
-  // Bulk actions state
+
+  const [restockModal, setRestockModal] = useState<{ isOpen: boolean; product: Product | null }>({
+    isOpen: false,
+    product: null,
+  })
+  const [slideOver, setSlideOver] = useState<{ isOpen: boolean; product: Product | null }>({
+    isOpen: false,
+    product: null,
+  })
+  const [expandedStockProductId, setExpandedStockProductId] = useState<string | null>(null)
+
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
 
-  // Financial data state
   const [financials, setFinancials] = useState<Map<string, ProductFinancial>>(new Map())
   const [financialSummary, setFinancialSummary] = useState<FinancialSummary | null>(null)
   const [financialPeriod, setFinancialPeriod] = useState<'7' | '30' | '90'>('30')
   const [financialLoading, setFinancialLoading] = useState(false)
+  const [showPerformanceSnapshot, setShowPerformanceSnapshot] = useState(false)
 
-  // Search and filter state
   const [searchQuery, setSearchQuery] = useState('')
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  const [quickFilter, setQuickFilter] = useState<ProductQuickFilter>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'draft'>('all')
   const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'out' | 'inStock'>('all')
   const [marginFilter, setMarginFilter] = useState<'all' | 'low' | 'healthy' | 'high'>('all')
 
-  // Sorting state
-  const [sortField, setSortField] = useState<SortField>('name')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [sortField, setSortField] = useState<ProductManagementSortField>('name')
+  const [sortDirection, setSortDirection] = useState<ProductManagementSortDirection>('asc')
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setAppliedSearchQuery(searchQuery.trim())
+    }, 250)
+
+    return () => clearTimeout(timeout)
+  }, [searchQuery])
+
+  const loadProducts = useCallback(async () => {
+    setLoading(true)
+
+    try {
+      const result = await productApi.getAll({ limit: 50 })
+      if (result.data?.data) {
+        setProducts(result.data.data)
+        setStats(deriveStats(result.data.data))
+      }
+    } catch (error) {
+      console.error('Failed to load products:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   const loadFinancials = useCallback(async () => {
     setFinancialLoading(true)
     try {
       const response = await fetch(`/api/admin/products/financial?period=${financialPeriod}`)
       const result = await response.json()
-      
+
       if (result.success && result.data) {
         const financialMap = new Map<string, ProductFinancial>()
         for (const product of result.data.products) {
@@ -122,193 +199,73 @@ export default function ProductsPage() {
   useEffect(() => {
     loadProducts()
     loadFinancials()
-  }, [loadFinancials])
+  }, [loadProducts, loadFinancials])
 
-  const loadProducts = async () => {
-    setLoading(true)
-    try {
-      const result = await productApi.getAll({ limit: 50 })
-      if (result.data && result.data.data) {
-        setProducts(result.data.data)
-        
-        // Calculate stats
-        const active = result.data.data.filter(p => p.isActive).length
-        const draft = result.data.data.filter(p => !p.isActive).length
-        const lowStock = result.data.data.filter(p => {
-          const totalInventory = p.variants.reduce((sum, v) => sum + v.inventory, 0)
-          return totalInventory < 10
-        }).length
-        
-        setStats({
-          total: result.data.data.length,
-          active,
-          draft,
-          lowStock
-        })
+  useEffect(() => {
+    setQuickFilter(getQuickFilterFromState(statusFilter, stockFilter))
+  }, [statusFilter, stockFilter])
+
+  const filteredProducts = useMemo(
+    () =>
+      filterProducts(products, financials, {
+        search: appliedSearchQuery,
+        status: statusFilter,
+        stock: stockFilter,
+        margin: marginFilter,
+      }),
+    [products, financials, appliedSearchQuery, statusFilter, stockFilter, marginFilter]
+  )
+
+  const sortedProducts = useMemo(
+    () => sortProducts(filteredProducts, financials, sortField, sortDirection),
+    [filteredProducts, financials, sortField, sortDirection]
+  )
+
+  const filteredProductIds = useMemo(() => new Set(sortedProducts.map((product) => product.id)), [sortedProducts])
+  const activeChips = useMemo(
+    () =>
+      getActiveFilterChips({
+        search: appliedSearchQuery,
+        status: statusFilter,
+        stock: stockFilter,
+        margin: marginFilter,
+      }),
+    [appliedSearchQuery, statusFilter, stockFilter, marginFilter]
+  )
+
+  useEffect(() => {
+    setSelectedProducts((previous) => {
+      const next = new Set(Array.from(previous).filter((id) => filteredProductIds.has(id)))
+      if (next.size === previous.size) {
+        return previous
       }
-    } catch (error) {
-      console.error('Failed to load products:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+      return next
+    })
+  }, [filteredProductIds])
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) {
+  const hasActiveFilters = activeChips.length > 0
+
+  const toggleSelectAll = () => {
+    if (selectedProducts.size === sortedProducts.length) {
+      setSelectedProducts(new Set())
       return
     }
 
-    // Optimistically remove from UI immediately
-    const deletedProduct = products.find(p => p.id === id)
-    setProducts(prevProducts => prevProducts.filter(p => p.id !== id))
-    
-    // Show loading toast
-    const loadingToast = toast.loading('Deleting product...')
-    
-    // Update stats optimistically
-    if (deletedProduct) {
-      setStats(prevStats => {
-        const totalInventory = deletedProduct.variants.reduce((sum, v) => sum + v.inventory, 0)
-        return {
-          total: prevStats.total - 1,
-          active: prevStats.active - (deletedProduct.isActive ? 1 : 0),
-          draft: prevStats.draft - (!deletedProduct.isActive ? 1 : 0),
-          lowStock: prevStats.lowStock - (totalInventory < 10 ? 1 : 0)
-        }
-      })
-    }
-    
-    // Delete from server in background
-    const result = await productApi.delete(id)
-    
-    toast.dismiss(loadingToast)
-    
-    if (result.error) {
-      // Show user-friendly error message
-      if (result.error.includes('existing orders')) {
-        toast.error('Cannot delete product', 'This product has existing orders and will be marked as inactive instead.')
-        // Mark as inactive instead
-        await productApi.update(id, { isActive: false })
-      } else {
-        toast.error('Failed to delete product', result.error)
-      }
-      // Reload products to revert optimistic update and show correct state
-      loadProducts()
-    } else {
-      toast.success('Product deleted successfully')
-    }
-  }
-
-  const toggleStatus = async (product: Product) => {
-    const newStatus = !product.isActive
-    const loadingToast = toast.loading(`${newStatus ? 'Activating' : 'Deactivating'} product...`)
-    
-    const result = await productApi.update(product.id, {
-      isActive: newStatus
-    })
-    
-    toast.dismiss(loadingToast)
-    
-    if (result.error) {
-      toast.error('Failed to update product', result.error)
-    } else {
-      toast.success(`Product ${newStatus ? 'activated' : 'deactivated'} successfully`)
-      loadProducts() // Reload products
-    }
-  }
-
-  // Bulk action handlers
-  const toggleSelectAll = () => {
-    if (selectedProducts.size === products.length) {
-      setSelectedProducts(new Set())
-    } else {
-      setSelectedProducts(new Set(products.map(p => p.id)))
-    }
+    setSelectedProducts(new Set(sortedProducts.map((product) => product.id)))
   }
 
   const toggleSelectProduct = (productId: string) => {
-    const newSelected = new Set(selectedProducts)
-    if (newSelected.has(productId)) {
-      newSelected.delete(productId)
-    } else {
-      newSelected.add(productId)
-    }
-    setSelectedProducts(newSelected)
-  }
-
-  const handleBulkDelete = async () => {
-    if (selectedProducts.size === 0) return
-    
-    if (!confirm(`Are you sure you want to delete ${selectedProducts.size} product(s)?`)) {
-      return
-    }
-
-    setBulkActionLoading(true)
-    const loadingToast = toast.loading(`Deleting ${selectedProducts.size} products...`)
-    
-    let successCount = 0
-    let errorCount = 0
-
-    for (const productId of selectedProducts) {
-      const result = await productApi.delete(productId)
-      if (result.error) {
-        errorCount++
+    setSelectedProducts((previous) => {
+      const next = new Set(previous)
+      if (next.has(productId)) {
+        next.delete(productId)
       } else {
-        successCount++
+        next.add(productId)
       }
-    }
-
-    toast.dismiss(loadingToast)
-    setBulkActionLoading(false)
-    setSelectedProducts(new Set())
-    
-    if (successCount > 0) {
-      toast.success('Bulk delete completed', `${successCount} product(s) deleted successfully${errorCount > 0 ? `, ${errorCount} failed` : ''}`)
-    } else {
-      toast.error('Bulk delete failed', 'Could not delete any products')
-    }
-    
-    loadProducts()
+      return next
+    })
   }
 
-  const handleBulkStatusChange = async (isActive: boolean) => {
-    if (selectedProducts.size === 0) return
-
-    setBulkActionLoading(true)
-    const loadingToast = toast.loading(`${isActive ? 'Activating' : 'Deactivating'} ${selectedProducts.size} products...`)
-    
-    let successCount = 0
-    let errorCount = 0
-
-    for (const productId of selectedProducts) {
-      const result = await productApi.update(productId, { isActive })
-      if (result.error) {
-        errorCount++
-      } else {
-        successCount++
-      }
-    }
-
-    toast.dismiss(loadingToast)
-    setBulkActionLoading(false)
-    setSelectedProducts(new Set())
-    
-    if (successCount > 0) {
-      toast.success('Bulk update completed', `${successCount} product(s) updated${errorCount > 0 ? `, ${errorCount} failed` : ''}`)
-    } else {
-      toast.error('Bulk update failed', 'Could not update any products')
-    }
-    
-    loadProducts()
-  }
-
-  // Search submit handler
-  const handleSearchSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    setAppliedSearchQuery(searchQuery)
-  }
-
-  // Clear all filters
   const clearAllFilters = () => {
     setSearchQuery('')
     setAppliedSearchQuery('')
@@ -317,517 +274,570 @@ export default function ProductsPage() {
     setMarginFilter('all')
   }
 
-  // Sorting handler
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortField(field)
-      setSortDirection('asc')
+  const handleQuickFilter = (key: ProductQuickFilter) => {
+    setQuickFilter(key)
+    const mapped = getStateFromQuickFilter(key)
+    setStatusFilter(mapped.status)
+    setStockFilter(mapped.stock)
+  }
+
+  const removeFilterChip = (key: 'search' | 'status' | 'stock' | 'margin') => {
+    if (key === 'search') {
+      setSearchQuery('')
+      setAppliedSearchQuery('')
+      return
     }
+    if (key === 'status') {
+      setStatusFilter('all')
+      return
+    }
+    if (key === 'stock') {
+      setStockFilter('all')
+      return
+    }
+    setMarginFilter('all')
   }
 
-  // Get sort icon
-  const getSortIcon = (field: SortField) => {
-    if (sortField !== field) return <ArrowsDownUp size={12} className="ml-1 text-white/30" />
-    return sortDirection === 'asc' 
-      ? <CaretUp size={12} weight="fill" className="ml-1 text-[#FF3131]" />
-      : <CaretDown size={12} weight="fill" className="ml-1 text-[#FF3131]" />
+  const toggleSortDirection = () => {
+    setSortDirection((previous) => (previous === 'asc' ? 'desc' : 'asc'))
   }
 
-  // Filtered and sorted products
-  const filteredProducts = products
-    .filter(product => {
-      // Search filter
-      if (appliedSearchQuery) {
-        const query = appliedSearchQuery.toLowerCase()
-        const matchesName = product.name.toLowerCase().includes(query)
-        const matchesSlug = product.slug.toLowerCase().includes(query)
-        if (!matchesName && !matchesSlug) return false
-      }
-      
-      // Status filter
-      if (statusFilter === 'active' && !product.isActive) return false
-      if (statusFilter === 'draft' && product.isActive) return false
-      
-      // Stock filter
-      const totalInventory = product.variants.reduce((sum, v) => sum + v.inventory, 0)
-      if (stockFilter === 'out' && totalInventory > 0) return false
-      if (stockFilter === 'low' && (totalInventory === 0 || totalInventory > 10)) return false
-      if (stockFilter === 'inStock' && totalInventory <= 10) return false
-      
-      // Margin filter
-      const financial = financials.get(product.id)
-      if (marginFilter !== 'all' && financial) {
-        const margin = financial.marginPercent
-        if (marginFilter === 'low' && margin >= 20) return false
-        if (marginFilter === 'healthy' && (margin < 20 || margin >= 40)) return false
-        if (marginFilter === 'high' && margin < 40) return false
-      }
-      
-      return true
-    })
-    .sort((a, b) => {
-      const direction = sortDirection === 'asc' ? 1 : -1
-      const finA = financials.get(a.id)
-      const finB = financials.get(b.id)
-      
-      switch (sortField) {
-        case 'name':
-          return direction * a.name.localeCompare(b.name)
-        case 'price':
-          return direction * (a.price - b.price)
-        case 'inventory':
-          const invA = a.variants.reduce((sum, v) => sum + v.inventory, 0)
-          const invB = b.variants.reduce((sum, v) => sum + v.inventory, 0)
-          return direction * (invA - invB)
-        case 'revenue':
-          return direction * ((finA?.revenue || 0) - (finB?.revenue || 0))
-        case 'margin':
-          return direction * ((finA?.marginPercent || 0) - (finB?.marginPercent || 0))
-        case 'unitsSold':
-          return direction * ((finA?.unitsSold || 0) - (finB?.unitsSold || 0))
-        default:
-          return 0
-      }
-    })
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this product?')) {
+      return
+    }
 
-  // Check if any filters are active
-  const hasActiveFilters = appliedSearchQuery || statusFilter !== 'all' || stockFilter !== 'all' || marginFilter !== 'all'
+    const previousProducts = products
+    const nextProducts = products.filter((product) => product.id !== id)
+    setProducts(nextProducts)
+    setStats(deriveStats(nextProducts))
 
-  // Inline edit handlers
-  const handleUpdatePrice = async (productId: string, newPrice: string) => {
-    const price = parseFloat(newPrice)
-    const loadingToast = toast.loading('Updating price...')
-    
-    const result = await productApi.update(productId, { price })
-    
+    const loadingToast = toast.loading('Deleting product...')
+    const result = await productApi.delete(id)
     toast.dismiss(loadingToast)
-    
+
     if (result.error) {
+      setProducts(previousProducts)
+      setStats(deriveStats(previousProducts))
+
+      if (result.error.includes('existing orders')) {
+        toast.error('Cannot delete product', 'This product has existing orders and will be marked as inactive instead.')
+        await productApi.update(id, { isActive: false })
+      } else {
+        toast.error('Failed to delete product', result.error)
+      }
+      return
+    }
+
+    toast.success('Product deleted successfully')
+    setSelectedProducts((previous) => {
+      const next = new Set(previous)
+      next.delete(id)
+      return next
+    })
+  }
+
+  const toggleStatus = async (product: Product) => {
+    const nextStatus = !product.isActive
+    const previousProducts = products
+
+    setProducts((previous) => {
+      const next = previous.map((item) => (item.id === product.id ? { ...item, isActive: nextStatus } : item))
+      setStats(deriveStats(next))
+      return next
+    })
+
+    const loadingToast = toast.loading(`${nextStatus ? 'Activating' : 'Deactivating'} product...`)
+    const result = await productApi.update(product.id, { isActive: nextStatus })
+    toast.dismiss(loadingToast)
+
+    if (result.error) {
+      setProducts(previousProducts)
+      setStats(deriveStats(previousProducts))
+      toast.error('Failed to update product', result.error)
+      return
+    }
+
+    toast.success(`Product ${nextStatus ? 'activated' : 'deactivated'} successfully`)
+  }
+
+  const handleUpdatePrice = async (productId: string, newPrice: string) => {
+    const parsedPrice = parseFloat(newPrice)
+    if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+      throw new Error('Invalid price')
+    }
+
+    const previousProducts = products
+    setProducts((previous) => previous.map((product) => (product.id === productId ? { ...product, price: parsedPrice } : product)))
+
+    const loadingToast = toast.loading('Updating price...')
+    const result = await productApi.update(productId, { price: parsedPrice })
+    toast.dismiss(loadingToast)
+
+    if (result.error) {
+      setProducts(previousProducts)
       toast.error('Failed to update price', result.error)
       throw new Error(result.error)
-    } else {
-      toast.success('Price updated successfully')
-      loadProducts()
     }
+
+    toast.success('Price updated successfully')
   }
 
   const handleUpdateInventory = async (productId: string, variantId: string, newInventory: string) => {
     const inventory = parseInt(newInventory, 10)
-    const loadingToast = toast.loading('Updating inventory...')
-    
-    try {
-      // Update via product API
-      const product = products.find(p => p.id === productId)
-      if (!product) throw new Error('Product not found')
-      
-      const updatedVariants = product.variants.map(v => 
-        v.id === variantId 
-          ? { ...v, inventory }
-          : v
-      )
-      
-      const result = await productApi.update(productId, { 
-        variants: updatedVariants 
-      })
-      
-      toast.dismiss(loadingToast)
-      
-      if (result.error) {
-        toast.error('Failed to update inventory', result.error)
-        throw new Error(result.error)
-      } else {
-        toast.success('Inventory updated successfully')
-        loadProducts()
-      }
-    } catch (error) {
-      toast.dismiss(loadingToast)
-      toast.error('Failed to update inventory', 'Please try again')
-      throw error
+    if (Number.isNaN(inventory) || inventory < 0) {
+      throw new Error('Invalid inventory')
     }
+
+    const product = products.find((item) => item.id === productId)
+    if (!product) {
+      throw new Error('Product not found')
+    }
+
+    const previousProducts = products
+    const updatedVariants = buildVariantInventoryUpdatePayload(product.variants, variantId, inventory)
+    const optimisticProducts = products.map((item) =>
+      item.id === productId
+        ? {
+            ...item,
+            variants: updatedVariants,
+          }
+        : item
+    )
+
+    setProducts(optimisticProducts)
+    setStats(deriveStats(optimisticProducts))
+
+    const loadingToast = toast.loading('Updating inventory...')
+    const result = await productApi.update(productId, { variants: updatedVariants })
+    toast.dismiss(loadingToast)
+
+    if (result.error) {
+      setProducts(previousProducts)
+      setStats(deriveStats(previousProducts))
+      toast.error('Failed to update inventory', result.error)
+      throw new Error(result.error)
+    }
+
+    toast.success('Inventory updated successfully')
+  }
+
+  const handleBulkStatusChange = async (isActive: boolean) => {
+    if (selectedProducts.size === 0) {
+      return
+    }
+
+    setBulkActionLoading(true)
+    const loadingToast = toast.loading(`${isActive ? 'Activating' : 'Deactivating'} ${selectedProducts.size} products...`)
+
+    let successCount = 0
+    let errorCount = 0
+
+    for (const productId of selectedProducts) {
+      const result = await productApi.update(productId, { isActive })
+      if (result.error) {
+        errorCount += 1
+      } else {
+        successCount += 1
+      }
+    }
+
+    toast.dismiss(loadingToast)
+    setBulkActionLoading(false)
+    setSelectedProducts(new Set())
+
+    if (successCount > 0) {
+      toast.success('Bulk update completed', `${successCount} product(s) updated${errorCount > 0 ? `, ${errorCount} failed` : ''}`)
+      loadProducts()
+      return
+    }
+
+    toast.error('Bulk update failed', 'Could not update any products')
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedProducts.size === 0) {
+      return
+    }
+
+    if (!confirm(`Are you sure you want to delete ${selectedProducts.size} product(s)?`)) {
+      return
+    }
+
+    setBulkActionLoading(true)
+    const loadingToast = toast.loading(`Deleting ${selectedProducts.size} products...`)
+
+    let successCount = 0
+    let errorCount = 0
+
+    for (const productId of selectedProducts) {
+      const result = await productApi.delete(productId)
+      if (result.error) {
+        errorCount += 1
+      } else {
+        successCount += 1
+      }
+    }
+
+    toast.dismiss(loadingToast)
+    setBulkActionLoading(false)
+    setSelectedProducts(new Set())
+
+    if (successCount > 0) {
+      toast.success('Bulk delete completed', `${successCount} product(s) deleted${errorCount > 0 ? `, ${errorCount} failed` : ''}`)
+      loadProducts()
+      return
+    }
+
+    toast.error('Bulk delete failed', 'Could not delete any products')
   }
 
   return (
     <>
       <AdminLayout
         title="Product Management"
-        subtitle="Manage your streetwear products, inventory, and pricing"
+        subtitle="Operator-focused catalog and inventory control"
         headerActions={
-          <Button 
-            onClick={() => setSlideOver({ isOpen: true, product: null })}
-            className="bg-[#FF3131] hover:bg-[#E02828]"
-          >
+          <Button onClick={() => setSlideOver({ isOpen: true, product: null })} className="bg-[#FF3131] hover:bg-[#E02828]">
             <Plus size={16} weight="bold" className="mr-2" />
             Add Product
           </Button>
         }
       >
-      {/* Stats Grid - Product & Financial Metrics */}
-      {loading ? (
-        <StatsGridSkeleton count={8} />
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-4 mb-4 sm:mb-8">
-          {/* Product Stats */}
-          <Card className="col-span-1">
-            <CardHeader className="pb-1 sm:pb-2 pt-3 sm:pt-4 px-3 sm:px-4">
-              <CardTitle className="text-[9px] sm:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 flex items-center gap-1">
-                <Package size={10} className="sm:w-3 sm:h-3" />
-                Total
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
-              <div className="text-xl sm:text-2xl font-bold text-white">{stats.total}</div>
-              <p className="text-[10px] sm:text-xs text-white/40">Products</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="col-span-1">
-            <CardHeader className="pb-1 sm:pb-2 pt-3 sm:pt-4 px-3 sm:px-4">
-              <CardTitle className="text-[9px] sm:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Active</CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
-              <div className="text-xl sm:text-2xl font-bold text-emerald-400">{stats.active}</div>
-              <p className="text-[10px] sm:text-xs text-white/40">Published</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="col-span-1">
-            <CardHeader className="pb-1 sm:pb-2 pt-3 sm:pt-4 px-3 sm:px-4">
-              <CardTitle className="text-[9px] sm:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Drafts</CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
-              <div className="text-xl sm:text-2xl font-bold text-white/70">{stats.draft}</div>
-              <p className="text-[10px] sm:text-xs text-white/40">Unpublished</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="col-span-1">
-            <CardHeader className="pb-1 sm:pb-2 pt-3 sm:pt-4 px-3 sm:px-4">
-              <CardTitle className="text-[9px] sm:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Low Stock</CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
-              <div className="text-xl sm:text-2xl font-bold text-amber-400">{stats.lowStock}</div>
-              <p className="text-[10px] sm:text-xs text-white/40">Need restock</p>
-            </CardContent>
-          </Card>
-
-          {/* Financial Stats */}
-          <Card className="col-span-1">
-            <CardHeader className="pb-1 sm:pb-2 pt-3 sm:pt-4 px-3 sm:px-4">
-              <CardTitle className="text-[9px] sm:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 flex items-center gap-1">
-                <CurrencyDollar size={10} className="sm:w-3 sm:h-3" />
-                Revenue
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
-              <div className="text-xl sm:text-2xl font-bold text-emerald-400">
-                ${financialLoading ? '...' : ((financialSummary?.totalRevenue || 0) / 1000).toFixed(1)}k
-              </div>
-              <p className="text-[10px] sm:text-xs text-white/40">{financialPeriod}d period</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="col-span-1">
-            <CardHeader className="pb-1 sm:pb-2 pt-3 sm:pt-4 px-3 sm:px-4">
-              <CardTitle className="text-[9px] sm:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 flex items-center gap-1">
-                <ShoppingCart size={10} className="sm:w-3 sm:h-3" />
-                Sold
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
-              <div className="text-xl sm:text-2xl font-bold text-blue-400">
-                {financialLoading ? '...' : (financialSummary?.totalUnitsSold || 0)}
-              </div>
-              <p className="text-[10px] sm:text-xs text-white/40">Units</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="col-span-1">
-            <CardHeader className="pb-1 sm:pb-2 pt-3 sm:pt-4 px-3 sm:px-4">
-              <CardTitle className="text-[9px] sm:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 flex items-center gap-1">
-                <Percent size={10} className="sm:w-3 sm:h-3" />
-                Avg Margin
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
-              <div className={`text-xl sm:text-2xl font-bold ${
-                (financialSummary?.avgMarginPercent || 0) >= 40 ? 'text-emerald-400' :
-                (financialSummary?.avgMarginPercent || 0) >= 20 ? 'text-amber-400' : 'text-red-400'
-              }`}>
-                {financialLoading ? '...' : `${(financialSummary?.avgMarginPercent || 0).toFixed(0)}%`}
-              </div>
-              <p className="text-[10px] sm:text-xs text-white/40">Gross</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="col-span-1">
-            <CardHeader className="pb-1 sm:pb-2 pt-3 sm:pt-4 px-3 sm:px-4">
-              <CardTitle className="text-[9px] sm:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 flex items-center gap-1">
-                <TrendUp size={10} className="sm:w-3 sm:h-3" />
-                Best Seller
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
-              <div className="text-xs sm:text-sm font-bold text-[#FF3131] truncate" title={financialSummary?.bestSeller?.productName}>
-                {financialLoading ? '...' : (financialSummary?.bestSeller?.productName?.split(' ')[0] || 'N/A')}
-              </div>
-              <p className="text-[10px] sm:text-xs text-white/40">
-                {financialLoading ? '' : `$${(financialSummary?.bestSeller?.revenue || 0).toFixed(0)}`}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Period Selector */}
-      <div className="flex items-center gap-2 mb-4 sm:mb-6">
-        <span className="text-[9px] sm:text-[10px] font-medium text-white/40 uppercase tracking-[0.15em]">Period:</span>
-        <div className="flex bg-white/5 rounded-lg p-0.5 sm:p-1">
-          {(['7', '30', '90'] as const).map((period) => (
-            <button
-              key={period}
-              onClick={() => setFinancialPeriod(period)}
-              className={`px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-medium rounded transition-colors ${
-                financialPeriod === period
-                  ? 'bg-[#FF3131] text-white'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              {period}d
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Search and Filter Bar */}
-      <Card className="mb-4 sm:mb-6">
-        <CardContent className="p-3 sm:p-4">
-          <div className="flex flex-col gap-3 sm:gap-4">
-            {/* Search Form */}
-            <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-2">
-              <div className="relative flex-1">
-                <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 sm:w-[18px] sm:h-[18px]" />
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg py-2 sm:py-2.5 pl-9 sm:pl-10 pr-4 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-[#FF3131]/50 focus:ring-1 focus:ring-[#FF3131]/50"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  type="submit"
-                  className="flex-1 sm:flex-none bg-[#FF3131] hover:bg-[#E02828] px-4 sm:px-6 text-sm"
-                >
-                  Search
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`flex-1 sm:flex-none bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-sm ${
-                    hasActiveFilters ? 'text-[#FF3131] border-[#FF3131]/30' : 'text-white/70'
-                  }`}
-                >
-                  <Funnel size={14} weight={hasActiveFilters ? 'fill' : 'regular'} className="mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Filters</span>
-                  {hasActiveFilters && (
-                    <span className="ml-1 sm:ml-2 bg-[#FF3131] text-white text-[10px] px-1.5 py-0.5 rounded-full">
-                      {[appliedSearchQuery, statusFilter !== 'all', stockFilter !== 'all', marginFilter !== 'all'].filter(Boolean).length}
-                    </span>
-                  )}
-                </Button>
-              </div>
-            </form>
-
-          {/* Advanced Filters Panel */}
-          {showFilters && (
-            <div className="pt-3 sm:pt-4 border-t border-white/10">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                {/* Status Filter */}
-                <div>
-                  <label className="text-[9px] sm:text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-1.5 sm:mb-2 block">
-                    Status
-                  </label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg py-2 sm:py-2.5 px-3 text-sm text-white focus:outline-none focus:border-[#FF3131]/50"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="draft">Draft</option>
-                  </select>
+        <div className="sticky top-0 z-30 -mx-3 sm:-mx-4 lg:-mx-6 px-3 sm:px-4 lg:px-6 pb-3 bg-neutral-950/95 backdrop-blur supports-[backdrop-filter]:bg-neutral-950/75">
+          <Card className="border-white/10">
+            <CardContent className="p-3 sm:p-4 space-y-3">
+              <div className="flex flex-col lg:flex-row lg:items-center gap-2">
+                <div className="relative flex-1 min-w-0">
+                  <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                  <input
+                    type="text"
+                    placeholder="Search products or slugs..."
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    className="w-full h-10 bg-white/5 border border-white/10 rounded-lg pl-9 pr-3 text-sm text-white placeholder:text-white/35 focus:outline-none focus:ring-1 focus:ring-[#FF3131]/45 focus:border-[#FF3131]/45"
+                  />
                 </div>
 
-                {/* Stock Filter */}
-                <div>
-                  <label className="text-[9px] sm:text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-1.5 sm:mb-2 block">
-                    Stock Level
-                  </label>
+                <div className="flex items-center gap-2">
                   <select
-                    value={stockFilter}
-                    onChange={(e) => setStockFilter(e.target.value as typeof stockFilter)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg py-2 sm:py-2.5 px-3 text-sm text-white focus:outline-none focus:border-[#FF3131]/50"
+                    value={sortField}
+                    onChange={(event) => setSortField(event.target.value as ProductManagementSortField)}
+                    className="h-10 bg-white/5 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#FF3131]/45"
+                    aria-label="Sort products"
                   >
-                    <option value="all">All Stock</option>
-                    <option value="inStock">In Stock (&gt;10)</option>
-                    <option value="low">Low Stock (1-10)</option>
-                    <option value="out">Out of Stock</option>
+                    {SORT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        Sort: {option.label}
+                      </option>
+                    ))}
                   </select>
-                </div>
 
-                {/* Margin Filter */}
-                <div>
-                  <label className="text-[9px] sm:text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-1.5 sm:mb-2 block">
-                    Profit Margin
-                  </label>
-                  <select
-                    value={marginFilter}
-                    onChange={(e) => setMarginFilter(e.target.value as typeof marginFilter)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg py-2 sm:py-2.5 px-3 text-sm text-white focus:outline-none focus:border-[#FF3131]/50"
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleSortDirection}
+                    className="h-10 px-3 bg-white/5 border-white/10 text-white/80 hover:bg-white/10"
+                    aria-label={`Sort ${sortDirection === 'asc' ? 'descending' : 'ascending'}`}
                   >
-                    <option value="all">All Margins</option>
-                    <option value="high">High (&gt;40%)</option>
-                    <option value="healthy">Healthy (20-40%)</option>
-                    <option value="low">Low (&lt;20%)</option>
-                  </select>
+                    {sortDirection === 'asc' ? <CaretUp size={15} /> : <CaretDown size={15} />}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowFilters((previous) => !previous)}
+                    className={`h-10 px-3 bg-white/5 border-white/10 hover:bg-white/10 ${
+                      hasActiveFilters ? 'text-[#FF3131] border-[#FF3131]/35' : 'text-white/80'
+                    }`}
+                  >
+                    <Funnel size={14} className="mr-2" />
+                    Filters
+                  </Button>
                 </div>
               </div>
 
-              {/* Active Filters Summary */}
-              {hasActiveFilters && (
-                <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] sm:text-xs text-white/40">Active:</span>
-                  
-                  {appliedSearchQuery && (
-                    <span className="inline-flex items-center gap-1 bg-white/10 text-white/70 text-[10px] sm:text-xs px-2 py-1 rounded">
-                      Search: {appliedSearchQuery}
-                      <button onClick={() => { setSearchQuery(''); setAppliedSearchQuery('') }} className="text-white/40 hover:text-white">
-                        <X size={10} className="sm:w-3 sm:h-3" />
-                      </button>
-                    </span>
-                  )}
-                  
-                  {statusFilter !== 'all' && (
-                    <span className="inline-flex items-center gap-1 bg-white/10 text-white/70 text-[10px] sm:text-xs px-2 py-1 rounded">
-                      Status: {statusFilter}
-                      <button onClick={() => setStatusFilter('all')} className="text-white/40 hover:text-white">
-                        <X size={10} className="sm:w-3 sm:h-3" />
-                      </button>
-                    </span>
-                  )}
-                  
-                  {stockFilter !== 'all' && (
-                    <span className="inline-flex items-center gap-1 bg-white/10 text-white/70 text-[10px] sm:text-xs px-2 py-1 rounded">
-                      Stock: {stockFilter}
-                      <button onClick={() => setStockFilter('all')} className="text-white/40 hover:text-white">
-                        <X size={10} className="sm:w-3 sm:h-3" />
-                      </button>
-                    </span>
-                  )}
-                  
-                  {marginFilter !== 'all' && (
-                    <span className="inline-flex items-center gap-1 bg-white/10 text-white/70 text-[10px] sm:text-xs px-2 py-1 rounded">
-                      Margin: {marginFilter}
-                      <button onClick={() => setMarginFilter('all')} className="text-white/40 hover:text-white">
-                        <X size={10} className="sm:w-3 sm:h-3" />
-                      </button>
-                    </span>
-                  )}
-                  
+              <div className="flex flex-wrap items-center gap-2">
+                {QUICK_FILTERS.map((chip) => (
                   <button
-                    onClick={clearAllFilters}
-                    className="text-[10px] sm:text-xs text-[#FF3131] hover:text-[#FF3131]/80 ml-1 sm:ml-2"
+                    key={chip.key}
+                    type="button"
+                    onClick={() => handleQuickFilter(chip.key)}
+                    className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                      quickFilter === chip.key
+                        ? 'bg-white text-neutral-900'
+                        : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10 hover:text-white'
+                    }`}
                   >
-                    Clear all
+                    {chip.label}
                   </button>
+                ))}
+              </div>
+
+              {showFilters && (
+                <div className="pt-3 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-1.5">Status</label>
+                    <select
+                      value={statusFilter}
+                      onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+                      className="w-full h-9 bg-white/5 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#FF3131]/45"
+                    >
+                      <option value="all">All</option>
+                      <option value="active">Active</option>
+                      <option value="draft">Draft</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-1.5">Stock Level</label>
+                    <select
+                      value={stockFilter}
+                      onChange={(event) => setStockFilter(event.target.value as typeof stockFilter)}
+                      className="w-full h-9 bg-white/5 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#FF3131]/45"
+                    >
+                      <option value="all">All</option>
+                      <option value="inStock">In Stock (&gt;10)</option>
+                      <option value="low">Low (1-10)</option>
+                      <option value="out">Out of Stock</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-1.5">Margin</label>
+                    <select
+                      value={marginFilter}
+                      onChange={(event) => setMarginFilter(event.target.value as typeof marginFilter)}
+                      className="w-full h-9 bg-white/5 border border-white/10 rounded-lg px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#FF3131]/45"
+                    >
+                      <option value="all">All</option>
+                      <option value="high">High (&gt;40%)</option>
+                      <option value="healthy">Healthy (20-40%)</option>
+                      <option value="low">Low (&lt;20%)</option>
+                    </select>
+                  </div>
                 </div>
               )}
-            </div>
-          )}
-          </div>
-        </CardContent>
-      </Card>
 
-        {/* Products Table */}
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-white/50">{sortedProducts.length} results</span>
+                <span className="text-white/20">•</span>
+                <span className="text-white/50">{selectedProducts.size} selected</span>
+                {activeChips.map((chip) => (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    onClick={() => removeFilterChip(chip.key)}
+                    className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-white/80 hover:bg-white/15"
+                  >
+                    {chip.label}
+                    <X size={11} />
+                  </button>
+                ))}
+                {hasActiveFilters && (
+                  <button type="button" onClick={clearAllFilters} className="text-[#FF3131] hover:text-[#FF3131]/80 ml-1">
+                    Clear all
+                  </button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {loading ? (
+          <StatsGridSkeleton count={4} />
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            <Card>
+              <CardHeader className="pb-2 px-3 pt-3">
+                <CardTitle className="text-[10px] uppercase tracking-[0.15em] text-white/40 flex items-center gap-1">
+                  <Package size={11} />
+                  Total
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 pb-3">
+                <div className="text-xl font-semibold text-white">{stats.total}</div>
+                <p className="text-[11px] text-white/40">Products</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2 px-3 pt-3">
+                <CardTitle className="text-[10px] uppercase tracking-[0.15em] text-white/40">Active</CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 pb-3">
+                <div className="text-xl font-semibold text-emerald-400">{stats.active}</div>
+                <p className="text-[11px] text-white/40">Published</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2 px-3 pt-3">
+                <CardTitle className="text-[10px] uppercase tracking-[0.15em] text-white/40">Draft</CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 pb-3">
+                <div className="text-xl font-semibold text-white/75">{stats.draft}</div>
+                <p className="text-[11px] text-white/40">Unpublished</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2 px-3 pt-3">
+                <CardTitle className="text-[10px] uppercase tracking-[0.15em] text-white/40">Low Stock</CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 pb-3">
+                <div className="text-xl font-semibold text-amber-400">{stats.lowStock}</div>
+                <p className="text-[11px] text-white/40">Needs restock</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        <Card className="mb-4">
+          <button
+            type="button"
+            onClick={() => setShowPerformanceSnapshot((previous) => !previous)}
+            className="w-full text-left p-3 flex items-center justify-between hover:bg-white/[0.03] transition-colors rounded-t-xl"
+          >
+            <div className="flex items-center gap-2">
+              <ChartLineUp size={16} className="text-[#FF3131]" />
+              <span className="text-sm font-medium text-white">Performance Snapshot</span>
+            </div>
+            {showPerformanceSnapshot ? <CaretUp size={16} className="text-white/40" /> : <CaretDown size={16} className="text-white/40" />}
+          </button>
+
+          {showPerformanceSnapshot && (
+            <CardContent className="pt-0 pb-3 px-3 border-t border-white/10">
+              <div className="flex items-center gap-2 mb-3 mt-3">
+                <span className="text-[10px] font-medium text-white/40 uppercase tracking-[0.15em]">Period</span>
+                <div className="flex bg-white/5 rounded-md p-0.5">
+                  {(['7', '30', '90'] as const).map((period) => (
+                    <button
+                      key={period}
+                      type="button"
+                      onClick={() => setFinancialPeriod(period)}
+                      className={`px-2.5 py-1 rounded text-xs ${
+                        financialPeriod === period ? 'bg-[#FF3131] text-white' : 'text-white/60 hover:text-white'
+                      }`}
+                    >
+                      {period}d
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] uppercase tracking-[0.15em] text-white/40 flex items-center gap-1">
+                    <CurrencyDollar size={12} /> Revenue
+                  </div>
+                  <div className="text-lg font-semibold text-emerald-400 mt-1">
+                    ${financialLoading ? '...' : ((financialSummary?.totalRevenue || 0) / 1000).toFixed(1)}k
+                  </div>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] uppercase tracking-[0.15em] text-white/40 flex items-center gap-1">
+                    <ShoppingCart size={12} /> Units Sold
+                  </div>
+                  <div className="text-lg font-semibold text-blue-400 mt-1">
+                    {financialLoading ? '...' : financialSummary?.totalUnitsSold || 0}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] uppercase tracking-[0.15em] text-white/40 flex items-center gap-1">
+                    <Percent size={12} /> Avg Margin
+                  </div>
+                  <div className="text-lg font-semibold text-white mt-1">
+                    {financialLoading ? '...' : `${(financialSummary?.avgMarginPercent || 0).toFixed(0)}%`}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] uppercase tracking-[0.15em] text-white/40 flex items-center gap-1">
+                    <TrendUp size={12} /> Best Seller
+                  </div>
+                  <div className="text-sm font-semibold text-[#FF3131] mt-1 truncate" title={financialSummary?.bestSeller?.productName}>
+                    {financialLoading ? '...' : financialSummary?.bestSeller?.productName || 'N/A'}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
         <Card>
-          <CardHeader className="p-3 sm:p-6">
+          <CardHeader className="p-3 sm:p-4 border-b border-white/10">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <CardTitle className="text-base sm:text-lg">Products ({filteredProducts.length})</CardTitle>
+                <CardTitle className="text-base sm:text-lg text-white">Products ({sortedProducts.length})</CardTitle>
                 <CardDescription className="text-xs sm:text-sm">
-                  {hasActiveFilters 
-                    ? `Showing ${filteredProducts.length} of ${products.length} products`
-                    : 'Manage inventory and financials'
-                  }
+                  {hasActiveFilters ? `Showing ${sortedProducts.length} of ${products.length} products` : 'Manage inventory and pricing'}
                 </CardDescription>
               </div>
-              
-              {/* Bulk Actions Bar */}
               {selectedProducts.size > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs sm:text-sm text-white/70">
-                    {selectedProducts.size} selected
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleBulkStatusChange(true)}
-                    disabled={bulkActionLoading}
-                    className="bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 text-xs px-2 py-1"
-                  >
-                    Activate
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleBulkStatusChange(false)}
-                    disabled={bulkActionLoading}
-                    className="bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 text-xs px-2 py-1"
-                  >
-                    Deactivate
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleBulkDelete}
-                    disabled={bulkActionLoading}
-                    className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0 text-xs px-2 py-1"
-                  >
-                    Delete
-                  </Button>
-                </div>
+                <div className="text-xs text-white/60">{selectedProducts.size} selected for bulk action</div>
               )}
             </div>
           </CardHeader>
-          <CardContent className="p-0 sm:p-6 sm:pt-0">
-            {loading ? (
-              <div className="p-4 sm:p-0">
-                <TableSkeleton rows={5} columns={9} />
+
+          <CardContent className="p-0">
+            {selectedProducts.size > 0 && (
+              <div className="sticky top-[86px] z-20 px-3 py-2 border-b border-white/10 bg-neutral-950/95 backdrop-blur flex flex-wrap items-center gap-2">
+                <span className="text-xs text-white/70">{selectedProducts.size} selected</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleBulkStatusChange(true)}
+                  disabled={bulkActionLoading}
+                  className="h-8 bg-white/5 border-white/10 text-white/75 hover:bg-white/10 text-xs"
+                >
+                  Activate
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleBulkStatusChange(false)}
+                  disabled={bulkActionLoading}
+                  className="h-8 bg-white/5 border-white/10 text-white/75 hover:bg-white/10 text-xs"
+                >
+                  Deactivate
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={bulkActionLoading}
+                  className="h-8 bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0 text-xs"
+                >
+                  Delete
+                </Button>
+                <button type="button" onClick={() => setSelectedProducts(new Set())} className="text-xs text-white/50 hover:text-white">
+                  Clear selection
+                </button>
               </div>
-            ) : filteredProducts.length === 0 ? (
+            )}
+
+            {loading ? (
+              <div className="p-4">
+                <TableSkeleton rows={6} columns={8} />
+              </div>
+            ) : sortedProducts.length === 0 ? (
               hasActiveFilters ? (
-                <div className="py-8 sm:py-12 text-center px-4">
-                  <MagnifyingGlass size={40} className="mx-auto text-white/20 mb-4 sm:w-12 sm:h-12" />
-                  <h3 className="text-base sm:text-lg font-medium text-white mb-2">No products match your filters</h3>
-                  <p className="text-white/40 mb-4 text-sm">Try adjusting your search or filter criteria</p>
-                  <Button
-                    variant="outline"
-                    onClick={clearAllFilters}
-                    className="bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
-                  >
+                <div className="py-12 text-center px-4">
+                  <MagnifyingGlass size={40} className="mx-auto text-white/20 mb-4" />
+                  <h3 className="text-base font-medium text-white mb-2">No products match current filters</h3>
+                  <p className="text-sm text-white/40 mb-4">Try broadening your criteria.</p>
+                  <Button variant="outline" onClick={clearAllFilters} className="bg-white/5 border-white/10 text-white/80 hover:bg-white/10">
                     Clear all filters
                   </Button>
                 </div>
               ) : (
-                <div className="px-4 sm:px-0">
+                <div className="px-4 py-6">
                   <EmptyState
                     icon={Package}
                     title="No Products Yet"
-                    description="Start building your streetwear catalog by adding your first product."
+                    description="Start building your catalog by adding your first product."
                     action={{
                       label: 'Add Your First Product',
                       onClick: () => setSlideOver({ isOpen: true, product: null }),
@@ -837,27 +847,15 @@ export default function ProductsPage() {
               )
             ) : (
               <>
-                {/* Mobile Cards View */}
                 <div className="lg:hidden">
-                  {/* Mobile bulk select header */}
-                  <div className="flex items-center justify-between px-4 py-3 bg-white/5 border-b border-white/10">
-                    <button
-                      onClick={toggleSelectAll}
-                      className="flex items-center gap-2 text-sm text-white/70"
-                    >
-                      {selectedProducts.size === filteredProducts.length && filteredProducts.length > 0 ? (
-                        <CheckSquare size={20} weight="fill" className="text-[#FF3131]" />
-                      ) : (
-                        <Square size={20} weight="regular" />
-                      )}
-                      <span>{selectedProducts.size > 0 ? `${selectedProducts.size} selected` : 'Select all'}</span>
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.02]">
+                    <button type="button" onClick={toggleSelectAll} className="text-sm text-white/75 hover:text-white">
+                      {selectedProducts.size === sortedProducts.length ? 'Deselect all' : 'Select all'}
                     </button>
-                    <span className="text-xs text-white/40">{filteredProducts.length} products</span>
+                    <span className="text-xs text-white/40">{sortedProducts.length} products</span>
                   </div>
-                  
-                  {/* Mobile cards list */}
                   <div className="divide-y divide-white/10">
-                    {filteredProducts.map((product) => (
+                    {sortedProducts.map((product) => (
                       <ProductMobileCard
                         key={product.id}
                         product={product}
@@ -873,339 +871,197 @@ export default function ProductsPage() {
                   </div>
                 </div>
 
-                {/* Desktop Table View */}
                 <div className="hidden lg:block overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-white/5">
-                    <tr>
-                      <th className="text-left py-3 px-3 w-10">
-                        <input
-                          type="checkbox"
-                          checked={selectedProducts.size === filteredProducts.length && filteredProducts.length > 0}
-                          onChange={toggleSelectAll}
-                          className="rounded border-white/10 bg-white/5 text-[#FF3131] focus:ring-[#FF3131]"
-                        />
-                      </th>
-                      <th 
-                        className="text-left py-3 px-3 text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] cursor-pointer hover:text-white/60"
-                        onClick={() => handleSort('name')}
-                      >
-                        <span className="flex items-center">
-                          Product
-                          {getSortIcon('name')}
-                        </span>
-                      </th>
-                      <th className="text-left py-3 px-3 text-[10px] font-medium text-white/40 uppercase tracking-[0.15em]">Status</th>
-                      <th 
-                        className="text-left py-3 px-3 text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] cursor-pointer hover:text-white/60"
-                        onClick={() => handleSort('price')}
-                      >
-                        <span className="flex items-center">
-                          Price
-                          {getSortIcon('price')}
-                        </span>
-                      </th>
-                      <th className="text-left py-3 px-3 text-[10px] font-medium text-white/40 uppercase tracking-[0.15em]">Cost</th>
-                      <th 
-                        className="text-left py-3 px-3 text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] cursor-pointer hover:text-white/60"
-                        onClick={() => handleSort('margin')}
-                      >
-                        <span className="flex items-center">
-                          Margin
-                          {getSortIcon('margin')}
-                        </span>
-                      </th>
-                      <th 
-                        className="text-left py-3 px-3 text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] cursor-pointer hover:text-white/60"
-                        onClick={() => handleSort('inventory')}
-                      >
-                        <span className="flex items-center">
-                          Stock
-                          {getSortIcon('inventory')}
-                        </span>
-                      </th>
-                      <th 
-                        className="text-left py-3 px-3 text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] cursor-pointer hover:text-white/60"
-                        onClick={() => handleSort('revenue')}
-                      >
-                        <span className="flex items-center">
-                          Revenue
-                          {getSortIcon('revenue')}
-                        </span>
-                      </th>
-                      <th 
-                        className="text-left py-3 px-3 text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] cursor-pointer hover:text-white/60"
-                        onClick={() => handleSort('unitsSold')}
-                      >
-                        <span className="flex items-center">
-                          Sold
-                          {getSortIcon('unitsSold')}
-                        </span>
-                      </th>
-                      <th className="text-right py-3 px-3 text-[10px] font-medium text-white/40 uppercase tracking-[0.15em]">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {filteredProducts.map((product) => {
-                      // Parse images - handle both string array and object array formats
-                      let imageUrl = '/placeholder-product.jpg'
-                      try {
-                        const images = typeof product.images === 'string' 
-                          ? JSON.parse(product.images) 
-                          : product.images
-                        
-                        if (Array.isArray(images) && images.length > 0) {
-                          // Handle both formats: string[] or {url: string}[]
-                          imageUrl = typeof images[0] === 'string' 
-                            ? images[0] 
-                            : images[0]?.url || '/placeholder-product.jpg'
-                        }
-                      } catch (error) {
-                        console.error('Error parsing images:', error)
-                      }
-                      
-                      const totalInventory = product.variants.reduce((sum, v) => sum + v.inventory, 0)
-                      const financial = financials.get(product.id)
-                      const marginPercent = financial?.marginPercent || 0
-                      const costPrice = financial?.costPrice
-                      
-                      return (
-                        <tr key={product.id} className="hover:bg-white/5">
-                          <td className="py-3 px-3">
-                            <input
-                              type="checkbox"
-                              checked={selectedProducts.has(product.id)}
-                              onChange={() => toggleSelectProduct(product.id)}
-                              className="rounded border-white/10 bg-white/5 text-[#FF3131] focus:ring-[#FF3131]"
-                            />
-                          </td>
-                          <td className="py-3 px-3">
-                            <div className="flex items-center space-x-3">
-                              <Image
-                                src={imageUrl}
-                                alt={product.name}
-                                width={40}
-                                height={40}
-                                className="rounded object-cover"
-                              />
-                              <div>
-                                <Link 
-                                  href={`/admin/products/${product.id}`}
-                                  className="font-medium text-white hover:text-[#FF3131] transition-colors"
+                  <table className="w-full">
+                    <thead className="bg-neutral-900/90 sticky top-0 z-10">
+                      <tr>
+                        <th className="text-left py-2.5 px-3 w-10">
+                          <input
+                            type="checkbox"
+                            checked={selectedProducts.size === sortedProducts.length && sortedProducts.length > 0}
+                            onChange={toggleSelectAll}
+                            className="rounded border-white/10 bg-white/5 text-[#FF3131] focus:ring-[#FF3131]"
+                          />
+                        </th>
+                        <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-[0.14em] text-white/40">Product</th>
+                        <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-[0.14em] text-white/40">Status</th>
+                        <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-[0.14em] text-white/40">Price</th>
+                        <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-[0.14em] text-white/40">Margin</th>
+                        <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-[0.14em] text-white/40">Stock</th>
+                        <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-[0.14em] text-white/40">Revenue</th>
+                        <th className="text-left py-2.5 px-3 text-[10px] uppercase tracking-[0.14em] text-white/40">Sold</th>
+                        <th className="text-right py-2.5 px-3 text-[10px] uppercase tracking-[0.14em] text-white/40">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {sortedProducts.map((product) => {
+                        const totalInventory = getProductInventory(product)
+                        const financial = financials.get(product.id)
+                        const marginPercent = financial?.marginPercent || 0
+
+                        return (
+                          <Fragment key={product.id}>
+                            <tr key={product.id} className="hover:bg-white/[0.03] transition-colors">
+                              <td className="py-2.5 px-3 align-top">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedProducts.has(product.id)}
+                                  onChange={() => toggleSelectProduct(product.id)}
+                                  className="rounded border-white/10 bg-white/5 text-[#FF3131] focus:ring-[#FF3131]"
+                                />
+                              </td>
+
+                              <td className="py-2.5 px-3 align-top">
+                                <div className="flex items-center gap-2.5">
+                                  <Image src={getProductPrimaryImage(product)} alt={product.name} width={42} height={42} className="rounded object-cover" />
+                                  <div className="min-w-0">
+                                    <Link href={`/admin/products/${product.id}`} className="font-medium text-white hover:text-[#FF3131] transition-colors">
+                                      {product.name}
+                                    </Link>
+                                    <div className="text-xs text-white/40 truncate">{product.slug}</div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              <td className="py-2.5 px-3 align-top">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleStatus(product)}
+                                  className={`inline-flex items-center rounded px-2 py-1 text-xs font-medium ${
+                                    product.isActive ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white/65'
+                                  }`}
                                 >
-                                  {product.name}
-                                </Link>
-                                <div className="text-xs text-white/40">{product.slug}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-3">
-                            <span className={`px-2 py-1 text-xs rounded ${
-                              product.isActive 
-                                ? 'bg-emerald-500/20 text-emerald-400' 
-                                : 'bg-white/10 text-white/70'
-                            }`}>
-                              {product.isActive ? 'Active' : 'Draft'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3">
-                            <InlineEdit
-                              value={product.price}
-                              onSave={(value) => handleUpdatePrice(product.id, value)}
-                              type="number"
-                              prefix="$"
-                              min={0}
-                              className="font-medium text-white"
-                            />
-                          </td>
-                          <td className="py-3 px-3">
-                            {costPrice !== null && costPrice !== undefined ? (
-                              <span className="text-white/70">${costPrice.toFixed(2)}</span>
-                            ) : (
-                              <span className="text-white/30 text-xs">Not set</span>
+                                  {product.isActive ? 'Active' : 'Draft'}
+                                </button>
+                              </td>
+
+                              <td className="py-2.5 px-3 align-top">
+                                <InlineEdit
+                                  value={product.price}
+                                  onSave={(value) => handleUpdatePrice(product.id, value)}
+                                  type="number"
+                                  prefix="$"
+                                  min={0}
+                                  className="font-medium text-white"
+                                />
+                              </td>
+
+                              <td className="py-2.5 px-3 align-top">
+                                {financial?.costPrice !== null && financial?.costPrice !== undefined ? (
+                                  <span
+                                    className={`text-sm font-medium ${
+                                      marginPercent >= 40 ? 'text-emerald-400' : marginPercent >= 20 ? 'text-amber-400' : 'text-red-400'
+                                    }`}
+                                  >
+                                    {marginPercent.toFixed(0)}%
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-white/35">No cost</span>
+                                )}
+                              </td>
+
+                              <td className="py-2.5 px-3 align-top">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedStockProductId((previous) => (previous === product.id ? null : product.id))}
+                                  className={`inline-flex items-center gap-2 rounded-md border px-2 py-1 text-xs ${
+                                    totalInventory === 0
+                                      ? 'border-red-500/40 bg-red-500/10 text-red-300'
+                                      : totalInventory <= 10
+                                      ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                                      : 'border-white/15 bg-white/5 text-white/80'
+                                  }`}
+                                >
+                                  {totalInventory}
+                                  <span className="text-[10px] text-white/45">{product.variants.length} vars</span>
+                                </button>
+                              </td>
+
+                              <td className="py-2.5 px-3 align-top">
+                                {financial && financial.revenue > 0 ? (
+                                  <span className="text-sm font-medium text-emerald-400">${financial.revenue.toFixed(0)}</span>
+                                ) : (
+                                  <span className="text-xs text-white/30">$0</span>
+                                )}
+                              </td>
+
+                              <td className="py-2.5 px-3 align-top">
+                                {financial && financial.unitsSold > 0 ? (
+                                  <span className="text-sm font-medium text-blue-400">{financial.unitsSold}</span>
+                                ) : (
+                                  <span className="text-xs text-white/30">0</span>
+                                )}
+                              </td>
+
+                              <td className="py-2.5 px-3 text-right align-top">
+                                <div className="inline-flex items-center gap-1">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setRestockModal({ isOpen: true, product })}
+                                    className="h-8 px-2 bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 border-0"
+                                    title="Restock"
+                                  >
+                                    <Package size={13} />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setSlideOver({ isOpen: true, product })}
+                                    className="h-8 px-2 bg-white/5 border-white/10 text-white/75 hover:bg-white/10"
+                                    title="Quick Edit"
+                                  >
+                                    <PencilSimple size={13} />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDelete(product.id)}
+                                    className="h-8 px-2 bg-red-500/20 text-red-300 hover:bg-red-500/30 border-0"
+                                    title="Delete"
+                                  >
+                                    <X size={13} />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+
+                            {expandedStockProductId === product.id && (
+                              <tr className="bg-white/[0.02]">
+                                <td colSpan={9} className="px-3 py-3">
+                                  <div className="text-[10px] uppercase tracking-[0.14em] text-white/45 mb-2">Variant Inventory</div>
+                                  <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-2">
+                                    {product.variants.map((variant) => (
+                                      <div key={variant.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-2.5 flex items-center justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <div className="text-sm text-white font-medium truncate">{formatVariantLabel(variant)}</div>
+                                          <div className="text-[11px] text-white/35 truncate">{variant.sku}</div>
+                                        </div>
+                                        <InlineEdit
+                                          value={variant.inventory}
+                                          onSave={(value) => handleUpdateInventory(product.id, variant.id, value)}
+                                          type="number"
+                                          min={0}
+                                          className="font-medium text-white"
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                </td>
+                              </tr>
                             )}
-                          </td>
-                          <td className="py-3 px-3">
-                            {costPrice !== null && costPrice !== undefined ? (
-                              <span className={`font-medium ${
-                                marginPercent >= 40 ? 'text-emerald-400' :
-                                marginPercent >= 20 ? 'text-amber-400' : 'text-red-400'
-                              }`}>
-                                {marginPercent.toFixed(0)}%
-                              </span>
-                            ) : (
-                              <span className="text-white/30 text-xs">—</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3">
-                            <div className={`${
-                              totalInventory === 0 
-                                ? 'text-red-400' 
-                                : totalInventory <= 10 
-                                ? 'text-amber-400' 
-                                : 'text-white'
-                            }`}>
-                              <InlineEdit
-                                value={totalInventory}
-                                onSave={(value) => handleUpdateInventory(product.id, product.variants[0].id, value)}
-                                type="number"
-                                min={0}
-                                className="font-medium"
-                              />
-                            </div>
-                          </td>
-                          <td className="py-3 px-3">
-                            {financial && financial.revenue > 0 ? (
-                              <div>
-                                <span className="font-medium text-emerald-400">${financial.revenue.toFixed(0)}</span>
-                              </div>
-                            ) : (
-                              <span className="text-white/30 text-xs">$0</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3">
-                            {financial && financial.unitsSold > 0 ? (
-                              <span className="font-medium text-blue-400">{financial.unitsSold}</span>
-                            ) : (
-                              <span className="text-white/30 text-xs">0</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 text-right">
-                            <div className="flex justify-end space-x-1">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setRestockModal({ isOpen: true, product })}
-                                className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border-0 px-2"
-                                title="Restock"
-                              >
-                                <Package size={14} weight="bold" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => toggleStatus(product)}
-                                className="bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 px-2"
-                                title={product.isActive ? 'Unpublish' : 'Publish'}
-                              >
-                                {product.isActive ? 'Off' : 'On'}
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setSlideOver({ isOpen: true, product })}
-                                className="bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 px-2"
-                                title="Quick Edit"
-                              >
-                                <PencilSimple size={14} weight="bold" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDelete(product.id)}
-                                className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0 px-2"
-                                title="Delete"
-                              >
-                                <X size={14} weight="bold" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                          </Fragment>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </>
             )}
           </CardContent>
         </Card>
-
-        {/* Quick Actions */}
-        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mt-6 sm:mt-8">
-          <Card>
-            <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="text-base sm:text-lg text-white flex items-center gap-2">
-                <ChartLineUp size={18} className="text-[#FF3131] sm:w-5 sm:h-5" />
-                Financial Reports
-              </CardTitle>
-              <CardDescription className="text-xs sm:text-sm">Analyze product profitability</CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
-              <div className="space-y-2 sm:space-y-3">
-                <Link href="/admin/accounting/analytics">
-                  <Button variant="outline" className="w-full bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 text-xs sm:text-sm">
-                    Profit Analysis
-                  </Button>
-                </Link>
-                <Link href="/admin/accounting">
-                  <Button variant="outline" className="w-full bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 text-xs sm:text-sm">
-                    Accounting Dashboard
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="text-base sm:text-lg text-white flex items-center gap-2">
-                <Package size={18} className="text-amber-400 sm:w-5 sm:h-5" />
-                Inventory
-              </CardTitle>
-              <CardDescription className="text-xs sm:text-sm">Track stock levels</CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
-              <div className="space-y-2 sm:space-y-3">
-                <Button 
-                  variant="outline" 
-                  className="w-full bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 text-xs sm:text-sm"
-                  onClick={() => { setStockFilter('low'); setShowFilters(true) }}
-                >
-                  View Low Stock ({stats.lowStock})
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 text-xs sm:text-sm"
-                  onClick={() => { setStockFilter('out'); setShowFilters(true) }}
-                >
-                  Out of Stock Items
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="text-base sm:text-lg text-white flex items-center gap-2">
-                <Percent size={18} className="text-emerald-400 sm:w-5 sm:h-5" />
-                Margin Alerts
-              </CardTitle>
-              <CardDescription className="text-xs sm:text-sm">Products needing attention</CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
-              <div className="space-y-2 sm:space-y-3">
-                <Button 
-                  variant="outline" 
-                  className="w-full bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 text-xs sm:text-sm"
-                  onClick={() => { setMarginFilter('low'); setShowFilters(true) }}
-                >
-                  Low Margin Products ({financialSummary?.lowMarginCount || 0})
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 text-xs sm:text-sm"
-                  onClick={() => { setMarginFilter('high'); setShowFilters(true) }}
-                >
-                  High Performers
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </AdminLayout>
 
-      {/* Restock Modal */}
       {restockModal.product && (
         <RestockModal
           isOpen={restockModal.isOpen}
@@ -1217,7 +1073,6 @@ export default function ProductsPage() {
         />
       )}
 
-      {/* Product Slide Over - Add/Edit */}
       <ProductSlideOver
         isOpen={slideOver.isOpen}
         onClose={() => setSlideOver({ isOpen: false, product: null })}
@@ -1228,8 +1083,8 @@ export default function ProductsPage() {
         }}
       />
 
-      {/* Mobile Floating Add Button */}
       <button
+        type="button"
         onClick={() => setSlideOver({ isOpen: true, product: null })}
         className="sm:hidden fixed bottom-24 right-4 z-40 w-14 h-14 bg-[#FF3131] hover:bg-[#E02828] text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
         aria-label="Add Product"
@@ -1237,5 +1092,5 @@ export default function ProductsPage() {
         <Plus size={24} weight="bold" />
       </button>
     </>
-  );
+  )
 }

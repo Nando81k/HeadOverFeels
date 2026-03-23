@@ -1,27 +1,32 @@
 'use client'
 
-import { useEffect, useRef, useState, Suspense } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { motion } from 'framer-motion'
-import { 
-  CheckCircle, 
-  Package, 
-  EnvelopeSimple, 
-  CircleNotch, 
-  Star, 
-  Truck,
+import {
   ArrowRight,
-  MapPin,
-  Receipt,
-  Confetti,
-  Heart,
+  ArrowSquareOut,
+  CheckCircle,
+  CircleNotch,
   Coins,
-  ArrowDown
+  EnvelopeSimple,
+  MapPin,
+  Package,
+  Receipt,
+  Star,
+  Truck,
+  WarningCircle,
 } from '@phosphor-icons/react'
 import { Navigation } from '@/components/layout/Navigation'
 import { useAuth } from '@/lib/auth/context'
+import {
+  calculateConfirmationSavings,
+  getConfirmationEtaText,
+  getConfirmationOfferSummary,
+  getConfirmationStatusDescriptor,
+  type ConfirmationStatusTone,
+} from '@/lib/orders/confirmation-insights'
 
 interface OrderItem {
   id: string
@@ -30,17 +35,29 @@ interface OrderItem {
   quantity: number
   price: number
   variantDetails: string | null
+  product?: {
+    id: string
+    name: string
+    slug: string
+    images: string | string[]
+  } | null
+  productVariant?: {
+    id: string
+    size: string | null
+    color: string | null
+  } | null
 }
 
 interface Order {
   id: string
   orderNumber: string
   customerEmail: string
+  couponCode?: string | null
   total: number
   subtotal: number
   shipping: number
   tax: number
-  discount?: number
+  discount?: number | null
   status: string
   items: OrderItem[]
   shippingAddress: {
@@ -53,26 +70,115 @@ interface Order {
     postalCode: string
   }
   createdAt: string
-  trackingNumber?: string
-  carrier?: string
-  trackingUrl?: string
-  shippedAt?: string
-  estimatedDelivery?: string
+  trackingNumber?: string | null
+  carrier?: string | null
+  trackingUrl?: string | null
+  shippedAt?: string | null
+  estimatedDelivery?: string | null
   pointsEarned?: number
-  customerId?: string
 }
 
 const LOYALTY_PENDING_ANIMATION_KEY = 'hof_loyalty_pending_animation'
+const STANDARD_SHIPPING_BASELINE = 10
+
+type ResendState = {
+  status: 'idle' | 'success' | 'error'
+  message: string
+}
+
+function getToneClasses(tone: ConfirmationStatusTone) {
+  switch (tone) {
+    case 'success':
+      return 'bg-emerald-100 text-emerald-900 border-emerald-300'
+    case 'warning':
+      return 'bg-amber-100 text-amber-900 border-amber-300'
+    case 'danger':
+      return 'bg-red-100 text-red-900 border-red-300'
+    default:
+      return 'bg-white/15 text-white border-white/30'
+  }
+}
+
+function formatCurrency(value: number): string {
+  return `$${value.toFixed(2)}`
+}
+
+function formatLongDate(value: string): string {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return 'Unknown date'
+  return parsed.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function parseVariantSummary(item: OrderItem): string | null {
+  if (item.variantDetails) {
+    try {
+      const parsed = JSON.parse(item.variantDetails) as { size?: string; color?: string }
+      const parts = [parsed.size, parsed.color].filter(Boolean)
+      if (parts.length > 0) return parts.join(' • ')
+    } catch {
+      // ignore malformed snapshot data
+    }
+  }
+
+  const parts = [item.productVariant?.size, item.productVariant?.color].filter(Boolean)
+  if (parts.length > 0) {
+    return parts.join(' • ')
+  }
+
+  return null
+}
+
+function resolveItemImage(item: OrderItem): string | null {
+  if (item.productImage && item.productImage.trim().length > 0) {
+    return item.productImage
+  }
+
+  const images = item.product?.images
+  if (!images) return null
+
+  if (Array.isArray(images)) {
+    const first = images[0]
+    return typeof first === 'string' ? first : null
+  }
+
+  if (typeof images === 'string') {
+    try {
+      const parsed = JSON.parse(images) as unknown
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const first = parsed[0]
+        if (typeof first === 'string') return first
+        if (first && typeof first === 'object' && 'url' in first && typeof first.url === 'string') {
+          return first.url
+        }
+      }
+    } catch {
+      if (images.startsWith('http')) return images
+    }
+  }
+
+  return null
+}
 
 function ConfirmationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, refreshUser } = useAuth()
+
   const success = searchParams.get('success')
   const orderId = searchParams.get('orderId')
+
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendState, setResendState] = useState<ResendState>({
+    status: 'idle',
+    message: '',
+  })
   const initializedOrderIdRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -86,13 +192,11 @@ function ConfirmationContent() {
     }
     initializedOrderIdRef.current = orderId
 
-    const fetchOrderAndSendEmail = async () => {
+    const fetchOrder = async () => {
       let fallbackPointsEarned = 0
       let loyaltyUpdated = false
 
       try {
-        // Recovery pass: ensure order confirmation + loyalty processing runs even
-        // when Stripe redirected back before frontend confirmation completed.
         const confirmResponse = await fetch(`/api/orders/${orderId}/confirm-payment`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -115,33 +219,35 @@ function ConfirmationContent() {
       try {
         const response = await fetch(`/api/orders/${orderId}`)
         if (!response.ok) {
-          throw new Error('Failed to fetch order')
+          throw new Error('Failed to fetch order details')
         }
-        const data = await response.json()
-        setOrder(data.data)
 
-        const resolvedPointsEarned = Number(data.data?.pointsEarned || fallbackPointsEarned || 0)
+        const payload = await response.json()
+        const fetchedOrder = payload.data as Order
+        setOrder(fetchedOrder)
+
+        const resolvedPointsEarned = Number(fetchedOrder.pointsEarned || fallbackPointsEarned || 0)
 
         if (resolvedPointsEarned > 0) {
           try {
             localStorage.setItem(
               LOYALTY_PENDING_ANIMATION_KEY,
               JSON.stringify({
-                orderId: data.data.id,
+                orderId: fetchedOrder.id,
                 customerId: user?.id || null,
                 pointsEarned: resolvedPointsEarned,
                 createdAt: Date.now(),
               })
             )
           } catch {
-            // Ignore storage errors
+            // Ignore local storage access errors
           }
 
           if (typeof window !== 'undefined') {
             window.dispatchEvent(
               new CustomEvent('hof:loyalty-updated', {
                 detail: {
-                  orderId: data.data.id,
+                  orderId: fetchedOrder.id,
                   pointsEarned: resolvedPointsEarned,
                 },
               })
@@ -152,22 +258,46 @@ function ConfirmationContent() {
         if (user && (resolvedPointsEarned > 0 || loyaltyUpdated)) {
           await refreshUser()
         }
-        
-        fetch(`/api/orders/${orderId}/send-confirmation`, {
-          method: 'POST',
-        }).catch((err) => {
-          console.error('Failed to send confirmation email:', err)
-        })
-      } catch (err) {
-        console.error('Error fetching order:', err)
-        setError('Failed to load order details')
+      } catch (fetchError) {
+        console.error('Error fetching confirmation order:', fetchError)
+        setError('Failed to load order confirmation details.')
       } finally {
         setLoading(false)
       }
     }
 
-    fetchOrderAndSendEmail()
-  }, [success, orderId, router, user, refreshUser])
+    void fetchOrder()
+  }, [success, orderId, router, refreshUser, user])
+
+  const handleResendConfirmation = async () => {
+    if (!order || resendLoading) return
+
+    setResendLoading(true)
+    setResendState({ status: 'idle', message: '' })
+
+    try {
+      const response = await fetch(`/api/orders/${order.id}/send-confirmation`, {
+        method: 'POST',
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Unable to resend confirmation email.')
+      }
+
+      setResendState({
+        status: 'success',
+        message: 'Confirmation email sent. Check your inbox.',
+      })
+    } catch (resendError) {
+      setResendState({
+        status: 'error',
+        message: resendError instanceof Error ? resendError.message : 'Failed to resend confirmation email.',
+      })
+    } finally {
+      setResendLoading(false)
+    }
+  }
 
   if (!success || !orderId) {
     return null
@@ -175,17 +305,13 @@ function ConfirmationContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black">
+      <div className="min-h-screen bg-[#f6f3f0]">
         <Navigation />
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center gap-4"
-          >
-            <CircleNotch size={40} weight="bold" className="animate-spin text-white/30" />
-            <p className="text-sm text-white/50 uppercase tracking-widest">Loading your order...</p>
-          </motion.div>
+        <div className="mx-auto flex min-h-[60vh] max-w-5xl items-center justify-center px-4 pt-28">
+          <div className="flex items-center gap-3 text-black/60">
+            <CircleNotch size={22} weight="bold" className="animate-spin" />
+            <span className="text-sm font-semibold uppercase tracking-wide">Loading order confirmation</span>
+          </div>
         </div>
       </div>
     )
@@ -193,551 +319,392 @@ function ConfirmationContent() {
 
   if (error || !order) {
     return (
-      <div className="min-h-screen bg-black">
+      <div className="min-h-screen bg-[#f6f3f0]">
         <Navigation />
-        <div className="flex items-center justify-center min-h-[60vh] px-4">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="max-w-md w-full text-center"
-          >
-            <div className="w-20 h-20 border border-white/20 flex items-center justify-center mx-auto mb-8">
-              <Package size={32} weight="light" className="text-white/60" />
-            </div>
-            <h2 className="text-3xl font-black text-white uppercase tracking-tight mb-4">Order Not Found</h2>
-            <p className="text-white/50 mb-10">{error || 'We couldn\'t find your order details.'}</p>
-            <Link 
+        <div className="mx-auto flex min-h-[60vh] max-w-5xl items-center justify-center px-4 pt-28">
+          <div className="w-full max-w-md rounded-xl border border-black/10 bg-white p-8 text-center">
+            <WarningCircle size={40} weight="duotone" className="mx-auto mb-4 text-black/40" />
+            <h1 className="text-2xl font-black uppercase tracking-tight text-black">Order not found</h1>
+            <p className="mt-2 text-sm text-black/60">{error || 'Unable to load this order.'}</p>
+            <Link
               href="/products"
-              className="inline-flex items-center gap-3 px-8 py-4 bg-white text-black font-semibold text-sm uppercase tracking-wider hover:bg-white/90 transition-all"
+              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-black px-5 py-3 text-xs font-semibold uppercase tracking-wide text-white hover:bg-black/85"
             >
               Continue Shopping
-              <ArrowRight size={16} weight="bold" />
+              <ArrowRight size={14} weight="bold" />
             </Link>
-          </motion.div>
+          </div>
         </div>
       </div>
     )
   }
 
+  const statusDescriptor = getConfirmationStatusDescriptor(order.status)
+  const etaText = getConfirmationEtaText({
+    status: order.status,
+    estimatedDelivery: order.estimatedDelivery,
+    shippedAt: order.shippedAt,
+    createdAt: order.createdAt,
+  })
+  const savings = calculateConfirmationSavings({
+    subtotal: order.subtotal,
+    discount: order.discount,
+    shipping: order.shipping,
+    tax: order.tax,
+    standardShippingRate: STANDARD_SHIPPING_BASELINE,
+  })
+  const activeOffer = getConfirmationOfferSummary({
+    couponCode: order.couponCode,
+    discount: order.discount,
+    shipping: order.shipping,
+  })
+  const hasTracking = Boolean(order.trackingNumber)
+  const primaryActionHref = hasTracking ? `/order/track/${order.id}` : '/orders'
+  const primaryActionLabel = hasTracking ? 'Track Order' : 'View Orders'
+  const pointsEarned = Number(order.pointsEarned || 0)
+  const potentialGuestPoints = Math.max(0, Math.floor(order.total))
+
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-[#f6f3f0]">
       <Navigation />
-      
-      {/* Hero Success Section */}
-      <section className="relative min-h-[60vh] flex items-center justify-center overflow-hidden">
-        {/* Grain overlay */}
-        <div 
-          className="absolute inset-0 opacity-[0.03] pointer-events-none"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-          }}
-        />
-        
-        {/* Animated corner accents */}
-        <motion.div 
-          className="absolute top-24 left-8 w-24 h-24 border-l border-t border-white/10"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, delay: 0.3 }}
-        />
-        <motion.div 
-          className="absolute top-24 right-8 w-24 h-24 border-r border-t border-white/10"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, delay: 0.4 }}
-        />
 
-        <div className="relative z-10 text-center px-6 pt-24">
-          {/* Success Icon */}
-          <motion.div 
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", bounce: 0.4, delay: 0.2 }}
-            className="relative inline-block mb-8"
-          >
-            <div className="w-24 h-24 border-2 border-white flex items-center justify-center">
-              <CheckCircle size={48} weight="light" className="text-white" />
+      <main className="mx-auto max-w-6xl px-4 pb-16 pt-24 sm:px-6 lg:px-8">
+        <section className="rounded-2xl border border-black/10 bg-black p-6 text-white md:p-8" data-testid="confirmation-summary-card">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle size={18} weight="fill" />
+              <span className="text-[11px] font-semibold uppercase tracking-[0.2em]">Order Confirmed</span>
             </div>
-            <motion.div
-              initial={{ opacity: 0, scale: 0 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.6 }}
-              className="absolute -top-3 -right-3"
+            <span
+              className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${getToneClasses(
+                statusDescriptor.tone
+              )}`}
             >
-              <Confetti size={24} weight="fill" className="text-[#FF3131]" />
-            </motion.div>
-          </motion.div>
-          
-          {/* Success Text */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <span className="text-[10px] font-medium tracking-[0.3em] text-white/40 uppercase block mb-4">
-              Order #{order.orderNumber}
+              {statusDescriptor.label}
             </span>
-          </motion.div>
-          
-          <motion.h1
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="text-[clamp(2.5rem,10vw,6rem)] font-black leading-[0.9] tracking-tighter text-white uppercase mb-4"
-          >
-            Thank You
-          </motion.h1>
-          
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="text-white/50 text-lg max-w-md mx-auto"
-          >
-            Your order has been confirmed and will be shipped soon.
-          </motion.p>
-
-          {/* Scroll indicator */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, y: [0, 8, 0] }}
-            transition={{ 
-              opacity: { delay: 1 },
-              y: { duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 1 }
-            }}
-            className="mt-16 flex flex-col items-center gap-2"
-          >
-            <span className="text-[10px] uppercase tracking-widest text-white/40">Order Details</span>
-            <ArrowDown className="w-4 h-4 text-white/40" weight="bold" />
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Order Details Section */}
-      <section className="bg-[#F6F1EE] py-16 px-4">
-        <div className="max-w-4xl mx-auto">
-          
-          {/* Care Points Earned */}
-          {order.pointsEarned && order.pointsEarned > 0 && user && (
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="mb-8"
-            >
-              <div className="relative bg-black p-8 md:p-10 overflow-hidden">
-                {/* Accent lines */}
-                <div className="absolute top-0 right-0 w-32 h-32 border-r border-t border-white/10" />
-                <div className="absolute bottom-0 left-0 w-32 h-32 border-l border-b border-white/10" />
-                
-                <div className="relative flex items-center gap-6">
-                  <motion.div
-                    initial={{ rotate: -10, scale: 0 }}
-                    whileInView={{ rotate: 0, scale: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.3, type: "spring", bounce: 0.4 }}
-                    className="shrink-0"
-                  >
-                    <div className="w-16 h-16 md:w-20 md:h-20 border border-white/20 flex items-center justify-center">
-                      <Coins size={32} weight="light" className="text-white" />
-                    </div>
-                  </motion.div>
-                  
-                  <div className="flex-1">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-white/50 mb-2">
-                      Loyalty Reward
-                    </p>
-                    <motion.div
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      whileInView={{ scale: 1, opacity: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: 0.4 }}
-                      className="flex items-baseline gap-3"
-                    >
-                      <span className="text-4xl md:text-5xl font-black text-white">
-                        +{order.pointsEarned}
-                      </span>
-                      <span className="text-sm uppercase tracking-wider text-white/60">
-                        Care Points
-                      </span>
-                    </motion.div>
-                  </div>
-                  
-                  <Link
-                    href="/profile#rewards"
-                    className="hidden md:inline-flex items-center gap-2 px-6 py-3 bg-white text-black text-xs font-semibold uppercase tracking-wider hover:bg-white/90 transition-all"
-                  >
-                    View Rewards
-                    <ArrowRight size={14} weight="bold" />
-                  </Link>
-                </div>
-                
-                <Link
-                  href="/profile#rewards"
-                  className="md:hidden mt-6 inline-flex items-center gap-2 text-xs font-semibold text-white uppercase tracking-wider hover:text-white/80 transition-colors"
-                >
-                  View your rewards
-                  <ArrowRight size={14} weight="bold" />
-                </Link>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Sign Up CTA for Guest Users */}
-          {(!order.pointsEarned || order.pointsEarned === 0) && !user && (
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="mb-8"
-            >
-              <div className="relative bg-black/5 border border-black/10 p-8 md:p-10">
-                <div className="flex items-center gap-6">
-                  <div className="shrink-0">
-                    <div className="w-14 h-14 border border-black/20 flex items-center justify-center">
-                      <Coins size={24} weight="light" className="text-black/60" />
-                    </div>
-                  </div>
-                  
-                  <div className="flex-1">
-                    <p className="font-bold text-lg mb-1">
-                      You could have earned ~{Math.floor(order.subtotal)} Care Points!
-                    </p>
-                    <p className="text-sm text-black/60 mb-4">
-                      Create an account to earn points on every purchase.
-                    </p>
-                    <Link
-                      href={`/signin?tab=signup&email=${encodeURIComponent(order.customerEmail)}&redirect=${encodeURIComponent('/profile#rewards')}`}
-                      className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white text-xs font-semibold uppercase tracking-wider hover:bg-black/80 transition-all"
-                    >
-                      Create Account
-                      <ArrowRight size={14} weight="bold" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Order Items */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.15 }}
-            className="bg-white border border-black/10 p-6 md:p-8 mb-6"
-          >
-            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-black/50 mb-6 flex items-center gap-3">
-              <Package size={16} weight="bold" />
-              Order Items
-            </h2>
-            
-            <div className="space-y-4">
-              {order.items.map((item, index) => {
-                const variantInfo = item.variantDetails ? JSON.parse(item.variantDetails) : null
-                return (
-                  <motion.div 
-                    key={item.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.2 + index * 0.1 }}
-                    className="flex gap-4 p-4 bg-black/[0.02] border border-black/5"
-                  >
-                    <div className="w-20 h-20 bg-black/5 overflow-hidden shrink-0">
-                      {item.productImage ? (
-                        <Image
-                          src={item.productImage}
-                          alt={item.productName}
-                          width={80}
-                          height={80}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Package size={24} className="text-black/20" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold truncate">{item.productName}</h3>
-                      {variantInfo && (
-                        <p className="text-xs text-black/50 mt-1 uppercase tracking-wider">
-                          {variantInfo.size && `Size: ${variantInfo.size}`}
-                          {variantInfo.size && variantInfo.color && ' / '}
-                          {variantInfo.color && `Color: ${variantInfo.color}`}
-                        </p>
-                      )}
-                      <p className="text-xs text-black/50 mt-1">Qty: {item.quantity}</p>
-                    </div>
-                    <div className="font-semibold">
-                      ${(item.price * item.quantity).toFixed(2)}
-                    </div>
-                  </motion.div>
-                )
-              })}
-            </div>
-
-            {/* Price Breakdown */}
-            <div className="mt-6 pt-6 border-t border-black/10 space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-black/50 uppercase tracking-wider text-xs">Subtotal</span>
-                <span className="font-medium">${order.subtotal.toFixed(2)}</span>
-              </div>
-              {order.discount && order.discount > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-green-600 uppercase tracking-wider text-xs">Discount</span>
-                  <span className="font-medium text-green-600">-${order.discount.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-sm">
-                <span className="text-black/50 uppercase tracking-wider text-xs">Shipping</span>
-                <span className="font-medium">{order.shipping === 0 ? 'FREE' : `$${order.shipping.toFixed(2)}`}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-black/50 uppercase tracking-wider text-xs">Tax</span>
-                <span className="font-medium">${order.tax.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-lg font-bold pt-4 border-t border-black/10">
-                <span className="uppercase tracking-wider text-sm">Total</span>
-                <span>${order.total.toFixed(2)}</span>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Shipping & Info Grid */}
-          <div className="grid md:grid-cols-2 gap-6 mb-6">
-            {/* Shipping Address */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-              className="bg-white border border-black/10 p-6 md:p-8"
-            >
-              <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-black/50 mb-4 flex items-center gap-3">
-                <MapPin size={16} weight="bold" />
-                Shipping To
-              </h2>
-              <div className="text-black/70 leading-relaxed">
-                <p className="font-semibold text-black">
-                  {order.shippingAddress.firstName} {order.shippingAddress.lastName}
-                </p>
-                <p>{order.shippingAddress.address1}</p>
-                {order.shippingAddress.address2 && <p>{order.shippingAddress.address2}</p>}
-                <p>
-                  {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.postalCode}
-                </p>
-              </div>
-            </motion.div>
-
-            {/* Order Info */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.25 }}
-              className="bg-white border border-black/10 p-6 md:p-8"
-            >
-              <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-black/50 mb-4 flex items-center gap-3">
-                <Receipt size={16} weight="bold" />
-                Order Info
-              </h2>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-black/40 mb-1">Order Number</p>
-                  <p className="font-mono font-semibold">{order.orderNumber}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-black/40 mb-1">Confirmation Sent To</p>
-                  <p className="text-sm">{order.customerEmail}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-black/40 mb-1">Order Date</p>
-                  <p className="text-sm">
-                    {new Date(order.createdAt).toLocaleDateString('en-US', {
-                      month: 'long',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
-                  </p>
-                </div>
-              </div>
-            </motion.div>
           </div>
 
-          {/* Tracking Info (if shipped) */}
-          {order.trackingNumber && (
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.3 }}
-              className="bg-black p-6 md:p-8 mb-6"
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <div className="md:col-span-2">
+              <p className="text-xs uppercase tracking-[0.15em] text-white/60">Order</p>
+              <p className="mt-1 text-2xl font-black tracking-tight">{order.orderNumber}</p>
+              <p className="mt-2 text-sm text-white/70">
+                Placed {formatLongDate(order.createdAt)} • {etaText}
+              </p>
+            </div>
+            <div className="md:text-right">
+              <p className="text-xs uppercase tracking-[0.15em] text-white/60">Total</p>
+              <p className="mt-1 text-3xl font-black tabular-nums">{formatCurrency(order.total)}</p>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href={primaryActionHref}
+              className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-black hover:bg-white/90"
             >
-              <div className="flex items-start gap-6">
-                <div className="w-14 h-14 border border-white/20 flex items-center justify-center shrink-0">
-                  <Truck size={24} weight="light" className="text-white" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="font-bold text-lg text-white mb-1">Your Order Has Shipped!</h2>
-                  <p className="text-sm text-white/60 mb-6">Track your package below.</p>
-                  
-                  <div className="bg-white/10 p-4 mb-6 space-y-4">
-                    <div>
-                      <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Tracking Number</p>
-                      <p className="font-mono font-semibold text-white">{order.trackingNumber}</p>
-                    </div>
-                    {order.carrier && (
-                      <div>
-                        <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Carrier</p>
-                        <p className="font-medium text-white">{order.carrier}</p>
-                      </div>
-                    )}
-                    {order.estimatedDelivery && (
-                      <div>
-                        <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Est. Delivery</p>
-                        <p className="font-medium text-white">
-                          {new Date(order.estimatedDelivery).toLocaleDateString('en-US', { 
-                            weekday: 'long', 
-                            month: 'long', 
-                            day: 'numeric' 
-                          })}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-3">
-                    {order.trackingUrl && (
-                      <a
-                        href={order.trackingUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black text-xs font-semibold uppercase tracking-wider hover:bg-white/90 transition-all"
-                      >
-                        <Package size={16} weight="bold" />
-                        Track Package
-                      </a>
-                    )}
-                    <Link
-                      href={`/order/track/${order.id}`}
-                      className="inline-flex items-center gap-2 px-6 py-3 border border-white/30 text-white text-xs font-semibold uppercase tracking-wider hover:bg-white/10 transition-all"
-                    >
-                      View Details
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* What's Next */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.35 }}
-            className="bg-white border border-black/10 p-6 md:p-8 mb-6"
-          >
-            <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-black/50 mb-6">What&apos;s Next?</h2>
-            <div className="space-y-4">
-              {[
-                { icon: Package, text: 'Your order will be processed within 1-2 business days' },
-                { icon: Truck, text: 'Standard shipping typically takes 3-5 business days' },
-                { icon: EnvelopeSimple, text: 'Track your order using the link in your confirmation email' },
-              ].map((step, i) => (
-                <div key={i} className="flex items-start gap-4">
-                  <div className="w-10 h-10 border border-black/10 flex items-center justify-center shrink-0">
-                    <step.icon size={18} weight="light" className="text-black/60" />
-                  </div>
-                  <p className="text-black/70 pt-2 text-sm">{step.text}</p>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Review CTA */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.4 }}
-            className="bg-black/5 border border-black/10 p-6 md:p-8 mb-10"
-          >
-            <div className="flex items-start gap-6">
-              <div className="w-14 h-14 bg-black flex items-center justify-center shrink-0">
-                <Star size={24} weight="fill" className="text-white" />
-              </div>
-              <div className="flex-1">
-                <h2 className="font-bold text-lg mb-1">Share Your Experience</h2>
-                <p className="text-sm text-black/60 mb-4">
-                  Once you receive your items, we&apos;d love to hear what you think!
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {order.items.slice(0, 3).map((item) => (
-                    <Link
-                      key={item.id}
-                      href={`/products/${item.productName.toLowerCase().replace(/\s+/g, '-')}?writeReview=true&orderId=${order.id}`}
-                      className="text-xs px-4 py-2.5 bg-white border border-black/10 hover:border-black/30 hover:bg-black/5 transition-all font-medium uppercase tracking-wider"
-                    >
-                      Review {item.productName}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Action Buttons */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.45 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center"
-          >
+              {primaryActionLabel}
+              <ArrowRight size={14} weight="bold" />
+            </Link>
             <Link
               href="/products"
-              className="inline-flex items-center justify-center gap-3 px-10 py-4 bg-black text-white font-semibold text-sm uppercase tracking-wider hover:bg-black/80 transition-all"
+              className="inline-flex items-center gap-2 rounded-lg border border-white/35 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-white hover:bg-white/10"
             >
               Continue Shopping
-              <ArrowRight size={16} weight="bold" />
             </Link>
-            <Link
-              href="/"
-              className="inline-flex items-center justify-center gap-3 px-10 py-4 border border-black/20 text-black font-semibold text-sm uppercase tracking-wider hover:bg-black/5 transition-all"
-            >
-              Back to Home
-            </Link>
-          </motion.div>
+          </div>
+        </section>
 
-          {/* Support Link */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.5 }}
-            className="mt-12 text-sm text-black/40 text-center flex items-center justify-center gap-2"
+        <section className="mt-5 grid gap-4 md:grid-cols-2">
+          <article className="rounded-xl border border-black/10 bg-white p-5" data-testid="delivery-card">
+            <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
+              <Truck size={15} weight="bold" />
+              Delivery
+            </h2>
+            <p className="mt-3 text-sm font-semibold text-black">{statusDescriptor.description}</p>
+            <p className="mt-1 text-sm text-black/60">{etaText}</p>
+            {order.trackingNumber ? (
+              <div className="mt-4 space-y-1 text-sm text-black/70">
+                <p className="font-medium">Tracking #{order.trackingNumber}</p>
+                {order.carrier ? <p>{order.carrier}</p> : null}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-black/60">Tracking details will appear here once your label is created.</p>
+            )}
+            {order.trackingUrl ? (
+              <a
+                href={order.trackingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-black underline underline-offset-2 hover:text-black/70"
+              >
+                Open carrier tracking
+                <ArrowSquareOut size={13} weight="bold" />
+              </a>
+            ) : null}
+          </article>
+
+          <article className="rounded-xl border border-black/10 bg-white p-5" data-testid="financial-card">
+            <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
+              <Receipt size={15} weight="bold" />
+              Financial Recap
+            </h2>
+            <div className="mt-3 space-y-2 text-sm text-black/70">
+              <div className="flex items-center justify-between">
+                <span>Subtotal</span>
+                <span className="font-medium tabular-nums">{formatCurrency(order.subtotal)}</span>
+              </div>
+              {order.discount && order.discount > 0 ? (
+                <div className="flex items-center justify-between">
+                  <span>Discount</span>
+                  <span className="font-medium tabular-nums text-emerald-700">-{formatCurrency(order.discount)}</span>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between">
+                <span>Shipping</span>
+                <span className="font-medium tabular-nums">
+                  {order.shipping === 0 ? 'FREE' : formatCurrency(order.shipping)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Tax</span>
+                <span className="font-medium tabular-nums">{formatCurrency(order.tax)}</span>
+              </div>
+              {activeOffer ? (
+                <div className="flex items-center justify-between">
+                  <span>Active Offer</span>
+                  <span className="text-right text-[11px] font-semibold uppercase tracking-wide text-black">{activeOffer}</span>
+                </div>
+              ) : null}
+              {savings.totalSavings > 0 ? (
+                <div className="flex items-center justify-between">
+                  <span>You Saved</span>
+                  <span className="font-semibold tabular-nums text-emerald-700">{formatCurrency(savings.totalSavings)}</span>
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-4 border-t border-black/10 pt-3">
+              <div className="flex items-center justify-between text-base font-black text-black">
+                <span>Total</span>
+                <span className="tabular-nums">{formatCurrency(order.total)}</span>
+              </div>
+            </div>
+          </article>
+
+          <article className="rounded-xl border border-black/10 bg-white p-5" data-testid="shipping-card">
+            <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
+              <MapPin size={15} weight="bold" />
+              Ship To
+            </h2>
+            <div className="mt-3 text-sm leading-6 text-black/70">
+              <p className="font-semibold text-black">
+                {order.shippingAddress.firstName} {order.shippingAddress.lastName}
+              </p>
+              <p>{order.shippingAddress.address1}</p>
+              {order.shippingAddress.address2 ? <p>{order.shippingAddress.address2}</p> : null}
+              <p>
+                {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.postalCode}
+              </p>
+            </div>
+          </article>
+
+          <article className="rounded-xl border border-black/10 bg-white p-5" data-testid="order-meta-card">
+            <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
+              <EnvelopeSimple size={15} weight="bold" />
+              Order Info
+            </h2>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-black/55">Confirmation Email</dt>
+                <dd className="truncate font-medium text-black">{order.customerEmail}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-black/55">Order Date</dt>
+                <dd className="font-medium text-black">{formatLongDate(order.createdAt)}</dd>
+              </div>
+            </dl>
+
+            <button
+              type="button"
+              onClick={handleResendConfirmation}
+              disabled={resendLoading}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-black/20 px-3.5 py-2 text-xs font-semibold uppercase tracking-wide text-black transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {resendLoading ? (
+                <>
+                  <CircleNotch size={14} weight="bold" className="animate-spin" />
+                  Sending
+                </>
+              ) : (
+                <>Resend Confirmation Email</>
+              )}
+            </button>
+
+            {resendState.status !== 'idle' ? (
+              <p
+                className={`mt-2 text-xs ${
+                  resendState.status === 'success' ? 'text-emerald-700' : 'text-red-700'
+                }`}
+                role="status"
+              >
+                {resendState.message}
+              </p>
+            ) : null}
+          </article>
+        </section>
+
+        {user ? (
+          <section className="mt-5 rounded-xl border border-black/10 bg-white p-5" data-testid="signed-in-loyalty-card">
+            <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
+              <Coins size={15} weight="bold" />
+              Loyalty Outcome
+            </h2>
+            <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="text-3xl font-black text-black tabular-nums">+{pointsEarned.toLocaleString()}</p>
+                <p className="text-sm text-black/60">Care Points from this order</p>
+              </div>
+              <div className="text-sm text-black/70">
+                <p>
+                  Current Tier:{' '}
+                  <span className="font-semibold text-black">{user.loyaltyTier?.name || 'Newcomer'}</span>
+                </p>
+                <p>
+                  Current Balance:{' '}
+                  <span className="font-semibold text-black">{(user.currentPoints || 0).toLocaleString()} pts</span>
+                </p>
+              </div>
+              <Link
+                href="/profile#rewards"
+                className="inline-flex items-center gap-2 rounded-lg bg-black px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-white hover:bg-black/85"
+              >
+                View Rewards
+                <ArrowRight size={14} weight="bold" />
+              </Link>
+            </div>
+          </section>
+        ) : (
+          <section className="mt-5 rounded-xl border border-black/10 bg-white p-5" data-testid="guest-loyalty-card">
+            <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
+              <Coins size={15} weight="bold" />
+              Earn Care Points Next Time
+            </h2>
+            <p className="mt-3 text-sm text-black/70">
+              You could have earned about <span className="font-semibold text-black">{potentialGuestPoints} points</span>{' '}
+              on this purchase.
+            </p>
+            <Link
+              href={`/signin?tab=signup&email=${encodeURIComponent(order.customerEmail)}&redirect=${encodeURIComponent('/profile#rewards')}`}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-black px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-white hover:bg-black/85"
+            >
+              Create Account
+              <ArrowRight size={14} weight="bold" />
+            </Link>
+          </section>
+        )}
+
+        <section className="mt-5 rounded-xl border border-black/10 bg-white p-5" data-testid="order-items-card">
+          <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
+            <Package size={15} weight="bold" />
+            Order Items
+          </h2>
+
+          <div className="mt-4 space-y-3">
+            {order.items.map((item) => {
+              const imageUrl = resolveItemImage(item)
+              const variantSummary = parseVariantSummary(item)
+              const productSlug = item.product?.slug?.trim() || ''
+              const reviewHref = productSlug
+                ? `/products/${productSlug}?writeReview=true&orderId=${order.id}`
+                : ''
+
+              return (
+                <div
+                  key={item.id}
+                  className="flex flex-wrap items-center gap-3 rounded-lg border border-black/10 bg-black/[0.02] p-3"
+                >
+                  <div className="relative h-14 w-14 overflow-hidden rounded-md bg-black/5">
+                    {imageUrl ? (
+                      <Image src={imageUrl} alt={item.productName} fill className="object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <Package size={16} weight="bold" className="text-black/35" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="min-w-[180px] flex-1">
+                    <p className="text-sm font-semibold text-black">{item.productName}</p>
+                    {variantSummary ? (
+                      <p className="text-[11px] uppercase tracking-wide text-black/50">{variantSummary}</p>
+                    ) : null}
+                    <p className="text-[11px] text-black/55">Qty {item.quantity}</p>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-sm font-semibold tabular-nums text-black">
+                      {formatCurrency(item.price * item.quantity)}
+                    </p>
+                    {productSlug ? (
+                      <Link
+                        href={reviewHref}
+                        className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-black underline underline-offset-2 hover:text-black/70"
+                      >
+                        <Star size={11} weight="fill" />
+                        Write Review
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-black/30"
+                        title="Product link unavailable for this item"
+                      >
+                        Review unavailable
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link
+            href="/products"
+            className="inline-flex items-center gap-2 rounded-lg bg-black px-4 py-3 text-xs font-semibold uppercase tracking-wide text-white hover:bg-black/85"
           >
-            <Heart size={14} weight="fill" className="text-[#FF3131]" />
-            Questions? <Link href="/contact" className="text-black font-medium hover:underline">Contact us</Link>
-          </motion.p>
+            Continue Shopping
+            <ArrowRight size={14} weight="bold" />
+          </Link>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 rounded-lg border border-black/20 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-black hover:bg-black/5"
+          >
+            Back to Home
+          </Link>
+          <Link
+            href="/contact"
+            className="inline-flex items-center gap-2 rounded-lg border border-black/20 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-black hover:bg-black/5"
+          >
+            Contact Support
+          </Link>
         </div>
-      </section>
+      </main>
     </div>
   )
 }
 
 export default function ConfirmationPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <CircleNotch size={40} weight="bold" className="animate-spin text-white/30" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#f6f3f0] flex items-center justify-center">
+          <CircleNotch size={24} weight="bold" className="animate-spin text-black/60" />
+        </div>
+      }
+    >
       <ConfirmationContent />
     </Suspense>
   )

@@ -256,19 +256,19 @@ export function NotificationCenter() {
       {/* Bell Button - Modern minimal style */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`relative p-2 transition-all duration-200 ${
+        className={`relative p-2.5 transition-all duration-200 ${
           isOpen 
             ? 'text-black bg-black/5' 
             : 'text-black/50 hover:text-black hover:bg-black/5'
         }`}
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
       >
-        <Bell size={20} weight={unreadCount > 0 ? 'fill' : 'bold'} />
+        <Bell size={22} weight={unreadCount > 0 ? 'fill' : 'bold'} />
         {unreadCount > 0 && (
           <motion.span 
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="absolute top-0 right-0 bg-black text-white text-[9px] font-black h-4 min-w-4 px-1 flex items-center justify-center"
+            className="absolute top-0 right-0 bg-black text-white text-[10px] font-black h-[18px] min-w-[18px] px-1 flex items-center justify-center"
           >
             {unreadCount > 9 ? '9+' : unreadCount}
           </motion.span>
