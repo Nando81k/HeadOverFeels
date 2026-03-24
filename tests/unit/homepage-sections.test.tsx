@@ -120,8 +120,9 @@ describe('HomePageSections', () => {
   it('renders core CTA and discovery links with expected routes', () => {
     render(<HomePageSections data={baseData} activeDrop={activeDrop} />)
 
-    expect(screen.getByRole('link', { name: 'Shop All' }).getAttribute('href')).toBe('/products')
-    expect(screen.getByRole('link', { name: 'New Arrivals' }).getAttribute('href')).toBe('/products?sortBy=newest')
+    const hero = screen.getByTestId('home-hero')
+    expect(within(hero).getByRole('link', { name: 'Shop All' }).getAttribute('href')).toBe('/products')
+    expect(within(hero).getByRole('link', { name: 'New Arrivals' }).getAttribute('href')).toBe('/products?sortBy=newest')
     const categoriesSection = screen.getByTestId('home-categories')
     expect(within(categoriesSection).getByRole('link', { name: /Hoodies/i }).getAttribute('href')).toBe('/products?category=hoodies')
 
@@ -169,5 +170,17 @@ describe('HomePageSections', () => {
 
     fireEvent.mouseLeave(swatchButton)
     expect(productImage.getAttribute('src')).toContain('/product.jpg')
+  })
+
+  it('renders footer brand wordmark link with red-hover class', () => {
+    render(<HomePageSections data={baseData} activeDrop={null} />)
+
+    const footer = screen.getByTestId('home-footer')
+    const brandLink = within(footer).getByTestId('home-footer-brand-link')
+    const brandWordmark = within(brandLink).getByText('Head Over Feels')
+
+    expect(brandLink.getAttribute('href')).toBe('/')
+    expect(brandWordmark.className).toContain('brand-wordmark')
+    expect(brandWordmark.className).toContain('brand-wordmark--hover-red')
   })
 })

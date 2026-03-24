@@ -2,27 +2,27 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { 
-  Layout, 
-  Package, 
-  ShoppingCart, 
-  Users, 
-  Tag, 
-  Star, 
-  Gift, 
-  Lightning, 
-  TrendUp, 
-  Bag, 
-  ChartBar, 
-  Wallet, 
-  Bell, 
-  House, 
-  CaretLeft, 
-  CaretRight, 
+import {
+  Package,
+  ShoppingCart,
+  Users,
+  Tag,
+  Star,
+  Gift,
+  Lightning,
+  TrendUp,
+  Bag,
+  ChartBar,
+  Wallet,
+  Bell,
+  House,
+  CaretLeft,
+  CaretRight,
   Headset,
   Percent,
   Megaphone,
-  EnvelopeSimple
+  EnvelopeSimple,
+  Truck,
 } from '@phosphor-icons/react'
 import { useState, useEffect } from 'react'
 import { useLiveChatNotifications } from '@/lib/hooks/useLiveChatNotifications'
@@ -127,13 +127,10 @@ export function AdminSidebar({ pendingOrders: _pendingOrdersProp }: AdminSidebar
   }
 
   const navItems: NavItem[] = [
-    { name: 'Overview', href: '/admin', icon: Layout },
+    { name: 'Fulfillment', href: '/admin/fulfillment', icon: Truck, badge: pendingOrders },
     { name: 'Products', href: '/admin/products', icon: Package },
-    { name: 'Orders', href: '/admin/orders', icon: ShoppingCart, badge: pendingOrders },
-    { name: 'Customers', href: '/admin/customers', icon: Users },
     { name: 'Collections', href: '/admin/collections', icon: Tag },
     { name: 'Reviews', href: '/admin/reviews', icon: Star },
-    { name: 'Support', href: '/admin/support', icon: Headset, badge: waitingCount },
   ]
 
   const analyticsItems: NavItem[] = [
@@ -150,6 +147,12 @@ export function AdminSidebar({ pendingOrders: _pendingOrdersProp }: AdminSidebar
     { name: 'Newsletter', href: '/admin/newsletter', icon: EnvelopeSimple },
     { name: 'Loyalty', href: '/admin/loyalty', icon: Gift },
     { name: 'Live Feed', href: '/admin/live-feed', icon: Bell },
+  ]
+
+  const legacyItems: NavItem[] = [
+    { name: 'Orders', href: '/admin/orders', icon: ShoppingCart, badge: pendingOrders },
+    { name: 'Customers', href: '/admin/customers', icon: Users },
+    { name: 'Support', href: '/admin/support', icon: Headset, badge: waitingCount },
   ]
 
   const isActive = (href: string) => {
@@ -206,9 +209,10 @@ export function AdminSidebar({ pendingOrders: _pendingOrdersProp }: AdminSidebar
 
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto py-6 px-2 relative">
-          <NavSection title="Main" items={navItems} collapsed={collapsed} isActive={isActive} />
+          <NavSection title="Primary Ops" items={navItems} collapsed={collapsed} isActive={isActive} />
           <NavSection title="Analytics" items={analyticsItems} collapsed={collapsed} isActive={isActive} />
           <NavSection title="Marketing" items={marketingItems} collapsed={collapsed} isActive={isActive} />
+          <NavSection title="Legacy Pages" items={legacyItems} collapsed={collapsed} isActive={isActive} />
         </div>
 
         {/* Back to Store */}

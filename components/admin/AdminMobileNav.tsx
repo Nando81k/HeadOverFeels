@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { 
-  House, 
   Package, 
   ShoppingCart, 
   ChartBar, 
@@ -21,7 +20,8 @@ import {
   Megaphone,
   Heart,
   Pulse,
-  EnvelopeSimple
+  EnvelopeSimple,
+  Truck
 } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -45,9 +45,8 @@ export function AdminMobileNav() {
   const { pendingOrders } = usePendingOrders(30000)
 
   const mainItems: NavItem[] = [
-    { name: 'Home', href: '/admin', icon: House },
+    { name: 'Fulfill', href: '/admin/fulfillment', icon: Truck, badge: pendingOrders },
     { name: 'Products', href: '/admin/products', icon: Package },
-    { name: 'Orders', href: '/admin/orders', icon: ShoppingCart, badge: pendingOrders },
     { name: 'Analytics', href: '/admin/analytics', icon: ChartBar },
   ]
 
@@ -63,8 +62,9 @@ export function AdminMobileNav() {
       ]
     },
     {
-      title: 'Customers',
+      title: 'Legacy Ops',
       items: [
+        { name: 'Orders', href: '/admin/orders', icon: ShoppingCart, badge: pendingOrders },
         { name: 'All Customers', href: '/admin/customers', icon: Users },
         { name: 'Support', href: '/admin/support', icon: Headset },
         { name: 'Loyalty', href: '/admin/loyalty', icon: Gift },

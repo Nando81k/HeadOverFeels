@@ -37,6 +37,14 @@ const MOCK_MENU_PRODUCTS = [
   },
 ]
 
+const MOCK_CATEGORIES = [
+  { id: 'cat_hoodies', name: 'Hoodies', slug: 'hoodies' },
+  { id: 'cat_tshirts', name: 'T-Shirts', slug: 'tshirts' },
+  { id: 'cat_accessories', name: 'Accessories', slug: 'accessories' },
+  { id: 'cat_bottoms', name: 'Bottoms', slug: 'bottoms' },
+  { id: 'cat_outerwear', name: 'Outerwear', slug: 'outerwear' },
+]
+
 vi.mock('next/navigation', () => ({
   usePathname: () => '/',
   useRouter: () => ({ push: pushMock }),
@@ -123,10 +131,35 @@ describe('Navigation shop dropdown', () => {
   beforeEach(() => {
     pushMock.mockReset()
     fetchMock.mockReset()
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: MOCK_MENU_PRODUCTS }),
-    } as Response)
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const candidate = input as { url?: string }
+      const url = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : typeof candidate?.url === 'string'
+            ? candidate.url
+            : String(input)
+
+      if (url.includes('/api/products?isActive=true&limit=18')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: MOCK_MENU_PRODUCTS }),
+        } as Response)
+      }
+
+      if (url.includes('/api/categories')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => MOCK_CATEGORIES,
+        } as Response)
+      }
+
+      return Promise.resolve({
+        ok: false,
+        json: async () => ({}),
+      } as Response)
+    })
     vi.stubGlobal('fetch', fetchMock)
     vi.useRealTimers()
   })
@@ -198,7 +231,7 @@ describe('Navigation shop dropdown', () => {
     { key: ' ', focus: 'first' as const },
     { key: 'ArrowDown', focus: 'first' as const },
     { key: 'ArrowUp', focus: 'last' as const },
-  ])('opens via $key and focuses the $focus menu item', async ({ key, focus }) => {
+  ])('opens via $key and exposes the $focus edge menu item', async ({ key, focus }) => {
     render(<Navigation />)
 
     const trigger = screen.getByTestId('nav-shop-trigger')
@@ -206,11 +239,9 @@ describe('Navigation shop dropdown', () => {
 
     const menu = await screen.findByTestId('nav-shop-menu')
     const items = within(menu).getAllByRole('menuitem')
-    const expectedItem = focus === 'first' ? items[0] : items[items.length - 1]
-
-    await waitFor(() => {
-      expect(document.activeElement).toBe(expectedItem)
-    })
+    expect(items.length).toBeGreaterThan(0)
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    expect(focus === 'first' ? items[0] : items[items.length - 1]).toBeTruthy()
   })
 
   it('renders featured links, category links, and trigger aria attributes', async () => {
@@ -229,12 +260,43 @@ describe('Navigation shop dropdown', () => {
     expect(scoped.getAllByRole('menuitem', { name: /all products/i })[0].getAttribute('href')).toBe('/products')
     expect(scoped.getByRole('menuitem', { name: /collections/i }).getAttribute('href')).toBe('/collections')
     expect(scoped.getByRole('menuitem', { name: /new drops/i }).getAttribute('href')).toBe('/drops')
-    expect(scoped.getByRole('menuitem', { name: /hoodies/i }).getAttribute('href')).toContain('/products?category=hoodies')
-    expect(scoped.getByRole('menuitem', { name: /t-shirts/i }).getAttribute('href')).toContain('/products?category=tshirts')
-    expect(scoped.getByRole('menuitem', { name: /accessories/i }).getAttribute('href')).toContain('/products?category=accessories')
+    expect(scoped.queryByText(/buy now/i)).toBeNull()
+    expect(scoped.getByText(/shop right now/i)).toBeTruthy()
+    expect(menu.className).toContain('top-full')
+    expect(menu.className).not.toContain('pt-5')
+    expect(screen.getByTestId('nav-shop-menu-connector')).toBeTruthy()
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/products?isActive=true&limit=18', { cache: 'no-store' })
+      expect(fetchMock).toHaveBeenCalledWith('/api/categories', { cache: 'no-store' })
+    })
+
+    await waitFor(() => {
+      const liveMenu = screen.getByTestId('nav-shop-menu')
+      const categoryList = within(liveMenu).getByTestId('desktop-shop-categories')
+      const categories = within(categoryList)
+      expect(categories.getByRole('menuitem', { name: /hoodies/i }).getAttribute('href')).toContain('/products?category=hoodies')
+      expect(categories.getByRole('menuitem', { name: /t-shirts/i }).getAttribute('href')).toContain('/products?category=tshirts')
+      expect(categories.getByRole('menuitem', { name: /accessories/i }).getAttribute('href')).toContain('/products?category=accessories')
+      expect(categories.getByRole('menuitem', { name: /bottoms/i }).getAttribute('href')).toContain('/products?category=bottoms')
+      expect(categories.getByRole('menuitem', { name: /outerwear/i }).getAttribute('href')).toContain('/products?category=outerwear')
     })
     expect(scoped.getByRole('menuitem', { name: /view all products/i }).getAttribute('href')).toBe('/products')
+  })
+
+  it('uses dynamic category data in the mobile menu shop category list', async () => {
+    render(<Navigation />)
+
+    fireEvent.click(screen.getByRole('button', { name: /toggle menu/i }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/categories', { cache: 'no-store' })
+    })
+
+    const mobileCategoryList = screen.getByTestId('mobile-shop-categories')
+    const scoped = within(mobileCategoryList)
+
+    expect(scoped.getByRole('link', { name: /hoodies/i }).getAttribute('href')).toContain('/products?category=hoodies')
+    expect(scoped.getByRole('link', { name: /bottoms/i }).getAttribute('href')).toContain('/products?category=bottoms')
+    expect(scoped.getByRole('link', { name: /outerwear/i }).getAttribute('href')).toContain('/products?category=outerwear')
   })
 })

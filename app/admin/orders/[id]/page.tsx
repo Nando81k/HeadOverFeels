@@ -177,6 +177,7 @@ export default function AdminOrderDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [buyingLabel, setBuyingLabel] = useState(false)
 
   const [status, setStatus] = useState('')
   const [shippingMethod, setShippingMethod] = useState('')
@@ -343,6 +344,54 @@ export default function AdminOrderDetailPage() {
     }
   }
 
+  const handlePurchaseCarrierLabel = async () => {
+    if (!order) {
+      return
+    }
+
+    setBuyingLabel(true)
+    const loadingToast = toast.loading('Purchasing carrier label...')
+
+    try {
+      const response = await fetch(`/api/admin/fulfillment/orders/${order.id}/label/purchase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to purchase label')
+      }
+
+      if (result.order) {
+        setOrder(result.order)
+        setStatus(result.order.status || status)
+        setTrackingNumber(result.order.trackingNumber || '')
+        setCarrier(result.order.carrier || carrier)
+      } else {
+        await fetchOrder()
+      }
+
+      if (result.label?.labelUrl) {
+        window.open(result.label.labelUrl, '_blank', 'noopener,noreferrer')
+      }
+
+      toast.dismiss(loadingToast)
+      toast.success('Carrier label purchased', 'Tracking details were synced')
+      fetchTrackingData()
+    } catch (labelError) {
+      console.error('Failed to purchase carrier label:', labelError)
+      toast.dismiss(loadingToast)
+      toast.error(
+        'Label purchase failed',
+        labelError instanceof Error ? labelError.message : 'Could not purchase label'
+      )
+    } finally {
+      setBuyingLabel(false)
+    }
+  }
+
   const applyStatusQuickAction = (nextStatus: (typeof STATUS_OPTIONS)[number]) => {
     setStatus(nextStatus)
   }
@@ -386,6 +435,13 @@ export default function AdminOrderDetailPage() {
           >
             <ArrowLeft size={14} weight="bold" />
             Back
+          </Link>
+          <Link
+            href={`/admin/fulfillment?orderId=${order.id}`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-white/10 bg-white/5 text-white/70 hover:text-white hover:bg-white/10 text-xs uppercase tracking-[0.12em]"
+          >
+            <Truck size={14} weight="bold" />
+            Fulfillment
           </Link>
         </div>
       }
@@ -587,14 +643,25 @@ export default function AdminOrderDetailPage() {
           <section className="bg-neutral-900 border border-white/10 rounded-xl overflow-hidden">
             <header className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
               <h2 className="text-sm uppercase tracking-[0.16em] text-white/70">Fulfillment</h2>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="inline-flex items-center gap-1.5 text-xs text-white/65 hover:text-white"
-              >
-                <Printer size={14} />
-                Print Label
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePurchaseCarrierLabel}
+                  disabled={buyingLabel}
+                  className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded border border-white/10 bg-white/5 text-[11px] text-white/70 hover:text-white hover:bg-white/10 disabled:opacity-60"
+                >
+                  <Truck size={13} />
+                  {buyingLabel ? 'Buying...' : 'Buy Carrier Label'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 text-xs text-white/65 hover:text-white"
+                >
+                  <Printer size={14} />
+                  Print Label
+                </button>
+              </div>
             </header>
             <form onSubmit={submitFulfillmentUpdate} className="p-5 space-y-3">
               <div>

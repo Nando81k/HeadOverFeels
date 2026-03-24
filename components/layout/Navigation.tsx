@@ -10,7 +10,12 @@ import { useAuth } from '@/lib/auth/context'
 import { WishlistIcon } from '@/components/wishlist/WishlistIcon'
 import { NotificationCenter } from '@/components/notifications/NotificationCenter'
 import { SearchModal } from '@/components/search'
-import { NAV_CATEGORY_LINKS, NAV_FEATURED_LINKS } from '@/components/layout/navigation-menu-config'
+import {
+  NAV_CATEGORY_LINKS,
+  NAV_FEATURED_LINKS,
+  resolveNavCategoryLink,
+  type NavResolvedCategory,
+} from '@/components/layout/navigation-menu-config'
 import { 
   Bag, 
   MagnifyingGlass, 
@@ -139,6 +144,12 @@ interface NavShopColorSwatch {
   hex: string
 }
 
+interface NavApiCategoryRecord {
+  id: string
+  name: string
+  slug: string
+}
+
 interface NavShopProduct {
   id: string
   slug: string
@@ -191,6 +202,9 @@ export function Navigation() {
   const [shopMenuProducts, setShopMenuProducts] = useState<NavShopProduct[]>([])
   const [shopMenuProductsLoading, setShopMenuProductsLoading] = useState(false)
   const [shopMenuProductsLoaded, setShopMenuProductsLoaded] = useState(false)
+  const [shopMenuCategories, setShopMenuCategories] = useState<NavResolvedCategory[]>(NAV_CATEGORY_LINKS)
+  const [shopMenuCategoriesLoading, setShopMenuCategoriesLoading] = useState(false)
+  const [shopMenuCategoriesLoaded, setShopMenuCategoriesLoaded] = useState(false)
   const [userPoints, setUserPoints] = useState<number | null>(null)
   const [previousPoints, setPreviousPoints] = useState<number | null>(null)
   const [loyaltyTiers, setLoyaltyTiers] = useState<NavTierDefinition[]>([])
@@ -581,13 +595,78 @@ export function Navigation() {
     }
   }, [shopMenuProductsLoaded, shopMenuProductsLoading])
 
-  useEffect(() => {
-    if (!shopDropdownOpen || shopMenuProductsLoaded || shopMenuProductsLoading) {
+  const fetchShopMenuCategories = useCallback(async () => {
+    if (shopMenuCategoriesLoading || shopMenuCategoriesLoaded) {
       return
     }
 
-    void fetchShopMenuProducts()
-  }, [fetchShopMenuProducts, shopDropdownOpen, shopMenuProductsLoaded, shopMenuProductsLoading])
+    setShopMenuCategoriesLoading(true)
+
+    try {
+      const response = await fetch('/api/categories', { cache: 'no-store' })
+      if (!response.ok) {
+        return
+      }
+
+      const payload = await response.json()
+      const rawCategories = Array.isArray(payload) ? payload : []
+
+      const normalizedCategories = rawCategories.flatMap((candidate): NavResolvedCategory[] => {
+        if (!candidate || typeof candidate !== 'object') {
+          return []
+        }
+
+        const source = candidate as Partial<NavApiCategoryRecord>
+        const id = typeof source.id === 'string' ? source.id.trim() : ''
+        const name = typeof source.name === 'string' ? source.name.trim() : ''
+        const slug = typeof source.slug === 'string' ? source.slug.trim() : ''
+        if (!id || !slug) {
+          return []
+        }
+
+        return [resolveNavCategoryLink({ id, name, slug })]
+      })
+
+      if (normalizedCategories.length > 0) {
+        setShopMenuCategories(normalizedCategories)
+      }
+    } catch (error) {
+      console.error('Failed to load shop menu categories:', error)
+    } finally {
+      setShopMenuCategoriesLoading(false)
+      setShopMenuCategoriesLoaded(true)
+    }
+  }, [shopMenuCategoriesLoaded, shopMenuCategoriesLoading])
+
+  useEffect(() => {
+    if (!shopDropdownOpen) {
+      return
+    }
+
+    if (!shopMenuProductsLoaded && !shopMenuProductsLoading) {
+      void fetchShopMenuProducts()
+    }
+
+    if (!shopMenuCategoriesLoaded && !shopMenuCategoriesLoading) {
+      void fetchShopMenuCategories()
+    }
+  }, [
+    fetchShopMenuCategories,
+    fetchShopMenuProducts,
+    shopDropdownOpen,
+    shopMenuCategoriesLoaded,
+    shopMenuCategoriesLoading,
+    shopMenuProductsLoaded,
+    shopMenuProductsLoading,
+  ])
+
+  useEffect(() => {
+    if (!mobileMenuOpen || shopMenuCategoriesLoaded || shopMenuCategoriesLoading) {
+      return
+    }
+
+    void fetchShopMenuCategories()
+  }, [fetchShopMenuCategories, mobileMenuOpen, shopMenuCategoriesLoaded, shopMenuCategoriesLoading])
 
   const fetchUserPoints = useCallback(async () => {
     try {
@@ -695,8 +774,8 @@ export function Navigation() {
   const isActive = (href: string) => pathname === href
   const isShopActive = pathname === '/products' || pathname.startsWith('/products?')
   const displayedUserPoints = userPoints ?? user?.currentPoints ?? 0
-  const shopMenuFeaturedProducts = shopMenuProducts.slice(0, 3)
   const shopMenuGridProducts = shopMenuProducts.slice(0, 4)
+  const displayedShopCategories = shopMenuCategories.length > 0 ? shopMenuCategories : NAV_CATEGORY_LINKS
 
   return (
     <>
@@ -711,16 +790,16 @@ export function Navigation() {
               {/* Mobile & Tablet Logo - Left side */}
               <Link 
                 href="/" 
-                className="lg:hidden flex items-center gap-2.5 sm:gap-3 transition-all duration-300 hover:opacity-80"
+                className="brand-wordmark-link group lg:hidden flex items-center gap-2.5 sm:gap-3 transition-transform duration-300"
               >
                 <Image
                   src="/assets/head-over-feels-logo.png"
                   alt="Head Over Feels Logo"
                   width={44}
                   height={44}
-                  className="object-contain w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11"
+                  className="object-contain w-10 h-10 sm:w-12 sm:h-12 md:w-12 md:h-12"
                 />
-                <span className="logo-font text-base sm:text-lg md:text-xl whitespace-nowrap">
+                <span data-testid="nav-wordmark-mobile" className="brand-wordmark brand-wordmark--hover-red text-lg sm:text-xl md:text-2xl whitespace-nowrap">
                   Head Over Feels
                 </span>
                 <Image
@@ -728,7 +807,7 @@ export function Navigation() {
                   alt="Head Over Feels Logo"
                   width={44}
                   height={44}
-                  className="object-contain w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11"
+                  className="object-contain w-10 h-10 sm:w-12 sm:h-12 md:w-12 md:h-12"
                 />
               </Link>
               
@@ -778,12 +857,16 @@ export function Navigation() {
                       animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
                       exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.985 }}
                       transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.18, ease: 'easeOut' }}
-                      className="absolute top-full left-0 xl:-left-10 2xl:-left-14 pt-5 z-50"
+                      className="absolute top-full left-0 z-50"
                     >
-                      <div className="absolute -top-4 left-0 h-4 w-full" />
-                      <div className="w-[58rem] max-w-[calc(100vw-3rem)] overflow-hidden border border-black/10 bg-white shadow-xl shadow-black/8">
+                      <span
+                        data-testid="nav-shop-menu-connector"
+                        aria-hidden="true"
+                        className="absolute -top-[7px] left-7 h-3.5 w-3.5 rotate-45 border-l border-t border-black/10 bg-white"
+                      />
+                      <div className="w-[58rem] max-w-[calc(100vw-2rem)] overflow-hidden border border-black/10 bg-white shadow-xl shadow-black/8">
                         <div className="grid grid-cols-12">
-                          <div className="col-span-4 border-r border-black/8 p-5">
+                          <div className="col-span-5 border-r border-black/8 p-5">
                             <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-black/40">
                               Featured
                             </p>
@@ -821,7 +904,7 @@ export function Navigation() {
                             </div>
                           </div>
 
-                          <div className="col-span-4 border-r border-black/8 p-5">
+                          <div className="col-span-7 p-5">
                             <div className="mb-3 flex items-center justify-between">
                               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-black/40">
                                 Categories
@@ -830,12 +913,17 @@ export function Navigation() {
                                 Quick Browse
                               </span>
                             </div>
-                            <div className="space-y-1.5">
-                              {NAV_CATEGORY_LINKS.map((category) => {
+                            {shopMenuCategoriesLoading ? (
+                              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-black/35">
+                                Updating categories...
+                              </p>
+                            ) : null}
+                            <div data-testid="desktop-shop-categories" className="space-y-1.5">
+                              {displayedShopCategories.map((category) => {
                                 const Icon = category.icon
                                 return (
                                   <Link
-                                    key={category.href}
+                                    key={category.id}
                                     href={category.href}
                                     role="menuitem"
                                     data-shop-menu-item="true"
@@ -854,89 +942,6 @@ export function Navigation() {
                                 )
                               })}
                             </div>
-                          </div>
-
-                          <div className="col-span-4 p-5">
-                            <div className="mb-3 flex items-center justify-between">
-                              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-black/40">
-                                Buy Now
-                              </p>
-                              <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/35">
-                                Live Catalog
-                              </span>
-                            </div>
-
-                            {shopMenuProductsLoading ? (
-                              <div className="space-y-2.5">
-                                {[0, 1, 2].map((skeleton) => (
-                                  <div key={`shop-menu-skeleton-${skeleton}`} className="animate-pulse border border-black/10 p-2.5">
-                                    <div className="flex items-center gap-2.5">
-                                      <div className="h-12 w-12 bg-black/10" />
-                                      <div className="flex-1 space-y-2">
-                                        <div className="h-2.5 w-3/4 bg-black/10" />
-                                        <div className="h-2 w-1/2 bg-black/8" />
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : shopMenuFeaturedProducts.length > 0 ? (
-                              <div className="space-y-2.5">
-                                {shopMenuFeaturedProducts.map((product) => {
-                                  const primaryColor = product.colors[0]
-                                  const imageUrl = getPrimaryImageWithFallback({
-                                    images: product.images,
-                                    productName: product.name,
-                                    productSlug: product.slug,
-                                    color: primaryColor?.label ?? null,
-                                    colorHex: primaryColor?.hex ?? null,
-                                  })
-
-                                  return (
-                                    <Link
-                                      key={`shop-featured-product-${product.id}`}
-                                      href={`/products/${product.slug}`}
-                                      role="menuitem"
-                                      data-shop-menu-item="true"
-                                      onClick={() => closeShopDropdown()}
-                                      className="group block border border-black/10 p-2.5 transition-colors hover:border-black/20 hover:bg-black/[0.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
-                                    >
-                                      <div className="flex items-center gap-2.5">
-                                        <div className="relative h-12 w-12 overflow-hidden bg-black/5">
-                                          <Image
-                                            src={imageUrl}
-                                            alt={product.name}
-                                            fill
-                                            sizes="96px"
-                                            className="object-cover transition-transform duration-300 group-hover:scale-105"
-                                          />
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                          <p className="truncate text-xs font-black uppercase tracking-[0.08em] text-black">
-                                            {product.name}
-                                          </p>
-                                          <div className="mt-1 flex items-center gap-1.5 text-[11px]">
-                                            <span className="font-black text-black">{formatCurrency(product.price)}</span>
-                                            {product.compareAtPrice && product.compareAtPrice > product.price ? (
-                                              <span className="font-semibold text-black/45 line-through">
-                                                {formatCurrency(product.compareAtPrice)}
-                                              </span>
-                                            ) : null}
-                                          </div>
-                                          <p className={`mt-1 text-[10px] font-bold uppercase tracking-[0.14em] ${product.inStock ? 'text-emerald-700' : 'text-red-600'}`}>
-                                            {product.inStock ? 'In Stock' : 'Sold Out'}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </Link>
-                                  )
-                                })}
-                              </div>
-                            ) : (
-                              <div className="border border-dashed border-black/15 p-3 text-xs text-black/50">
-                                Live products are unavailable right now.
-                              </div>
-                            )}
                           </div>
                         </div>
 
@@ -1076,16 +1081,16 @@ export function Navigation() {
             {/* Center - Logo (Desktop only, centered) */}
             <Link 
               href="/" 
-              className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-3 xl:gap-4 transition-all duration-300 hover:opacity-80"
+              className="brand-wordmark-link group hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-3 xl:gap-4 transition-transform duration-300"
             >
               <Image
                 src="/assets/head-over-feels-logo.png"
                 alt="Head Over Feels Logo"
                 width={72}
                 height={72}
-                className="object-contain w-14 h-14 xl:w-[4.5rem] xl:h-[4.5rem]"
+                className="object-contain w-16 h-16 xl:w-[5rem] xl:h-[5rem]"
               />
-              <span className="logo-font text-2xl xl:text-3xl 2xl:text-4xl whitespace-nowrap">
+              <span data-testid="nav-wordmark-desktop" className="brand-wordmark brand-wordmark--hover-red text-[2.25rem] xl:text-[2.9rem] 2xl:text-[3.4rem] whitespace-nowrap">
                 Head Over Feels
               </span>
               <Image
@@ -1093,7 +1098,7 @@ export function Navigation() {
                 alt="Head Over Feels Logo"
                 width={72}
                 height={72}
-                className="object-contain w-14 h-14 xl:w-[4.5rem] xl:h-[4.5rem]"
+                className="object-contain w-16 h-16 xl:w-[5rem] xl:h-[5rem]"
               />
             </Link>
 
@@ -1529,23 +1534,25 @@ export function Navigation() {
                   </Link>
                   
                   {/* Categories */}
-                  {NAV_CATEGORY_LINKS.map((category) => {
-                    const Icon = category.icon
-                    return (
-                      <Link
-                        key={category.href}
-                        href={category.href}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center justify-between px-4 py-3 text-black/70 hover:text-black hover:bg-black/5 transition-all"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Icon size={16} weight="bold" />
-                          <span className="text-xs font-bold uppercase tracking-wider">{category.label}</span>
-                        </div>
-                        <CaretRight size={12} weight="bold" className="opacity-30" />
-                      </Link>
-                    )
-                  })}
+                  <div data-testid="mobile-shop-categories">
+                    {displayedShopCategories.map((category) => {
+                      const Icon = category.icon
+                      return (
+                        <Link
+                          key={category.id}
+                          href={category.href}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center justify-between px-4 py-3 text-black/70 hover:text-black hover:bg-black/5 transition-all"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Icon size={16} weight="bold" />
+                            <span className="text-xs font-bold uppercase tracking-wider">{category.label}</span>
+                          </div>
+                          <CaretRight size={12} weight="bold" className="opacity-30" />
+                        </Link>
+                      )
+                    })}
+                  </div>
                 </div>
                 
                 {/* Navigation Links */}

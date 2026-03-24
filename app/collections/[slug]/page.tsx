@@ -1,16 +1,21 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { CircleNotch, X } from '@phosphor-icons/react'
+import { ArrowRight, CircleNotch, Sparkle, X } from '@phosphor-icons/react'
 import { Navigation } from '@/components/layout/Navigation'
 import { Product, ProductVariant } from '@/lib/api/products'
 import { ProductCard } from '@/components/products/ProductCard'
 import {
+  buildCollectionEditorialSections,
+  COLLECTION_DETAIL_INITIAL_PRODUCTS,
   CollectionProductSortBy,
+  getNextCollectionVisibleCount,
+  getVisibleCollectionProducts,
   normalizeCollectionProductSortBy,
+  resolveCollectionCampaignPresentation,
 } from '@/lib/collections/public-collections'
 
 const SEARCH_SYNC_DEBOUNCE_MS = 250
@@ -78,6 +83,7 @@ export default function CollectionDetailPage() {
   const [notFound, setNotFound] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [refreshNonce, setRefreshNonce] = useState(0)
+  const [visibleCount, setVisibleCount] = useState(COLLECTION_DETAIL_INITIAL_PRODUCTS)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -238,12 +244,37 @@ export default function CollectionDetailPage() {
 
   const hasActiveFilters = Boolean(search) || sortBy !== 'curated' || inStock
   const products = detail?.products ?? []
+  const visibleProducts = getVisibleCollectionProducts(products, visibleCount)
+  const hasMoreProducts = visibleCount < products.length
   const totalProducts = detail?.counts.totalProducts ?? 0
   const filteredProducts = detail?.counts.filteredProducts ?? 0
+  const collectionName = detail?.collection.name ?? 'Collection'
+  const collectionSlug = detail?.collection.slug ?? (slugParam || 'collection')
+
+  const campaignPresentation = useMemo(
+    () => resolveCollectionCampaignPresentation(collectionSlug, 0),
+    [collectionSlug]
+  )
+
+  const editorialSections = useMemo(
+    () =>
+      buildCollectionEditorialSections({
+        name: collectionName,
+        description: detail?.collection.description,
+        productCount: totalProducts,
+        isFeatured: detail?.collection.isFeatured ?? false,
+        sampleProducts: products.slice(0, 3).map((product) => product.name),
+      }),
+    [collectionName, detail?.collection.description, detail?.collection.isFeatured, products, totalProducts]
+  )
+
+  useEffect(() => {
+    setVisibleCount(COLLECTION_DETAIL_INITIAL_PRODUCTS)
+  }, [collectionSlug, search, sortBy, inStock, filteredProducts])
 
   if (notFound) {
     return (
-      <div className="min-h-screen bg-neutral-50">
+      <div className="min-h-screen bg-gradient-to-b from-neutral-100 via-stone-50 to-neutral-100">
         <Navigation />
         <main className="mx-auto max-w-4xl px-4 pb-16 pt-24 text-center sm:px-6 lg:px-8 lg:pt-28">
           <h1 className="text-3xl font-black tracking-tight text-black sm:text-4xl">Collection not found</h1>
@@ -270,44 +301,108 @@ export default function CollectionDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-gradient-to-b from-neutral-100 via-stone-50 to-neutral-100">
       <Navigation />
 
-      <main className="mx-auto max-w-7xl px-4 pb-16 pt-24 sm:px-6 lg:px-8 lg:pt-28">
-        <section aria-labelledby="collection-detail-title">
-          <Link
-            href="/collections"
-            className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-black/60 transition-colors hover:text-black"
-          >
-            Collections
-          </Link>
+      <main className="mx-auto max-w-7xl px-4 pb-20 pt-24 sm:px-6 lg:px-8 lg:pt-28">
+        <section
+          className="relative overflow-hidden rounded-[1.8rem] border border-black/10 bg-white shadow-[0_24px_50px_-32px_rgba(0,0,0,0.5)]"
+          aria-labelledby="collection-detail-title"
+        >
+          <div className="grid gap-0 lg:grid-cols-[1fr_1.15fr]">
+            <div className="flex flex-col justify-between p-6 sm:p-8 lg:p-10">
+              <div>
+                <Link
+                  href="/collections"
+                  className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-black/60 transition-colors hover:text-black"
+                >
+                  Collections
+                </Link>
 
-          {detail?.collection.image ? (
-            <div className="relative mt-4 h-52 overflow-hidden rounded-2xl border border-black/10 bg-black/5 sm:h-64 lg:h-72">
-              <Image
-                src={detail.collection.image}
-                alt={detail.collection.name}
-                fill
-                sizes="(max-width: 640px) 96vw, (max-width: 1280px) 92vw, 1200px"
-                className="object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent" />
+                <span
+                  className={`mt-4 inline-flex items-center gap-1 rounded-full border bg-gradient-to-r px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${campaignPresentation.accentGradientClass}`}
+                >
+                  <Sparkle size={10} weight="fill" />
+                  {campaignPresentation.accentLabel}
+                </span>
+
+                <h1 id="collection-detail-title" className="mt-4 text-4xl font-black tracking-tight text-black sm:text-5xl">
+                  {collectionName}
+                </h1>
+
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-black/60 sm:text-base">
+                  {detail?.collection.description || 'Explore this collection of premium pieces.'}
+                </p>
+
+                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
+                  {totalProducts} curated {totalProducts === 1 ? 'piece' : 'pieces'}
+                </p>
+              </div>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <a
+                  href="#collection-products"
+                  className="inline-flex h-11 items-center justify-center rounded-full bg-black px-6 text-xs font-semibold uppercase tracking-[0.12em] text-white transition-colors hover:bg-black/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+                >
+                  Shop this collection
+                </a>
+                <Link
+                  href="/products"
+                  className="inline-flex h-11 items-center justify-center rounded-full border border-black/20 bg-white px-6 text-xs font-semibold uppercase tracking-[0.12em] text-black/75 transition-colors hover:border-black/35 hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+                >
+                  Shop all products
+                </Link>
+              </div>
             </div>
-          ) : null}
 
-          <h1 id="collection-detail-title" className="mt-5 text-4xl font-black tracking-tight text-black sm:text-5xl">
-            {detail?.collection.name ?? 'Collection'}
-          </h1>
-
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-black/60 sm:text-base">
-            {detail?.collection.description || 'Explore this collection of premium pieces.'}
-          </p>
+            <div className="relative min-h-[18rem] overflow-hidden bg-neutral-200 sm:min-h-[22rem] lg:min-h-full">
+              {detail?.collection.image ? (
+                <Image
+                  src={detail.collection.image}
+                  alt={detail.collection.name}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 58vw"
+                  className="object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-neutral-300 via-neutral-200 to-stone-300" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/15 to-transparent" />
+              <span className="absolute bottom-4 right-4 rounded-full border border-white/25 bg-black/60 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white">
+                Limited Collection
+              </span>
+            </div>
+          </div>
         </section>
 
         <section
-          className="sticky top-16 z-30 mt-8 rounded-2xl border border-black/10 bg-white/95 p-4 shadow-[0_10px_18px_rgba(0,0,0,0.06)] backdrop-blur sm:top-20 sm:p-5"
+          className="mt-8 grid gap-4 md:grid-cols-3"
+          data-testid="collection-story-sections"
+          aria-label="Collection editorial story"
+        >
+          {editorialSections.map((section) => (
+            <article
+              key={section.id}
+              className="rounded-[1.3rem] border border-black/10 bg-white/95 p-5 shadow-[0_14px_30px_-24px_rgba(0,0,0,0.35)]"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-black/45">{section.heading}</p>
+              <p className="mt-2 text-sm leading-relaxed text-black/70">{section.body}</p>
+            </article>
+          ))}
+        </section>
+
+        <section
+          id="collection-products"
+          className="mt-8 rounded-[1.6rem] border border-black/10 bg-white/95 p-5 shadow-[0_14px_30px_-24px_rgba(0,0,0,0.35)] backdrop-blur"
           aria-label="Collection product controls"
         >
+          <Link
+            href={`/collections/${collectionSlug}`}
+            className="mb-4 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55 transition-colors hover:text-black"
+          >
+            Product discovery
+            <ArrowRight size={11} weight="bold" />
+          </Link>
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
             <label className="sr-only" htmlFor="collection-products-search">
               Search products in collection
@@ -411,11 +506,40 @@ export default function CollectionDetailPage() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            <>
+              <div
+                className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4"
+                data-testid="collection-products-grid"
+              >
+                {visibleProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+
+              {hasMoreProducts ? (
+                <div className="mt-6 flex justify-center">
+                  <button
+                    type="button"
+                    data-testid="collection-load-more"
+                    onClick={() =>
+                      setVisibleCount((current) =>
+                        getNextCollectionVisibleCount({
+                          currentVisibleCount: current,
+                          totalProducts: products.length,
+                        })
+                      )
+                    }
+                    className="inline-flex h-11 items-center justify-center rounded-full border border-black/20 bg-white px-6 text-xs font-semibold uppercase tracking-[0.12em] text-black/75 transition-colors hover:border-black/35 hover:text-black"
+                  >
+                    Load more ({products.length - visibleCount} remaining)
+                  </button>
+                </div>
+              ) : null}
+
+              <p className="mt-4 text-center text-xs text-black/45">
+                Showing {visibleProducts.length} of {products.length} products
+              </p>
+            </>
           )}
         </section>
       </main>

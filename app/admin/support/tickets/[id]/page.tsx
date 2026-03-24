@@ -246,6 +246,12 @@ export default function TicketDetailPage() {
     ]
   }, [ticket])
 
+  const fulfillmentHref = ticket
+    ? ticket.orderId
+      ? `/admin/fulfillment?ticketId=${ticket.id}&orderId=${ticket.orderId}`
+      : `/admin/fulfillment?ticketId=${ticket.id}`
+    : '/admin/fulfillment'
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-neutral-950">
@@ -281,6 +287,13 @@ export default function TicketDetailPage() {
           <span className={`inline-flex items-center px-2.5 py-1 rounded text-xs font-semibold ${getPriorityColor(ticket.priority)}`}>
             {ticket.priority}
           </span>
+          <Link
+            href={fulfillmentHref}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-white/10 bg-white/5 text-white/70 hover:text-white hover:bg-white/10 text-xs uppercase tracking-[0.12em]"
+          >
+            <Package className="w-3.5 h-3.5" />
+            Fulfillment
+          </Link>
         </div>
       }
     >

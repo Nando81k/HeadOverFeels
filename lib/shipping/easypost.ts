@@ -64,6 +64,20 @@ export interface ReturnLabelResult {
   error?: string
 }
 
+export interface OutboundLabelResult {
+  success: boolean
+  shipmentId?: string
+  rateId?: string
+  trackingNumber?: string
+  trackingUrl?: string
+  labelUrl?: string
+  carrier?: string
+  service?: string
+  rate?: number
+  validationErrors?: string[]
+  error?: string
+}
+
 // ===== CONFIGURATION =====
 
 const EASYPOST_API_KEY = process.env.EASYPOST_API_KEY
@@ -145,6 +159,28 @@ function toEasyPostAddress(address: ShippingAddress) {
     phone: address.phone,
     email: address.email,
   }
+}
+
+function buildCarrierTrackingUrl(carrier: string | undefined, trackingNumber: string): string {
+  if (!carrier) {
+    return ''
+  }
+
+  const normalized = carrier.toUpperCase()
+  if (normalized === 'USPS') {
+    return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}`
+  }
+  if (normalized === 'FEDEX') {
+    return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(trackingNumber)}`
+  }
+  if (normalized === 'UPS') {
+    return `https://www.ups.com/track?tracknum=${encodeURIComponent(trackingNumber)}`
+  }
+  if (normalized === 'DHL') {
+    return `https://www.dhl.com/en/express/tracking.html?AWB=${encodeURIComponent(trackingNumber)}`
+  }
+
+  return ''
 }
 
 // ===== MAIN FUNCTIONS =====
@@ -269,6 +305,137 @@ export async function createReturnLabel(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to create return label',
+    }
+  }
+}
+
+/**
+ * Purchase outbound shipping label for an order.
+ * This creates a carrier label for fulfillment (store -> customer).
+ */
+export async function purchaseOutboundLabel(
+  orderId: string,
+  options?: {
+    toAddress?: ShippingAddress
+    parcel?: ShippingParcel
+    rateId?: string
+    preferredCarriers?: string[]
+  }
+): Promise<OutboundLabelResult> {
+  try {
+    let destinationAddress = options?.toAddress
+
+    if (!destinationAddress) {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          shippingAddress: true,
+        },
+      })
+
+      if (!order?.shippingAddress) {
+        return {
+          success: false,
+          error: 'Order or shipping address not found',
+        }
+      }
+
+      destinationAddress = {
+        name: `${order.shippingAddress.firstName} ${order.shippingAddress.lastName}`,
+        company: order.shippingAddress.company || undefined,
+        street1: order.shippingAddress.address1,
+        street2: order.shippingAddress.address2 || undefined,
+        city: order.shippingAddress.city,
+        state: order.shippingAddress.state,
+        zip: order.shippingAddress.postalCode,
+        country: order.shippingAddress.country || 'US',
+        email: order.customerEmail,
+        phone: order.customerPhone || undefined,
+      }
+    }
+
+    const validation = await validateAddress(destinationAddress)
+    if (!validation.valid) {
+      return {
+        success: false,
+        error: 'Address validation failed',
+        validationErrors: validation.errors,
+      }
+    }
+
+    const normalizedAddress = validation.suggestions || destinationAddress
+
+    if (!isEasyPostConfigured()) {
+      return generateDemoOutboundLabel(orderId, normalizedAddress)
+    }
+
+    const parcel = options?.parcel || DEFAULT_PARCEL
+    const shipment = await easyPostRequest<{
+      id: string
+      rates: Array<{
+        id: string
+        carrier: string
+        service: string
+        rate: string
+      }>
+    }>('/shipments', 'POST', {
+      shipment: {
+        from_address: toEasyPostAddress(RETURN_ADDRESS),
+        to_address: toEasyPostAddress(normalizedAddress),
+        parcel,
+        options: {
+          label_format: 'PDF',
+          label_size: '4x6',
+        },
+      },
+    })
+
+    const preferredCarriers = options?.preferredCarriers ?? ['USPS', 'UPS', 'FedEx']
+    const sortedRates = [...shipment.rates].sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate))
+    const selectedRate =
+      (options?.rateId ? sortedRates.find((rate) => rate.id === options.rateId) : undefined) ||
+      sortedRates.find((rate) => preferredCarriers.includes(rate.carrier)) ||
+      sortedRates[0]
+
+    if (!selectedRate) {
+      return {
+        success: false,
+        shipmentId: shipment.id,
+        error: 'No outbound shipping rates available',
+      }
+    }
+
+    const purchasedShipment = await easyPostRequest<{
+      id: string
+      tracking_code: string
+      postage_label: { label_url: string }
+      tracker?: { public_url?: string | null }
+      selected_rate: { id: string; carrier: string; service: string; rate: string }
+    }>(`/shipments/${shipment.id}/buy`, 'POST', {
+      rate: { id: selectedRate.id },
+    })
+
+    const fallbackTrackingUrl = buildCarrierTrackingUrl(
+      purchasedShipment.selected_rate?.carrier,
+      purchasedShipment.tracking_code
+    )
+
+    return {
+      success: true,
+      shipmentId: purchasedShipment.id,
+      rateId: purchasedShipment.selected_rate?.id,
+      trackingNumber: purchasedShipment.tracking_code,
+      trackingUrl: purchasedShipment.tracker?.public_url || fallbackTrackingUrl,
+      labelUrl: purchasedShipment.postage_label.label_url,
+      carrier: purchasedShipment.selected_rate?.carrier,
+      service: purchasedShipment.selected_rate?.service,
+      rate: parseFloat(purchasedShipment.selected_rate?.rate || selectedRate.rate),
+    }
+  } catch (error) {
+    console.error('[Shipping] Error purchasing outbound label:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to purchase outbound label',
     }
   }
 }
@@ -462,6 +629,32 @@ function generateDemoReturnLabel(orderId: string, fromAddress: ShippingAddress):
     carrier: 'USPS',
     qrCodeUrl: `/api/shipping/qr/${orderId}?tracking=${trackingNumber}`,
     expiresAt,
+  }
+}
+
+function generateDemoOutboundLabel(orderId: string, destinationAddress: ShippingAddress): OutboundLabelResult {
+  const trackingNumber = `SHIP${Date.now().toString(36).toUpperCase()}`
+  const trackingUrl = buildCarrierTrackingUrl('USPS', trackingNumber)
+
+  const labelData = {
+    orderId,
+    tracking: trackingNumber,
+    from: RETURN_ADDRESS,
+    to: destinationAddress,
+    created: new Date().toISOString(),
+    mode: 'outbound',
+  }
+
+  return {
+    success: true,
+    shipmentId: `demo_shipment_${orderId}`,
+    rateId: 'demo_usps_priority',
+    trackingNumber,
+    trackingUrl,
+    labelUrl: `/api/shipping/label/${orderId}?data=${Buffer.from(JSON.stringify(labelData)).toString('base64')}`,
+    carrier: 'USPS',
+    service: 'Priority Mail',
+    rate: 8.95,
   }
 }
 

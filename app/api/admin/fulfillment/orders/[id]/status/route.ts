@@ -1,0 +1,165 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { AuditAction } from '@prisma/client'
+import { z } from 'zod'
+import { verifyAdmin } from '@/lib/auth/admin'
+import { prisma } from '@/lib/prisma'
+import { getFulfillmentAuditLogger } from '@/lib/fulfillment/audit'
+import { appendHighValueHoldReviewMarker } from '@/lib/fulfillment/high-value-hold'
+
+const UpdateOrderStatusSchema = z.object({
+  status: z
+    .enum(['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'])
+    .optional(),
+  paymentStatus: z.enum(['PENDING', 'PAID', 'FAILED', 'REFUNDED']).optional(),
+  trackingNumber: z.string().max(80).optional(),
+  carrier: z.string().max(80).optional(),
+  trackingUrl: z.string().url().or(z.literal('')).optional(),
+  internalNotes: z.string().max(4000).optional(),
+  reviewHighValueHold: z.boolean().optional(),
+})
+
+function normalizeOptionalText(value: string | undefined): string | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : ''
+}
+
+// PATCH /api/admin/fulfillment/orders/[id]/status
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const adminId = await verifyAdmin(request)
+    if (!adminId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id } = await params
+    const body = UpdateOrderStatusSchema.parse(await request.json())
+
+    const currentOrder = await prisma.order.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        paymentStatus: true,
+        trackingNumber: true,
+        carrier: true,
+        trackingUrl: true,
+        internalNotes: true,
+      },
+    })
+
+    if (!currentOrder) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    }
+
+    const trackingNumber = normalizeOptionalText(body.trackingNumber)
+    const carrier = normalizeOptionalText(body.carrier)
+    const trackingUrl = body.trackingUrl === '' ? null : body.trackingUrl
+    const internalNotes = body.internalNotes?.trim()
+
+    const updateData: Record<string, unknown> = {}
+    if (body.status) updateData.status = body.status
+    if (body.paymentStatus) updateData.paymentStatus = body.paymentStatus
+    if (trackingNumber !== undefined) updateData.trackingNumber = trackingNumber || null
+    if (carrier !== undefined) updateData.carrier = carrier || null
+    if (body.trackingUrl !== undefined) updateData.trackingUrl = trackingUrl
+
+    let nextInternalNotes: string | null | undefined = undefined
+    if (body.internalNotes !== undefined) {
+      nextInternalNotes = internalNotes || null
+    }
+    if (body.reviewHighValueHold) {
+      const baseNotes = nextInternalNotes ?? currentOrder.internalNotes
+      nextInternalNotes = appendHighValueHoldReviewMarker(baseNotes)
+    }
+    if (nextInternalNotes !== undefined && nextInternalNotes !== currentOrder.internalNotes) {
+      updateData.internalNotes = nextInternalNotes
+    }
+
+    const finalStatus = (updateData.status as string | undefined) || currentOrder.status
+    if (finalStatus === 'SHIPPED') {
+      updateData.shippedAt = new Date()
+    }
+    if (finalStatus === 'DELIVERED') {
+      updateData.deliveredAt = new Date()
+    }
+
+    const incomingTracking = trackingNumber ?? currentOrder.trackingNumber
+    if (
+      incomingTracking &&
+      currentOrder.status !== 'SHIPPED' &&
+      currentOrder.status !== 'DELIVERED' &&
+      !updateData.status
+    ) {
+      updateData.status = 'SHIPPED'
+      updateData.shippedAt = new Date()
+    }
+
+    const updatedOrder = await prisma.order.update({
+      where: { id },
+      data: updateData,
+      include: {
+        shippingAddress: true,
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    })
+
+    const audit = await getFulfillmentAuditLogger(adminId, request)
+    const action =
+      currentOrder.status !== updatedOrder.status || currentOrder.paymentStatus !== updatedOrder.paymentStatus
+        ? AuditAction.STATUS_CHANGE
+        : AuditAction.UPDATE
+
+    await audit.logOrder(action, updatedOrder.id, 'Updated order fulfillment state from fulfillment center', {
+      orderNumber: updatedOrder.orderNumber,
+      changes: {
+        before: {
+          status: currentOrder.status,
+          paymentStatus: currentOrder.paymentStatus,
+          trackingNumber: currentOrder.trackingNumber,
+          carrier: currentOrder.carrier,
+          trackingUrl: currentOrder.trackingUrl,
+          internalNotes: currentOrder.internalNotes,
+        },
+        after: {
+          status: updatedOrder.status,
+          paymentStatus: updatedOrder.paymentStatus,
+          trackingNumber: updatedOrder.trackingNumber,
+          carrier: updatedOrder.carrier,
+          trackingUrl: updatedOrder.trackingUrl,
+          internalNotes: updatedOrder.internalNotes,
+        },
+      },
+    })
+
+    return NextResponse.json({
+      success: true,
+      order: updatedOrder,
+    })
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: error.issues },
+        { status: 400 }
+      )
+    }
+
+    console.error('Failed to update fulfillment order status:', error)
+    return NextResponse.json(
+      { error: 'Failed to update order status' },
+      { status: 500 }
+    )
+  }
+}

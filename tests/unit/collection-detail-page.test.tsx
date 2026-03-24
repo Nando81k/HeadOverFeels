@@ -58,7 +58,36 @@ vi.mock('@/components/products/ProductCard', () => ({
   ),
 }))
 
-function detailPayload(overrides?: Partial<Record<string, unknown>>) {
+function buildProduct(index: number) {
+  const isOdd = index % 2 === 1
+  return {
+    id: `product-${index}`,
+    name: `Calm Product ${index}`,
+    slug: `calm-product-${index}`,
+    description: isOdd ? 'Soft fleece hoodie' : 'Cotton tee',
+    price: isOdd ? 98 : 42,
+    compareAtPrice: isOdd ? 120 : null,
+    images: JSON.stringify([`/products/calm-${index}.jpg`]),
+    isActive: true,
+    isFeatured: false,
+    variants: [
+      {
+        id: `variant-${index}`,
+        sku: `SKU-${index}`,
+        color: isOdd ? 'Navy' : 'Black',
+        colorHex: isOdd ? '#1B2A4A' : '#000000',
+        inventory: 8,
+        isActive: true,
+      },
+    ],
+    createdAt: `2026-03-${String((index % 28) + 1).padStart(2, '0')}T00:00:00.000Z`,
+    updatedAt: `2026-03-${String((index % 28) + 1).padStart(2, '0')}T00:00:00.000Z`,
+  }
+}
+
+function detailPayload(overrides?: Partial<Record<string, unknown>>, productCount = 2) {
+  const products = Array.from({ length: productCount }, (_, index) => buildProduct(index + 1))
+
   return {
     collection: {
       id: 'collection-1',
@@ -68,65 +97,18 @@ function detailPayload(overrides?: Partial<Record<string, unknown>>) {
       image: '/collections/calm.jpg',
       isFeatured: true,
       sortOrder: 0,
-      productCount: 2,
-      totalAssignedCount: 2,
+      productCount,
+      totalAssignedCount: productCount,
     },
-    products: [
-      {
-        id: 'product-1',
-        name: 'Calm Hoodie',
-        slug: 'calm-hoodie',
-        description: 'Soft fleece hoodie',
-        price: 98,
-        compareAtPrice: 120,
-        images: JSON.stringify(['/products/calm-hoodie.jpg']),
-        isActive: true,
-        isFeatured: false,
-        variants: [
-          {
-            id: 'variant-1',
-            sku: 'SKU-1',
-            color: 'Navy',
-            colorHex: '#1B2A4A',
-            inventory: 8,
-            isActive: true,
-          },
-        ],
-        createdAt: '2026-03-01T00:00:00.000Z',
-        updatedAt: '2026-03-01T00:00:00.000Z',
-      },
-      {
-        id: 'product-2',
-        name: 'Calm Tee',
-        slug: 'calm-tee',
-        description: 'Cotton tee',
-        price: 42,
-        compareAtPrice: null,
-        images: JSON.stringify(['/products/calm-tee.jpg']),
-        isActive: true,
-        isFeatured: false,
-        variants: [
-          {
-            id: 'variant-2',
-            sku: 'SKU-2',
-            color: 'Black',
-            colorHex: '#000000',
-            inventory: 5,
-            isActive: true,
-          },
-        ],
-        createdAt: '2026-03-02T00:00:00.000Z',
-        updatedAt: '2026-03-02T00:00:00.000Z',
-      },
-    ],
+    products,
     filters: {
       search: '',
       sortBy: 'curated',
       inStock: false,
     },
     counts: {
-      totalProducts: 2,
-      filteredProducts: 2,
+      totalProducts: productCount,
+      filteredProducts: productCount,
     },
     meta: {
       requestedSlug: navState.slug,
@@ -151,13 +133,14 @@ describe('Collection detail page', () => {
     } as Response)) as unknown as typeof fetch
   })
 
-  it('renders collection details and product cards', async () => {
+  it('renders campaign story sections and product cards', async () => {
     render(<CollectionDetailPage />)
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Calm Essentials' })).toBeTruthy()
     })
 
+    expect(screen.getByTestId('collection-story-sections')).toBeTruthy()
     expect(screen.getAllByTestId('collection-product-card')).toHaveLength(2)
     expect(screen.getByText('2 of 2 products')).toBeTruthy()
   })
@@ -223,6 +206,29 @@ describe('Collection detail page', () => {
     })
   })
 
+  it('renders an initial product slice and appends products with load more', async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => detailPayload(undefined, 10),
+    } as Response)) as unknown as typeof fetch
+
+    render(<CollectionDetailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('10 of 10 products')).toBeTruthy()
+    })
+
+    expect(screen.getAllByTestId('collection-product-card')).toHaveLength(8)
+    expect(screen.getByTestId('collection-load-more')).toBeTruthy()
+
+    fireEvent.click(screen.getByTestId('collection-load-more'))
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('collection-product-card')).toHaveLength(10)
+    })
+  })
+
   it('hydrates search URL params into detail fetch requests', async () => {
     navState.search = 'search=hoodie'
     const fetchMock = vi.fn(async () => ({
@@ -239,7 +245,7 @@ describe('Collection detail page', () => {
             totalProducts: 2,
             filteredProducts: 1,
           },
-          products: [detailPayload().products[0]],
+          products: [buildProduct(1)],
         }),
     } as Response))
     global.fetch = fetchMock as unknown as typeof fetch

@@ -10,6 +10,8 @@ interface AdminLayoutProps {
   subtitle?: string
   headerActions?: React.ReactNode
   pendingOrders?: number
+  contentScroll?: 'auto' | 'hidden'
+  contentClassName?: string
 }
 
 export function AdminLayout({ 
@@ -17,7 +19,9 @@ export function AdminLayout({
   title, 
   subtitle,
   headerActions,
-  pendingOrders 
+  pendingOrders,
+  contentScroll = 'auto',
+  contentClassName = '',
 }: AdminLayoutProps) {
   return (
     <div className="min-h-screen bg-neutral-950 flex">
@@ -47,7 +51,11 @@ export function AdminLayout({
         />
 
         {/* Page Content - Add bottom padding for mobile nav */}
-        <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 pb-20 sm:pb-24 lg:pb-6">
+        <main
+          className={`flex-1 ${
+            contentScroll === 'hidden' ? 'overflow-hidden' : 'overflow-auto'
+          } p-3 sm:p-4 lg:p-6 pb-20 sm:pb-24 lg:pb-6 ${contentClassName}`}
+        >
           {children}
         </main>
       </div>

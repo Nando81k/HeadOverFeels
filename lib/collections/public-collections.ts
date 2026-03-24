@@ -42,7 +42,51 @@ export interface CollectionCardViewModel {
   productCount: number
 }
 
+export const COLLECTION_CAMPAIGN_VARIANTS = ['runway', 'atelier', 'gallery'] as const
+export type CollectionCampaignVariant = (typeof COLLECTION_CAMPAIGN_VARIANTS)[number]
+
+export interface CollectionCampaignPresentation {
+  variant: CollectionCampaignVariant
+  accentLabel: string
+  accentGradientClass: string
+  cardSpanClass: string
+  mediaAspectClass: string
+}
+
+export interface CollectionEditorialSection {
+  id: string
+  heading: string
+  body: string
+}
+
+export const COLLECTION_DETAIL_INITIAL_PRODUCTS = 8
+export const COLLECTION_DETAIL_LOAD_MORE_STEP = 8
+
 const DEFAULT_COLLECTION_IMAGE = '/placeholder-product.jpg'
+
+const CAMPAIGN_PRESENTATIONS: Record<CollectionCampaignVariant, Omit<CollectionCampaignPresentation, 'variant'>> = {
+  runway: {
+    accentLabel: 'Runway Edit',
+    accentGradientClass:
+      'from-neutral-900 via-neutral-700 to-stone-500 text-white border-white/20 shadow-black/30',
+    cardSpanClass: 'lg:col-span-5',
+    mediaAspectClass: 'aspect-[4/5]',
+  },
+  atelier: {
+    accentLabel: 'Atelier Selection',
+    accentGradientClass:
+      'from-zinc-900 via-zinc-700 to-amber-200 text-white border-white/20 shadow-black/30',
+    cardSpanClass: 'lg:col-span-4',
+    mediaAspectClass: 'aspect-[4/3]',
+  },
+  gallery: {
+    accentLabel: 'Gallery Collection',
+    accentGradientClass:
+      'from-neutral-800 via-stone-600 to-zinc-300 text-white border-white/25 shadow-black/25',
+    cardSpanClass: 'lg:col-span-3',
+    mediaAspectClass: 'aspect-[3/4]',
+  },
+}
 
 function parseImages(images: unknown): string[] {
   if (!images) return []
@@ -73,6 +117,15 @@ function parseImages(images: unknown): string[] {
   }
 
   return []
+}
+
+function hashString(value: string): number {
+  let hash = 0
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(index)
+    hash |= 0
+  }
+  return Math.abs(hash)
 }
 
 export function normalizeCollectionListSortBy(value: string | null | undefined): CollectionListSortBy {
@@ -129,3 +182,63 @@ export function toCollectionCardViewModel(collection: CollectionWithProducts): C
   }
 }
 
+export function resolveCollectionCampaignPresentation(slug: string, index: number): CollectionCampaignPresentation {
+  const key = `${slug}:${index}`
+  const variant = COLLECTION_CAMPAIGN_VARIANTS[hashString(key) % COLLECTION_CAMPAIGN_VARIANTS.length]
+  const presentation = CAMPAIGN_PRESENTATIONS[variant]
+
+  return {
+    variant,
+    ...presentation,
+  }
+}
+
+export function buildCollectionEditorialSections(input: {
+  name: string
+  description: string | null | undefined
+  productCount: number
+  isFeatured: boolean
+  sampleProducts?: string[]
+}): CollectionEditorialSection[] {
+  const summaryText =
+    input.description?.trim() ||
+    `${input.name} brings a focused edit of elevated staples for everyday expression.`
+  const featuredText = input.isFeatured
+    ? 'This featured collection highlights signature styles selected for standout wearability.'
+    : 'This collection is curated for a cohesive wardrobe direction with premium essentials.'
+
+  const sampleLabel = (input.sampleProducts ?? []).filter(Boolean).slice(0, 3).join(', ')
+
+  return [
+    {
+      id: 'intent',
+      heading: 'Collection Intent',
+      body: summaryText,
+    },
+    {
+      id: 'craft',
+      heading: 'Craft & Composition',
+      body: `${featuredText} ${input.productCount} pieces are currently available in this edit.`,
+    },
+    {
+      id: 'style',
+      heading: 'Styling Direction',
+      body: sampleLabel
+        ? `Build looks around ${sampleLabel}, then layer with accessories for a polished finish.`
+        : 'Mix core pieces with textures and layers for a refined monochrome statement.',
+    },
+  ]
+}
+
+export function getVisibleCollectionProducts<T>(products: T[], visibleCount: number): T[] {
+  return products.slice(0, Math.max(0, visibleCount))
+}
+
+export function getNextCollectionVisibleCount(params: {
+  currentVisibleCount: number
+  totalProducts: number
+  step?: number
+}): number {
+  const step = params.step ?? COLLECTION_DETAIL_LOAD_MORE_STEP
+  return Math.min(params.totalProducts, params.currentVisibleCount + step)
+}

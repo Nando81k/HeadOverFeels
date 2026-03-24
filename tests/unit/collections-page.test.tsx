@@ -135,58 +135,65 @@ describe('Collections index page', () => {
     }) as unknown as typeof fetch
   })
 
-  it('renders collection cards and links to canonical slug pages', async () => {
+  it('renders campaign composition and links cards to canonical slug pages', async () => {
     render(<CollectionsPage />)
 
     await waitFor(() => {
       expect(screen.getByTestId('collections-grid')).toBeTruthy()
     })
 
-    expect(screen.getByRole('link', { name: /Calm Essentials/i }).getAttribute('href')).toBe('/collections/calm-essentials')
-    expect(screen.getByRole('link', { name: /Weekend Core/i }).getAttribute('href')).toBe('/collections/weekend-core')
+    expect(screen.getByRole('heading', { name: /Curated edits built for everyday shopping/i })).toBeTruthy()
+    expect(screen.getByTestId('collections-spotlight')).toBeTruthy()
+    const linkHrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'))
+    expect(linkHrefs).toContain('/collections/calm-essentials')
+    expect(linkHrefs).toContain('/collections/weekend-core')
+    expect(screen.getAllByText(/View collection/i).length).toBeGreaterThan(0)
   })
 
-  it('debounces search query updates into URL params', async () => {
+  it('removes search input and keeps filter controls compact', async () => {
     render(<CollectionsPage />)
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Search collections')).toBeTruthy()
+      expect(screen.getByRole('button', { name: /All collections/i })).toBeTruthy()
     })
 
-    fireEvent.change(screen.getByPlaceholderText('Search collections'), {
-      target: { value: 'calm' },
-    })
-
-    await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith('/collections?search=calm', { scroll: false })
-    })
+    expect(screen.queryByPlaceholderText('Search collections')).toBeNull()
   })
 
-  it('supports featured toggle and clear-all behavior', async () => {
-    navState.search = 'search=calm&featured=featured&sortBy=name'
+  it('supports featured toggle, sort, and clear behavior', async () => {
+    navState.search = 'featured=featured&sortBy=name'
     const { rerender } = render(<CollectionsPage />)
 
     await waitFor(() => {
-      expect(screen.getByTestId('collections-active-filters')).toBeTruthy()
+      expect(screen.getByRole('button', { name: /clear/i })).toBeTruthy()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /clear all/i }))
+    fireEvent.click(screen.getByRole('button', { name: /clear/i }))
 
     expect(replaceMock).toHaveBeenCalledWith('/collections', { scroll: false })
 
     navState.search = ''
     rerender(<CollectionsPage />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Featured' }))
+    fireEvent.click(screen.getByRole('button', { name: /Featured/i }))
     expect(replaceMock).toHaveBeenCalledWith('/collections?featured=featured', { scroll: false })
+
+    fireEvent.change(screen.getByRole('combobox', { name: /Sort collections/i }), {
+      target: { value: 'productCount' },
+    })
+    expect(replaceMock).toHaveBeenCalledWith('/collections?sortBy=productCount', { scroll: false })
   })
 
-  it('renders filtered-empty state when no collections match', async () => {
-    navState.search = 'search=missing'
+  it('renders empty state when no collections are returned', async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => [],
+    } as Response)) as unknown as typeof fetch
+
     render(<CollectionsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('No collections match your filters')).toBeTruthy()
+      expect(screen.getByText('No collections available right now')).toBeTruthy()
     })
   })
 })
