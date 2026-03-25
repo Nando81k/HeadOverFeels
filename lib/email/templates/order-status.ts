@@ -5,6 +5,7 @@
  */
 
 interface OrderStatusEmailData {
+  orderId: string
   orderNumber: string
   customerName: string
   customerEmail: string
@@ -157,7 +158,7 @@ const baseStyles = `
 
 export function generateShippedEmail(data: OrderStatusEmailData): { subject: string; html: string; text: string } {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-  const trackingPageUrl = `${baseUrl}/orders/${data.orderNumber}/track`
+  const trackingPageUrl = `${baseUrl}/orders/${data.orderId}/track`
 
   const itemsList = data.items.map(item => `
     <div class="item">

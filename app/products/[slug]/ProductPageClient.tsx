@@ -8,7 +8,6 @@ import { Navigation } from '@/components/layout/Navigation'
 import { Product, ProductVariant } from '@/lib/api/products'
 import { useCartStore } from '@/lib/store/cart'
 import { WishlistButton } from '@/components/wishlist/WishlistButton'
-import { MobileAddToCartBar } from '@/components/products/MobileAddToCartBar'
 import { SimilarProducts } from '@/components/recommendations/SimilarProducts'
 import {
   clampQuantity,
@@ -556,7 +555,7 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
     return (
       <div className="min-h-screen bg-white">
         <Navigation />
-        <div className="pt-32 flex flex-col items-center justify-center">
+        <div className="pt-16 md:pt-28 flex flex-col items-center justify-center">
           <h1 className="text-4xl font-black text-black mb-4">Product Not Found</h1>
           <Link 
             href="/products"
@@ -595,7 +594,7 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
       <Navigation />
       
       {/* Breadcrumb */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-24 pb-4">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-3 md:pt-12 pb-3 md:pb-4">
         <Link 
           href="/products"
           className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-black/40 hover:text-black transition-colors"
@@ -738,7 +737,7 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
 
             <div
               data-testid="sticky-price-row"
-              className="sticky top-16 z-20 -mx-2 border-y border-black/10 bg-white/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-white/80 sm:-mx-0 sm:px-0"
+              className="sticky top-[4.5rem] md:top-20 z-20 -mx-2 border-y border-black/10 bg-white/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-white/80 sm:-mx-0 sm:px-0"
             >
               <div className="flex items-end justify-between gap-3">
                 <p
@@ -1432,18 +1431,6 @@ export default function ProductPageClient({ slug }: ProductPageClientProps) {
         </div>
       </section>
 
-      {/* Mobile Add to Cart Bar */}
-      <MobileAddToCartBar
-        price={displayPrice}
-        inStock={canPurchaseSelectedVariant}
-        selectedVariant={selectedVariant}
-        quantity={quantity}
-        maxQuantity={maxSelectableQuantity}
-        stockStatusLabel={selectedStockText}
-        onQuantityChange={handleQuantityChange}
-        onAddToCart={handleAddToCart}
-        showAddedMessage={showAddedMessage}
-      />
     </div>
   )
 }

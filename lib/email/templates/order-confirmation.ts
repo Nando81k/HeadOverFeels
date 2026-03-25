@@ -37,7 +37,7 @@ interface Order {
 
 export function generateOrderConfirmationEmail(order: Order) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-  const trackingPageUrl = `${baseUrl}/order/track/${order.id}`
+  const trackingPageUrl = `${baseUrl}/orders/${order.id}/track`
   
   return {
     subject: `Order Confirmation - ${order.orderNumber}`,
@@ -283,7 +283,7 @@ export function generateOrderConfirmationEmail(order: Order) {
       <p>Need help? Contact us at <a href="mailto:support@headoverfeels.com">support@headoverfeels.com</a></p>
       <p style="margin-top: 16px;">
         <a href="${baseUrl}">Visit Our Store</a> • 
-        <a href="${baseUrl}/order/track/${order.id}">Track Order</a>
+        <a href="${baseUrl}/orders/${order.id}/track">Track Order</a>
       </p>
       <p style="margin-top: 16px; font-size: 12px; color: #9ca3af;">
         © ${new Date().getFullYear()} Head Over Feels. All rights reserved.

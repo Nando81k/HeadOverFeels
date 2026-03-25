@@ -609,10 +609,10 @@ function compareItems(
 }
 
 export function parseFulfillmentFilterState(searchParams: URLSearchParams): FulfillmentFilterState {
-  const parsedQueueTypes = parseCsv(searchParams.get('queueTypes'))
+  const parsedQueueTypes: FulfillmentQueueType[] = parseCsv(searchParams.get('queueTypes'))
     .map((value) => value.toUpperCase())
-    .filter(isQueueType)
-  const queueTypes = parsedQueueTypes.length > 0 ? parsedQueueTypes : ['FULFILL_ORDER']
+    .filter((value): value is FulfillmentQueueType => isQueueType(value))
+  const queueTypes: FulfillmentQueueType[] = parsedQueueTypes.length > 0 ? parsedQueueTypes : ['FULFILL_ORDER']
 
   return {
     search: searchParams.get('search')?.trim() || '',

@@ -1,15 +1,16 @@
+/* eslint-disable @next/next/no-img-element */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Navigation } from '@/components/layout/Navigation'
 
-const { pushMock } = vi.hoisted(() => ({
-  pushMock: vi.fn(),
+const { cartState } = vi.hoisted(() => ({
+  cartState: { count: 0 },
 }))
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/',
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: vi.fn() }),
 }))
 
 vi.mock('next/link', () => ({
@@ -37,18 +38,12 @@ vi.mock('next/image', () => ({
 }))
 
 vi.mock('@/components/search', () => ({
-  SearchModal: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => (
-    isOpen ? (
-      <div data-testid="search-modal">
-        <button onClick={onClose}>Close mocked search</button>
-      </div>
-    ) : null
-  ),
+  SearchModal: ({ isOpen }: { isOpen: boolean }) => (isOpen ? <div data-testid="search-modal" /> : null),
 }))
 
 vi.mock('@/lib/store/cart', () => ({
   useCartStore: (selector: (state: { getTotalItems: () => number }) => number) =>
-    selector({ getTotalItems: () => 0 }),
+    selector({ getTotalItems: () => cartState.count }),
 }))
 
 vi.mock('@/lib/auth/context', () => ({
@@ -67,38 +62,39 @@ vi.mock('@/components/notifications/NotificationCenter', () => ({
   NotificationCenter: () => <div data-testid="notification-center" />,
 }))
 
-describe('Navigation search triggers', () => {
+describe('Navigation mobile menu cart widget', () => {
   beforeEach(() => {
-    pushMock.mockReset()
+    cartState.count = 0
   })
 
-  it('opens search from desktop trigger and closes via modal callback', async () => {
+  it('shows cart item count on the hamburger toggle before menu opens', async () => {
+    cartState.count = 4
     render(<Navigation />)
 
-    fireEvent.click(screen.getByTestId('nav-search-trigger-desktop'))
-    expect(screen.getByTestId('search-modal')).toBeTruthy()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Close mocked search' }))
     await waitFor(() => {
-      expect(screen.queryByTestId('search-modal')).toBeNull()
+      expect(screen.getByTestId('nav-mobile-menu-cart-count')).toBeTruthy()
     })
+
+    const widget = screen.getByTestId('nav-mobile-menu-cart-count')
+    expect(widget.textContent).toBe('4')
   })
 
-  it('does not render a mobile search trigger', () => {
+  it('hides cart widget when there are no items', () => {
+    cartState.count = 0
     render(<Navigation />)
 
-    expect(screen.queryByTestId('nav-search-trigger-mobile')).toBeNull()
+    expect(screen.queryByTestId('nav-mobile-menu-cart-count')).toBeNull()
   })
 
-  it('supports Cmd/Ctrl + K to open and Escape to close', async () => {
+  it('hides the widget after opening the mobile menu', async () => {
+    cartState.count = 3
     render(<Navigation />)
 
-    fireEvent.keyDown(document, { key: 'k', metaKey: true })
-    expect(screen.getByTestId('search-modal')).toBeTruthy()
-
-    fireEvent.keyDown(document, { key: 'Escape' })
     await waitFor(() => {
-      expect(screen.queryByTestId('search-modal')).toBeNull()
+      expect(screen.getByTestId('nav-mobile-menu-cart-count')).toBeTruthy()
     })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle menu' }))
+    expect(screen.queryByTestId('nav-mobile-menu-cart-count')).toBeNull()
   })
 })

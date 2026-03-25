@@ -237,7 +237,7 @@ export default function ProfilePage() {
   }, [])
 
   useEffect(() => {
-    let timeoutId: ReturnType<typeof window.setTimeout> | null = null
+    let timeoutId: number | null = null
 
     const scheduleQuoteRefresh = () => {
       const delay = getMsUntilNextLocalMidnight()
@@ -891,7 +891,7 @@ export default function ProfilePage() {
       </AnimatePresence>
 
       {/* Editorial Hero Section */}
-      <section className="pt-20 md:pt-24 pb-8 md:pb-12 px-4 sm:px-8 border-b border-black/10">
+      <section className="pt-10 sm:pt-12 md:pt-24 pb-8 md:pb-12 px-4 sm:px-8 border-b border-black/10">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -907,7 +907,7 @@ export default function ProfilePage() {
                   scale: tierTransitionPhase === 'celebrating' ? [1, 1.01, 1] : 1,
                 }}
                 transition={{ delay: 0.1, scale: { duration: 0.6 } }}
-                className="relative w-full overflow-hidden rounded-xl text-white transition-all duration-500 lg:min-h-[240px]"
+                className="relative w-full overflow-hidden rounded-xl text-white transition-all duration-500"
                 style={tierTransitionPhase === 'celebrating' ? { boxShadow: buildTierGlowShadow(currentTierTheme) } : undefined}
               >
                 <motion.div
@@ -958,29 +958,128 @@ export default function ProfilePage() {
                   )}
                 </AnimatePresence>
 
-                <div className="relative p-4 md:p-5 lg:p-6">
-                  <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.45fr)] gap-4 md:gap-5 lg:gap-6 items-stretch">
+                <div className="relative p-2.5 md:p-4 lg:p-5">
+                  <div className="md:hidden space-y-2">
                     <div
-                      className="backdrop-blur-sm rounded-xl p-4 md:p-5 flex flex-col justify-between gap-4"
+                      className="backdrop-blur-sm rounded-lg p-2.5"
                       style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
                     >
-                      <div className="flex items-start gap-3">
-                        <div className="w-11 h-11 md:w-12 md:h-12 bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0">
-                          <User size={20} weight="bold" className="text-white md:hidden" />
-                          <User size={24} weight="bold" className="text-white hidden md:block" />
+                      <div className="flex items-start gap-2">
+                        <div className="w-9 h-9 bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0">
+                          <User size={16} weight="bold" className="text-white" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/75">My Account</p>
+                          <h1 className="text-base font-black text-white leading-tight truncate">{user.name || 'Welcome'}</h1>
+                          <p className="text-[11px] text-white/80 truncate">{user.email}</p>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        {user.isAdmin && (
+                          <Link
+                            href="/admin"
+                            className="h-8 inline-flex items-center justify-center gap-1.5 px-3 bg-white text-black text-[10px] font-semibold uppercase tracking-[0.11em] hover:bg-white/90 transition-colors"
+                          >
+                            <Gear size={12} weight="bold" />
+                            Admin
+                          </Link>
+                        )}
+                        <button
+                          onClick={handleSignout}
+                          className="h-8 inline-flex items-center justify-center gap-1.5 px-3 border border-white/55 text-white text-[10px] font-semibold uppercase tracking-[0.11em] hover:bg-white hover:text-black transition-colors"
+                        >
+                          <SignOut size={12} weight="bold" />
+                          Sign Out
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div
+                        className="rounded-md p-2 backdrop-blur-sm"
+                        style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
+                      >
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-white/75">Tier</p>
+                        <AnimatePresence mode="wait">
+                          <motion.p
+                            key={activeTierSlug}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            className="text-sm font-black text-white leading-tight"
+                          >
+                            {activeTierName}
+                          </motion.p>
+                        </AnimatePresence>
+                        <p className="text-[10px] text-white/80 mt-0.5">{formatTierMultiplier(activeMultiplier)}x earning</p>
+                      </div>
+                      <motion.div
+                        animate={shouldAnimatePoints || tierTransitionPhase === 'celebrating' ? { scale: [1, 1.05, 1] } : {}}
+                        transition={{ duration: 0.5, delay: 0.3 }}
+                        className="rounded-md p-2 backdrop-blur-sm relative"
+                        style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
+                      >
+                        <AnimatePresence>
+                          {(shouldAnimatePoints || shouldAnimateTier) && pointsGained > 0 && (
+                            <motion.div
+                              initial={{ opacity: 1, y: 0 }}
+                              animate={{ opacity: 0, y: -20 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 1.3, delay: 1 }}
+                              className="absolute top-1 right-1 text-[9px] font-semibold text-green-300"
+                            >
+                              +{pointsGained.toLocaleString()}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-white/75">Points</p>
+                        <p className="text-sm font-black text-white leading-tight">{user.currentPoints.toLocaleString()}</p>
+                        <p className="text-[10px] text-white/80 mt-0.5">${user.totalSpent.toFixed(0)} spent</p>
+                      </motion.div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setTabAndHash('rewards')}
+                        className="h-9 inline-flex items-center justify-center gap-1 rounded-md bg-white text-black px-2.5 text-[10px] font-semibold uppercase tracking-[0.11em] hover:bg-white/90 transition-colors"
+                      >
+                        Open Rewards
+                        <ArrowRight size={12} weight="bold" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleViewBenefits}
+                        className="h-9 inline-flex items-center justify-center rounded-md bg-white/15 px-2.5 text-[10px] font-semibold uppercase tracking-[0.11em] text-white transition-colors hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/90 focus-visible:ring-offset-1 focus-visible:ring-offset-black/10"
+                      >
+                        Benefits
+                      </button>
+                    </div>
+
+                  </div>
+
+                  <div className="hidden md:grid grid-cols-1 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.45fr)] gap-3 md:gap-4 items-stretch">
+                    <div
+                      className="backdrop-blur-sm rounded-lg p-3 md:p-4 flex flex-col justify-between gap-3"
+                      style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-10 h-10 md:w-11 md:h-11 bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0">
+                          <User size={18} weight="bold" className="text-white md:hidden" />
+                          <User size={22} weight="bold" className="text-white hidden md:block" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/75 mb-1">My Account</p>
-                          <h1 className="text-xl md:text-2xl font-black text-white tracking-tight leading-tight break-words whitespace-normal">
+                          <h1 className="text-lg md:text-xl font-black text-white tracking-tight leading-tight break-words whitespace-normal">
                             {user.name || 'Welcome'}
                           </h1>
-                          <p className="text-sm text-white/80 mt-1 break-all whitespace-normal">{user.email}</p>
-                          <div className="mt-2 border-l-2 border-white/35 pl-3">
-                            <p className="heading-font text-base md:text-lg text-white/95 leading-relaxed tracking-[0.02em]">
+                          <p className="text-xs md:text-sm text-white/80 mt-0.5 break-all whitespace-normal">{user.email}</p>
+                          <div className="mt-1.5 border-l-2 border-white/35 pl-2.5">
+                            <p className="heading-font text-sm md:text-base text-white/95 leading-snug tracking-[0.02em] line-clamp-2">
                               {`"${dailyQuote.text}"`}
                             </p>
                             {dailyQuote.author && (
-                              <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/65">
+                              <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-white/65">
                                 {dailyQuote.author}
                               </p>
                             )}
@@ -988,11 +1087,11 @@ export default function ProfilePage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-1">
+                      <div className="flex flex-wrap items-center gap-2 pt-0.5">
                         {user.isAdmin && (
                           <Link
                             href="/admin"
-                            className="min-h-10 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white text-black text-[11px] font-semibold uppercase tracking-[0.12em] hover:bg-white/90 transition-colors"
+                            className="min-h-9 flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white text-black text-[10px] font-semibold uppercase tracking-[0.12em] hover:bg-white/90 transition-colors"
                           >
                             <Gear size={14} weight="bold" />
                             Admin
@@ -1000,7 +1099,7 @@ export default function ProfilePage() {
                         )}
                         <button
                           onClick={handleSignout}
-                          className="min-h-10 flex items-center justify-center gap-1.5 px-4 py-2.5 border border-white/55 text-white text-[11px] font-semibold uppercase tracking-[0.12em] hover:bg-white hover:text-black transition-colors"
+                          className="min-h-9 flex items-center justify-center gap-1.5 px-3.5 py-2 border border-white/55 text-white text-[10px] font-semibold uppercase tracking-[0.12em] hover:bg-white hover:text-black transition-colors"
                         >
                           <SignOut size={14} weight="bold" />
                           Sign Out
@@ -1008,16 +1107,16 @@ export default function ProfilePage() {
                       </div>
                     </div>
 
-                    <div className="flex h-full flex-col gap-3 md:gap-4">
-                      <div className="flex items-start justify-between gap-3">
+                    <div className="flex h-full flex-col gap-2.5 md:gap-3">
+                      <div className="flex items-start justify-between gap-2.5">
                         <motion.div
                           animate={tierTransitionPhase === 'celebrating' ? { rotate: [0, -15, 15, -10, 10, 0], scale: [1, 1.3, 1] } : {}}
                           transition={{ duration: 0.8 }}
-                          className="w-10 h-10 md:w-11 md:h-11 backdrop-blur-sm flex items-center justify-center shrink-0"
+                          className="w-9 h-9 md:w-10 md:h-10 backdrop-blur-sm flex items-center justify-center shrink-0"
                           style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
                         >
-                          <Crown size={18} weight="fill" className="text-white md:hidden" />
-                          <Crown size={22} weight="fill" className="text-white hidden md:block" />
+                          <Crown size={16} weight="fill" className="text-white md:hidden" />
+                          <Crown size={20} weight="fill" className="text-white hidden md:block" />
                         </motion.div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/75 mb-1">Loyalty Tier</p>
@@ -1028,7 +1127,7 @@ export default function ProfilePage() {
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: -20, scale: 0.8 }}
                               transition={{ duration: 0.5, type: 'spring', stiffness: 200 }}
-                              className="text-xl md:text-2xl font-black leading-none"
+                              className="text-lg md:text-xl font-black leading-none"
                             >
                               {activeTierName}
                             </motion.h2>
@@ -1039,37 +1138,37 @@ export default function ProfilePage() {
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
                               exit={{ opacity: 0 }}
-                              className="text-white/85 mt-1 text-xs md:text-sm"
+                              className="text-white/85 mt-0.5 text-[11px] md:text-xs"
                             >
                               Earning {formatTierMultiplier(activeMultiplier)}x points
                             </motion.p>
                           </AnimatePresence>
                         </div>
-                        <div className="flex flex-col items-end gap-2 shrink-0">
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
                           <div
-                            className="backdrop-blur-sm px-2.5 py-2 min-w-[88px] text-right"
+                            className="backdrop-blur-sm px-2.5 py-1.5 min-w-[80px] text-right"
                             style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
                           >
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/75">Multiplier</p>
-                            <p className="text-base md:text-lg font-black leading-none mt-0.5">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/75">Multiplier</p>
+                            <p className="text-sm md:text-base font-black leading-none mt-0.5">
                               {formatTierMultiplier(activeMultiplier)}x
                             </p>
                           </div>
                           <button
                             type="button"
                             onClick={handleViewBenefits}
-                            className="h-9 bg-white/15 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-white transition-colors hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/90 focus-visible:ring-offset-1 focus-visible:ring-offset-black/10"
+                            className="h-8 bg-white/15 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-white transition-colors hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/90 focus-visible:ring-offset-1 focus-visible:ring-offset-black/10"
                           >
                             View Benefits
                           </button>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div className="grid grid-cols-3 gap-2">
                         <motion.div
                           animate={shouldAnimatePoints || tierTransitionPhase === 'celebrating' ? { scale: [1, 1.05, 1] } : {}}
                           transition={{ duration: 0.5, delay: 0.3 }}
-                          className="backdrop-blur-sm p-3 md:p-3.5 rounded-md min-h-[74px] flex flex-col justify-center relative"
+                          className="backdrop-blur-sm p-2.5 md:p-3 rounded-md min-h-[64px] flex flex-col justify-center relative"
                           style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
                         >
                           <AnimatePresence>
@@ -1079,37 +1178,37 @@ export default function ProfilePage() {
                                 animate={{ opacity: 0, y: -30 }}
                                 exit={{ opacity: 0 }}
                                 transition={{ duration: 1.5, delay: 1 }}
-                                className="absolute top-1.5 right-2 text-[11px] font-semibold text-green-300"
+                                className="absolute top-1 right-1.5 text-[10px] font-semibold text-green-300"
                               >
                                 +{pointsGained.toLocaleString()}
                               </motion.div>
                             )}
                           </AnimatePresence>
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/75 mb-0.5">Available</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/75 mb-0.5">Available</p>
                           <motion.p
                             animate={shouldAnimatePoints ? { scale: [1, 1.1, 1] } : {}}
                             transition={{ duration: 0.4, delay: 0.5 }}
-                            className="text-lg md:text-xl font-black leading-tight"
+                            className="text-base md:text-lg font-black leading-tight"
                           >
                             {user.currentPoints.toLocaleString()}
                           </motion.p>
                         </motion.div>
 
                         <div
-                          className="backdrop-blur-sm p-3 md:p-3.5 rounded-md min-h-[74px] flex flex-col justify-center"
+                          className="backdrop-blur-sm p-2.5 md:p-3 rounded-md min-h-[64px] flex flex-col justify-center"
                           style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
                         >
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/75 mb-0.5">Total Spent</p>
-                          <p className="text-lg md:text-xl font-black leading-tight">${user.totalSpent.toFixed(0)}</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/75 mb-0.5">Total Spent</p>
+                          <p className="text-base md:text-lg font-black leading-tight">${user.totalSpent.toFixed(0)}</p>
                         </div>
 
                         <button
                           type="button"
                           onClick={() => setTabAndHash('rewards')}
-                          className="flex items-center justify-center gap-1.5 rounded-md bg-white text-black px-3 py-3 min-h-[74px] text-[11px] font-semibold uppercase tracking-[0.12em] hover:bg-white/90 transition-colors"
+                          className="flex items-center justify-center gap-1 rounded-md bg-white text-black px-2.5 py-2.5 min-h-[64px] text-[10px] md:text-[11px] font-semibold uppercase tracking-[0.11em] hover:bg-white/90 transition-colors"
                         >
                           Redeem Rewards
-                          <ArrowRight size={14} weight="bold" />
+                          <ArrowRight size={12} weight="bold" />
                         </button>
                       </div>
 
@@ -1148,24 +1247,24 @@ export default function ProfilePage() {
             )}
 
             {!user.loyaltyTier && (
-              <div className="min-w-0 rounded-xl border border-black/10 bg-white p-4 md:p-5 lg:p-6 flex flex-col justify-between gap-4 lg:min-h-[240px]">
-                <div className="flex items-start gap-3">
-                  <div className="w-11 h-11 md:w-12 md:h-12 bg-black flex items-center justify-center shrink-0">
-                    <User size={20} weight="bold" className="text-white md:hidden" />
-                    <User size={24} weight="bold" className="text-white hidden md:block" />
+              <div className="min-w-0 rounded-xl border border-black/10 bg-white p-3 md:p-4 lg:p-5 flex flex-col justify-between gap-3">
+                <div className="flex items-start gap-2.5">
+                  <div className="w-10 h-10 md:w-11 md:h-11 bg-black flex items-center justify-center shrink-0">
+                    <User size={18} weight="bold" className="text-white md:hidden" />
+                    <User size={22} weight="bold" className="text-white hidden md:block" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] font-semibold text-black/55 uppercase tracking-[0.14em] mb-1">My Account</p>
-                    <h1 className="text-xl md:text-2xl font-black text-black tracking-tight leading-tight break-words whitespace-normal">
+                    <h1 className="text-lg md:text-xl font-black text-black tracking-tight leading-tight break-words whitespace-normal">
                       {user.name || 'Welcome'}
                     </h1>
-                    <p className="text-sm text-black/65 mt-1 break-all whitespace-normal">{user.email}</p>
-                    <div className="mt-2 border-l-2 border-black/20 pl-3">
-                      <p className="heading-font text-base md:text-lg text-black/80 leading-relaxed tracking-[0.02em]">
+                    <p className="text-xs md:text-sm text-black/65 mt-0.5 break-all whitespace-normal">{user.email}</p>
+                    <div className="mt-1.5 border-l-2 border-black/20 pl-2.5">
+                      <p className="heading-font text-sm md:text-base text-black/80 leading-snug tracking-[0.02em] line-clamp-2">
                         {`"${dailyQuote.text}"`}
                       </p>
                       {dailyQuote.author && (
-                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-black/45">
+                        <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-black/45">
                           {dailyQuote.author}
                         </p>
                       )}
@@ -1173,11 +1272,11 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-1">
+                <div className="flex flex-wrap items-center gap-2 pt-0.5">
                   {user.isAdmin && (
                     <Link
                       href="/admin"
-                      className="min-h-10 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-black text-white text-[11px] font-semibold uppercase tracking-[0.12em] hover:bg-black/80 transition-colors"
+                      className="min-h-9 flex items-center justify-center gap-1.5 px-3.5 py-2 bg-black text-white text-[10px] font-semibold uppercase tracking-[0.12em] hover:bg-black/80 transition-colors"
                     >
                       <Gear size={14} weight="bold" />
                       Admin
@@ -1185,7 +1284,7 @@ export default function ProfilePage() {
                   )}
                   <button
                     onClick={handleSignout}
-                    className="min-h-10 flex items-center justify-center gap-1.5 px-4 py-2.5 border-2 border-black text-black text-[11px] font-semibold uppercase tracking-[0.12em] hover:bg-black hover:text-white transition-colors"
+                    className="min-h-9 flex items-center justify-center gap-1.5 px-3.5 py-2 border-2 border-black text-black text-[10px] font-semibold uppercase tracking-[0.12em] hover:bg-black hover:text-white transition-colors"
                   >
                     <SignOut size={14} weight="bold" />
                     Sign Out
@@ -1407,7 +1506,7 @@ export default function ProfilePage() {
                   {orders.slice(0, 5).map((order) => (
                     <Link
                       key={order.id}
-                      href={`/order/track/${order.id}`}
+                      href={`/orders/${order.id}/track`}
                       className="flex items-center justify-between p-4 md:p-5 hover:bg-black/2 transition-colors group"
                     >
                       <div className="flex items-center gap-3 md:gap-4 min-w-0">

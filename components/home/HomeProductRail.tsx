@@ -55,9 +55,9 @@ function HomeProductRailCard({ product }: { product: HomeProductCard }) {
     <li>
       <Link
         href={`/products/${product.slug}`}
-        className="group flex h-full flex-col overflow-hidden rounded-2xl border border-black/10 bg-white transition-all duration-200 hover:-translate-y-1 hover:border-black/30 hover:shadow-[0_14px_24px_rgba(0,0,0,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 motion-reduce:transition-none"
+        className="group flex h-full flex-col overflow-hidden rounded-2xl border border-black/10 bg-white transition-all duration-200 hover:-translate-y-0.5 hover:border-black/30 hover:shadow-[0_10px_20px_rgba(0,0,0,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 motion-reduce:transition-none"
       >
-        <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100">
+        <div className="relative aspect-[5/6] overflow-hidden bg-neutral-100">
           <Image
             src={activeImage}
             alt={product.name}
@@ -79,17 +79,17 @@ function HomeProductRailCard({ product }: { product: HomeProductCard }) {
           )}
         </div>
 
-        <div className="flex flex-1 flex-col p-4">
+        <div className="flex flex-1 flex-col p-3 sm:p-3.5">
           {product.categoryName && (
             <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-black/50">{product.categoryName}</p>
           )}
 
-          <h3 className="mt-1.5 line-clamp-2 min-h-[2.6rem] text-sm font-semibold text-black">
+          <h3 className="mt-1.5 line-clamp-2 min-h-[2.45rem] text-sm font-semibold leading-tight text-black sm:text-[15px]">
             {product.name}
           </h3>
 
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-base font-black text-black">{formatUsd(product.price)}</span>
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-base font-black text-black sm:text-lg">{formatUsd(product.price)}</span>
             {product.compareAtPrice && product.compareAtPrice > product.price && (
               <span className="text-xs font-medium text-black/40 line-through">
                 {formatUsd(product.compareAtPrice)}
@@ -99,36 +99,39 @@ function HomeProductRailCard({ product }: { product: HomeProductCard }) {
 
           {product.colorCues.length > 0 && (
             <div
-              className="mt-3 flex items-center gap-1.5"
+              className="mt-2.5 -mx-0.5 overflow-x-auto pb-1 scrollbar-hide [touch-action:pan-x]"
+              onClick={(event) => event.preventDefault()}
               aria-label={`Available colors: ${product.colorCues.map((cue) => cue.label).join(', ')}`}
             >
-              {product.colorCues.map((cue) => (
-                <button
-                  key={`${product.id}-${cue.label}-${cue.hex}`}
-                  type="button"
-                  onClick={(event) => {
-                    event.preventDefault()
-                    event.stopPropagation()
-                    setSelectedColor((current) => (current === cue.label ? null : cue.label))
-                  }}
-                  onMouseEnter={() => setPreviewColor(cue.label)}
-                  onMouseLeave={() => setPreviewColor(null)}
-                  onFocus={() => setPreviewColor(cue.label)}
-                  onBlur={() => setPreviewColor(null)}
-                  className={`h-3.5 w-3.5 rounded-full border transition-all ${
-                    activeColor === cue.label
-                      ? 'scale-110 border-black ring-1 ring-black/40 ring-offset-1'
-                      : 'border-black/20 hover:border-black/45'
-                  }`}
-                  style={{ backgroundColor: cue.hex }}
-                  title={`${cue.label}${cue.previewImageUrl ? '' : ' (color preview only)'}`}
-                  aria-label={`Preview ${cue.label}`}
-                />
-              ))}
+              <div className="flex w-max items-center gap-1.5 px-0.5">
+                {product.colorCues.map((cue) => (
+                  <button
+                    key={`${product.id}-${cue.label}-${cue.hex}`}
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      setSelectedColor((current) => (current === cue.label ? null : cue.label))
+                    }}
+                    onMouseEnter={() => setPreviewColor(cue.label)}
+                    onMouseLeave={() => setPreviewColor(null)}
+                    onFocus={() => setPreviewColor(cue.label)}
+                    onBlur={() => setPreviewColor(null)}
+                    className={`h-8 w-8 shrink-0 rounded-full border-2 transition-all ${
+                      activeColor === cue.label
+                        ? 'border-black ring-2 ring-black/35 ring-offset-1'
+                        : 'border-black/20 hover:border-black/45'
+                    }`}
+                    style={{ backgroundColor: cue.hex }}
+                    title={`${cue.label}${cue.previewImageUrl ? '' : ' (color preview only)'}`}
+                    aria-label={`Preview ${cue.label}`}
+                  />
+                ))}
+              </div>
             </div>
           )}
 
-          <div className="mt-auto pt-3">
+          <div className="mt-auto pt-2.5">
             {product.lowStockLabel && !product.isSoldOut && (
               <p className="text-[11px] font-medium text-black/55">{product.lowStockLabel}</p>
             )}

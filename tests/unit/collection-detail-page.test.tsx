@@ -256,7 +256,7 @@ describe('Collection detail page', () => {
       expect(screen.getByText('1 of 2 products')).toBeTruthy()
     })
 
-    const firstCall = fetchMock.mock.calls[0]?.[0]
+    const firstCall = (fetchMock.mock.calls[0] as unknown[] | undefined)?.[0]
     expect(String(firstCall)).toContain('search=hoodie')
   })
 })

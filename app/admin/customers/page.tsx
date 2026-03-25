@@ -21,7 +21,7 @@ import CustomerMetricCards from '@/components/customers/CustomerMetricCards'
 import CustomerSegmentChart from '@/components/customers/CustomerSegmentChart'
 import CustomerActivityChart from '@/components/customers/CustomerActivityChart'
 import CustomerRetentionChart from '@/components/customers/CustomerRetentionChart'
-import { downloadCustomersCSV } from '@/lib/api/customers'
+import { downloadCustomersCSV, type CustomerListItem } from '@/lib/api/customers'
 import {
   ADMIN_CUSTOMER_SEGMENTS,
   AdminCustomerFilterState,
@@ -133,6 +133,25 @@ function formatCurrency(amount: number) {
     style: 'currency',
     currency: 'USD',
   }).format(amount)
+}
+
+function toCustomerListItem(customer: Customer): CustomerListItem {
+  return {
+    id: customer.id,
+    email: customer.email,
+    name: customer.name,
+    phone: customer.phone,
+    totalSpent: customer.totalSpent,
+    totalOrders: customer.totalOrders,
+    lastOrderDate: customer.lastOrderDate ? new Date(customer.lastOrderDate) : null,
+    avgOrderValue: customer.avgOrderValue,
+    segment: customer.segment,
+    currentPoints: customer.currentPoints,
+    lifetimePoints: customer.lifetimePoints,
+    annualPointsEarned: customer.annualPointsEarned,
+    tier: customer.tier,
+    createdAt: new Date(customer.createdAt),
+  }
 }
 
 export default function CustomersPage() {
@@ -307,7 +326,7 @@ export default function CustomersPage() {
         throw new Error('Failed to export customers')
       }
       const result: CustomersResponse = await response.json()
-      downloadCustomersCSV(result.data || [])
+      downloadCustomersCSV((result.data || []).map(toCustomerListItem))
       toast.dismiss(loadingToast)
       toast.success('Customer export ready', `Downloaded ${result.data?.length || 0} rows`)
     } catch (error) {

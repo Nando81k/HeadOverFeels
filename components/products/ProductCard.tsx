@@ -20,9 +20,10 @@ function isLightColor(hexColor: string): boolean {
 interface ProductCardProps {
   product: Product
   badge?: string
+  onProductClick?: () => void
 }
 
-export function ProductCard({ product, badge }: ProductCardProps) {
+export function ProductCard({ product, badge, onProductClick }: ProductCardProps) {
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [previewColor, setPreviewColor] = useState<string | null>(null)
   const activeColor = previewColor ?? selectedColor
@@ -76,11 +77,10 @@ export function ProductCard({ product, badge }: ProductCardProps) {
   const inStock = totalStock > 0
 
   return (
-    <div className="group relative">
-      <Link href={`/products/${product.slug}`} className="block">
-        <div className="bg-white border border-black/10 overflow-hidden transition-all duration-300 h-full flex flex-col hover:border-black/30 active:scale-[0.98]">
-          {/* Image Container - More compact on mobile */}
-          <div className="relative aspect-[4/5] overflow-hidden bg-black/2">
+    <div className="group relative h-full">
+      <Link href={`/products/${product.slug}`} onClick={onProductClick} className="block h-full">
+        <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-black/10 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:border-black/30 hover:shadow-[0_10px_20px_rgba(0,0,0,0.08)] active:scale-[0.99]">
+          <div className="relative aspect-[5/6] overflow-hidden bg-black/[0.02]">
             <Image
               src={currentImage}
               alt={product.name}
@@ -89,120 +89,110 @@ export function ProductCard({ product, badge }: ProductCardProps) {
               sizes="(max-width: 640px) 45vw, (max-width: 768px) 45vw, (max-width: 1200px) 33vw, 25vw"
             />
 
-            {/* Badges - Top Left - Smaller on mobile */}
-            <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10 flex flex-col gap-1 sm:gap-2">
+            <div className="absolute left-2.5 top-2.5 z-10 flex flex-col gap-1">
               {badge && (
-                <span className="px-1.5 py-0.5 sm:px-3 sm:py-1 bg-black text-white text-[8px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest">
+                <span className="rounded-full bg-black px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-white">
                   {badge}
                 </span>
               )}
               {onSale && (
-                <span className="px-1.5 py-0.5 sm:px-3 sm:py-1 bg-black text-white text-[8px] sm:text-xs font-bold uppercase tracking-wider sm:tracking-widest">
-                  Sale
+                <span className="rounded-full bg-black px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-white">
+                  Save {Math.round(((product.compareAtPrice! - product.price) / product.compareAtPrice!) * 100)}%
                 </span>
               )}
               {!inStock && (
-                <span className="px-1.5 py-0.5 sm:px-3 sm:py-1 bg-black text-white text-[8px] sm:text-xs font-bold uppercase tracking-wider sm:tracking-widest">
+                <span className="rounded-full border border-black/15 bg-white/95 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-black/70">
                   Sold Out
                 </span>
               )}
             </div>
 
-            {/* Category Badge - Top Right - Hidden on very small screens */}
             {product.category && (
-              <div className="absolute top-2 right-2 sm:top-4 sm:right-4 z-10 hidden xs:block">
-                <span className="px-1.5 py-0.5 sm:px-3 sm:py-1 bg-white/90 backdrop-blur-sm text-black/70 text-[8px] sm:text-xs font-bold uppercase border border-black/10">
+              <div className="absolute right-2.5 top-2.5 z-10">
+                <span className="rounded-full border border-black/10 bg-white/90 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.13em] text-black/65">
                   {product.category.name}
                 </span>
               </div>
             )}
           </div>
 
-          {/* Content - More compact on mobile */}
-          <div className="p-2.5 sm:p-4 flex-1 flex flex-col">
-            {/* Title */}
-            <h3 className="text-xs sm:text-base font-bold sm:font-black text-black mb-1 sm:mb-2 line-clamp-2 tracking-tight leading-tight">
+          <div className="flex flex-1 flex-col p-3 sm:p-3.5">
+            <h3 className="line-clamp-2 min-h-[2.45rem] text-sm font-semibold leading-tight text-black sm:text-[15px]">
               {product.name}
             </h3>
 
-            {/* Description - Hidden on mobile */}
-            {product.description && (
-              <p className="text-sm text-black/60 mb-3 line-clamp-2 flex-1 font-medium hidden md:block">
-                {product.description}
-              </p>
-            )}
-
-            {/* Color Swatches - Smaller on mobile */}
             {colorVariants.length > 1 && (
-              <div 
-                className="flex flex-wrap gap-1 sm:gap-2 mb-2 sm:mb-4"
+              <div
+                className="mt-2.5 -mx-0.5 overflow-x-auto pb-1 scrollbar-hide [touch-action:pan-x]"
                 onClick={(e) => e.preventDefault()}
+                aria-label={`Available colors: ${colorVariants.map((variant) => variant.color).filter(Boolean).join(', ')}`}
               >
-                {colorVariants.slice(0, 4).map((variant) => {
-                  const isSelected = activeColor === variant.color
-                  return (
-                    <button
-                      key={variant.id}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setSelectedColor(isSelected ? null : variant.color || null)
-                      }}
-                      onMouseEnter={() => setPreviewColor(variant.color || null)}
-                      onMouseLeave={() => setPreviewColor(null)}
-                      onFocus={() => setPreviewColor(variant.color || null)}
-                      onBlur={() => setPreviewColor(null)}
-                      title={variant.color || undefined}
-                      className={`
-                        relative w-5 h-5 sm:w-7 sm:h-7 border-2 transition-all
-                        ${isSelected 
-                          ? 'border-black scale-110 ring-1 sm:ring-2 ring-black ring-offset-1 sm:ring-offset-2' 
-                          : 'border-black/20 hover:border-black/50 hover:scale-105'
-                        }
-                      `}
-                      style={{ backgroundColor: variant.colorHex || '#ccc' }}
-                    >
-                      {isSelected && variant.colorHex && (
-                        <span className="absolute inset-0 flex items-center justify-center">
-                          <Check 
-                            className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" 
-                            weight="bold"
-                            style={{ color: isLightColor(variant.colorHex) ? '#000' : '#FFF' }} 
-                          />
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
-                {colorVariants.length > 4 && (
-                  <span className="text-[10px] sm:text-xs text-black/50 self-center ml-0.5 font-medium">
-                    +{colorVariants.length - 4}
-                  </span>
-                )}
+                <div className="flex w-max items-center gap-1.5 px-0.5">
+                  {colorVariants.map((variant) => {
+                    const isSelected = activeColor === variant.color
+                    return (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setSelectedColor(isSelected ? null : variant.color || null)
+                        }}
+                        onMouseEnter={() => setPreviewColor(variant.color || null)}
+                        onMouseLeave={() => setPreviewColor(null)}
+                        onFocus={() => setPreviewColor(variant.color || null)}
+                        onBlur={() => setPreviewColor(null)}
+                        title={variant.color || undefined}
+                        aria-label={`Preview ${variant.color}`}
+                        className={`
+                          relative h-8 w-8 shrink-0 rounded-full border-2 transition-all
+                          ${isSelected 
+                            ? 'border-black ring-2 ring-black/35 ring-offset-1'
+                            : 'border-black/20 hover:border-black/45'
+                          }
+                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/50 focus-visible:ring-offset-1
+                        `}
+                        style={{ backgroundColor: variant.colorHex || '#ccc' }}
+                      >
+                        {isSelected && variant.colorHex && (
+                          <span className="absolute inset-0 flex items-center justify-center">
+                            <Check 
+                              className="h-3.5 w-3.5"
+                              weight="bold"
+                              style={{ color: isLightColor(variant.colorHex) ? '#000' : '#FFF' }} 
+                            />
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             )}
 
-            {/* Price - Compact on mobile */}
-            <div className="flex items-baseline gap-1.5 sm:gap-3 mb-1 sm:mb-4">
-              <span className="text-sm sm:text-xl font-black text-black">
+            <div className="mt-2.5 flex items-baseline gap-2">
+              <span className="text-base font-black text-black sm:text-lg">
                 ${product.price.toFixed(2)}
               </span>
               {product.compareAtPrice && product.compareAtPrice > product.price && (
-                <span className="text-[10px] sm:text-sm text-black/40 line-through font-semibold">
+                <span className="text-xs font-medium text-black/40 line-through">
                   ${product.compareAtPrice.toFixed(2)}
                 </span>
               )}
             </div>
 
-            {/* CTA - Hidden on mobile for cleaner look */}
-            <div className="mt-auto hidden sm:block">
-              <span className="inline-flex items-center gap-2 text-black font-bold text-xs uppercase tracking-widest group-hover:gap-3 transition-all">
-                View Product
-                <span className="transition-transform group-hover:translate-x-1">→</span>
-              </span>
+            <div className="mt-auto pt-2.5">
+              {!inStock ? (
+                <p className="text-[11px] font-medium text-black/45">Currently unavailable</p>
+              ) : (
+                <p className="text-[11px] font-medium text-black/45">
+                  {totalStock <= 5 ? `Only ${totalStock} left` : 'In stock'}
+                </p>
+              )}
             </div>
           </div>
-        </div>
+        </article>
       </Link>
     </div>
   )

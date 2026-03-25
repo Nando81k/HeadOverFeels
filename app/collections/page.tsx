@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -102,7 +102,7 @@ function CollectionCommerceCard({
   )
 }
 
-export default function CollectionsPage() {
+function CollectionsPageContent() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -455,5 +455,30 @@ export default function CollectionsPage() {
         ) : null}
       </main>
     </div>
+  )
+}
+
+function CollectionsPageFallback() {
+  return (
+    <div className="min-h-screen bg-neutral-50">
+      <Navigation />
+      <main className="mx-auto max-w-7xl px-4 pb-20 pt-24 sm:px-6 lg:px-8 lg:pt-28">
+        <section className="overflow-hidden rounded-3xl border border-black/10 bg-white p-8 shadow-[0_18px_40px_-30px_rgba(0,0,0,0.4)] sm:p-10">
+          <div className="space-y-3">
+            <div className="h-3 w-28 animate-pulse rounded bg-black/10" />
+            <div className="h-12 w-full max-w-3xl animate-pulse rounded bg-black/10" />
+            <div className="h-5 w-full max-w-2xl animate-pulse rounded bg-black/10" />
+          </div>
+        </section>
+      </main>
+    </div>
+  )
+}
+
+export default function CollectionsPage() {
+  return (
+    <Suspense fallback={<CollectionsPageFallback />}>
+      <CollectionsPageContent />
+    </Suspense>
   )
 }

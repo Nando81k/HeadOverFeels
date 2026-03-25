@@ -195,7 +195,6 @@ export function Navigation() {
   const [mounted, setMounted] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const showNav = true
   const [shopDropdownOpen, setShopDropdownOpen] = useState(false)
   const [shopDropdownPinned, setShopDropdownPinned] = useState(false)
   const [shopMenuFocusTarget, setShopMenuFocusTarget] = useState<'first' | 'last' | null>(null)
@@ -695,7 +694,7 @@ export function Navigation() {
               primaryColor: primaryColor && primaryColor.length > 0 ? primaryColor : null,
               secondaryColor: secondaryColor && secondaryColor.length > 0 ? secondaryColor : null,
             }]
-          }).sort((a, b) => a.minAnnualPoints - b.minAnnualPoints)
+          }).sort((a: NavTierDefinition, b: NavTierDefinition) => a.minAnnualPoints - b.minAnnualPoints)
 
           setLoyaltyTiers(normalizedTiers)
         }
@@ -779,8 +778,8 @@ export function Navigation() {
 
   return (
     <>
-      <nav 
-        className={`bg-white/98 backdrop-blur-xl fixed top-0 left-0 right-0 z-50 border-b border-black/5 transform transition-transform duration-300 ${showNav ? 'translate-y-0' : '-translate-y-full'}`}
+      <nav
+        className="fixed inset-x-0 top-0 z-50 border-b border-black/5 bg-white/98 backdrop-blur-xl lg:sticky lg:top-0"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-[4.5rem] md:h-[5rem]">
@@ -790,24 +789,30 @@ export function Navigation() {
               {/* Mobile & Tablet Logo - Left side */}
               <Link 
                 href="/" 
-                className="brand-wordmark-link group lg:hidden flex items-center gap-2.5 sm:gap-3 transition-transform duration-300"
+                className="brand-wordmark-link group lg:hidden -ml-2 sm:-ml-1 flex items-center gap-1 sm:gap-1.5 transition-transform duration-300"
               >
                 <Image
                   src="/assets/head-over-feels-logo.png"
                   alt="Head Over Feels Logo"
-                  width={44}
-                  height={44}
-                  className="object-contain w-10 h-10 sm:w-12 sm:h-12 md:w-12 md:h-12"
+                  width={72}
+                  height={72}
+                  className="object-contain w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] md:w-[4.5rem] md:h-[4.5rem]"
                 />
-                <span data-testid="nav-wordmark-mobile" className="brand-wordmark brand-wordmark--hover-red text-lg sm:text-xl md:text-2xl whitespace-nowrap">
-                  Head Over Feels
-                </span>
+                <Image
+                  src="/assets/head-over-feels-wordmark.png"
+                  alt="Head Over Feels"
+                  data-testid="nav-wordmark-mobile"
+                  width={819}
+                  height={123}
+                  sizes="(max-width: 639px) 147px, (max-width: 767px) 176px, 186px"
+                  className="h-auto w-[9.2rem] object-contain sm:w-[11rem] md:w-[11.6rem]"
+                />
                 <Image
                   src="/assets/head-over-feels-logo.png"
                   alt="Head Over Feels Logo"
-                  width={44}
-                  height={44}
-                  className="object-contain w-10 h-10 sm:w-12 sm:h-12 md:w-12 md:h-12"
+                  width={72}
+                  height={72}
+                  className="object-contain w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] md:w-[4.5rem] md:h-[4.5rem]"
                 />
               </Link>
               
@@ -1090,9 +1095,15 @@ export function Navigation() {
                 height={72}
                 className="object-contain w-16 h-16 xl:w-[5rem] xl:h-[5rem]"
               />
-              <span data-testid="nav-wordmark-desktop" className="brand-wordmark brand-wordmark--hover-red text-[2.25rem] xl:text-[2.9rem] 2xl:text-[3.4rem] whitespace-nowrap">
-                Head Over Feels
-              </span>
+              <Image
+                src="/assets/head-over-feels-wordmark.png"
+                alt="Head Over Feels"
+                data-testid="nav-wordmark-desktop"
+                width={819}
+                height={123}
+                sizes="(max-width: 1279px) 220px, 270px"
+                className="h-auto w-[13.75rem] object-contain xl:w-[16.9rem]"
+              />
               <Image
                 src="/assets/head-over-feels-logo.png"
                 alt="Head Over Feels Logo"
@@ -1163,28 +1174,28 @@ export function Navigation() {
                 )
               )}
 
-              {/* Search Trigger - Mobile */}
-              <button
-                onClick={() => setSearchOpen(true)}
-                className="lg:hidden p-2.5 text-black/60 hover:text-black transition-colors"
-                aria-label="Search"
-                data-testid="nav-search-trigger-mobile"
-              >
-                <MagnifyingGlass size={22} weight="bold" />
-              </button>
-
               {/* Mobile Menu Toggle - Right side on mobile and tablet */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2.5 -mr-2 ml-2.5 text-black/60 hover:text-black transition-colors"
+                className="relative lg:hidden p-2.5 -mr-2 text-black/60 hover:text-black transition-colors"
                 aria-label="Toggle menu"
               >
                 {mobileMenuOpen ? <X size={22} weight="bold" /> : <List size={22} weight="bold" />}
+                {!mobileMenuOpen && cartItemCount > 0 ? (
+                  <span
+                    data-testid="nav-mobile-menu-cart-count"
+                    className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-black text-white text-[10px] font-black"
+                    aria-label={`Cart items: ${cartItemCount > 99 ? '99+' : cartItemCount}`}
+                  >
+                    {cartItemCount > 99 ? '99+' : cartItemCount}
+                  </span>
+                ) : null}
               </button>
             </div>
           </div>
         </div>
       </nav>
+      <div className="h-[4.5rem] md:h-[5rem] lg:hidden" aria-hidden="true" />
 
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
 

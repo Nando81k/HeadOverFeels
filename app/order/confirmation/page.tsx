@@ -359,7 +359,7 @@ function ConfirmationContent() {
     shipping: order.shipping,
   })
   const hasTracking = Boolean(order.trackingNumber)
-  const primaryActionHref = hasTracking ? `/order/track/${order.id}` : '/orders'
+  const primaryActionHref = hasTracking ? `/orders/${order.id}/track` : '/orders'
   const primaryActionLabel = hasTracking ? 'Track Order' : 'View Orders'
   const pointsEarned = Number(order.pointsEarned || 0)
   const potentialGuestPoints = Math.max(0, Math.floor(order.total))

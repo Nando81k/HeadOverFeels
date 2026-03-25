@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { Navigation } from '@/components/layout/Navigation'
@@ -59,18 +59,34 @@ vi.mock('@/components/notifications/NotificationCenter', () => ({
 }))
 
 describe('Navigation brand wordmark', () => {
-  it('renders mobile and desktop wordmarks with red gradient hover classes', () => {
+  it('renders mobile and desktop logo groups with face icons and image wordmark', () => {
     render(<Navigation />)
 
-    const mobileWordmark = screen.getByTestId('nav-wordmark-mobile')
-    const desktopWordmark = screen.getByTestId('nav-wordmark-desktop')
+    const mobileWordmark = screen.getByTestId('nav-wordmark-mobile') as HTMLImageElement
+    const desktopWordmark = screen.getByTestId('nav-wordmark-desktop') as HTMLImageElement
 
-    expect(mobileWordmark.className).toContain('brand-wordmark')
-    expect(mobileWordmark.className).toContain('brand-wordmark--hover-red')
-    expect(desktopWordmark.className).toContain('brand-wordmark')
-    expect(desktopWordmark.className).toContain('brand-wordmark--hover-red')
+    expect(mobileWordmark.getAttribute('alt')).toBe('Head Over Feels')
+    expect(mobileWordmark.getAttribute('src')).toContain('/assets/head-over-feels-wordmark.png')
+    expect(desktopWordmark.getAttribute('alt')).toBe('Head Over Feels')
+    expect(desktopWordmark.getAttribute('src')).toContain('/assets/head-over-feels-wordmark.png')
 
-    expect(mobileWordmark.closest('a')?.getAttribute('href')).toBe('/')
-    expect(desktopWordmark.closest('a')?.getAttribute('href')).toBe('/')
+    const mobileLink = mobileWordmark.closest('a')
+    const desktopLink = desktopWordmark.closest('a')
+
+    expect(mobileLink?.getAttribute('href')).toBe('/')
+    expect(desktopLink?.getAttribute('href')).toBe('/')
+
+    const mobileFaces = within(mobileLink as HTMLElement).getAllByRole('img', { name: 'Head Over Feels Logo' })
+    const desktopFaces = within(desktopLink as HTMLElement).getAllByRole('img', { name: 'Head Over Feels Logo' })
+
+    expect(mobileFaces).toHaveLength(2)
+    expect(desktopFaces).toHaveLength(2)
+
+    mobileFaces.forEach((faceImage) => {
+      expect((faceImage as HTMLImageElement).getAttribute('src')).toContain('/assets/head-over-feels-logo.png')
+    })
+    desktopFaces.forEach((faceImage) => {
+      expect((faceImage as HTMLImageElement).getAttribute('src')).toContain('/assets/head-over-feels-logo.png')
+    })
   })
 })

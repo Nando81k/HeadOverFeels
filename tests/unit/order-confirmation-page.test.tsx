@@ -301,7 +301,8 @@ describe('Order confirmation page', () => {
       String(call[0]).includes(`/api/orders/${order.id}/send-confirmation`)
     )
     expect(sendCallsAfterClick).toHaveLength(1)
-    expect(sendCallsAfterClick[0][1]).toMatchObject({ method: 'POST' })
+    const sendRequestInit = (sendCallsAfterClick[0] as unknown[])[1]
+    expect(sendRequestInit).toMatchObject({ method: 'POST' })
   })
 
   it('builds review links from product slug and degrades when slug is missing', async () => {

@@ -38,6 +38,18 @@ body {
   letter-spacing: -0.01em;
 }
 
+.safe-area-inset-top {
+  padding-top: var(--safe-area-inset-top);
+}
+
+.safe-area-inset-bottom {
+  padding-bottom: var(--safe-area-inset-bottom);
+}
+
+.safe-area-pb {
+  padding-bottom: var(--safe-area-inset-bottom);
+}
+
 /* Prevent horizontal scroll on mobile - applies to page level only */
 /* Individual elements with overflow-x-auto will still scroll horizontally */
 @media (max-width: 767px) {

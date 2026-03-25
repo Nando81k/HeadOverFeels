@@ -9,6 +9,7 @@ import {
 
 describe('Email Templates', () => {
   const mockOrderData = {
+    orderId: 'ord_123',
     orderNumber: 'HOF-123456',
     customerName: 'John Doe',
     customerEmail: 'john@example.com',
@@ -41,6 +42,7 @@ describe('Email Templates', () => {
       expect(result.html).toContain('HOF-123456')
       expect(result.html).toContain('TRACK123456')
       expect(result.html).toContain('USPS')
+      expect(result.html).toContain('/orders/ord_123/track')
       expect(result.text).toContain('Shipped') // Title case in template
       expect(result.text).toContain('TRACK123456')
     })

@@ -49,6 +49,7 @@ export async function sendOrderShippedEmail(orderId: string): Promise<EmailResul
     }
 
     const emailData = {
+      orderId: order.id,
       orderNumber: order.orderNumber,
       customerName: getFullName(order.shippingAddress) || order.customer?.name || 'Valued Customer',
       customerEmail: order.customer?.email || order.customerEmail || '',
@@ -123,6 +124,7 @@ export async function sendOrderDeliveredEmail(orderId: string): Promise<EmailRes
     }
 
     const emailData = {
+      orderId: order.id,
       orderNumber: order.orderNumber,
       customerName: getFullName(order.shippingAddress) || order.customer?.name || 'Valued Customer',
       customerEmail: order.customer?.email || order.customerEmail || '',
@@ -254,6 +256,7 @@ export async function sendOutForDeliveryEmail(orderId: string): Promise<EmailRes
     }
 
     const emailData = {
+      orderId: order.id,
       orderNumber: order.orderNumber,
       customerName: getFullName(order.shippingAddress) || order.customer?.name || 'Valued Customer',
       customerEmail: order.customer?.email || order.customerEmail || '',

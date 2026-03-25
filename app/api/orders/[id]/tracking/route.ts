@@ -114,7 +114,7 @@ export async function PATCH(
       UPS: `https://www.ups.com/track?tracknum=${trackingNumber}`,
       DHL: `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`,
     }
-    const trackingUrl = carrierUrls[carrier] || `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/order/track/${id}`
+    const trackingUrl = carrierUrls[carrier] || `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/orders/${id}/track`
 
     // Update order with tracking information
     const updatedOrder = await prisma.order.update({
@@ -144,7 +144,7 @@ export async function PATCH(
     // Send tracking email if requested
     if (sendEmail && isFirstTimeTracking) {
       try {
-        const orderTrackingPageUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/order/track/${updatedOrder.id}`
+        const orderTrackingPageUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/orders/${updatedOrder.id}/track`
 
         await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL || 'orders@headoverfeels.com',

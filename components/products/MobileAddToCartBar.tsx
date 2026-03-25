@@ -1,7 +1,6 @@
 'use client'
 
 import { ShoppingCart, Check, Minus, Plus, Bag } from '@phosphor-icons/react'
-import { motion } from 'framer-motion'
 import { ProductVariant } from '@/lib/api/products'
 import { useCartStore } from '@/lib/store/cart'
 import Link from 'next/link'
@@ -38,15 +37,10 @@ export function MobileAddToCartBar({
       <div className="h-24 lg:hidden" aria-hidden="true" />
       
       {/* Sticky bar - only visible on mobile */}
-      <motion.div 
-        initial={{ y: 100 }}
-        animate={{ y: 0 }}
+      <div
         className="fixed bottom-0 left-0 right-0 z-10000 lg:hidden bg-white border-t border-black/10 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
         style={{ 
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-          position: 'fixed',
-          transform: 'translateZ(0)',
-          willChange: 'transform',
         }}
       >
         <div className="flex items-center gap-3 px-4 py-3">
@@ -123,7 +117,7 @@ export function MobileAddToCartBar({
             )}
           </Link>
         </div>
-      </motion.div>
+      </div>
     </>
   )
 }

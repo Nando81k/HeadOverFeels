@@ -6,7 +6,12 @@ import {
   hasCartBlockingIssues,
 } from '@/lib/cart/cart-validation'
 
-function createCartItem(overrides: Partial<CartItem> = {}): CartItem {
+type CartItemOverrides = Omit<Partial<CartItem>, 'product' | 'variant'> & {
+  product?: Partial<CartItem['product']>
+  variant?: Partial<NonNullable<CartItem['variant']>>
+}
+
+function createCartItem(overrides: CartItemOverrides = {}): CartItem {
   const base: CartItem = {
     product: {
       id: 'product-1',

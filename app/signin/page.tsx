@@ -3,13 +3,10 @@
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { signIn } from 'next-auth/react'
 import { useAuth } from '@/lib/auth/context'
 import { 
   SignIn as SignInIcon, 
   UserPlus, 
-  GoogleLogo, 
-  GithubLogo, 
   CircleNotch, 
   Heart, 
   Lock, 
@@ -38,7 +35,6 @@ function SignInContent() {
 
   const [activeTab, setActiveTab] = useState<'signin' | 'signup'>(initialTab)
   const [loading, setLoading] = useState(false)
-  const [socialLoading, setSocialLoading] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [requiresVerification, setRequiresVerification] = useState(false)
@@ -79,10 +75,6 @@ function SignInContent() {
   
   // Inline validation helpers
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  const isNameValid = signupName.trim().length >= 2
-  const isEmailValid = emailRegex.test(signupEmail)
-  const doPasswordsMatch = signupPassword === signupConfirmPassword
-  
   const getNameError = () => {
     if (!touchedFields.name || !signupName) return null
     if (signupName.trim().length < 2) return 'Name must be at least 2 characters'
@@ -241,17 +233,6 @@ function SignInContent() {
     }
   }
 
-  const handleSocialLogin = async (provider: 'google' | 'github') => {
-    setError('')
-    setSocialLoading(provider)
-    try {
-      await signIn(provider, { callbackUrl: redirectTo })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to sign in with ${provider}`)
-      setSocialLoading(null)
-    }
-  }
-
   const benefits = [
     { icon: Crown, title: 'Loyalty Rewards', desc: 'Earn points on every purchase' },
     { icon: Lightning, title: 'Early Access', desc: 'Be first to shop new drops' },
@@ -261,8 +242,8 @@ function SignInContent() {
   return (
     <>
       <Navigation />
-      <div className="min-h-screen bg-white">
-        <div className="flex flex-col lg:flex-row min-h-screen pt-20">
+      <div className="min-h-[100svh] bg-white">
+        <div className="flex min-h-[calc(100svh-4.5rem)] flex-col lg:min-h-[calc(100svh-5rem)] lg:flex-row">
           {/* Left Side - Brand Panel */}
           <div className="hidden lg:flex lg:w-1/2 bg-black relative overflow-hidden">
             {/* Background pattern */}
@@ -338,18 +319,18 @@ function SignInContent() {
           </div>
 
           {/* Right Side - Form Panel */}
-          <div className="flex-1 flex items-center justify-center px-4 py-12 lg:py-0">
+          <div className="flex-1 flex items-start justify-center px-3 pt-3 pb-4 sm:px-4 sm:pt-4 sm:pb-6 lg:items-center lg:px-4 lg:py-0">
             <div className="w-full max-w-md">
               {/* Mobile Brand Header */}
               <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="lg:hidden text-center mb-8"
+                className="lg:hidden text-center mb-3"
               >
-                <div className="w-14 h-14 bg-black flex items-center justify-center mx-auto mb-4">
-                  <Heart size={26} weight="fill" className="text-white" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-black flex items-center justify-center mx-auto mb-2">
+                  <Heart size={20} weight="fill" className="text-white" />
                 </div>
-                <h1 className="text-2xl font-black text-black tracking-tight">
+                <h1 className="text-lg sm:text-xl font-black text-black tracking-tight">
                   {activeTab === 'signin' ? 'Welcome Back' : 'Join the Family'}
                 </h1>
               </motion.div>
@@ -360,7 +341,7 @@ function SignInContent() {
                 transition={{ delay: 0.2 }}
               >
                 {/* Tab Switcher */}
-                <div className="relative border-b border-black/10 mb-8">
+                <div className="relative border-b border-black/10 mb-4 sm:mb-6">
                   <div className="flex">
                     <button
                       onClick={() => {
@@ -369,7 +350,7 @@ function SignInContent() {
                         setSuccessMessage('')
                         setRequiresVerification(false)
                       }}
-                      className={`flex-1 py-4 text-sm font-black tracking-widest uppercase transition-all ${activeTab === 'signin'
+                      className={`flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-black tracking-widest uppercase transition-all ${activeTab === 'signin'
                           ? 'text-black'
                           : 'text-black/30 hover:text-black/50'
                         }`}
@@ -383,7 +364,7 @@ function SignInContent() {
                         setSuccessMessage('')
                         setRequiresVerification(false)
                       }}
-                      className={`flex-1 py-4 text-sm font-black tracking-widest uppercase transition-all ${activeTab === 'signup'
+                      className={`flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-black tracking-widest uppercase transition-all ${activeTab === 'signup'
                           ? 'text-black'
                           : 'text-black/30 hover:text-black/50'
                         }`}
@@ -410,9 +391,9 @@ function SignInContent() {
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="mb-6 p-4 border border-red-200 bg-red-50"
+                      className="mb-3 sm:mb-4 p-2.5 sm:p-3 border border-red-200 bg-red-50"
                     >
-                      <p className="text-sm text-red-600 font-medium">{error}</p>
+                      <p className="text-xs sm:text-sm text-red-600 font-medium">{error}</p>
                       {requiresVerification && (
                         <button
                           type="button"
@@ -434,9 +415,9 @@ function SignInContent() {
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="mb-6 p-4 border border-green-200 bg-green-50"
+                      className="mb-3 sm:mb-4 p-2.5 sm:p-3 border border-green-200 bg-green-50"
                     >
-                      <p className="text-sm text-green-600 font-medium">{successMessage}</p>
+                      <p className="text-xs sm:text-sm text-green-600 font-medium">{successMessage}</p>
                       {requiresVerification && (
                         <button
                           type="button"
@@ -457,50 +438,50 @@ function SignInContent() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     onSubmit={handleSignin}
-                    className="space-y-5"
+                    className="space-y-3 sm:space-y-4"
                   >
                     <div>
-                      <label htmlFor="signin-email" className="block text-[10px] font-black text-black/60 uppercase tracking-[0.15em] mb-2">
+                      <label htmlFor="signin-email" className="block text-[10px] font-black text-black/60 uppercase tracking-[0.15em] mb-1 sm:mb-2">
                         Email Address
                       </label>
                       <div className="relative">
-                        <Envelope size={18} weight="bold" className="absolute left-4 top-1/2 -translate-y-1/2 text-black/30" />
+                        <Envelope size={16} weight="bold" className="absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 text-black/30" />
                         <input
                           id="signin-email"
                           type="email"
                           required
                           value={signinEmail}
                           onChange={(e) => setSigninEmail(e.target.value)}
-                          className="w-full pl-12 pr-4 py-4 border border-black/10 focus:outline-none focus:border-black bg-white text-black font-medium transition-colors"
+                          className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 border border-black/10 focus:outline-none focus:border-black bg-white text-black text-sm font-medium transition-colors"
                           placeholder="you@example.com"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label htmlFor="signin-password" className="block text-[10px] font-black text-black/60 uppercase tracking-[0.15em] mb-2">
+                      <label htmlFor="signin-password" className="block text-[10px] font-black text-black/60 uppercase tracking-[0.15em] mb-1 sm:mb-2">
                         Password
                       </label>
                       <div className="relative">
-                        <Lock size={18} weight="bold" className="absolute left-4 top-1/2 -translate-y-1/2 text-black/30" />
+                        <Lock size={16} weight="bold" className="absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 text-black/30" />
                         <input
                           id="signin-password"
                           type={showPassword ? 'text' : 'password'}
                           required
                           value={signinPassword}
                           onChange={(e) => setSigninPassword(e.target.value)}
-                          className="w-full pl-12 pr-12 py-4 border border-black/10 focus:outline-none focus:border-black bg-white text-black font-medium transition-colors"
+                          className="w-full pl-10 sm:pl-12 pr-10 sm:pr-12 py-2.5 sm:py-3 border border-black/10 focus:outline-none focus:border-black bg-white text-black text-sm font-medium transition-colors"
                           placeholder="••••••••"
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-black/30 hover:text-black transition-colors"
+                          className="absolute right-3.5 sm:right-4 top-1/2 -translate-y-1/2 text-black/30 hover:text-black transition-colors"
                         >
-                          {showPassword ? <EyeSlash size={18} weight="bold" /> : <Eye size={18} weight="bold" />}
+                          {showPassword ? <EyeSlash size={16} weight="bold" /> : <Eye size={16} weight="bold" />}
                         </button>
                       </div>
-                      <div className="mt-2 text-right">
+                      <div className="mt-1.5 text-right">
                         <Link
                           href="/forgot-password"
                           className="text-xs font-medium text-black/50 hover:text-black transition-colors"
@@ -515,57 +496,16 @@ function SignInContent() {
                       disabled={loading}
                       whileHover={{ scale: loading ? 1 : 1.01 }}
                       whileTap={{ scale: loading ? 1 : 0.99 }}
-                      className="w-full bg-black text-white py-4 font-black text-sm uppercase tracking-widest hover:bg-black/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                      className="w-full bg-black text-white py-2.5 sm:py-3 font-black text-xs sm:text-sm uppercase tracking-widest hover:bg-black/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5"
                     >
                       {loading ? (
-                        <CircleNotch size={20} weight="bold" className="animate-spin" />
+                        <CircleNotch size={18} weight="bold" className="animate-spin" />
                       ) : (
-                        <SignInIcon size={20} weight="bold" />
+                        <SignInIcon size={18} weight="bold" />
                       )}
                       {loading ? 'Signing In...' : 'Sign In'}
-                      {!loading && <ArrowRight size={16} weight="bold" />}
+                      {!loading && <ArrowRight size={14} weight="bold" />}
                     </motion.button>
-
-                    {/* Divider */}
-                    <div className="relative my-8">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-black/10"></div>
-                      </div>
-                      <div className="relative flex justify-center">
-                        <span className="px-4 bg-white text-[10px] font-black text-black/40 uppercase tracking-[0.15em]">Or continue with</span>
-                      </div>
-                    </div>
-
-                    {/* Social Login */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <button
-                        type="button"
-                        onClick={() => handleSocialLogin('google')}
-                        disabled={socialLoading !== null}
-                        className="flex items-center justify-center gap-2 px-4 py-4 border border-black/10 hover:border-black hover:bg-black/5 transition-all disabled:opacity-50"
-                      >
-                        {socialLoading === 'google' ? (
-                          <CircleNotch size={20} weight="bold" className="animate-spin" />
-                        ) : (
-                          <GoogleLogo size={20} weight="bold" className="text-[#4285F4]" />
-                        )}
-                        <span className="text-sm font-black text-black">Google</span>
-                      </button>
-                      
-                      <button
-                        type="button"
-                        onClick={() => handleSocialLogin('github')}
-                        disabled={socialLoading !== null}
-                        className="flex items-center justify-center gap-2 px-4 py-4 border border-black/10 hover:border-black hover:bg-black/5 transition-all disabled:opacity-50"
-                      >
-                        {socialLoading === 'github' ? (
-                          <CircleNotch size={20} weight="bold" className="animate-spin" />
-                        ) : (
-                          <GithubLogo size={20} weight="bold" className="text-black" />
-                        )}
-                        <span className="text-sm font-black text-black">GitHub</span>
-                      </button>
-                    </div>
                   </motion.form>
                 )}
 
@@ -575,14 +515,14 @@ function SignInContent() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     onSubmit={handleSignup}
-                    className="space-y-5"
+                    className="space-y-3 sm:space-y-4"
                   >
                     <div>
-                      <label htmlFor="signup-name" className="block text-[10px] font-black text-black/60 uppercase tracking-[0.15em] mb-2">
+                      <label htmlFor="signup-name" className="block text-[10px] font-black text-black/60 uppercase tracking-[0.15em] mb-1 sm:mb-2">
                         Full Name
                       </label>
                       <div className="relative">
-                        <User size={18} weight="bold" className="absolute left-4 top-1/2 -translate-y-1/2 text-black/30" />
+                        <User size={16} weight="bold" className="absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 text-black/30" />
                         <input
                           id="signup-name"
                           type="text"
@@ -590,7 +530,7 @@ function SignInContent() {
                           value={signupName}
                           onChange={(e) => setSignupName(e.target.value)}
                           onBlur={() => setTouchedFields(prev => ({ ...prev, name: true }))}
-                          className={`w-full pl-12 pr-4 py-4 border focus:outline-none bg-white text-black font-medium transition-colors ${
+                          className={`w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 border focus:outline-none bg-white text-black text-sm font-medium transition-colors ${
                             getNameError()
                               ? 'border-red-300 focus:border-red-500'
                               : 'border-black/10 focus:border-black'
@@ -604,11 +544,11 @@ function SignInContent() {
                     </div>
 
                     <div>
-                      <label htmlFor="signup-email" className="block text-[10px] font-black text-black/60 uppercase tracking-[0.15em] mb-2">
+                      <label htmlFor="signup-email" className="block text-[10px] font-black text-black/60 uppercase tracking-[0.15em] mb-1 sm:mb-2">
                         Email Address
                       </label>
                       <div className="relative">
-                        <Envelope size={18} weight="bold" className="absolute left-4 top-1/2 -translate-y-1/2 text-black/30" />
+                        <Envelope size={16} weight="bold" className="absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 text-black/30" />
                         <input
                           id="signup-email"
                           type="email"
@@ -616,7 +556,7 @@ function SignInContent() {
                           value={signupEmail}
                           onChange={(e) => setSignupEmail(e.target.value)}
                           onBlur={() => setTouchedFields(prev => ({ ...prev, email: true }))}
-                          className={`w-full pl-12 pr-4 py-4 border focus:outline-none bg-white text-black font-medium transition-colors ${
+                          className={`w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 border focus:outline-none bg-white text-black text-sm font-medium transition-colors ${
                             getEmailError()
                               ? 'border-red-300 focus:border-red-500'
                               : 'border-black/10 focus:border-black'
@@ -630,33 +570,33 @@ function SignInContent() {
                     </div>
 
                     <div>
-                      <label htmlFor="signup-password" className="block text-[10px] font-black text-black/60 uppercase tracking-[0.15em] mb-2">
+                      <label htmlFor="signup-password" className="block text-[10px] font-black text-black/60 uppercase tracking-[0.15em] mb-1 sm:mb-2">
                         Password
                       </label>
                       <div className="relative">
-                        <Lock size={18} weight="bold" className="absolute left-4 top-1/2 -translate-y-1/2 text-black/30" />
+                        <Lock size={16} weight="bold" className="absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 text-black/30" />
                         <input
                           id="signup-password"
                           type={showPassword ? 'text' : 'password'}
                           required
                           value={signupPassword}
                           onChange={(e) => setSignupPassword(e.target.value)}
-                          className="w-full pl-12 pr-12 py-4 border border-black/10 focus:outline-none focus:border-black bg-white text-black font-medium transition-colors"
+                          className="w-full pl-10 sm:pl-12 pr-10 sm:pr-12 py-2.5 sm:py-3 border border-black/10 focus:outline-none focus:border-black bg-white text-black text-sm font-medium transition-colors"
                           placeholder="••••••••"
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-black/30 hover:text-black transition-colors"
+                          className="absolute right-3.5 sm:right-4 top-1/2 -translate-y-1/2 text-black/30 hover:text-black transition-colors"
                         >
-                          {showPassword ? <EyeSlash size={18} weight="bold" /> : <Eye size={18} weight="bold" />}
+                          {showPassword ? <EyeSlash size={16} weight="bold" /> : <Eye size={16} weight="bold" />}
                         </button>
                       </div>
                       
                       {/* Password Requirements */}
                       {signupPassword && (
-                        <div className="mt-4 p-4 bg-black/5 border border-black/10">
-                          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-black/60 mb-3">Password Requirements</p>
+                        <div className="mt-2 p-2.5 sm:p-3 bg-black/5 border border-black/10">
+                          <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.12em] sm:tracking-[0.15em] text-black/60 mb-2">Password Requirements</p>
                           <div className="grid grid-cols-2 gap-2">
                             {[
                               { key: 'length', label: '8+ characters' },
@@ -686,18 +626,18 @@ function SignInContent() {
                     </div>
 
                     <div>
-                      <label htmlFor="signup-confirm-password" className="block text-[10px] font-black text-black/60 uppercase tracking-[0.15em] mb-2">
+                      <label htmlFor="signup-confirm-password" className="block text-[10px] font-black text-black/60 uppercase tracking-[0.15em] mb-1 sm:mb-2">
                         Confirm Password
                       </label>
                       <div className="relative">
-                        <Lock size={18} weight="bold" className="absolute left-4 top-1/2 -translate-y-1/2 text-black/30" />
+                        <Lock size={16} weight="bold" className="absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 text-black/30" />
                         <input
                           id="signup-confirm-password"
                           type={showConfirmPassword ? 'text' : 'password'}
                           required
                           value={signupConfirmPassword}
                           onChange={(e) => setSignupConfirmPassword(e.target.value)}
-                          className={`w-full pl-12 pr-12 py-4 border focus:outline-none bg-white text-black font-medium transition-colors ${
+                          className={`w-full pl-10 sm:pl-12 pr-10 sm:pr-12 py-2.5 sm:py-3 border focus:outline-none bg-white text-black text-sm font-medium transition-colors ${
                             signupConfirmPassword && signupConfirmPassword !== signupPassword
                               ? 'border-red-300 focus:border-red-500'
                               : 'border-black/10 focus:border-black'
@@ -707,9 +647,9 @@ function SignInContent() {
                         <button
                           type="button"
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-black/30 hover:text-black transition-colors"
+                          className="absolute right-3.5 sm:right-4 top-1/2 -translate-y-1/2 text-black/30 hover:text-black transition-colors"
                         >
-                          {showConfirmPassword ? <EyeSlash size={18} weight="bold" /> : <Eye size={18} weight="bold" />}
+                          {showConfirmPassword ? <EyeSlash size={16} weight="bold" /> : <Eye size={16} weight="bold" />}
                         </button>
                       </div>
                       {signupConfirmPassword && signupConfirmPassword !== signupPassword && (
@@ -726,7 +666,7 @@ function SignInContent() {
                         onChange={(e) => setTermsAccepted(e.target.checked)}
                         className="mt-1 w-4 h-4 border-black/20 text-black focus:ring-black focus:ring-offset-0 cursor-pointer"
                       />
-                      <label htmlFor="terms-checkbox" className="text-sm text-black/60 cursor-pointer leading-relaxed">
+                      <label htmlFor="terms-checkbox" className="text-xs sm:text-sm text-black/60 cursor-pointer leading-snug sm:leading-relaxed">
                         I agree to the{' '}
                         <Link href="/terms" className="text-black font-medium underline hover:no-underline">
                           Terms of Service
@@ -743,57 +683,16 @@ function SignInContent() {
                       disabled={loading || !isPasswordValid || signupPassword !== signupConfirmPassword}
                       whileHover={{ scale: loading ? 1 : 1.01 }}
                       whileTap={{ scale: loading ? 1 : 0.99 }}
-                      className="w-full bg-black text-white py-4 font-black text-sm uppercase tracking-widest hover:bg-black/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                      className="w-full bg-black text-white py-2.5 sm:py-3 font-black text-xs sm:text-sm uppercase tracking-widest hover:bg-black/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5"
                     >
                       {loading ? (
-                        <CircleNotch size={20} weight="bold" className="animate-spin" />
+                        <CircleNotch size={18} weight="bold" className="animate-spin" />
                       ) : (
-                        <UserPlus size={20} weight="bold" />
+                        <UserPlus size={18} weight="bold" />
                       )}
                       {loading ? 'Creating Account...' : 'Create Account'}
-                      {!loading && <ArrowRight size={16} weight="bold" />}
+                      {!loading && <ArrowRight size={14} weight="bold" />}
                     </motion.button>
-
-                    {/* Divider */}
-                    <div className="relative my-8">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-black/10"></div>
-                      </div>
-                      <div className="relative flex justify-center">
-                        <span className="px-4 bg-white text-[10px] font-black text-black/40 uppercase tracking-[0.15em]">Or sign up with</span>
-                      </div>
-                    </div>
-
-                    {/* Social Login */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <button
-                        type="button"
-                        onClick={() => handleSocialLogin('google')}
-                        disabled={socialLoading !== null}
-                        className="flex items-center justify-center gap-2 px-4 py-4 border border-black/10 hover:border-black hover:bg-black/5 transition-all disabled:opacity-50"
-                      >
-                        {socialLoading === 'google' ? (
-                          <CircleNotch size={20} weight="bold" className="animate-spin" />
-                        ) : (
-                          <GoogleLogo size={20} weight="bold" className="text-[#4285F4]" />
-                        )}
-                        <span className="text-sm font-black text-black">Google</span>
-                      </button>
-                      
-                      <button
-                        type="button"
-                        onClick={() => handleSocialLogin('github')}
-                        disabled={socialLoading !== null}
-                        className="flex items-center justify-center gap-2 px-4 py-4 border border-black/10 hover:border-black hover:bg-black/5 transition-all disabled:opacity-50"
-                      >
-                        {socialLoading === 'github' ? (
-                          <CircleNotch size={20} weight="bold" className="animate-spin" />
-                        ) : (
-                          <GithubLogo size={20} weight="bold" className="text-black" />
-                        )}
-                        <span className="text-sm font-black text-black">GitHub</span>
-                      </button>
-                    </div>
                   </motion.form>
                 )}
               </motion.div>

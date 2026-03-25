@@ -460,8 +460,9 @@ export function RewardsHubSection({ embedded = false, openTierModalSignal = 0 }:
   ]
 
   const annualPointsEarned = user.annualPointsEarned ?? 0
-  const currentTierIndexFromSlug = user.loyaltyTier
-    ? tierDefinitions.findIndex((tier) => tier.slug === user.loyaltyTier.slug.toLowerCase())
+  const currentTierSlug = user.loyaltyTier?.slug?.toLowerCase() || ''
+  const currentTierIndexFromSlug = currentTierSlug
+    ? tierDefinitions.findIndex((tier) => tier.slug === currentTierSlug)
     : -1
   const inferredTierIndex = tierDefinitions.reduce((highestIndex, tier, index) => {
     return annualPointsEarned >= tier.minAnnualPoints ? index : highestIndex
