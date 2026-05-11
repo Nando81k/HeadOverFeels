@@ -1,31 +1,24 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, useMemo, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Navigation } from '@/components/layout/Navigation'
 import { useAuth } from '@/lib/auth/context'
-import { 
-  User, Package, SignOut, CircleNotch, Medal, Sparkle, Gift,
-  ArrowRight, Gear, ClockCounterClockwise, ShoppingBag, Star, Coins, 
-  Confetti, Heart, CalendarBlank, Envelope, Crown
+import {
+  SignOut, CircleNotch, Medal, Sparkle, Gear,
+  Confetti, Star, Coins, CalendarBlank, Camera,
 } from '@phosphor-icons/react'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { calculateTierProgressWithTiers } from '@/lib/loyalty/tier-progress'
 import { toast } from '@/lib/toast'
 import { RewardsHubSection } from '@/components/profile/RewardsHubSection'
-import { LoyaltyTierMeter } from '@/components/profile/LoyaltyTierMeter'
-import {
-  getDailyMentalHealthQuote,
-  getMsUntilNextLocalMidnight,
-  type MentalHealthQuote,
-} from '@/lib/profile/daily-mental-health-quote'
-import {
-  buildTierGlowShadow,
-  buildTierGradient,
-  hexToRgba,
-  resolveTierTheme,
-} from '@/lib/loyalty/tier-theme'
+import { ProfileSectionNav, type ProfileSection } from '@/components/profile/ProfileSectionNav'
+import { OverviewSection } from '@/components/profile/sections/OverviewSection'
+import { ActivitySection } from '@/components/profile/sections/ActivitySection'
+import { SettingsSection } from '@/components/profile/sections/SettingsSection'
+import { buildTierGradient, resolveTierTheme } from '@/lib/loyalty/tier-theme'
 
 interface PointsTransaction {
   id: string
@@ -127,18 +120,13 @@ const tierConfig: Record<string, {
 
 const getTierConfig = (slug: string) => tierConfig[slug] || tierConfig.newcomer
 
-function formatTierMultiplier(multiplier: number): string {
-  if (!Number.isFinite(multiplier) || multiplier <= 0) return '1'
-  if (Number.isInteger(multiplier)) return String(multiplier)
-  return multiplier.toFixed(2).replace(/\.?0+$/, '')
-}
+const VALID_SECTIONS: ProfileSection[] = ['overview', 'loyalty', 'activity', 'settings']
 
-type ProfileTab = 'profile' | 'rewards'
-
-const PROFILE_TAB_ORDER: ProfileTab[] = ['profile', 'rewards']
-
-const getProfileTabFromHash = (hash: string): ProfileTab => {
-  return hash.replace('#', '').toLowerCase() === 'rewards' ? 'rewards' : 'profile'
+const getSectionFromHash = (hash: string): ProfileSection => {
+  const candidate = hash.replace('#', '').toLowerCase()
+  return (VALID_SECTIONS as string[]).includes(candidate)
+    ? (candidate as ProfileSection)
+    : 'overview'
 }
 
 export default function ProfilePage() {
@@ -164,16 +152,13 @@ export default function ProfilePage() {
   const tierRefreshAttemptedRef = useRef(false)
   const initialRefreshDoneRef = useRef(false)
   const readyToCheckRef = useRef(false)
-  const [activeTab, setActiveTab] = useState<ProfileTab>('profile')
-  const [hasLoadedRewards, setHasLoadedRewards] = useState(false)
-  const [openTierModalSignal, setOpenTierModalSignal] = useState(0)
-  const [dailyQuote, setDailyQuote] = useState<MentalHealthQuote>(() => getDailyMentalHealthQuote())
+  const [activeSection, setActiveSection] = useState<ProfileSection>('overview')
+  const [pendingRedemptionCount, setPendingRedemptionCount] = useState(0)
+  const [openTierModalSignal] = useState(0)
   const [tierThemeOverrides, setTierThemeOverrides] = useState<Record<string, { primaryColor?: string; secondaryColor?: string }>>({})
   const [tierDefinitions, setTierDefinitions] = useState<ProfileTierDefinition[]>([])
-  const tabButtonRefs = useRef<Record<ProfileTab, HTMLButtonElement | null>>({
-    profile: null,
-    rewards: null,
-  })
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -181,80 +166,58 @@ export default function ProfilePage() {
     }
   }, [user, authLoading, router])
 
-  const setTabAndHash = useCallback((tab: ProfileTab) => {
-    setActiveTab(tab)
-    if (tab === 'rewards') {
-      setHasLoadedRewards(true)
-    }
+  const setSectionAndHash = useCallback((section: ProfileSection) => {
+    setActiveSection(section)
 
     if (typeof window === 'undefined') return
-    const nextHash = `#${tab}`
+    const nextHash = `#${section}`
     if (window.location.hash === nextHash) return
     const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`
     window.history.replaceState(null, '', nextUrl)
+
+    // Scroll to top of content area on section change
+    if (typeof window !== 'undefined') {
+      const top = document.getElementById('profile-content-top')
+      if (top) {
+        top.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }
   }, [])
 
-  const handleViewBenefits = useCallback(() => {
-    setTabAndHash('rewards')
-    setOpenTierModalSignal((signal) => signal + 1)
-  }, [setTabAndHash])
+  const handleAvatarUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Reset so same file can be re-selected after removal
+    e.target.value = ''
 
-  const handleTabKeyDown = useCallback((event: ReactKeyboardEvent<HTMLButtonElement>, currentTab: ProfileTab) => {
-    const currentIndex = PROFILE_TAB_ORDER.indexOf(currentTab)
-    let nextTab: ProfileTab | null = null
-
-    if (event.key === 'ArrowRight') {
-      nextTab = PROFILE_TAB_ORDER[(currentIndex + 1) % PROFILE_TAB_ORDER.length]
-    } else if (event.key === 'ArrowLeft') {
-      nextTab = PROFILE_TAB_ORDER[(currentIndex - 1 + PROFILE_TAB_ORDER.length) % PROFILE_TAB_ORDER.length]
-    } else if (event.key === 'Home') {
-      nextTab = PROFILE_TAB_ORDER[0]
-    } else if (event.key === 'End') {
-      nextTab = PROFILE_TAB_ORDER[PROFILE_TAB_ORDER.length - 1]
+    setAvatarUploading(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch('/api/profile/avatar', { method: 'POST', body: form })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error ?? 'Upload failed')
+      }
+      await refreshUser()
+      toast.success('Profile picture updated')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      setAvatarUploading(false)
     }
-
-    if (!nextTab) return
-
-    event.preventDefault()
-    setTabAndHash(nextTab)
-    tabButtonRefs.current[nextTab]?.focus()
-  }, [setTabAndHash])
+  }, [refreshUser])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
 
     const syncFromHash = () => {
-      const tabFromHash = getProfileTabFromHash(window.location.hash)
-      setActiveTab(tabFromHash)
-      if (tabFromHash === 'rewards') {
-        setHasLoadedRewards(true)
-      }
+      setActiveSection(getSectionFromHash(window.location.hash))
     }
 
     syncFromHash()
     window.addEventListener('hashchange', syncFromHash)
     return () => window.removeEventListener('hashchange', syncFromHash)
-  }, [])
-
-  useEffect(() => {
-    let timeoutId: number | null = null
-
-    const scheduleQuoteRefresh = () => {
-      const delay = getMsUntilNextLocalMidnight()
-      timeoutId = window.setTimeout(() => {
-        setDailyQuote(getDailyMentalHealthQuote())
-        scheduleQuoteRefresh()
-      }, delay)
-    }
-
-    setDailyQuote(getDailyMentalHealthQuote())
-    scheduleQuoteRefresh()
-
-    return () => {
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId)
-      }
-    }
   }, [])
 
   useEffect(() => {
@@ -584,9 +547,24 @@ export default function ProfilePage() {
     if (user) {
       fetchOrders()
       fetchPointsHistory()
+      fetchPendingRedemptions()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
+
+  const fetchPendingRedemptions = async () => {
+    try {
+      const res = await fetch('/api/loyalty/redemptions?limit=50')
+      if (!res.ok) return
+      const data = await res.json()
+      const items: { status: string; couponCode: string | null }[] = data.data ?? []
+      setPendingRedemptionCount(
+        items.filter((r) => r.status === 'PENDING' && !r.couponCode).length
+      )
+    } catch {
+      // silent — badge falls back to 0
+    }
+  }
 
   const tierProgress = useMemo(() => {
     if (!user) return null
@@ -666,38 +644,23 @@ export default function ProfilePage() {
       pointMultiplier: fallback.multiplier,
     }
   }
-  const currentTierDisplay = resolveTierDisplay(currentThemeSlug)
   const currentTierTheme = resolveTierTheme(currentThemeSlug, tierThemeBySlug[currentThemeSlug.toLowerCase()])
-  const previousTierTheme = previousTierSlug
-    ? resolveTierTheme(previousTierSlug, tierThemeBySlug[previousTierSlug.toLowerCase()])
+
+  // Derived values for OverviewSection — current/next tier from the loaded definitions
+  const annualPointsEarned = user.annualPointsEarned ?? 0
+  const sortedTiers = [...tierDefinitions].sort(
+    (a, b) => a.minAnnualPoints - b.minAnnualPoints
+  )
+  const currentTierIndex = sortedTiers.reduce(
+    (acc, tier, idx) => (annualPointsEarned >= tier.minAnnualPoints ? idx : acc),
+    -1
+  )
+  const currentTierForOverview = currentTierIndex >= 0
+    ? sortedTiers[currentTierIndex] ?? null
+    : (sortedTiers[0] ?? null)
+  const nextTierForOverview = currentTierIndex >= 0
+    ? (sortedTiers[currentTierIndex + 1] ?? null)
     : null
-  const activeTierSlug = displayTierSlug || currentThemeSlug
-  const activeTierDisplay = resolveTierDisplay(activeTierSlug)
-  const activeMultiplier = displayTierSlug
-    ? activeTierDisplay.pointMultiplier
-    : (user.loyaltyTier?.pointMultiplier ?? currentTierDisplay.pointMultiplier)
-  const activeTierName = displayTierSlug
-    ? activeTierDisplay.name
-    : (user.loyaltyTier?.name || currentTierDisplay.name)
-  const activeTierTheme = resolveTierTheme(activeTierSlug, tierThemeBySlug[activeTierSlug.toLowerCase()])
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'DELIVERED': return 'bg-emerald-500'
-      case 'SHIPPED': return 'bg-violet-500'
-      case 'PROCESSING': return 'bg-blue-500'
-      default: return 'bg-black/40'
-    }
-  }
-
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case 'PURCHASE': return <ShoppingBag size={16} weight="bold" className="text-emerald-600" />
-      case 'REVIEW': return <Star size={16} weight="fill" className="text-amber-500" />
-      case 'REDEMPTION': return <Gift size={16} weight="bold" className="text-purple-600" />
-      default: return <Sparkle size={16} weight="fill" className="text-blue-600" />
-    }
-  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -890,705 +853,224 @@ export default function ProfilePage() {
         )}
       </AnimatePresence>
 
-      {/* Editorial Hero Section */}
-      <section className="pt-10 sm:pt-12 md:pt-24 pb-8 md:pb-12 px-4 sm:px-8 border-b border-black/10">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full"
-          >
-            {user.loyaltyTier && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                  scale: tierTransitionPhase === 'celebrating' ? [1, 1.01, 1] : 1,
-                }}
-                transition={{ delay: 0.1, scale: { duration: 0.6 } }}
-                className="relative w-full overflow-hidden rounded-xl text-white transition-all duration-500"
-                style={tierTransitionPhase === 'celebrating' ? { boxShadow: buildTierGlowShadow(currentTierTheme) } : undefined}
-              >
-                <motion.div
-                  initial={{ opacity: 1 }}
-                  animate={{ opacity: tierTransitionPhase === 'resetting' || tierTransitionPhase === 'complete' ? 0 : 1 }}
-                  transition={{ duration: 0.8 }}
-                  className="absolute inset-0"
-                  style={{ backgroundImage: buildTierGradient(previousTierTheme || activeTierTheme, 135) }}
-                />
-                <motion.div
-                  initial={{ opacity: shouldAnimateTier ? 0 : 1 }}
-                  animate={{ opacity: tierTransitionPhase === 'resetting' || tierTransitionPhase === 'complete' ? 1 : (shouldAnimateTier ? 0 : 1) }}
-                  transition={{ duration: 0.8 }}
-                  className="absolute inset-0"
-                  style={{ backgroundImage: buildTierGradient(currentTierTheme, 135) }}
-                />
-
-                <motion.div
-                  animate={tierTransitionPhase === 'celebrating' ? { scale: [1, 1.5, 1], opacity: [0.1, 0.3, 0.1] } : {}}
-                  transition={{ duration: 2 }}
-                  className="absolute top-0 right-0 w-32 md:w-56 h-32 md:h-56 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"
-                />
-                <motion.div
-                  className="absolute bottom-0 left-0 w-24 md:w-40 h-24 md:h-40 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl"
-                />
-
-                <AnimatePresence>
-                  {tierTransitionPhase === 'celebrating' && (
-                    <motion.div
-                      initial={{ x: '-100%', opacity: 0 }}
-                      animate={{ x: '200%', opacity: [0, 0.5, 0] }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 1.5 }}
-                      className="absolute inset-0 w-1/2 bg-linear-to-r from-transparent via-white/30 to-transparent skew-x-12"
-                    />
-                  )}
-                </AnimatePresence>
-
-                <AnimatePresence>
-                  {tierTransitionPhase === 'resetting' && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: [0, 0.8, 0] }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.6 }}
-                      className="absolute inset-0 bg-white"
-                    />
-                  )}
-                </AnimatePresence>
-
-                <div className="relative p-2.5 md:p-4 lg:p-5">
-                  <div className="md:hidden space-y-2">
-                    <div
-                      className="backdrop-blur-sm rounded-lg p-2.5"
-                      style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
-                    >
-                      <div className="flex items-start gap-2">
-                        <div className="w-9 h-9 bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0">
-                          <User size={16} weight="bold" className="text-white" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/75">My Account</p>
-                          <h1 className="text-base font-black text-white leading-tight truncate">{user.name || 'Welcome'}</h1>
-                          <p className="text-[11px] text-white/80 truncate">{user.email}</p>
-                        </div>
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        {user.isAdmin && (
-                          <Link
-                            href="/admin"
-                            className="h-8 inline-flex items-center justify-center gap-1.5 px-3 bg-white text-black text-[10px] font-semibold uppercase tracking-[0.11em] hover:bg-white/90 transition-colors"
-                          >
-                            <Gear size={12} weight="bold" />
-                            Admin
-                          </Link>
-                        )}
-                        <button
-                          onClick={handleSignout}
-                          className="h-8 inline-flex items-center justify-center gap-1.5 px-3 border border-white/55 text-white text-[10px] font-semibold uppercase tracking-[0.11em] hover:bg-white hover:text-black transition-colors"
-                        >
-                          <SignOut size={12} weight="bold" />
-                          Sign Out
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div
-                        className="rounded-md p-2 backdrop-blur-sm"
-                        style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
-                      >
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-white/75">Tier</p>
-                        <AnimatePresence mode="wait">
-                          <motion.p
-                            key={activeTierSlug}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -8 }}
-                            className="text-sm font-black text-white leading-tight"
-                          >
-                            {activeTierName}
-                          </motion.p>
-                        </AnimatePresence>
-                        <p className="text-[10px] text-white/80 mt-0.5">{formatTierMultiplier(activeMultiplier)}x earning</p>
-                      </div>
-                      <motion.div
-                        animate={shouldAnimatePoints || tierTransitionPhase === 'celebrating' ? { scale: [1, 1.05, 1] } : {}}
-                        transition={{ duration: 0.5, delay: 0.3 }}
-                        className="rounded-md p-2 backdrop-blur-sm relative"
-                        style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
-                      >
-                        <AnimatePresence>
-                          {(shouldAnimatePoints || shouldAnimateTier) && pointsGained > 0 && (
-                            <motion.div
-                              initial={{ opacity: 1, y: 0 }}
-                              animate={{ opacity: 0, y: -20 }}
-                              exit={{ opacity: 0 }}
-                              transition={{ duration: 1.3, delay: 1 }}
-                              className="absolute top-1 right-1 text-[9px] font-semibold text-green-300"
-                            >
-                              +{pointsGained.toLocaleString()}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-white/75">Points</p>
-                        <p className="text-sm font-black text-white leading-tight">{user.currentPoints.toLocaleString()}</p>
-                        <p className="text-[10px] text-white/80 mt-0.5">${user.totalSpent.toFixed(0)} spent</p>
-                      </motion.div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setTabAndHash('rewards')}
-                        className="h-9 inline-flex items-center justify-center gap-1 rounded-md bg-white text-black px-2.5 text-[10px] font-semibold uppercase tracking-[0.11em] hover:bg-white/90 transition-colors"
-                      >
-                        Open Rewards
-                        <ArrowRight size={12} weight="bold" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleViewBenefits}
-                        className="h-9 inline-flex items-center justify-center rounded-md bg-white/15 px-2.5 text-[10px] font-semibold uppercase tracking-[0.11em] text-white transition-colors hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/90 focus-visible:ring-offset-1 focus-visible:ring-offset-black/10"
-                      >
-                        Benefits
-                      </button>
-                    </div>
-
-                  </div>
-
-                  <div className="hidden md:grid grid-cols-1 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.45fr)] gap-3 md:gap-4 items-stretch">
-                    <div
-                      className="backdrop-blur-sm rounded-lg p-3 md:p-4 flex flex-col justify-between gap-3"
-                      style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
-                    >
-                      <div className="flex items-start gap-2.5">
-                        <div className="w-10 h-10 md:w-11 md:h-11 bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0">
-                          <User size={18} weight="bold" className="text-white md:hidden" />
-                          <User size={22} weight="bold" className="text-white hidden md:block" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/75 mb-1">My Account</p>
-                          <h1 className="text-lg md:text-xl font-black text-white tracking-tight leading-tight break-words whitespace-normal">
-                            {user.name || 'Welcome'}
-                          </h1>
-                          <p className="text-xs md:text-sm text-white/80 mt-0.5 break-all whitespace-normal">{user.email}</p>
-                          <div className="mt-1.5 border-l-2 border-white/35 pl-2.5">
-                            <p className="heading-font text-sm md:text-base text-white/95 leading-snug tracking-[0.02em] line-clamp-2">
-                              {`"${dailyQuote.text}"`}
-                            </p>
-                            {dailyQuote.author && (
-                              <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-white/65">
-                                {dailyQuote.author}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                        {user.isAdmin && (
-                          <Link
-                            href="/admin"
-                            className="min-h-9 flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white text-black text-[10px] font-semibold uppercase tracking-[0.12em] hover:bg-white/90 transition-colors"
-                          >
-                            <Gear size={14} weight="bold" />
-                            Admin
-                          </Link>
-                        )}
-                        <button
-                          onClick={handleSignout}
-                          className="min-h-9 flex items-center justify-center gap-1.5 px-3.5 py-2 border border-white/55 text-white text-[10px] font-semibold uppercase tracking-[0.12em] hover:bg-white hover:text-black transition-colors"
-                        >
-                          <SignOut size={14} weight="bold" />
-                          Sign Out
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex h-full flex-col gap-2.5 md:gap-3">
-                      <div className="flex items-start justify-between gap-2.5">
-                        <motion.div
-                          animate={tierTransitionPhase === 'celebrating' ? { rotate: [0, -15, 15, -10, 10, 0], scale: [1, 1.3, 1] } : {}}
-                          transition={{ duration: 0.8 }}
-                          className="w-9 h-9 md:w-10 md:h-10 backdrop-blur-sm flex items-center justify-center shrink-0"
-                          style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
-                        >
-                          <Crown size={16} weight="fill" className="text-white md:hidden" />
-                          <Crown size={20} weight="fill" className="text-white hidden md:block" />
-                        </motion.div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/75 mb-1">Loyalty Tier</p>
-                          <AnimatePresence mode="wait">
-                            <motion.h2
-                              key={activeTierSlug}
-                              initial={{ opacity: 0, y: 20, scale: 0.8 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: -20, scale: 0.8 }}
-                              transition={{ duration: 0.5, type: 'spring', stiffness: 200 }}
-                              className="text-lg md:text-xl font-black leading-none"
-                            >
-                              {activeTierName}
-                            </motion.h2>
-                          </AnimatePresence>
-                          <AnimatePresence mode="wait">
-                            <motion.p
-                              key={activeTierSlug}
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              className="text-white/85 mt-0.5 text-[11px] md:text-xs"
-                            >
-                              Earning {formatTierMultiplier(activeMultiplier)}x points
-                            </motion.p>
-                          </AnimatePresence>
-                        </div>
-                        <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          <div
-                            className="backdrop-blur-sm px-2.5 py-1.5 min-w-[80px] text-right"
-                            style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
-                          >
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/75">Multiplier</p>
-                            <p className="text-sm md:text-base font-black leading-none mt-0.5">
-                              {formatTierMultiplier(activeMultiplier)}x
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={handleViewBenefits}
-                            className="h-8 bg-white/15 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-white transition-colors hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/90 focus-visible:ring-offset-1 focus-visible:ring-offset-black/10"
-                          >
-                            View Benefits
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2">
-                        <motion.div
-                          animate={shouldAnimatePoints || tierTransitionPhase === 'celebrating' ? { scale: [1, 1.05, 1] } : {}}
-                          transition={{ duration: 0.5, delay: 0.3 }}
-                          className="backdrop-blur-sm p-2.5 md:p-3 rounded-md min-h-[64px] flex flex-col justify-center relative"
-                          style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
-                        >
-                          <AnimatePresence>
-                            {(shouldAnimatePoints || shouldAnimateTier) && pointsGained > 0 && (
-                              <motion.div
-                                initial={{ opacity: 1, y: 0 }}
-                                animate={{ opacity: 0, y: -30 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 1.5, delay: 1 }}
-                                className="absolute top-1 right-1.5 text-[10px] font-semibold text-green-300"
-                              >
-                                +{pointsGained.toLocaleString()}
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/75 mb-0.5">Available</p>
-                          <motion.p
-                            animate={shouldAnimatePoints ? { scale: [1, 1.1, 1] } : {}}
-                            transition={{ duration: 0.4, delay: 0.5 }}
-                            className="text-base md:text-lg font-black leading-tight"
-                          >
-                            {user.currentPoints.toLocaleString()}
-                          </motion.p>
-                        </motion.div>
-
-                        <div
-                          className="backdrop-blur-sm p-2.5 md:p-3 rounded-md min-h-[64px] flex flex-col justify-center"
-                          style={{ backgroundColor: hexToRgba(activeTierTheme.primaryColor, 0.28) }}
-                        >
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/75 mb-0.5">Total Spent</p>
-                          <p className="text-base md:text-lg font-black leading-tight">${user.totalSpent.toFixed(0)}</p>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setTabAndHash('rewards')}
-                          className="flex items-center justify-center gap-1 rounded-md bg-white text-black px-2.5 py-2.5 min-h-[64px] text-[10px] md:text-[11px] font-semibold uppercase tracking-[0.11em] hover:bg-white/90 transition-colors"
-                        >
-                          Redeem Rewards
-                          <ArrowRight size={12} weight="bold" />
-                        </button>
-                      </div>
-
-                      {tierProgress && (
-                        <LoyaltyTierMeter
-                          className="w-full"
-                          compact
-                          isMaxTier={tierProgress.isMaxTier}
-                          nextTierName={tierProgress.nextTier?.name}
-                          pointsNeeded={tierProgress.pointsNeeded}
-                          progressPercentage={animatedProgress}
-                          title={
-                            tierTransitionPhase === 'filling' || tierTransitionPhase === 'celebrating'
-                              ? 'Leveling up'
-                              : `Next: ${tierProgress.nextTier?.name || 'Next Tier'}`
-                          }
-                          statusLabel={
-                            tierTransitionPhase === 'filling'
-                              ? 'Progressing...'
-                              : tierTransitionPhase === 'celebrating'
-                                ? 'Level up'
-                                : `${tierProgress.pointsNeeded.toLocaleString()} pts`
-                          }
-                          isAnimating={
-                            shouldAnimatePoints ||
-                            tierTransitionPhase === 'filling' ||
-                            tierTransitionPhase === 'celebrating'
-                          }
-                          showShimmer={shouldAnimatePoints || tierTransitionPhase === 'filling'}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {!user.loyaltyTier && (
-              <div className="min-w-0 rounded-xl border border-black/10 bg-white p-3 md:p-4 lg:p-5 flex flex-col justify-between gap-3">
-                <div className="flex items-start gap-2.5">
-                  <div className="w-10 h-10 md:w-11 md:h-11 bg-black flex items-center justify-center shrink-0">
-                    <User size={18} weight="bold" className="text-white md:hidden" />
-                    <User size={22} weight="bold" className="text-white hidden md:block" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold text-black/55 uppercase tracking-[0.14em] mb-1">My Account</p>
-                    <h1 className="text-lg md:text-xl font-black text-black tracking-tight leading-tight break-words whitespace-normal">
-                      {user.name || 'Welcome'}
-                    </h1>
-                    <p className="text-xs md:text-sm text-black/65 mt-0.5 break-all whitespace-normal">{user.email}</p>
-                    <div className="mt-1.5 border-l-2 border-black/20 pl-2.5">
-                      <p className="heading-font text-sm md:text-base text-black/80 leading-snug tracking-[0.02em] line-clamp-2">
-                        {`"${dailyQuote.text}"`}
-                      </p>
-                      {dailyQuote.author && (
-                        <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-black/45">
-                          {dailyQuote.author}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                  {user.isAdmin && (
-                    <Link
-                      href="/admin"
-                      className="min-h-9 flex items-center justify-center gap-1.5 px-3.5 py-2 bg-black text-white text-[10px] font-semibold uppercase tracking-[0.12em] hover:bg-black/80 transition-colors"
-                    >
-                      <Gear size={14} weight="bold" />
-                      Admin
-                    </Link>
-                  )}
-                  <button
-                    onClick={handleSignout}
-                    className="min-h-9 flex items-center justify-center gap-1.5 px-3.5 py-2 border-2 border-black text-black text-[10px] font-semibold uppercase tracking-[0.12em] hover:bg-black hover:text-white transition-colors"
-                  >
-                    <SignOut size={14} weight="bold" />
-                    Sign Out
-                  </button>
-                </div>
-              </div>
-            )}
-          </motion.div>
-        </div>
-      </section>
-
-      <section className="sticky top-16 md:top-[72px] z-30 border-b border-black/10 bg-white/95 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3">
-          <div
-            role="tablist"
-            aria-label="Profile sections"
-            className="inline-flex items-center rounded-full border border-black/15 bg-black/[0.02] p-1"
-          >
-            {PROFILE_TAB_ORDER.map((tab) => {
-              const isTabActive = activeTab === tab
-              const label = tab === 'profile' ? 'Profile' : 'Rewards'
-              const Icon = tab === 'profile' ? User : Gift
-              const tabId = `${tab}-tab`
-              const panelId = `${tab}-panel`
-
-              return (
-                <button
-                  key={tab}
-                  id={tabId}
-                  ref={(node) => {
-                    tabButtonRefs.current[tab] = node
-                  }}
-                  type="button"
-                  role="tab"
-                  aria-selected={isTabActive}
-                  aria-controls={panelId}
-                  tabIndex={isTabActive ? 0 : -1}
-                  data-state={isTabActive ? 'active' : 'inactive'}
-                  onClick={() => setTabAndHash(tab)}
-                  onKeyDown={(event) => handleTabKeyDown(event, tab)}
-                  className={`relative inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs md:text-sm font-bold uppercase tracking-wider transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 ${
-                    isTabActive
-                      ? 'bg-black text-white shadow-sm'
-                      : 'text-black/65 hover:text-black'
-                  }`}
-                >
-                  <Icon size={14} weight={isTabActive ? 'fill' : 'bold'} />
-                  <span>{label}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      <div
-        id="profile-panel"
-        role="tabpanel"
-        aria-labelledby="profile-tab"
-        hidden={activeTab !== 'profile'}
-        className={activeTab === 'profile' ? 'block' : 'hidden'}
+      {/* Sleek Minimal Hero — white bg, tier accent stripe, compact identity row */}
+      <motion.section
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="relative bg-white border-b border-black/8"
       >
+        {/* Tier accent stripe */}
+        <div
+          className="h-[3px] w-full"
+          style={{ backgroundColor: currentTierTheme.primaryColor || '#0a0a0a' }}
+        />
 
-      {/* Stats Grid */}
-      <section className="py-6 md:py-8 px-4 sm:px-8 border-b border-black/10">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4"
-          >
-            <div className="border border-black/10 p-4 md:p-6">
-              <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
-                <CalendarBlank size={16} weight="bold" className="text-black/40 md:hidden" />
-                <CalendarBlank size={20} weight="bold" className="text-black/40 hidden md:block" />
-                <p className="text-[10px] md:text-xs uppercase tracking-wider text-black/50">Member Since</p>
-              </div>
-              <p className="text-lg md:text-2xl lg:text-3xl font-black text-black">
-                {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-              </p>
-            </div>
-            <div className="border border-black/10 p-4 md:p-6">
-              <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
-                <Package size={16} weight="bold" className="text-black/40 md:hidden" />
-                <Package size={20} weight="bold" className="text-black/40 hidden md:block" />
-                <p className="text-[10px] md:text-xs uppercase tracking-wider text-black/50">Total Orders</p>
-              </div>
-              <p className="text-lg md:text-2xl lg:text-3xl font-black text-black">{user.totalOrders || orders.length}</p>
-            </div>
-            <div className="border border-black/10 p-4 md:p-6">
-              <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
-                <Sparkle size={16} weight="bold" className="text-black/40 md:hidden" />
-                <Sparkle size={20} weight="bold" className="text-black/40 hidden md:block" />
-                <p className="text-[10px] md:text-xs uppercase tracking-wider text-black/50">Lifetime Pts</p>
-              </div>
-              <p className="text-lg md:text-2xl lg:text-3xl font-black text-black">{user.lifetimePoints?.toLocaleString() || 0}</p>
-            </div>
-            <div className="border border-black/10 p-4 md:p-6">
-              <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
-                <Envelope size={16} weight="bold" className="text-black/40 md:hidden" />
-                <Envelope size={20} weight="bold" className="text-black/40 hidden md:block" />
-                <p className="text-[10px] md:text-xs uppercase tracking-wider text-black/50">Newsletter</p>
-              </div>
-              <p className="text-lg md:text-2xl lg:text-3xl font-black text-black">{user.newsletter ? 'Yes' : 'No'}</p>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Two Column Layout: Points History + Recent Orders */}
-      <section className="py-8 md:py-12 px-4 sm:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-            
-            {/* Points History */}
-            {user.loyaltyTier && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                <div className="flex items-center justify-between mb-4 md:mb-6">
-                  <h2 className="text-xl md:text-2xl lg:text-3xl font-black text-black flex items-center gap-2 md:gap-3">
-                    <ClockCounterClockwise size={22} weight="bold" className="md:hidden" />
-                    <ClockCounterClockwise size={28} weight="bold" className="hidden md:block" />
-                    Points History
-                  </h2>
-                  <Link
-                    href="/loyalty/history"
-                    className="text-xs md:text-sm font-bold uppercase tracking-wider text-black/60 hover:text-black transition-colors flex items-center gap-1 md:gap-2"
-                  >
-                    View All
-                    <ArrowRight size={14} className="md:hidden" />
-                    <ArrowRight size={16} className="hidden md:block" />
-                  </Link>
-                </div>
-                
-                {loadingPoints ? (
-                  <div className="flex items-center justify-center py-12 md:py-16 border border-black/10">
-                    <CircleNotch size={24} weight="bold" className="animate-spin text-black/30" />
-                  </div>
-                ) : pointsHistory.length === 0 ? (
-                  <div className="text-center py-12 md:py-16 border border-black/10">
-                    <Coins size={32} weight="light" className="text-black/20 mx-auto mb-3 md:hidden" />
-                    <Coins size={40} weight="light" className="text-black/20 mx-auto mb-3 hidden md:block" />
-                    <p className="text-black/50 font-medium text-sm md:text-base">No points activity yet</p>
-                    <p className="text-xs md:text-sm text-black/40 mt-1">Start shopping to earn points!</p>
-                  </div>
-                ) : (
-                  <div className="border border-black/10 divide-y divide-black/10">
-                    {pointsHistory.slice(0, 5).map((tx) => (
-                      <div key={tx.id} className="flex items-center justify-between p-4 md:p-5 hover:bg-black/2 transition-colors">
-                        <div className="flex items-center gap-3 md:gap-4 min-w-0">
-                          <div className="w-8 h-8 md:w-10 md:h-10 bg-black/5 flex items-center justify-center shrink-0">
-                            {getTransactionIcon(tx.type)}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-black text-sm md:text-base truncate">{tx.description}</p>
-                            <p className="text-xs md:text-sm text-black/50">
-                              {new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </p>
-                          </div>
-                        </div>
-                        <span className={`text-base md:text-lg font-black shrink-0 ml-2 ${tx.points > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                          {tx.points > 0 ? '+' : ''}{tx.points}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </motion.div>
-            )}
-            
-            {/* Recent Orders */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25 }}
-              className={!user.loyaltyTier ? 'lg:col-span-2' : ''}
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-5 md:py-6">
+          <div className="flex items-center gap-4 md:gap-5">
+            {/* Avatar with upload affordance */}
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              className="relative shrink-0 group"
+              aria-label="Change profile picture"
+              disabled={avatarUploading}
             >
-              <div className="flex items-center justify-between mb-4 md:mb-6">
-                <h2 className="text-xl md:text-2xl lg:text-3xl font-black text-black flex items-center gap-2 md:gap-3">
-                  <Package size={22} weight="bold" className="md:hidden" />
-                  <Package size={28} weight="bold" className="hidden md:block" />
-                  Recent Orders
-                </h2>
-                {orders.length > 0 && (
-                  <Link
-                    href="/orders"
-                    className="text-xs md:text-sm font-bold uppercase tracking-wider text-black/60 hover:text-black transition-colors flex items-center gap-1 md:gap-2"
-                  >
-                    View All
-                    <ArrowRight size={14} className="md:hidden" />
-                    <ArrowRight size={16} className="hidden md:block" />
-                  </Link>
-                )}
-              </div>
-              
-              {loadingOrders ? (
-                <div className="flex items-center justify-center py-12 md:py-16 border border-black/10">
-                  <CircleNotch size={24} weight="bold" className="animate-spin text-black/30" />
-                </div>
-              ) : orders.length === 0 ? (
-                <div className="text-center py-12 md:py-16 border border-black/10">
-                  <ShoppingBag size={32} weight="light" className="text-black/20 mx-auto mb-3 md:hidden" />
-                  <ShoppingBag size={40} weight="light" className="text-black/20 mx-auto mb-3 hidden md:block" />
-                  <p className="text-black/50 font-medium mb-4 text-sm md:text-base">No orders yet</p>
-                  <Link
-                    href="/products"
-                    className="inline-flex items-center gap-2 bg-black text-white px-5 md:px-6 py-2.5 md:py-3 font-bold uppercase tracking-wider text-sm hover:bg-black/80 transition-colors"
-                  >
-                    Start Shopping
-                    <ArrowRight size={16} />
-                  </Link>
-                </div>
-              ) : (
-                <div className="border border-black/10 divide-y divide-black/10">
-                  {orders.slice(0, 5).map((order) => (
-                    <Link
-                      key={order.id}
-                      href={`/orders/${order.id}/track`}
-                      className="flex items-center justify-between p-4 md:p-5 hover:bg-black/2 transition-colors group"
-                    >
-                      <div className="flex items-center gap-3 md:gap-4 min-w-0">
-                        <div className={`w-2.5 h-2.5 md:w-3 md:h-3 ${getStatusColor(order.status)} shrink-0`} />
-                        <div className="min-w-0">
-                          <p className="font-bold text-black text-sm md:text-base">Order #{order.orderNumber}</p>
-                          <p className="text-xs md:text-sm text-black/50 truncate max-w-[150px] md:max-w-xs">
-                            {order.items.slice(0, 2).map(i => i.productName).join(', ')}
-                            {order.items.length > 2 && ` +${order.items.length - 2}`}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right flex items-center gap-2 md:gap-4 shrink-0">
-                        <div>
-                          <p className="font-black text-black text-sm md:text-base">${order.total.toFixed(2)}</p>
-                          <p className="text-xs md:text-sm text-black/50">
-                            {new Date(order.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </p>
-                        </div>
-                        <ArrowRight size={16} className="text-black/30 group-hover:text-black transition-colors hidden md:block" />
-                      </div>
-                    </Link>
-                  ))}
-                </div>
+              <UserAvatar
+                src={user.profilePictureUrl}
+                name={user.name}
+                size={52}
+                className="ring-2 ring-black/8"
+              />
+              <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity">
+                {avatarUploading
+                  ? <CircleNotch size={18} className="text-white animate-spin" />
+                  : <Camera size={18} className="text-white" weight="bold" />}
+              </span>
+              {!avatarUploading && (
+                <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-black ring-2 ring-white flex items-center justify-center">
+                  <Camera size={10} className="text-white" weight="bold" />
+                </span>
               )}
-            </motion.div>
+            </button>
+
+            {/* Identity */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <h1 className="text-xl lg:text-2xl font-black text-black tracking-tight truncate">
+                  {user.name || 'Welcome'}
+                </h1>
+                <span className="hidden md:inline text-sm text-black/55 truncate">{user.email}</span>
+              </div>
+              <p className="md:hidden text-xs text-black/55 truncate mt-0.5">{user.email}</p>
+
+              {/* Desktop pills row */}
+              <div className="hidden md:flex items-center gap-2 mt-1.5">
+                <span className="inline-flex items-center gap-1.5 px-2.5 h-6 rounded-full bg-black/5 text-black/65 text-[10px] font-bold uppercase tracking-wider">
+                  <CalendarBlank size={11} weight="bold" />
+                  Since {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                </span>
+                {user.loyaltyTier && (
+                  <button
+                    type="button"
+                    onClick={() => setSectionAndHash('loyalty')}
+                    className="inline-flex items-center gap-1.5 px-2.5 h-6 rounded-full bg-black/5 hover:bg-black/10 text-black/75 text-[10px] font-bold uppercase tracking-wider transition-colors"
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ backgroundColor: currentTierTheme.primaryColor || '#0a0a0a' }}
+                    />
+                    <Medal size={11} weight="fill" />
+                    {user.loyaltyTier.name}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Action icons */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {user.isAdmin && (
+                <Link
+                  href="/admin"
+                  aria-label="Admin panel"
+                  className="hidden md:inline-flex w-9 h-9 rounded-full bg-black/5 hover:bg-black/10 items-center justify-center transition-colors"
+                >
+                  <Gear size={14} weight="bold" className="text-black/70" />
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={handleSignout}
+                aria-label="Sign out"
+                className="w-9 h-9 rounded-full bg-black/5 hover:bg-black/10 inline-flex items-center justify-center transition-colors"
+              >
+                <SignOut size={14} weight="bold" className="text-black/70" />
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile pills row */}
+          <div className="md:hidden flex items-center gap-2 mt-3 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 px-2.5 h-6 rounded-full bg-black/5 text-black/65 text-[10px] font-bold uppercase tracking-wider">
+              <CalendarBlank size={11} weight="bold" />
+              Since {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+            </span>
+            {user.loyaltyTier && (
+              <button
+                type="button"
+                onClick={() => setSectionAndHash('loyalty')}
+                className="inline-flex items-center gap-1.5 px-2.5 h-6 rounded-full bg-black/5 hover:bg-black/10 text-black/75 text-[10px] font-bold uppercase tracking-wider transition-colors"
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: currentTierTheme.primaryColor || '#0a0a0a' }}
+                />
+                <Medal size={11} weight="fill" />
+                {user.loyaltyTier.name}
+              </button>
+            )}
+            {user.isAdmin && (
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-1.5 px-2.5 h-6 rounded-full bg-black text-white text-[10px] font-bold uppercase tracking-wider hover:bg-black/85 transition-colors"
+              >
+                <Gear size={11} weight="bold" />
+                Admin
+              </Link>
+            )}
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Anchor for section-change scroll */}
+      <div id="profile-content-top" />
+
+      {/* Mobile section nav — sticky chips */}
+      <div className="md:hidden sticky top-16 z-20 bg-white/95 backdrop-blur border-b border-black/8">
+        <div className="max-w-7xl mx-auto">
+          <ProfileSectionNav
+            variant="chips"
+            activeSection={activeSection}
+            onSectionChange={setSectionAndHash}
+            pendingRedemptionCount={pendingRedemptionCount}
+          />
+        </div>
+      </div>
+
+      {/* Sidebar + content layout */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-8 py-8 md:py-12 lg:py-14">
+        <div className="md:grid md:grid-cols-[200px_1fr] md:gap-8 lg:grid-cols-[220px_1fr] lg:gap-12">
+          {/* Desktop sidebar */}
+          <aside className="hidden md:block">
+            <div className="sticky top-[88px]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/35 mb-3 px-4">
+                Account
+              </p>
+              <ProfileSectionNav
+                variant="sidebar"
+                activeSection={activeSection}
+                onSectionChange={setSectionAndHash}
+                pendingRedemptionCount={pendingRedemptionCount}
+              />
+            </div>
+          </aside>
+
+          {/* Section content */}
+          <div className="min-w-0">
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.div
+                key={activeSection}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+              >
+                {activeSection === 'overview' && (
+                  <OverviewSection
+                    user={user}
+                    orders={orders}
+                    pointsHistory={pointsHistory}
+                    ordersLoading={loadingOrders}
+                    pointsLoading={loadingPoints}
+                    currentTier={currentTierForOverview}
+                    nextTier={nextTierForOverview}
+                    annualPointsEarned={annualPointsEarned}
+                    onSectionChange={setSectionAndHash}
+                    tierPrimaryColor={currentTierTheme.primaryColor}
+                  />
+                )}
+                {activeSection === 'loyalty' && (
+                  <RewardsHubSection embedded openTierModalSignal={openTierModalSignal} />
+                )}
+                {activeSection === 'activity' && (
+                  <ActivitySection
+                    orders={orders}
+                    pointsHistory={pointsHistory}
+                    ordersLoading={loadingOrders}
+                    pointsLoading={loadingPoints}
+                  />
+                )}
+                {activeSection === 'settings' && (
+                  <SettingsSection
+                    user={user}
+                    avatarInputRef={avatarInputRef}
+                    avatarUploading={avatarUploading}
+                    onSignout={handleSignout}
+                  />
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
       </section>
 
-      {/* Quick Actions */}
-      <section className="py-8 md:py-12 px-4 sm:px-8 border-t border-black/10 bg-black/2">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-xl md:text-2xl lg:text-3xl font-black text-black mb-6 md:mb-8">Quick Actions</h2>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4"
-          >
-            <Link
-              href="/products"
-              className="flex items-center justify-center gap-2 md:gap-3 bg-black text-white py-4 md:py-5 font-bold uppercase tracking-wider text-xs md:text-sm hover:bg-black/80 transition-colors"
-            >
-              <ShoppingBag size={18} weight="bold" />
-              Shop Now
-            </Link>
-            <Link
-              href="/wishlist"
-              className="flex items-center justify-center gap-2 md:gap-3 border-2 border-black text-black py-4 md:py-5 font-bold uppercase tracking-wider text-xs md:text-sm hover:bg-black hover:text-white transition-colors"
-            >
-              <Heart size={18} weight="bold" />
-              Wishlist
-            </Link>
-            <div
-              className="flex items-center justify-center gap-2 md:gap-3 border-2 border-black/30 text-black/40 py-4 md:py-5 font-bold uppercase tracking-wider text-xs md:text-sm cursor-not-allowed"
-              title="Avatar customization coming soon!"
-            >
-              <User size={18} weight="bold" />
-              Coming Soon
-            </div>
-            <Link
-              href="/collections"
-              className="flex items-center justify-center gap-2 md:gap-3 border-2 border-black text-black py-4 md:py-5 font-bold uppercase tracking-wider text-xs md:text-sm hover:bg-black hover:text-white transition-colors"
-            >
-              <Star size={18} weight="bold" />
-              Collections
-            </Link>
-          </motion.div>
-        </div>
-      </section>
-      </div>
-
-      <div
-        id="rewards-panel"
-        role="tabpanel"
-        aria-labelledby="rewards-tab"
-        hidden={activeTab !== 'rewards'}
-        className={activeTab === 'rewards' ? 'block' : 'hidden'}
-      >
-        {hasLoadedRewards && <RewardsHubSection embedded openTierModalSignal={openTierModalSignal} />}
-      </div>
+      {/* Hidden file input for avatar upload */}
+      <input
+        ref={avatarInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="sr-only"
+        onChange={handleAvatarUpload}
+      />
     </div>
   )
 }

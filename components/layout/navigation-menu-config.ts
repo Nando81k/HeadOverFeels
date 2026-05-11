@@ -131,6 +131,31 @@ export const NAV_CATEGORY_LINKS: NavResolvedCategory[] = [
   },
 ]
 
+export interface NavFeaturedDrop {
+  href: string
+  imageSrc: string
+  imageAlt: string
+  eyebrow: string
+  title: string
+  subtitle: string
+  ctaLabel: string
+}
+
+// Lifestyle hero shown on the left side of the desktop Shop mega-menu.
+// Editorial control lives here so copy/imagery can be swapped without
+// touching navigation JSX. `imageSrc` may be replaced at runtime in
+// Navigation.tsx with the first available product image as a fallback
+// when the configured asset is missing.
+export const NAV_FEATURED_DROP: NavFeaturedDrop = {
+  href: '/drops',
+  imageSrc: '/images/nav/shop-hero.jpg',
+  imageAlt: 'Latest drop lookbook',
+  eyebrow: 'Featured Drop',
+  title: 'The Latest Capsule',
+  subtitle: 'Limited pieces, made to last.',
+  ctaLabel: 'Shop the drop',
+}
+
 export const NAV_FEATURED_LINKS: NavFeaturedLink[] = [
   {
     href: '/products',

@@ -19,6 +19,7 @@ const CUSTOMER_SELECT = {
   smsOptIn: true,
   isAdmin: true,
   createdAt: true,
+  profilePictureUrl: true,
   currentPoints: true,
   lifetimePoints: true,
   annualPointsEarned: true,
@@ -123,7 +124,8 @@ export async function GET(request: NextRequest) {
 
     return response
   } catch (error) {
-    console.error('Get current user error:', error)
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('GET /api/auth/me failed:', message)
     return NextResponse.json(
       { error: 'Failed to fetch user data' },
       { status: 500 }

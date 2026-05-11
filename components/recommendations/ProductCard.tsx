@@ -46,12 +46,13 @@ function normalizeVariants(product: ProductRecommendation): ProductVariant[] {
 
   return product.variants.map((variant, index) => {
     const color = typeof variant.color === 'string' ? variant.color : undefined
+    const colorHex = resolveColorHex(undefined, color) ?? undefined
     return {
       id: variant.id || `${product.id}-variant-${index}`,
       sku: `${product.slug}-${variant.id || index}`,
       size: typeof variant.size === 'string' ? variant.size : undefined,
       color,
-      colorHex: resolveColorHex(undefined, color),
+      colorHex,
       inventory: Number.isFinite(variant.inventory) ? Math.max(0, variant.inventory) : 0,
       isActive: true,
     }

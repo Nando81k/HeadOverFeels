@@ -1384,8 +1384,8 @@ function LoyaltyCard({ loyalty }: {
       )}
       
       <div className="px-3 pb-3">
-        <Link 
-          href="/loyalty"
+        <Link
+          href="/profile#rewards"
           className="block w-full py-1.5 text-xs text-center border border-gray-200 rounded hover:border-black transition-colors"
         >
           View Rewards

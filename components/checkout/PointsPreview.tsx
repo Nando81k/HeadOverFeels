@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Medal, Sparkle, ArrowUpRight, Fire } from '@phosphor-icons/react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { Medal, Sparkle, ArrowUpRight } from '@phosphor-icons/react'
+import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { calculateCheckoutLoyaltyPreview, roundMoney, type CheckoutTierInfo } from '@/lib/checkout/insights'
+import { useTierAccent } from '@/lib/loyalty/use-tier-accent'
 
 interface PointsPreviewProps {
   pointsEligibleAmount?: number
@@ -34,6 +35,7 @@ export function PointsPreview({
   activePromotionText,
   totalSavings = 0,
 }: PointsPreviewProps) {
+  const tierAccent = useTierAccent()
   const [loyaltyData, setLoyaltyData] = useState<UserLoyaltyData | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -120,120 +122,107 @@ export function PointsPreview({
 
   const hasMultiplierBonus = loyaltyPreview.eventBonusPoints > 0 || loyaltyPreview.tierBonusPoints > 0
 
+  // Tier-progress bar — shows how this purchase nudges the customer toward
+  // the next tier without spending a full row on the points number.
+  const nextTier = loyaltyPreview.nextTierAfterPurchase
+  const pointsToNext = loyaltyPreview.pointsToNextTierAfterPurchase
+  const progressPct = nextTier
+    ? Math.max(
+        0,
+        Math.min(
+          100,
+          ((nextTier.minAnnualPoints - pointsToNext) / nextTier.minAnnualPoints) * 100
+        )
+      )
+    : 100
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-lg border border-black/10 bg-black/[0.02] p-4"
+      style={{ borderLeftColor: tierAccent.accent }}
+      className="border-l-2 border-y border-r border-black/10 bg-black/2 px-3 py-2.5 space-y-2"
     >
-      {(activePromotionText || totalSavings > 0) && (
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          {activePromotionText ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-black/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-black/80">
-              <Sparkle size={10} weight="fill" />
-              {activePromotionText}
-            </span>
-          ) : null}
-          {totalSavings > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-              Saving ${roundMoney(totalSavings).toFixed(2)}
-            </span>
-          ) : null}
-        </div>
-      )}
-
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black text-white">
-          <Medal size={18} weight="fill" />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-black">
-              You&apos;ll earn{' '}
-              <span className="font-black">{loyaltyPreview.totalPoints.toLocaleString()} Care Points</span>
-            </p>
-            {hasMultiplierBonus ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-black px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                <ArrowUpRight size={10} weight="bold" />
-                +{(loyaltyPreview.eventBonusPoints + loyaltyPreview.tierBonusPoints).toLocaleString()}
-              </span>
-            ) : null}
-          </div>
-
-          <div className="mt-1.5 space-y-1 text-xs text-black/60">
-            <div className="flex items-center justify-between">
-              <span>Base points (1 per $1 on order total)</span>
-              <span className="font-semibold text-black">{loyaltyPreview.basePoints.toLocaleString()}</span>
-            </div>
-
-            {loyaltyPreview.eventBonusPoints > 0 && loyaltyData?.activeEvent ? (
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1">
-                  <Fire size={12} weight="fill" />
-                  {loyaltyData.activeEvent.name} bonus
-                </span>
-                <span className="font-semibold text-black">+{loyaltyPreview.eventBonusPoints.toLocaleString()}</span>
-              </div>
-            ) : null}
-
-            {loyaltyPreview.tierBonusPoints > 0 ? (
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1">
-                  <Sparkle size={12} weight="fill" />
-                  {loyaltyPreview.currentTier.name} tier bonus
-                </span>
-                <span className="font-semibold text-black">+{loyaltyPreview.tierBonusPoints.toLocaleString()}</span>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="mt-3 border-t border-black/10 pt-2.5">
-            {loyaltyPreview.willUpgradeTier ? (
-              <p className="text-xs font-semibold text-black">
-                Tier after purchase: {loyaltyPreview.projectedTier.name}
-                <span className="ml-1 text-black/60">
-                  (up from {loyaltyPreview.currentTier.name})
-                </span>
-              </p>
-            ) : (
-              <p className="text-xs text-black/70">
-                Tier after purchase: <span className="font-semibold text-black">{loyaltyPreview.projectedTier.name}</span>
-              </p>
-            )}
-
-            {loyaltyPreview.nextTierAfterPurchase ? (
-              <p className="mt-1 text-xs text-black/50">
-                {loyaltyPreview.pointsToNextTierAfterPurchase.toLocaleString()} points to reach{' '}
-                {loyaltyPreview.nextTierAfterPurchase.name}
-              </p>
-            ) : null}
-          </div>
-        </div>
+      {/* Line 1 — points earned + bonus chip + savings/promo inline. */}
+      <div className="flex items-center gap-2 text-[12px] leading-tight">
+        <Medal
+          size={14}
+          weight="fill"
+          className="shrink-0"
+          style={{ color: tierAccent.accent }}
+        />
+        <p className="min-w-0 flex-1 truncate text-black">
+          <span className="font-black" style={{ color: tierAccent.accentDark }}>
+            +{loyaltyPreview.totalPoints.toLocaleString()}
+          </span>
+          <span className="text-black/55"> Care Points</span>
+        </p>
+        {hasMultiplierBonus ? (
+          <span
+            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-white shrink-0"
+            style={{ backgroundColor: tierAccent.accent }}
+          >
+            <ArrowUpRight size={9} weight="bold" />
+            +{(loyaltyPreview.eventBonusPoints + loyaltyPreview.tierBonusPoints).toLocaleString()}
+          </span>
+        ) : null}
       </div>
 
-      <AnimatePresence>
-        {loyaltyData?.activeEvent ? (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mt-3 border-t border-black/10 pt-2.5"
-          >
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-black/70">
-              Active event: {loyaltyData.activeEvent.name} ({loyaltyData.activeEvent.multiplier}x)
-            </p>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      {/* Line 2 — tier progress bar with inline label. Replaces the old
+          three text rows ("Tier after", "X points to reach", "Balance"). */}
+      {nextTier ? (
+        <div>
+          <div className="flex items-baseline justify-between gap-2 text-[10px] uppercase tracking-[0.12em]">
+            <span className="text-black/60">
+              {loyaltyPreview.willUpgradeTier ? (
+                <span className="font-black" style={{ color: tierAccent.accentDark }}>
+                  ↑ {loyaltyPreview.projectedTier.name}
+                </span>
+              ) : (
+                <>
+                  <span className="text-black/40">Tier ·</span>{' '}
+                  <span className="font-black text-black">{loyaltyPreview.projectedTier.name}</span>
+                </>
+              )}
+            </span>
+            <span className="text-black/45 tabular-nums">
+              {pointsToNext.toLocaleString()} → {nextTier.name}
+            </span>
+          </div>
+          <div className="mt-1 h-1 w-full overflow-hidden bg-black/8">
+            <div
+              className="h-full transition-all duration-500"
+              style={{ width: `${progressPct}%`, backgroundColor: tierAccent.accent }}
+            />
+          </div>
+        </div>
+      ) : (
+        <p className="text-[10px] uppercase tracking-[0.12em] text-black/55">
+          <span className="font-black text-black">{loyaltyPreview.projectedTier.name}</span>
+          {' · max tier reached'}
+        </p>
+      )}
 
-      <div className="mt-3 border-t border-black/10 pt-2.5 flex items-center justify-between text-xs">
-        <span className="text-black/50">
-          Balance after order: {loyaltyPreview.projectedCurrentPoints.toLocaleString()} pts
+      {/* Line 3 — balance + view rewards. Single row. */}
+      <div className="flex items-center justify-between gap-2 text-[10px]">
+        <span className="text-black/45 tabular-nums">
+          Bal · {loyaltyPreview.projectedCurrentPoints.toLocaleString()} pts
         </span>
-        <Link href="/loyalty" className="font-semibold text-black underline underline-offset-2">
-          View rewards
-        </Link>
+        <div className="flex items-center gap-2">
+          {(activePromotionText || totalSavings > 0) ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-black/55">
+              <Sparkle size={9} weight="fill" />
+              {totalSavings > 0 ? `Save $${roundMoney(totalSavings).toFixed(2)}` : activePromotionText}
+            </span>
+          ) : null}
+          <Link
+            href="/profile#rewards"
+            className="text-[10px] font-black uppercase tracking-[0.12em] underline underline-offset-2"
+            style={{ color: tierAccent.accentDark }}
+          >
+            Rewards
+          </Link>
+        </div>
       </div>
     </motion.div>
   )

@@ -142,13 +142,20 @@ export async function POST(request: NextRequest) {
           couponCode = `HOF-${prefix}-${randomPart}`
         }
 
+        // Non-coupon rewards that require admin fulfillment start as PENDING
+        // EARLY_ACCESS is fulfilled immediately (separate endpoint handles grants)
+        // DISCOUNT / FREE_SHIPPING start PENDING until coupon is used → USED
+        // Physical/Digital/Charity/Exclusive start PENDING until admin marks fulfilled
+        const immediatelyFulfilled = reward.rewardType === 'EARLY_ACCESS'
+        const redemptionStatus = immediatelyFulfilled ? 'FULFILLED' : 'PENDING'
+
         // Create redemption record with idempotency key
         const newRedemption = await tx.rewardRedemption.create({
           data: {
             customerId: userId,
             rewardId: rewardId,
             pointsSpent: reward.pointsCost,
-            status: couponCode ? 'PENDING' : 'FULFILLED', // Discount coupons are pending until used
+            status: redemptionStatus,
             idempotencyKey: idempotencyKey,
             couponCode: couponCode,
           },

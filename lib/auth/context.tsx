@@ -13,6 +13,7 @@ export interface User {
   smsOptIn: boolean
   isAdmin: boolean
   createdAt: Date
+  profilePictureUrl: string | null
   // Loyalty fields
   currentPoints: number
   lifetimePoints: number

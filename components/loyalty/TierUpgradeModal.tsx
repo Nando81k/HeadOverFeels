@@ -248,7 +248,7 @@ export function TierUpgradeModal({ isOpen, onClose, newTier, previousTier }: Tie
               Continue Shopping
             </button>
             <a
-              href="/loyalty"
+              href="/loyalty/tiers"
               className="flex-1 px-6 py-3 border-2 border-purple-600 text-purple-600 rounded-lg font-medium hover:bg-purple-50 transition-colors text-center"
             >
               View Dashboard

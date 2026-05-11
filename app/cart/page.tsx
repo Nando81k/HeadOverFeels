@@ -19,7 +19,10 @@ import {
 import { Navigation } from '@/components/layout/Navigation'
 import { useCartStore, type CartItem as StoreCartItem } from '@/lib/store/cart'
 import { useAuth } from '@/lib/auth/context'
+import { useTierAccent } from '@/lib/loyalty/use-tier-accent'
 import { CouponInput } from '@/components/checkout/CouponInput'
+import { FreeShippingProgress } from '@/components/cart/FreeShippingProgress'
+import { ExpressCheckout } from '@/components/checkout/ExpressCheckout'
 import { CommerceEmptyState } from '@/components/commerce/CommerceEmptyState'
 import { SmartDiscoveryRail } from '@/components/commerce/SmartDiscoveryRail'
 import { fetchSmartDiscoveryProducts } from '@/lib/commerce/smart-discovery'
@@ -63,9 +66,9 @@ function CartLineItem({ item, validation, onSetQuantity, onRemove }: CartLineIte
   const quantityDisabled = validation.isOutOfStock
 
   return (
-    <article className="rounded-xl border border-black/10 bg-white p-4 sm:p-5">
-      <div className="flex gap-4">
-        <Link href={`/products/${item.product.slug}`} className="relative h-24 w-20 shrink-0 overflow-hidden rounded-lg bg-black/[0.04]">
+    <article className="border-b border-black/10 py-5 first:border-t">
+      <div className="flex gap-4 sm:gap-5">
+        <Link href={`/products/${item.product.slug}`} className="relative h-28 w-24 shrink-0 overflow-hidden bg-black/[0.04]">
           {imageUrl ? (
             <Image src={imageUrl} alt={item.product.name} fill className="object-cover" />
           ) : (
@@ -78,67 +81,61 @@ function CartLineItem({ item, validation, onSetQuantity, onRemove }: CartLineIte
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <Link href={`/products/${item.product.slug}`} className="line-clamp-2 text-sm font-semibold text-black hover:text-black/70">
+              <Link
+                href={`/products/${item.product.slug}`}
+                className="line-clamp-2 text-sm font-black uppercase tracking-widest text-black hover:text-black/70"
+              >
                 {item.product.name}
               </Link>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {item.variant.color ? (
-                  <span className="rounded-full border border-black/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-black/65">
-                    {item.variant.color}
-                  </span>
-                ) : null}
-                {item.variant.size ? (
-                  <span className="rounded-full border border-black/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-black/65">
-                    {item.variant.size}
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-1 text-[11px] text-black/45">SKU: {item.variant.sku}</p>
+              <p className="mt-1.5 text-[11px] uppercase tracking-widest text-black/55">
+                {[item.variant.color, item.variant.size].filter(Boolean).join(' · ') || '—'}
+              </p>
+              <p className="mt-1 text-[10px] uppercase tracking-widest text-black/35">SKU {item.variant.sku}</p>
             </div>
 
             <button
               type="button"
               onClick={() => onRemove(item)}
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-black/10 text-black/45 transition-colors hover:border-black/25 hover:text-black"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-black/45 transition-colors hover:text-black active:scale-90"
               aria-label="Remove item"
             >
               <Trash size={14} weight="bold" />
             </button>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
-            <div className="inline-flex items-center rounded-lg border border-black/15 bg-white">
+          <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+            <div className="inline-flex items-center border border-black/15">
               <button
                 type="button"
                 onClick={() => onSetQuantity(item, item.quantity - 1)}
-                className="inline-flex h-9 w-9 items-center justify-center text-black/65 transition-colors hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-9 w-9 items-center justify-center text-black/65 transition-colors hover:bg-black/5 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
                 disabled={quantityDisabled}
                 aria-label="Decrease quantity"
               >
-                <Minus size={14} weight="bold" />
+                <Minus size={12} weight="bold" />
               </button>
-              <span className="inline-flex min-w-[2.5rem] items-center justify-center px-2 text-sm font-semibold tabular-nums text-black">
+              <span className="inline-flex min-w-[2.5rem] items-center justify-center px-2 text-xs font-bold tabular-nums text-black">
                 {item.quantity}
               </span>
               <button
                 type="button"
                 onClick={() => onSetQuantity(item, item.quantity + 1)}
-                className="inline-flex h-9 w-9 items-center justify-center text-black/65 transition-colors hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-9 w-9 items-center justify-center text-black/65 transition-colors hover:bg-black/5 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
                 disabled={quantityDisabled || validation.isAtCap}
                 aria-label="Increase quantity"
               >
-                <Plus size={14} weight="bold" />
+                <Plus size={12} weight="bold" />
               </button>
             </div>
 
             <div className="text-right">
-              <p className="text-xs text-black/45">{formatCurrency(price)} each</p>
+              <p className="text-[10px] uppercase tracking-[0.12em] text-black/45">{formatCurrency(price)} ea</p>
               <p className="text-base font-black tabular-nums text-black">{formatCurrency(subtotal)}</p>
             </div>
           </div>
 
           {validation.isOutOfStock ? (
-            <p className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-red-300/70 bg-red-50 px-2.5 py-1.5 text-[11px] font-medium text-red-700">
+            <p className="mt-3 inline-flex items-center gap-1.5 border-l-2 border-[#FF3131] bg-[#FF3131]/4 py-1.5 pl-2.5 text-[11px] font-medium text-[#FF3131]">
               <WarningCircle size={13} weight="fill" />
               Unavailable for checkout. Remove this item to continue.
             </p>
@@ -160,7 +157,8 @@ function CartLineItem({ item, validation, onSetQuantity, onRemove }: CartLineIte
 export default function CartPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const { items, updateQuantity, removeItem, getTotalItems, getTotalPrice, getFinalTotal } = useCartStore()
+  const tierAccent = useTierAccent()
+  const { items, updateQuantity, removeItem, getTotalItems, getTotalPrice, getFinalTotal, clearCart } = useCartStore()
 
   const [mounted, setMounted] = useState(false)
   const [suggestions, setSuggestions] = useState<Product[]>([])
@@ -265,9 +263,12 @@ export default function CartPage() {
     )
   }
 
+  const checkoutButtonStyle: React.CSSProperties = hasBlockingIssues
+    ? {}
+    : { backgroundColor: tierAccent.accent }
   const checkoutButtonClass = hasBlockingIssues
     ? 'bg-black/20 text-black/50 cursor-not-allowed'
-    : 'bg-black text-white hover:bg-black/85'
+    : 'text-white hover:brightness-90'
 
   if (items.length === 0) {
     return (
@@ -299,23 +300,32 @@ export default function CartPage() {
   return (
     <>
       <Navigation />
-      <div className="min-h-screen bg-[#fafafa] pb-28 pt-24 lg:pb-16 lg:pt-28">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-white pb-28 pt-24 lg:pb-16 lg:pt-28">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <Link href="/products" className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/55 hover:text-black">
+              <Link
+                href="/products"
+                className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.16em] text-black/55 hover:text-black"
+              >
                 <ArrowLeft size={12} weight="bold" />
                 Continue Shopping
               </Link>
-              <h1 className="mt-2 text-3xl font-black tracking-tight text-black sm:text-4xl">Your Cart</h1>
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-black sm:text-4xl">BAG</h1>
+              <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-black/50">
+                {totalItems} {totalItems === 1 ? 'Item' : 'Items'}
+                {tierAccent.isTier ? (
+                  <>
+                    <span className="mx-2 text-black/20">·</span>
+                    <span style={{ color: tierAccent.accentDark }}>{tierAccent.tierName}</span>
+                  </>
+                ) : null}
+              </p>
             </div>
-            <p className="rounded-full border border-black/15 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/60">
-              {totalItems} {totalItems === 1 ? 'Item' : 'Items'}
-            </p>
           </header>
 
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-            <section className="space-y-3">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-10">
+            <section>
               {validations.map(({ key, item, validation }) => (
                 <CartLineItem
                   key={key}
@@ -327,14 +337,18 @@ export default function CartPage() {
               ))}
             </section>
 
-            <aside className="h-fit rounded-2xl border border-black/10 bg-white p-5 sm:p-6 lg:sticky lg:top-28">
-              <h2 className="text-sm font-black uppercase tracking-[0.14em] text-black">Order Summary</h2>
+            <aside className="h-fit border-t border-black/10 pt-5 lg:sticky lg:top-28 lg:border-t-0 lg:pt-0">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-black/55">Order Summary</h2>
 
-              <div className="mt-4 rounded-xl border border-black/10 bg-black/[0.02] p-3">
+              <div className="mt-4">
                 <CouponInput />
               </div>
 
-              <dl className="mt-5 space-y-3 text-sm">
+              <div className="mt-5 border-t border-black/5 pt-4">
+                <FreeShippingProgress subtotal={totals.subtotal} accentColor={tierAccent.accent} />
+              </div>
+
+              <dl className="mt-5 space-y-2.5 border-t border-black/5 pt-4 text-sm">
                 <div className="flex items-center justify-between">
                   <dt className="text-black/60">Subtotal</dt>
                   <dd className="font-semibold tabular-nums text-black">{formatCurrency(totals.subtotal)}</dd>
@@ -355,15 +369,28 @@ export default function CartPage() {
                 </div>
               </dl>
 
-              <div className="mt-5 border-t border-black/10 pt-4">
+              <div className="mt-4 border-t border-black/10 pt-4">
                 <div className="flex items-end justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/60">Total</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-black/55">Total</p>
                   <p className="text-2xl font-black tabular-nums text-black">{formatCurrency(totals.total)}</p>
                 </div>
               </div>
 
+              {!hasBlockingIssues && items.length > 0 && (
+                <div className="mt-5">
+                  <ExpressCheckout
+                    items={items}
+                    subtotal={subtotal}
+                    onSuccess={(orderId) => {
+                      clearCart()
+                      router.push(`/order/confirmation?orderId=${orderId}&success=true`)
+                    }}
+                  />
+                </div>
+              )}
+
               {hasBlockingIssues ? (
-                <p className="mt-4 rounded-lg border border-red-300/70 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                <p className="mt-4 border-l-2 border-[#FF3131] bg-[#FF3131]/4 px-3 py-2 text-xs font-medium text-[#FF3131]">
                   Resolve unavailable cart items before checkout.
                 </p>
               ) : null}
@@ -372,9 +399,10 @@ export default function CartPage() {
                 type="button"
                 onClick={handleCheckout}
                 disabled={hasBlockingIssues}
-                className={`mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm font-semibold uppercase tracking-[0.14em] transition-colors ${checkoutButtonClass}`}
+                style={checkoutButtonStyle}
+                className={`mt-5 inline-flex h-12 w-full items-center justify-center gap-2 text-xs font-black uppercase tracking-[0.16em] transition-all active:scale-[0.97] ${checkoutButtonClass}`}
               >
-                Checkout
+                Proceed to Checkout
                 <ArrowRight size={14} weight="bold" />
               </button>
 
@@ -385,7 +413,7 @@ export default function CartPage() {
             </aside>
           </div>
 
-          <div className="mt-8">
+          <div className="mt-12">
             <SmartDiscoveryRail
               title="You may also like"
               description="Based on what shoppers are buying right now."
@@ -399,7 +427,7 @@ export default function CartPage() {
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 p-3 backdrop-blur lg:hidden">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-1">
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/45">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-black/45">
               Total
             </p>
             <p className="truncate text-base font-black tabular-nums text-black">{formatCurrency(totals.total)}</p>
@@ -408,7 +436,8 @@ export default function CartPage() {
             type="button"
             onClick={handleCheckout}
             disabled={hasBlockingIssues}
-            className={`inline-flex h-11 min-w-[170px] items-center justify-center gap-2 rounded-full px-5 text-xs font-semibold uppercase tracking-[0.12em] transition-colors ${checkoutButtonClass}`}
+            style={checkoutButtonStyle}
+            className={`inline-flex h-11 min-w-[170px] items-center justify-center gap-2 px-5 text-[11px] font-black uppercase tracking-[0.16em] transition-all ${checkoutButtonClass}`}
           >
             <ShoppingCart size={14} weight="bold" />
             Checkout

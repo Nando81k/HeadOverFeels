@@ -73,7 +73,7 @@ export function OrderMobileCard({ order, isSelected, onSelect }: OrderMobileCard
 
   return (
     <Link
-      href={`/admin/orders/${order.id}`}
+      href={`/admin/fulfillment?orderId=${order.id}`}
       className={`block border-b border-white/5 last:border-0 ${
         isSelected ? 'bg-[#FF3131]/10' : 'active:bg-white/5'
       }`}

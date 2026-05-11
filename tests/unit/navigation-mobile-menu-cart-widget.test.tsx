@@ -42,8 +42,8 @@ vi.mock('@/components/search', () => ({
 }))
 
 vi.mock('@/lib/store/cart', () => ({
-  useCartStore: (selector: (state: { getTotalItems: () => number }) => number) =>
-    selector({ getTotalItems: () => cartState.count }),
+  useCartStore: (selector: (state: { getTotalItems: () => number; items: never[]; updateQuantity: () => void; removeItem: () => void }) => unknown) =>
+    selector({ getTotalItems: () => cartState.count, items: [], updateQuantity: () => {}, removeItem: () => {} }),
 }))
 
 vi.mock('@/lib/auth/context', () => ({

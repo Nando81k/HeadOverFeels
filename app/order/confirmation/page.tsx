@@ -27,6 +27,8 @@ import {
   getConfirmationStatusDescriptor,
   type ConfirmationStatusTone,
 } from '@/lib/orders/confirmation-insights'
+import { CheckoutSteps } from '@/components/checkout/CheckoutSteps'
+import { useTierAccent } from '@/lib/loyalty/use-tier-accent'
 
 interface OrderItem {
   id: string
@@ -167,6 +169,7 @@ function ConfirmationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, refreshUser } = useAuth()
+  const tierAccent = useTierAccent()
 
   const success = searchParams.get('success')
   const orderId = searchParams.get('orderId')
@@ -365,18 +368,31 @@ function ConfirmationContent() {
   const potentialGuestPoints = Math.max(0, Math.floor(order.total))
 
   return (
-    <div className="min-h-screen bg-[#f6f3f0]">
+    <div className="min-h-screen bg-white">
       <Navigation />
 
+      {/* Tier-color sweep at the very top — a quiet 4px brand-personal cue
+          that this confirmation belongs to *this* customer. Pure black for
+          guests, tier color for signed-in customers. */}
+      <div
+        aria-hidden="true"
+        className="h-1 w-full"
+        style={{ background: tierAccent.gradient }}
+      />
+
       <main className="mx-auto max-w-6xl px-4 pb-16 pt-24 sm:px-6 lg:px-8">
-        <section className="rounded-2xl border border-black/10 bg-black p-6 text-white md:p-8" data-testid="confirmation-summary-card">
+        <section className="border-b border-black/10 pb-8" data-testid="confirmation-summary-card">
+          <div className="mb-6 sm:mb-8">
+            <CheckoutSteps current="done" />
+          </div>
+
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <CheckCircle size={18} weight="fill" />
-              <span className="text-[11px] font-semibold uppercase tracking-[0.2em]">Order Confirmed</span>
+            <div className="flex items-center gap-2 text-black">
+              <CheckCircle size={16} weight="fill" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em]">Order Confirmed</span>
             </div>
             <span
-              className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${getToneClasses(
+              className={`border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${getToneClasses(
                 statusDescriptor.tone
               )}`}
             >
@@ -384,39 +400,40 @@ function ConfirmationContent() {
             </span>
           </div>
 
-          <div className="mt-5 grid gap-4 md:grid-cols-3">
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
             <div className="md:col-span-2">
-              <p className="text-xs uppercase tracking-[0.15em] text-white/60">Order</p>
-              <p className="mt-1 text-2xl font-black tracking-tight">{order.orderNumber}</p>
-              <p className="mt-2 text-sm text-white/70">
-                Placed {formatLongDate(order.createdAt)} • {etaText}
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-black/55">Order</p>
+              <h1 className="mt-1 text-3xl sm:text-4xl font-black tracking-tight text-black">{order.orderNumber}</h1>
+              <p className="mt-2 text-sm text-black/60">
+                Placed {formatLongDate(order.createdAt)} · {etaText}
               </p>
             </div>
             <div className="md:text-right">
-              <p className="text-xs uppercase tracking-[0.15em] text-white/60">Total</p>
-              <p className="mt-1 text-3xl font-black tabular-nums">{formatCurrency(order.total)}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-black/55">Total</p>
+              <p className="mt-1 text-3xl font-black tabular-nums text-black">{formatCurrency(order.total)}</p>
             </div>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               href={primaryActionHref}
-              className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-black hover:bg-white/90"
+              style={{ backgroundColor: tierAccent.accent }}
+              className="inline-flex items-center gap-2 px-5 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-white transition-all hover:brightness-90"
             >
               {primaryActionLabel}
               <ArrowRight size={14} weight="bold" />
             </Link>
             <Link
               href="/products"
-              className="inline-flex items-center gap-2 rounded-lg border border-white/35 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-white hover:bg-white/10"
+              className="inline-flex items-center gap-2 border border-black px-5 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-black transition-colors hover:bg-black hover:text-white"
             >
               Continue Shopping
             </Link>
           </div>
         </section>
 
-        <section className="mt-5 grid gap-4 md:grid-cols-2">
-          <article className="rounded-xl border border-black/10 bg-white p-5" data-testid="delivery-card">
+        <section className="mt-8 grid gap-4 md:grid-cols-2">
+          <article className="border border-black/10 p-5" data-testid="delivery-card">
             <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
               <Truck size={15} weight="bold" />
               Delivery
@@ -444,7 +461,7 @@ function ConfirmationContent() {
             ) : null}
           </article>
 
-          <article className="rounded-xl border border-black/10 bg-white p-5" data-testid="financial-card">
+          <article className="border border-black/10 p-5" data-testid="financial-card">
             <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
               <Receipt size={15} weight="bold" />
               Financial Recap
@@ -491,7 +508,7 @@ function ConfirmationContent() {
             </div>
           </article>
 
-          <article className="rounded-xl border border-black/10 bg-white p-5" data-testid="shipping-card">
+          <article className="border border-black/10 p-5" data-testid="shipping-card">
             <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
               <MapPin size={15} weight="bold" />
               Ship To
@@ -508,7 +525,7 @@ function ConfirmationContent() {
             </div>
           </article>
 
-          <article className="rounded-xl border border-black/10 bg-white p-5" data-testid="order-meta-card">
+          <article className="border border-black/10 p-5" data-testid="order-meta-card">
             <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
               <EnvelopeSimple size={15} weight="bold" />
               Order Info
@@ -528,7 +545,7 @@ function ConfirmationContent() {
               type="button"
               onClick={handleResendConfirmation}
               disabled={resendLoading}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-black/20 px-3.5 py-2 text-xs font-semibold uppercase tracking-wide text-black transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-4 inline-flex items-center gap-2 border border-black/20 px-3.5 py-2 text-xs font-black uppercase tracking-[0.14em] text-black transition hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {resendLoading ? (
                 <>
@@ -554,20 +571,34 @@ function ConfirmationContent() {
         </section>
 
         {user ? (
-          <section className="mt-5 rounded-xl border border-black/10 bg-white p-5" data-testid="signed-in-loyalty-card">
-            <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
-              <Coins size={15} weight="bold" />
-              Loyalty Outcome
+          <section
+            className="mt-5 border-l-2 border-y border-r border-black/10 p-5"
+            style={{ borderLeftColor: tierAccent.accent }}
+            data-testid="signed-in-loyalty-card"
+          >
+            <h2
+              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em]"
+              style={{ color: tierAccent.accentDark }}
+            >
+              <Coins size={14} weight="bold" />
+              {pointsEarned > 0 ? `+${pointsEarned.toLocaleString()} Points Earned` : 'Loyalty Outcome'}
             </h2>
             <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p className="text-3xl font-black text-black tabular-nums">+{pointsEarned.toLocaleString()}</p>
+                <p
+                  className="text-4xl font-black tabular-nums"
+                  style={{ color: tierAccent.accent }}
+                >
+                  +{pointsEarned.toLocaleString()}
+                </p>
                 <p className="text-sm text-black/60">Care Points from this order</p>
               </div>
               <div className="text-sm text-black/70">
                 <p>
                   Current Tier:{' '}
-                  <span className="font-semibold text-black">{user.loyaltyTier?.name || 'Newcomer'}</span>
+                  <span className="font-black" style={{ color: tierAccent.accentDark }}>
+                    {user.loyaltyTier?.name || 'Newcomer'}
+                  </span>
                 </p>
                 <p>
                   Current Balance:{' '}
@@ -576,7 +607,8 @@ function ConfirmationContent() {
               </div>
               <Link
                 href="/profile#rewards"
-                className="inline-flex items-center gap-2 rounded-lg bg-black px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-white hover:bg-black/85"
+                style={{ backgroundColor: tierAccent.accent }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.16em] text-white transition-all hover:brightness-90"
               >
                 View Rewards
                 <ArrowRight size={14} weight="bold" />
@@ -584,18 +616,18 @@ function ConfirmationContent() {
             </div>
           </section>
         ) : (
-          <section className="mt-5 rounded-xl border border-black/10 bg-white p-5" data-testid="guest-loyalty-card">
-            <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
-              <Coins size={15} weight="bold" />
+          <section className="mt-5 border border-black/10 p-5" data-testid="guest-loyalty-card">
+            <h2 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-black/55">
+              <Coins size={14} weight="bold" />
               Earn Care Points Next Time
             </h2>
             <p className="mt-3 text-sm text-black/70">
-              You could have earned about <span className="font-semibold text-black">{potentialGuestPoints} points</span>{' '}
+              You could have earned about <span className="font-black text-black">{potentialGuestPoints} points</span>{' '}
               on this purchase.
             </p>
             <Link
               href={`/signin?tab=signup&email=${encodeURIComponent(order.customerEmail)}&redirect=${encodeURIComponent('/profile#rewards')}`}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-black px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-white hover:bg-black/85"
+              className="mt-4 inline-flex items-center gap-2 bg-black px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.16em] text-white hover:bg-black/85"
             >
               Create Account
               <ArrowRight size={14} weight="bold" />
@@ -603,13 +635,13 @@ function ConfirmationContent() {
           </section>
         )}
 
-        <section className="mt-5 rounded-xl border border-black/10 bg-white p-5" data-testid="order-items-card">
-          <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-black/60">
-            <Package size={15} weight="bold" />
+        <section className="mt-5 border border-black/10 p-5" data-testid="order-items-card">
+          <h2 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-black/55">
+            <Package size={14} weight="bold" />
             Order Items
           </h2>
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-4">
             {order.items.map((item) => {
               const imageUrl = resolveItemImage(item)
               const variantSummary = parseVariantSummary(item)
@@ -621,9 +653,9 @@ function ConfirmationContent() {
               return (
                 <div
                   key={item.id}
-                  className="flex flex-wrap items-center gap-3 rounded-lg border border-black/10 bg-black/[0.02] p-3"
+                  className="flex flex-wrap items-center gap-3 border-b border-black/5 py-3 last:border-b-0"
                 >
-                  <div className="relative h-14 w-14 overflow-hidden rounded-md bg-black/5">
+                  <div className="relative h-14 w-14 overflow-hidden bg-black/5">
                     {imageUrl ? (
                       <Image src={imageUrl} alt={item.productName} fill className="object-cover" />
                     ) : (
@@ -673,20 +705,21 @@ function ConfirmationContent() {
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href="/products"
-            className="inline-flex items-center gap-2 rounded-lg bg-black px-4 py-3 text-xs font-semibold uppercase tracking-wide text-white hover:bg-black/85"
+            style={{ backgroundColor: tierAccent.accent }}
+            className="inline-flex items-center gap-2 px-5 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-white transition-all hover:brightness-90"
           >
             Continue Shopping
             <ArrowRight size={14} weight="bold" />
           </Link>
           <Link
             href="/"
-            className="inline-flex items-center gap-2 rounded-lg border border-black/20 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-black hover:bg-black/5"
+            className="inline-flex items-center gap-2 border border-black px-5 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-black hover:bg-black hover:text-white transition-colors"
           >
             Back to Home
           </Link>
           <Link
             href="/contact"
-            className="inline-flex items-center gap-2 rounded-lg border border-black/20 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-black hover:bg-black/5"
+            className="inline-flex items-center gap-2 border border-black/20 px-5 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-black hover:bg-black/5"
           >
             Contact Support
           </Link>

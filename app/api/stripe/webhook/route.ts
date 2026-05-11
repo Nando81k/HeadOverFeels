@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { stripe } from '@/lib/stripe/config'
 import { prisma } from '@/lib/prisma'
 import { sendOrderConfirmation } from '@/lib/email/resend'
+import { notifyOrderStatus } from '@/lib/notifications/service'
 import { updateCustomerStatsOnOrderCompletion } from '@/lib/crm/service'
 import { awardReferralPoints } from '@/lib/loyalty/service'
 import { recoverMissingLoyaltyForOrder } from '@/lib/loyalty/recovery'
@@ -115,6 +116,17 @@ export async function POST(request: NextRequest) {
               console.error(`Failed to send order confirmation email for order ${orderId}:`, emailError)
             }
 
+            // Write in-app notification (signed-in customers only). Wrapped
+            // separately from the email send so a notification failure can't
+            // mask an email failure or vice versa.
+            if (order.customerId) {
+              try {
+                await notifyOrderStatus(order.customerId, order.orderNumber, 'confirmed')
+              } catch (notifError) {
+                console.error(`Failed to write order-confirmed notification for ${orderId}:`, notifError)
+              }
+            }
+
             // Release cart reservations if sessionId is present
             const sessionId = paymentIntent.metadata?.sessionId
             if (sessionId) {
@@ -127,25 +139,6 @@ export async function POST(request: NextRequest) {
               } catch (reservationError) {
                 console.error(`Failed to release cart reservations for session ${sessionId}:`, reservationError)
               }
-            }
-
-            // Reduce inventory for purchased items
-            try {
-              for (const item of order.items) {
-                if (item.productVariantId) {
-                  await prisma.productVariant.update({
-                    where: { id: item.productVariantId },
-                    data: {
-                      inventory: {
-                        decrement: item.quantity,
-                      },
-                    },
-                  })
-                }
-              }
-              console.log(`Inventory reduced for order ${orderId}`)
-            } catch (inventoryError) {
-              console.error(`Failed to reduce inventory for order ${orderId}:`, inventoryError)
             }
 
             // Award loyalty points and update CRM stats

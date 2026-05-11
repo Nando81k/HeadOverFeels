@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { 
-  ChartLine, 
-  Users, 
-  Lightning, 
-  Gift, 
-  Star, 
-  Gear 
+import {
+  ChartLine,
+  Users,
+  Lightning,
+  Gift,
+  Star,
+  Gear,
+  Ticket,
 } from '@phosphor-icons/react'
 
 const navItems = [
@@ -16,6 +17,7 @@ const navItems = [
   { href: '/admin/loyalty/customers', label: 'Customers', icon: Users },
   { href: '/admin/loyalty/events', label: 'Events', icon: Lightning },
   { href: '/admin/loyalty/rewards', label: 'Rewards', icon: Gift },
+  { href: '/admin/loyalty/redemptions', label: 'Redemptions', icon: Ticket },
   { href: '/admin/loyalty/tiers', label: 'Tiers', icon: Star },
   { href: '/admin/loyalty/settings', label: 'Settings', icon: Gear },
 ]

@@ -11,7 +11,10 @@ import { ShippingForm, ShippingFormData } from '@/components/checkout/ShippingFo
 import { PaymentForm } from '@/components/checkout/PaymentForm'
 import { CouponInput } from '@/components/checkout/CouponInput'
 import { PointsPreview } from '@/components/checkout/PointsPreview'
+import { CheckoutSteps } from '@/components/checkout/CheckoutSteps'
+import { useTierAccent } from '@/lib/loyalty/use-tier-accent'
 import { calculateCheckoutSavings } from '@/lib/checkout/insights'
+import { toast } from '@/lib/toast'
 import { isValidPhoneNumber } from '@/lib/utils/phone'
 import { useAuth } from '@/lib/auth/context'
 import { Navigation } from '@/components/layout/Navigation'
@@ -81,6 +84,7 @@ const SHIPPING_OPTIONS: ShippingOption[] = [
 export default function CheckoutPage() {
   const router = useRouter()
   const { user } = useAuth()
+  const tierAccent = useTierAccent()
   const { items, getTotalPrice, clearCart, appliedCoupon, getFinalTotal, removeCoupon } = useCartStore()
   const [step, setStep] = useState<CheckoutStep>('shipping')
   const [loading, setLoading] = useState(false)
@@ -265,14 +269,8 @@ export default function CheckoutPage() {
             productId: item.product.id,
             productVariantId: item.variant.id,
             quantity: item.quantity,
-            price: item.variant.price || item.product.price,
           })),
-          subtotal,
-          discount,
-          shipping,
-          tax,
-          total,
-          shippingMethod: selectedOption.name,
+          shippingMethod: selectedOption.id,
           sessionId: localStorage.getItem('sessionId') || undefined,
           couponCode: appliedCoupon?.code || undefined,
           redemptionId: appliedCoupon?.redemptionId || undefined,
@@ -294,7 +292,7 @@ export default function CheckoutPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: Math.round(total * 100),
+          amount: Math.round(orderData.order.total * 100),
           currency: 'usd',
           metadata: {
             orderId: createdOrderId,
@@ -312,7 +310,7 @@ export default function CheckoutPage() {
       setStep('payment')
     } catch (error) {
       console.error('Checkout error:', error)
-      alert(error instanceof Error ? error.message : 'Failed to proceed to payment. Please try again.')
+      toast.error(error instanceof Error ? error.message : 'Failed to proceed to payment. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -377,96 +375,42 @@ export default function CheckoutPage() {
           transition={{ delay: 0.1 }}
           className="mb-6 md:mb-12"
         >
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 md:gap-6 mb-6 md:mb-10">
-            <div className="flex items-center gap-3 md:gap-5">
-              <div className="w-10 h-10 md:w-14 md:h-14 bg-black flex items-center justify-center">
-                <CreditCard size={20} weight="bold" className="text-white md:hidden" />
-                <CreditCard size={26} weight="bold" className="text-white hidden md:block" />
-              </div>
-              <div>
-                <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-black/40 mb-0.5 md:mb-1">Secure</p>
-                <h1 className="text-2xl sm:text-3xl md:text-5xl font-black text-black tracking-tight">Checkout</h1>
-              </div>
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 md:gap-6 mb-6 md:mb-10">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/40 mb-1">Secure</p>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-black tracking-tight">CHECKOUT</h1>
             </div>
             <div className="hidden sm:flex items-center gap-2 text-black/40">
-              <Lock size={14} weight="bold" />
-              <span className="text-[10px] font-black uppercase tracking-[0.15em]">SSL Encrypted</span>
+              <Lock size={12} weight="bold" />
+              <span className="text-[10px] font-black uppercase tracking-[0.16em]">SSL Encrypted</span>
             </div>
           </div>
 
-          {/* Progress Steps */}
-          <div className="flex items-center">
-            {/* Step 1: Shipping */}
-            <div className="flex items-center gap-2 md:gap-3">
-              <motion.div 
-                className={`w-9 h-9 md:w-12 md:h-12 flex items-center justify-center font-black text-xs md:text-sm transition-all ${
-                  step === 'payment' 
-                    ? 'bg-black text-white' 
-                    : 'bg-black text-white'
-                }`}
-                whileHover={{ scale: 1.02 }}
-              >
-                {step === 'payment' ? <Check size={16} weight="bold" className="md:hidden" /> : '01'}
-                {step === 'payment' && <Check size={20} weight="bold" className="hidden md:block" />}
-              </motion.div>
-              <div className="hidden sm:block">
-                <p className="text-xs font-black text-black uppercase tracking-wide">Shipping</p>
-                <p className="text-[10px] text-black/40 uppercase tracking-wider">Address & Delivery</p>
-              </div>
-            </div>
-            
-            {/* Progress Line */}
-            <div className="flex-1 h-0.5 md:h-1 mx-2 md:mx-4 bg-black/10 overflow-hidden">
-              <motion.div
-                initial={{ width: '0%' }}
-                animate={{ width: step === 'payment' ? '100%' : '0%' }}
-                transition={{ duration: 0.5, ease: "easeInOut" }}
-                className="h-full bg-black"
-              />
-            </div>
-            
-            {/* Step 2: Payment */}
-            <div className="flex items-center gap-2 md:gap-3">
-              <motion.div 
-                className={`w-9 h-9 md:w-12 md:h-12 flex items-center justify-center font-black text-xs md:text-sm transition-all ${
-                  step === 'payment' 
-                    ? 'bg-black text-white' 
-                    : 'bg-black/10 text-black/30'
-                }`}
-                whileHover={{ scale: 1.02 }}
-              >
-                02
-              </motion.div>
-              <div className="hidden sm:block">
-                <p className={`text-xs font-black uppercase tracking-wide ${step === 'payment' ? 'text-black' : 'text-black/30'}`}>Payment</p>
-                <p className="text-[10px] text-black/40 uppercase tracking-wider">Complete Order</p>
-              </div>
-            </div>
-          </div>
+          <CheckoutSteps current={step} />
         </motion.div>
 
         <div className="grid lg:grid-cols-12 gap-6 lg:gap-12">
           {/* Order Summary - Collapsible on mobile, always visible on desktop */}
           <div className="lg:col-span-5 lg:order-2">
             <div className="border border-black/10 lg:sticky lg:top-28">
-              {/* Summary Header - Clickable on mobile to toggle */}
-              <button 
+              {/* Summary Header - hairline editorial bar; clickable on mobile to toggle */}
+              <button
                 onClick={() => setOrderSummaryExpanded(!orderSummaryExpanded)}
-                className="w-full bg-black text-white px-4 md:px-6 py-3 md:py-4 flex items-center justify-between lg:cursor-default"
+                className="w-full px-4 md:px-6 py-3 md:py-4 flex items-center justify-between border-b border-black/10 text-black hover:bg-black/2 lg:cursor-default lg:hover:bg-transparent"
               >
-                <div className="flex items-center gap-2 md:gap-3">
-                  <Bag size={16} weight="bold" className="md:hidden" />
-                  <Bag size={18} weight="bold" className="hidden md:block" />
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em]">Order Summary</span>
-                </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black">{items.length} {items.length === 1 ? 'Item' : 'Items'}</span>
-                  {/* Mobile toggle indicator */}
-                  <div className="lg:hidden">
+                  <Bag size={14} weight="bold" className="text-black/55" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.18em] text-black/65">Order Summary</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-black/55">
+                    {items.length} {items.length === 1 ? 'Item' : 'Items'}
+                  </span>
+                  <div className="lg:hidden text-black/45">
                     {orderSummaryExpanded ? (
-                      <CaretUp size={16} weight="bold" />
+                      <CaretUp size={14} weight="bold" />
                     ) : (
-                      <CaretDown size={16} weight="bold" />
+                      <CaretDown size={14} weight="bold" />
                     )}
                   </div>
                 </div>
@@ -609,34 +553,26 @@ export default function CheckoutPage() {
                       </div>
                     </div>
 
-                    {/* Trust Badges - Hidden on mobile */}
-                    <div className="hidden md:block border-t border-black/10 p-6 bg-black/2">
-                      <div className="space-y-3">
-                        {[
-                          { icon: ShieldCheck, title: 'Secure Checkout', desc: 'SSL Encrypted' },
-                          { icon: Package, title: 'Free Returns', desc: '30-Day Policy' },
-                          { icon: Truck, title: 'Fast Shipping', desc: '2-3 Business Days' },
-                        ].map((item, i) => (
-                          <div key={i} className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-white border border-black/10 flex items-center justify-center shrink-0">
-                              <item.icon size={18} weight="bold" className="text-black/60" />
-                            </div>
-                            <div>
-                              <p className="text-xs font-black text-black uppercase tracking-wide">{item.title}</p>
-                              <p className="text-[10px] text-black/40">{item.desc}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                    {/* Trust badges — single inline row, ultra-compact. */}
+                    <div className="hidden md:flex border-t border-black/10 px-4 py-2 items-center justify-between text-[10px] font-bold uppercase tracking-[0.12em] text-black/55">
+                      <span className="inline-flex items-center gap-1.5">
+                        <ShieldCheck size={12} weight="bold" /> SSL
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Package size={12} weight="bold" /> 30-Day Returns
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Truck size={12} weight="bold" /> 2–3 Days
+                      </span>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
               {/* Compact Total Preview - Shown on mobile when collapsed */}
-              <div className={`lg:hidden border-t border-black/10 px-4 py-3 bg-black/2 ${orderSummaryExpanded ? 'hidden' : ''}`}>
+              <div className={`lg:hidden border-t border-black/10 px-4 py-3 ${orderSummaryExpanded ? 'hidden' : ''}`}>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-black text-black uppercase tracking-wide">Total</span>
+                  <span className="text-[10px] font-black text-black/55 uppercase tracking-[0.18em]">Total</span>
                   <span className="text-xl font-black text-black tabular-nums">${total.toFixed(2)}</span>
                 </div>
               </div>
@@ -655,14 +591,13 @@ export default function CheckoutPage() {
                   className="space-y-6"
                 >
                   {/* Shipping Form Card */}
-                  <div className="border border-black/10 overflow-hidden">
+                  <div className="border border-black/10">
                     {/* Card Header */}
-                    <div className="bg-black text-white px-4 md:px-6 py-3 md:py-4 flex items-center gap-2 md:gap-3">
-                      <MapPin size={16} weight="bold" className="md:hidden" />
-                      <MapPin size={18} weight="bold" className="hidden md:block" />
-                      <span className="text-[9px] font-black uppercase tracking-[0.2em]">Shipping Information</span>
+                    <div className="px-4 md:px-6 py-3 md:py-4 flex items-center gap-2 md:gap-3 border-b border-black/10">
+                      <MapPin size={14} weight="bold" className="text-black/55" />
+                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-black/65">Shipping Information</span>
                     </div>
-                    
+
                     <div className="p-4 md:p-6 lg:p-8">
                       <form onSubmit={handleSubmit}>
                         <ShippingForm
@@ -673,18 +608,15 @@ export default function CheckoutPage() {
                         
                         {/* Shipping Method Selection */}
                         <div className="mt-6 md:mt-10 pt-6 md:pt-8 border-t border-black/10">
-                          <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
-                            <div className="w-8 h-8 md:w-10 md:h-10 bg-black/5 flex items-center justify-center">
-                              <Truck size={16} weight="bold" className="text-black md:hidden" />
-                              <Truck size={18} weight="bold" className="text-black hidden md:block" />
-                            </div>
+                          <div className="flex items-center justify-between mb-4 md:mb-5">
                             <div>
-                              <h3 className="text-xs md:text-sm font-black text-black uppercase tracking-wide">Delivery Method</h3>
-                              <p className="text-[9px] md:text-[10px] text-black/40 uppercase tracking-wider">Select shipping speed</p>
+                              <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-black/65">Delivery Method</h3>
+                              <p className="text-[10px] text-black/45 mt-0.5">Choose your shipping speed</p>
                             </div>
+                            <Truck size={14} weight="bold" className="text-black/40" />
                           </div>
-                          
-                          <div className="space-y-3">
+
+                          <div className="space-y-2">
                             {SHIPPING_OPTIONS.map((option) => {
                               const isFreeFromAdmin = option.id === 'STANDARD' && isAdmin
                               const isFreeFromTier = option.id === 'STANDARD' && hasTierFreeShipping
@@ -693,92 +625,97 @@ export default function CheckoutPage() {
                               const isFree = isFreeFromAdmin || isFreeFromTier || isFreeFromSubtotal || isFreeFromCoupon
                               const displayPrice = isFree ? 0 : option.price
                               const Icon = option.icon
-                              
-                              // Check if user qualifies for free standard but chose different method
-                              const upgradeCost = option.id !== 'STANDARD' && qualifiesForFreeStandard 
-                                ? option.price 
+                              const isSelected = selectedShippingMethod === option.id
+
+                              const upgradeCost = option.id !== 'STANDARD' && qualifiesForFreeStandard
+                                ? option.price
                                 : null
-                              
+
                               return (
                                 <label
                                   key={option.id}
-                                  className={`flex items-center gap-3 md:gap-4 p-3 md:p-4 cursor-pointer transition-all ${
-                                    selectedShippingMethod === option.id
-                                      ? 'bg-black text-white'
-                                      : 'bg-black/2 hover:bg-black/5 border border-black/10'
+                                  style={isSelected ? { borderLeftColor: tierAccent.accent } : undefined}
+                                  className={`flex items-center gap-3 md:gap-4 px-3 md:px-4 py-3 cursor-pointer transition-colors border-l-2 ${
+                                    isSelected
+                                      ? 'border-y border-r border-black/15 bg-black/2'
+                                      : 'border-y border-r border-transparent bg-transparent hover:bg-black/2'
                                   }`}
                                 >
                                   <input
                                     type="radio"
                                     name="shippingMethod"
                                     value={option.id}
-                                    checked={selectedShippingMethod === option.id}
+                                    checked={isSelected}
                                     onChange={(e) => setSelectedShippingMethod(e.target.value as ShippingMethod)}
                                     className="sr-only"
                                   />
-                                  <div className={`w-8 h-8 md:w-10 md:h-10 flex items-center justify-center shrink-0 ${
-                                    selectedShippingMethod === option.id 
-                                      ? 'bg-white/20' 
-                                      : 'bg-white border border-black/10'
-                                  }`}>
-                                    <Icon size={16} weight="bold" className={`md:hidden ${selectedShippingMethod === option.id ? 'text-white' : 'text-black/60'}`} />
-                                    <Icon size={18} weight="bold" className={`hidden md:block ${selectedShippingMethod === option.id ? 'text-white' : 'text-black/60'}`} />
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="flex items-center justify-between">
-                                      <span className="font-black text-xs md:text-sm uppercase tracking-wide">{option.name}</span>
-                                      <span className="font-black text-xs md:text-sm tabular-nums">
+                                  <Icon
+                                    size={18}
+                                    weight="bold"
+                                    className={isSelected ? 'text-black' : 'text-black/40'}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-baseline justify-between gap-2">
+                                      <span className={`text-xs md:text-sm font-black uppercase tracking-[0.12em] ${isSelected ? 'text-black' : 'text-black/80'}`}>
+                                        {option.name}
+                                      </span>
+                                      <span className={`text-xs md:text-sm font-black tabular-nums ${isSelected ? 'text-black' : 'text-black/70'}`}>
                                         {isFree ? (
-                                          <span className="flex items-center gap-1">
-                                            <Sparkle size={12} weight="fill" />
+                                          <span className="inline-flex items-center gap-1">
+                                            <Sparkle size={11} weight="fill" />
                                             FREE
                                           </span>
                                         ) : upgradeCost ? (
-                                          <span className="flex items-center gap-1">
-                                            +${upgradeCost.toFixed(2)}
-                                          </span>
+                                          <span>+${upgradeCost.toFixed(2)}</span>
                                         ) : (
                                           `$${displayPrice.toFixed(2)}`
                                         )}
                                       </span>
                                     </div>
-                                    <p className={`text-[10px] mt-1 uppercase tracking-wider ${selectedShippingMethod === option.id ? 'text-white/60' : 'text-black/40'}`}>
+                                    <div className="mt-0.5">
                                       {isFreeFromAdmin ? (
-                                        <span className="flex items-center gap-1">
+                                        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.12em] text-black/55">
                                           <Crown size={10} weight="fill" /> Admin Perk
                                         </span>
                                       ) : isFreeFromTier ? (
-                                        <span className="flex items-center gap-1">
+                                        <span
+                                          className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.14em]"
+                                          style={{ backgroundColor: tierAccent.accentSoft, color: tierAccent.accentDark }}
+                                        >
                                           <Crown size={10} weight="fill" /> {user?.loyaltyTier?.name} Perk
                                         </span>
                                       ) : isFreeFromCoupon ? (
-                                        <span className="flex items-center gap-1">
+                                        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.12em] text-black/55">
                                           <Sparkle size={10} weight="fill" /> Coupon Applied
                                         </span>
                                       ) : upgradeCost ? (
-                                        <span>Upgrade from Free Standard • {option.estimatedDays}</span>
+                                        <span className="text-[10px] uppercase tracking-[0.12em] text-black/50">Upgrade · {option.estimatedDays}</span>
                                       ) : (
-                                        option.estimatedDays
+                                        <span className="text-[10px] uppercase tracking-[0.12em] text-black/50">{option.estimatedDays}</span>
                                       )}
-                                    </p>
-                                  </div>
-                                  {selectedShippingMethod === option.id && (
-                                    <div className="w-6 h-6 bg-white/20 flex items-center justify-center">
-                                      <Check size={14} weight="bold" />
                                     </div>
-                                  )}
+                                  </div>
+                                  <div
+                                    className={`shrink-0 h-5 w-5 inline-flex items-center justify-center transition-all ${
+                                      isSelected ? 'opacity-100' : 'opacity-0'
+                                    }`}
+                                    style={isSelected ? { color: tierAccent.accent } : undefined}
+                                    aria-hidden="true"
+                                  >
+                                    <Check size={14} weight="bold" />
+                                  </div>
                                 </label>
                               )
                             })}
                           </div>
-                          
+
                           {/* Notice when user qualifies for free standard but chose upgraded shipping */}
                           {qualifiesForFreeStandard && selectedShippingMethod !== 'STANDARD' && (
-                            <div className="mt-3 p-3 bg-amber-50 border border-amber-200 flex items-start gap-2">
-                              <Sparkle size={14} weight="fill" className="text-amber-600 shrink-0 mt-0.5" />
-                              <p className="text-[10px] md:text-xs text-amber-800">
-                                <span className="font-bold">You qualify for free standard shipping!</span>
-                                {' '}You&apos;re paying an extra ${selectedOption.price.toFixed(2)} for {selectedOption.name.toLowerCase()} shipping.
+                            <div className="mt-3 border-l-2 border-amber-500 bg-amber-50/60 py-2 pl-3 flex items-start gap-2">
+                              <Sparkle size={13} weight="fill" className="text-amber-600 shrink-0 mt-0.5" />
+                              <p className="text-[11px] text-amber-900">
+                                <span className="font-black uppercase tracking-[0.12em]">Free standard available.</span>
+                                {' '}You&apos;re paying an extra ${selectedOption.price.toFixed(2)} for {selectedOption.name.toLowerCase()}.
                               </p>
                             </div>
                           )}
@@ -791,7 +728,8 @@ export default function CheckoutPage() {
                             disabled={loading}
                             whileHover={{ scale: loading ? 1 : 1.01 }}
                             whileTap={{ scale: loading ? 1 : 0.99 }}
-                            className="w-full bg-black text-white font-black py-4 md:py-5 text-xs md:text-sm uppercase tracking-widest transition-all hover:bg-black/90 disabled:opacity-50 group flex items-center justify-center gap-2 md:gap-3"
+                            style={{ backgroundColor: tierAccent.accent }}
+                            className="w-full text-white font-black py-4 md:py-5 text-xs md:text-sm uppercase tracking-[0.16em] transition-all hover:brightness-90 disabled:opacity-50 group flex items-center justify-center gap-2 md:gap-3"
                           >
                             {loading ? (
                               <>
@@ -845,7 +783,8 @@ export default function CheckoutPage() {
                               type="submit"
                               disabled={loading}
                               whileTap={{ scale: loading ? 1 : 0.98 }}
-                              className="flex-1 max-w-[200px] bg-black text-white font-black py-3.5 text-xs uppercase tracking-widest transition-all active:bg-black/90 disabled:opacity-50 flex items-center justify-center gap-2"
+                              style={{ backgroundColor: tierAccent.accent }}
+                              className="flex-1 max-w-[200px] text-white font-black py-3.5 text-xs uppercase tracking-[0.16em] transition-all active:brightness-90 disabled:opacity-50 flex items-center justify-center gap-2"
                             >
                               {loading ? (
                                 <>
@@ -873,54 +812,55 @@ export default function CheckoutPage() {
                   exit={{ opacity: 0, y: -20 }}
                   className="space-y-6"
                 >
-                  {/* Shipping Summary */}
-                  <div className="border border-black/10 overflow-hidden">
-                    <div className="bg-black/5 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2 md:gap-3">
-                        <div className="w-7 h-7 md:w-8 md:h-8 bg-black flex items-center justify-center">
-                          <Check size={12} weight="bold" className="text-white md:hidden" />
-                          <Check size={14} weight="bold" className="text-white hidden md:block" />
+                  {/* Shipping Summary — flush hairline recap with tier-color check icon */}
+                  <div className="border border-black/10">
+                    <div className="px-4 md:px-6 py-3 md:py-4 flex items-center justify-between border-b border-black/10">
+                      <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                        <div
+                          className="w-6 h-6 inline-flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: tierAccent.accent }}
+                        >
+                          <Check size={12} weight="bold" className="text-white" />
                         </div>
-                        <div>
-                          <p className="text-[9px] md:text-[10px] font-black text-black uppercase tracking-[0.15em]">Shipping to</p>
-                          <p className="text-[8px] md:text-[9px] text-black/40 uppercase tracking-wider">{selectedOption.name} • {selectedOption.estimatedDays}</p>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black text-black/65 uppercase tracking-[0.18em]">Shipping to</p>
+                          <p className="text-[10px] text-black/45 uppercase tracking-[0.12em] truncate">{selectedOption.name} · {selectedOption.estimatedDays}</p>
                         </div>
                       </div>
                       <button
                         onClick={() => setStep('shipping')}
-                        className="text-[9px] md:text-[10px] font-black text-black/40 hover:text-black transition-colors uppercase tracking-wider"
+                        className="text-[10px] font-black uppercase tracking-[0.16em] text-black/55 hover:text-black underline underline-offset-4 decoration-black/20 hover:decoration-black transition-colors"
                       >
                         Edit
                       </button>
                     </div>
                     <div className="p-4 md:p-6">
-                      <p className="font-black text-black">
+                      <p className="text-sm font-black tracking-tight text-black">
                         {shippingData.firstName} {shippingData.lastName}
                       </p>
-                      <p className="text-sm text-black/50 mt-1">
+                      <p className="text-sm text-black/60 mt-1">
                         {shippingData.address}
                         {shippingData.apartment && `, ${shippingData.apartment}`}
                       </p>
-                      <p className="text-sm text-black/50">
+                      <p className="text-sm text-black/60">
                         {shippingData.city}, {shippingData.state} {shippingData.zipCode}
                       </p>
-                      <p className="text-sm text-black/50 mt-3">{shippingData.email}</p>
+                      <p className="text-xs text-black/50 mt-3 uppercase tracking-[0.12em]">{shippingData.email}</p>
                     </div>
                   </div>
-                  
+
                   {/* Payment Form Card */}
-                  <div className="border border-black/10 overflow-hidden">
+                  <div className="border border-black/10">
                     {/* Card Header */}
-                    <div className="bg-black text-white px-4 md:px-6 py-3 md:py-4 flex items-center gap-2 md:gap-3">
-                      <CreditCard size={16} weight="bold" className="md:hidden" />
-                      <CreditCard size={18} weight="bold" className="hidden md:block" />
-                      <span className="text-[9px] font-black uppercase tracking-[0.2em]">Payment Details</span>
+                    <div className="px-4 md:px-6 py-3 md:py-4 flex items-center gap-2 md:gap-3 border-b border-black/10">
+                      <CreditCard size={14} weight="bold" className="text-black/55" />
+                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-black/65">Payment Details</span>
                     </div>
 
                     <div className="p-4 md:p-6 lg:p-8">
-                      <div className="flex items-center gap-2 mb-6 pb-4 border-b border-black/10">
+                      <div className="flex items-center gap-2 mb-6 pb-4 border-b border-black/5">
                         <Lock size={12} weight="bold" className="text-black/30" />
-                        <span className="text-[10px] text-black/40 uppercase tracking-wider">All transactions are secure and encrypted</span>
+                        <span className="text-[10px] text-black/45 uppercase tracking-[0.14em]">All transactions are secure and encrypted</span>
                       </div>
 
                       {clientSecret && (

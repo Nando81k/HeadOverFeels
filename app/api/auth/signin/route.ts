@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
         smsOptIn: true,
         isAdmin: true,
         createdAt: true,
+        profilePictureUrl: true,
         emailVerified: true,
         // Loyalty fields
         currentPoints: true,

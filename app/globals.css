@@ -50,6 +50,13 @@ body {
   padding-bottom: var(--safe-area-inset-bottom);
 }
 
+/* Space for mobile bottom nav bar */
+@media (max-width: 767px) {
+  body {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* Prevent horizontal scroll on mobile - applies to page level only */
 /* Individual elements with overflow-x-auto will still scroll horizontally */
 @media (max-width: 767px) {

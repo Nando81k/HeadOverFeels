@@ -83,7 +83,12 @@ export async function GET(
           isVerified: true,
           helpfulCount: true,
           notHelpfulCount: true,
-          createdAt: true
+          createdAt: true,
+          adminReply: true,
+          adminReplyAt: true,
+          customer: {
+            select: { profilePictureUrl: true },
+          },
         }
       }),
       prisma.review.count({ where }),
@@ -116,8 +121,14 @@ export async function GET(
 
     const totalPages = Math.ceil(totalCount / limit)
 
+    // Flatten customer.profilePictureUrl into top-level field
+    const reviewsWithAvatar = reviews.map(({ customer, ...r }) => ({
+      ...r,
+      profilePictureUrl: customer?.profilePictureUrl ?? null,
+    }))
+
     return NextResponse.json({
-      data: reviews,
+      data: reviewsWithAvatar,
       stats: {
         averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
         totalReviews,

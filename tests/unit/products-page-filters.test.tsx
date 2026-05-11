@@ -48,6 +48,7 @@ vi.mock('@/components/products/ProductCard', () => ({
   ProductCard: ({ product }: { product: { name: string } }) => (
     <div data-testid="product-card">{product.name}</div>
   ),
+  ProductCardSkeleton: () => <div data-testid="product-card-skeleton" />,
 }))
 
 vi.mock('@/lib/api/products', () => ({

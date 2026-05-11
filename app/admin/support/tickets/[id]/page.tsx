@@ -333,7 +333,7 @@ export default function TicketDetailPage() {
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.14em] text-white/40 mb-1">Order</p>
                   <Link
-                    href={`/admin/orders/${ticket.orderId}`}
+                    href={`/admin/fulfillment?orderId=${ticket.orderId}`}
                     className="text-sm text-blue-300 hover:text-blue-200 inline-flex items-center gap-2"
                   >
                     <Package className="w-4 h-4" />

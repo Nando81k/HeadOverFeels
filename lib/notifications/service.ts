@@ -320,7 +320,7 @@ export async function notifyPointsEarned(
     type: 'POINTS_EARNED',
     title: `+${points} Care Points Earned!`,
     message: `You earned ${points} Care Points ${reason}.`,
-    linkUrl: '/loyalty',
+    linkUrl: '/loyalty/points',
     linkLabel: 'View Points',
     metadata: { pointsEarned: points, orderId },
   })
@@ -339,7 +339,7 @@ export async function notifyTierUpgrade(
     type: 'TIER_UPGRADE',
     title: `🎉 Welcome to ${newTierName}!`,
     message: `You've reached ${newTierName} status! Enjoy new benefits like ${benefits.slice(0, 2).join(', ')}.`,
-    linkUrl: '/loyalty',
+    linkUrl: '/loyalty/tiers',
     linkLabel: 'View Benefits',
     metadata: { tierName: newTierName, benefits },
   })
@@ -421,7 +421,7 @@ export async function notifyBirthdayBonus(customerId: string, points: number) {
     type: 'BIRTHDAY_BONUS',
     title: '🎂 Happy Birthday!',
     message: `We've added ${points} Care Points to your account as a birthday gift!`,
-    linkUrl: '/loyalty',
+    linkUrl: '/loyalty/points',
     linkLabel: 'View Points',
     metadata: { pointsEarned: points },
   })

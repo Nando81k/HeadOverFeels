@@ -132,37 +132,44 @@ export function CouponInput() {
   }
 
   if (appliedCoupon) {
+    const isAuto = appliedCoupon.isAutoApplied
     return (
-      <div className={`${appliedCoupon.isAutoApplied ? 'bg-amber-50 border-amber-200' : 'bg-black/[0.02] border-black/10'} border p-4`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`${appliedCoupon.isAutoApplied ? 'bg-amber-100' : 'bg-black/10'} p-2`}>
-              {appliedCoupon.isAutoApplied ? (
-                <Lightning className="w-4 h-4 text-amber-600" weight="fill" />
-              ) : (
-                <Check className="w-4 h-4 text-black" weight="bold" />
-              )}
-            </div>
-            <div>
-              <p className={`text-sm font-bold ${appliedCoupon.isAutoApplied ? 'text-amber-800' : 'text-black'}`}>
-                {appliedCoupon.rewardName}
-                {appliedCoupon.isAutoApplied && (
-                  <span className="ml-2 text-xs font-normal text-amber-600">(Auto-applied)</span>
-                )}
-              </p>
-              <p className={`text-xs ${appliedCoupon.isAutoApplied ? 'text-amber-600' : 'text-black/60'}`}>
-                Code: {appliedCoupon.code} • {appliedCoupon.description}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={removeCoupon}
-            className={`${appliedCoupon.isAutoApplied ? 'text-amber-600 hover:text-amber-800 hover:bg-amber-100' : 'text-black/60 hover:text-black hover:bg-black/10'} p-1.5 transition-colors`}
-            aria-label="Remove coupon"
+      <div
+        className={`flex items-center justify-between gap-3 border-l-2 py-3 pl-3 pr-2 ${
+          isAuto ? 'border-amber-500 bg-amber-50/60' : 'border-black bg-black/2'
+        }`}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div
+            className={`shrink-0 inline-flex h-8 w-8 items-center justify-center ${
+              isAuto ? 'bg-amber-100 text-amber-700' : 'bg-black text-white'
+            }`}
           >
-            <X className="w-4 h-4" weight="bold" />
-          </button>
+            {isAuto ? (
+              <Lightning className="w-3.5 h-3.5" weight="fill" />
+            ) : (
+              <Check className="w-3.5 h-3.5" weight="bold" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className={`text-[11px] font-black uppercase tracking-[0.14em] truncate ${isAuto ? 'text-amber-900' : 'text-black'}`}>
+              {appliedCoupon.rewardName}
+              {isAuto && (
+                <span className="ml-2 text-[10px] font-bold tracking-[0.12em] text-amber-700/80">Auto</span>
+              )}
+            </p>
+            <p className={`text-[11px] truncate ${isAuto ? 'text-amber-800/80' : 'text-black/60'}`}>
+              {appliedCoupon.code} · {appliedCoupon.description}
+            </p>
+          </div>
         </div>
+        <button
+          onClick={removeCoupon}
+          className="shrink-0 inline-flex h-8 w-8 items-center justify-center text-black/45 hover:text-black transition-colors"
+          aria-label="Remove coupon"
+        >
+          <X className="w-3.5 h-3.5" weight="bold" />
+        </button>
       </div>
     )
   }
@@ -171,17 +178,17 @@ export function CouponInput() {
     return (
       <button
         onClick={() => setShowInput(true)}
-        className="flex items-center gap-2 text-sm font-medium text-black/60 hover:text-black transition-colors"
+        className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-black/60 hover:text-black transition-colors"
       >
-        <Tag className="w-4 h-4" weight="bold" />
-        <span>Have a promo or rewards code?</span>
+        <Tag className="w-3.5 h-3.5" weight="bold" />
+        <span>Promo or rewards code</span>
       </button>
     )
   }
 
   return (
     <div className="space-y-2">
-      <div className="flex gap-2">
+      <div className="flex">
         <input
           type="text"
           value={code}
@@ -189,8 +196,8 @@ export function CouponInput() {
             setCode(e.target.value.toUpperCase())
             setError(null)
           }}
-          placeholder="Enter promo or rewards code"
-          className="flex-1 px-4 py-3 border border-black/10 text-sm bg-white text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent uppercase transition-all"
+          placeholder="ENTER CODE"
+          className="flex-1 min-w-0 h-11 px-3 border border-black/15 border-r-0 text-xs font-bold tracking-[0.12em] bg-white text-black placeholder:text-black/35 focus:outline-none focus:border-black focus:ring-1 focus:ring-black uppercase transition-colors rounded-none"
           disabled={loading}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
@@ -202,10 +209,10 @@ export function CouponInput() {
         <button
           onClick={handleApplyCoupon}
           disabled={loading || !code.trim()}
-          className="px-5 py-3 bg-black text-white text-sm font-bold hover:bg-black/80 disabled:bg-black/20 disabled:cursor-not-allowed transition-all"
+          className="h-11 px-4 bg-black text-white text-[11px] font-black uppercase tracking-[0.16em] hover:brightness-90 disabled:bg-black/20 disabled:cursor-not-allowed transition-all"
         >
           {loading ? (
-            <Spinner className="w-4 h-4 animate-spin" />
+            <Spinner className="w-3.5 h-3.5 animate-spin" />
           ) : (
             'Apply'
           )}
@@ -216,13 +223,14 @@ export function CouponInput() {
             setCode('')
             setError(null)
           }}
-          className="p-3 text-black/40 hover:text-black hover:bg-black/5 transition-colors"
+          className="h-11 w-10 inline-flex items-center justify-center text-black/40 hover:text-black hover:bg-black/5 transition-colors"
+          aria-label="Cancel"
         >
-          <X className="w-4 h-4" weight="bold" />
+          <X className="w-3.5 h-3.5" weight="bold" />
         </button>
       </div>
       {error && (
-        <p className="text-sm text-[#FF3131] font-medium">{error}</p>
+        <p className="border-l-2 border-[#FF3131] bg-[#FF3131]/4 py-1.5 pl-2.5 text-xs text-[#FF3131] font-medium">{error}</p>
       )}
     </div>
   )

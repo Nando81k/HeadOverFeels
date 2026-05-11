@@ -1,13 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { CheckSquare } from '@phosphor-icons/react'
 import { AdminLayout } from '@/components/admin/AdminLayout'
+import { FulfillmentBatchBar } from '@/components/admin/fulfillment/FulfillmentBatchBar'
 import { FulfillmentCaseDrawer } from '@/components/admin/fulfillment/FulfillmentCaseDrawer'
 import { FulfillmentCommandBar } from '@/components/admin/fulfillment/FulfillmentCommandBar'
 import { FulfillmentQueueGrid } from '@/components/admin/fulfillment/FulfillmentQueueGrid'
+import { FulfillmentSavedViews, type SavedView } from '@/components/admin/fulfillment/FulfillmentSavedViews'
+import { KeyboardShortcutHelp } from '@/components/admin/fulfillment/KeyboardShortcutHelp'
+import { LabelPreviewModal } from '@/components/admin/fulfillment/LabelPreviewModal'
 import {
   FULFILLMENT_BLOCKER_LABELS,
   FULFILLMENT_NEXT_ACTION_LABELS,
@@ -243,26 +245,119 @@ const OPERATIONAL_QUEUE_TYPES: FulfillmentQueueType[] = [
   'REFUND_REVIEW',
 ]
 
+// Status palette — aligned with the canonical design-system tones used by
+// `<StatusPill>` (bg/15, text-300, border/30). Fulfillment renders these
+// pills in many places via `getStatusColor()`; the alpha values here match
+// the rest of the admin so visual hierarchy stays consistent.
 const STATUS_COLORS: Record<string, string> = {
-  PENDING: 'bg-amber-500/20 text-amber-300 border-amber-400/30',
-  CONFIRMED: 'bg-blue-500/20 text-blue-300 border-blue-400/30',
-  PROCESSING: 'bg-violet-500/20 text-violet-300 border-violet-400/30',
-  SHIPPED: 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30',
-  DELIVERED: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30',
-  CANCELLED: 'bg-rose-500/20 text-rose-300 border-rose-400/30',
-  REFUNDED: 'bg-white/10 text-white/75 border-white/20',
-  OPEN: 'bg-blue-500/20 text-blue-300 border-blue-400/30',
-  IN_PROGRESS: 'bg-amber-500/20 text-amber-300 border-amber-400/30',
-  WAITING_CUSTOMER: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-400/30',
-  ESCALATED: 'bg-rose-500/20 text-rose-300 border-rose-400/30',
-  RESOLVED: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30',
-  CLOSED: 'bg-white/10 text-white/75 border-white/20',
-  PAID: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30',
-  FAILED: 'bg-rose-500/20 text-rose-300 border-rose-400/30',
+  PENDING: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  CONFIRMED: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+  PROCESSING: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
+  SHIPPED: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
+  DELIVERED: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  CANCELLED: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+  REFUNDED: 'bg-white/5 text-white/65 border-white/15',
+  OPEN: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+  IN_PROGRESS: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  WAITING_CUSTOMER: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
+  ESCALATED: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+  RESOLVED: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  CLOSED: 'bg-white/5 text-white/65 border-white/15',
+  PAID: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  FAILED: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
 }
 
 const FILTER_STORAGE_KEY = 'hof_admin_fulfillment_filters_v1'
 const OPERATOR_PREFS_STORAGE_KEY = 'hof_admin_fulfillment_operator_prefs_v1'
+const SAVED_VIEWS_STORAGE_KEY = 'hof_admin_fulfillment_views_v1'
+
+const BUILT_IN_VIEWS: import('@/components/admin/fulfillment/FulfillmentSavedViews').SavedView[] = [
+  {
+    id: 'builtin-active',
+    name: 'Active',
+    builtIn: true,
+    filters: {
+      selectedQueueTypes: ['FULFILL_ORDER'],
+      orderStatusFilter: '',
+      paymentStatusFilter: '',
+      ticketStatusFilter: '',
+      assignedFilter: 'all',
+      ageBucket: 'all',
+      dateFrom: '',
+      dateTo: '',
+      totalMin: '',
+      totalMax: '',
+    },
+  },
+  {
+    id: 'builtin-late',
+    name: 'Late',
+    builtIn: true,
+    filters: {
+      selectedQueueTypes: ['FULFILL_ORDER'],
+      orderStatusFilter: '',
+      paymentStatusFilter: '',
+      ticketStatusFilter: '',
+      assignedFilter: 'all',
+      ageBucket: 'over24h',
+      dateFrom: '',
+      dateTo: '',
+      totalMin: '',
+      totalMax: '',
+    },
+  },
+  {
+    id: 'builtin-refunds',
+    name: 'Refunds',
+    builtIn: true,
+    filters: {
+      selectedQueueTypes: ['REFUND_REVIEW'],
+      orderStatusFilter: '',
+      paymentStatusFilter: '',
+      ticketStatusFilter: '',
+      assignedFilter: 'all',
+      ageBucket: 'all',
+      dateFrom: '',
+      dateTo: '',
+      totalMin: '',
+      totalMax: '',
+    },
+  },
+  {
+    id: 'builtin-returns',
+    name: 'Returns',
+    builtIn: true,
+    filters: {
+      selectedQueueTypes: ['RETURN_REVIEW'],
+      orderStatusFilter: '',
+      paymentStatusFilter: '',
+      ticketStatusFilter: '',
+      assignedFilter: 'all',
+      ageBucket: 'all',
+      dateFrom: '',
+      dateTo: '',
+      totalMin: '',
+      totalMax: '',
+    },
+  },
+  {
+    id: 'builtin-exceptions',
+    name: 'Exceptions',
+    builtIn: true,
+    filters: {
+      selectedQueueTypes: ['PAYMENT_EXCEPTION', 'SHIPPING_EXCEPTION'],
+      orderStatusFilter: '',
+      paymentStatusFilter: '',
+      ticketStatusFilter: '',
+      assignedFilter: 'all',
+      ageBucket: 'all',
+      dateFrom: '',
+      dateTo: '',
+      totalMin: '',
+      totalMax: '',
+    },
+  },
+]
 
 type FulfillmentOperatorPreferences = {
   quickShipMode: boolean
@@ -317,11 +412,18 @@ function formatDateOnly(value: string | null | undefined) {
   })
 }
 
+function formatDateInputValue(value: string | null | undefined) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toISOString().split('T')[0]
+}
+
 function getStatusColor(status: string | null | undefined) {
   if (!status) {
-    return 'bg-white/10 text-white/75 border-white/20'
+    return 'bg-white/5 text-white/65 border-white/15'
   }
-  return STATUS_COLORS[status] || 'bg-white/10 text-white/75 border-white/20'
+  return STATUS_COLORS[status] || 'bg-white/5 text-white/65 border-white/15'
 }
 
 function buildEmptyFilterCounts(): QueueResponse['counts'] {
@@ -374,6 +476,11 @@ export default function AdminFulfillmentPage() {
   const [ticketStatusFilter, setTicketStatusFilter] = useState('')
   const [assignedFilter, setAssignedFilter] = useState<'all' | 'assigned' | 'unassigned'>('all')
   const [ageBucket, setAgeBucket] = useState<FulfillmentAgeBucket>('all')
+  const [dateFromFilter, setDateFromFilter] = useState('')
+  const [dateToFilter, setDateToFilter] = useState('')
+  const [totalMinFilter, setTotalMinFilter] = useState('')
+  const [totalMaxFilter, setTotalMaxFilter] = useState('')
+  const [exporting, setExporting] = useState(false)
   const [sortBy, setSortBy] = useState<FulfillmentSortField>('priority')
   const [sortDir, setSortDir] = useState<FulfillmentSortDirection>('desc')
 
@@ -397,6 +504,10 @@ export default function AdminFulfillmentPage() {
     failedOrderIds: [],
   })
   const [operatorPrefs, setOperatorPrefs] = useState<FulfillmentOperatorPreferences>(DEFAULT_OPERATOR_PREFS)
+  const [savedViews, setSavedViews] = useState<SavedView[]>(BUILT_IN_VIEWS)
+  const [activeViewId, setActiveViewId] = useState<string | null>('builtin-active')
+  const [isHelpOpen, setIsHelpOpen] = useState(false)
+  const [previewLabelUrl, setPreviewLabelUrl] = useState<string | null>(null)
 
   const [orderDraft, setOrderDraft] = useState({
     status: '',
@@ -404,6 +515,7 @@ export default function AdminFulfillmentPage() {
     trackingNumber: '',
     carrier: '',
     trackingUrl: '',
+    estimatedDelivery: '',
     internalNotes: '',
   })
 
@@ -531,6 +643,31 @@ export default function AdminFulfillmentPage() {
   }, [operatorPrefs])
 
   useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SAVED_VIEWS_STORAGE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as SavedView[]
+      if (Array.isArray(parsed)) {
+        const customs = parsed.filter((view) => !view.builtIn && view.id && view.name && view.filters)
+        if (customs.length > 0) {
+          setSavedViews([...BUILT_IN_VIEWS, ...customs])
+        }
+      }
+    } catch {
+      // Ignore parse errors.
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      const customs = savedViews.filter((view) => !view.builtIn)
+      localStorage.setItem(SAVED_VIEWS_STORAGE_KEY, JSON.stringify(customs))
+    } catch {
+      // Ignore write errors.
+    }
+  }, [savedViews])
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       const next = searchInput.trim()
       setSearchDebounced(next)
@@ -613,6 +750,10 @@ export default function AdminFulfillmentPage() {
         .map((item) => item.orderId as string),
     [selectedRows]
   )
+  const selectedTotal = useMemo(
+    () => selectedRows.reduce((sum, item) => sum + (item.total ?? 0), 0),
+    [selectedRows]
+  )
 
   const fetchQueue = useCallback(
     async (silent = false) => {
@@ -637,6 +778,10 @@ export default function AdminFulfillmentPage() {
         if (ticketStatusFilter) params.set('ticketStatuses', ticketStatusFilter)
         if (assignedFilter !== 'all') params.set('assigned', assignedFilter)
         if (ageBucket !== 'all') params.set('ageBucket', ageBucket)
+        if (dateFromFilter) params.set('dateFrom', dateFromFilter)
+        if (dateToFilter) params.set('dateTo', dateToFilter)
+        if (totalMinFilter) params.set('totalMin', totalMinFilter)
+        if (totalMaxFilter) params.set('totalMax', totalMaxFilter)
 
         const response = await fetch(`/api/admin/fulfillment/queue?${params.toString()}`)
         if (!response.ok) {
@@ -662,6 +807,8 @@ export default function AdminFulfillmentPage() {
     [
       ageBucket,
       assignedFilter,
+      dateFromFilter,
+      dateToFilter,
       orderStatusFilter,
       pagination.limit,
       pagination.page,
@@ -671,6 +818,8 @@ export default function AdminFulfillmentPage() {
       sortBy,
       sortDir,
       ticketStatusFilter,
+      totalMaxFilter,
+      totalMinFilter,
     ]
   )
 
@@ -738,19 +887,27 @@ export default function AdminFulfillmentPage() {
     }
 
     const stillExists = queueItems.some((item) => item.id === activeItemId)
-    if (!stillExists) {
+    // If the active row drops out of the queue (e.g., after a label purchase
+    // moves the order to a different lane), only clear selection when the
+    // drawer is already closed. If the operator is actively viewing the
+    // drawer, leave it open — they may still need to print, mark shipped,
+    // or close it manually. The drawer's own close affordances (X / Esc /
+    // requestCloseDrawer) clear activeItemId.
+    if (!stillExists && !isDrawerOpen) {
       setActiveItemId(null)
-      setIsDrawerOpen(false)
     }
-  }, [queueItems, deepLinkOrderId, deepLinkTicketId, activeItemId, applyRowSelection])
+  }, [queueItems, deepLinkOrderId, deepLinkTicketId, activeItemId, applyRowSelection, isDrawerOpen])
 
   useEffect(() => {
     if (!activeItem?.ticketId && !activeItem?.orderId) {
-      setContext(null)
+      // Don't wipe loaded context while the drawer is still open — the
+      // active queue row may have transitioned out of the visible queue
+      // (post-purchase, post-shipped) but the operator is still working.
+      if (!isDrawerOpen) setContext(null)
       return
     }
     fetchContext(activeItem.orderId, activeItem.ticketId)
-  }, [activeItem?.ticketId, activeItem?.orderId, fetchContext])
+  }, [activeItem?.ticketId, activeItem?.orderId, fetchContext, isDrawerOpen])
 
   useEffect(() => {
     if (!context?.order) return
@@ -760,6 +917,7 @@ export default function AdminFulfillmentPage() {
       trackingNumber: context.order.trackingNumber || '',
       carrier: context.order.carrier || '',
       trackingUrl: context.order.trackingUrl || '',
+      estimatedDelivery: formatDateInputValue(context.order.estimatedDelivery),
       internalNotes: context.order.internalNotes || '',
     })
   }, [
@@ -769,6 +927,7 @@ export default function AdminFulfillmentPage() {
     context?.order?.trackingNumber,
     context?.order?.carrier,
     context?.order?.trackingUrl,
+    context?.order?.estimatedDelivery,
     context?.order?.internalNotes,
   ])
 
@@ -815,6 +974,7 @@ export default function AdminFulfillmentPage() {
         trackingNumber: context.order.trackingNumber || '',
         carrier: context.order.carrier || '',
         trackingUrl: context.order.trackingUrl || '',
+        estimatedDelivery: formatDateInputValue(context.order.estimatedDelivery),
         internalNotes: context.order.internalNotes || '',
       })
     }
@@ -842,6 +1002,106 @@ export default function AdminFulfillmentPage() {
     context?.selectedTicket?.status,
   ])
 
+  const exportQueueCsv = useCallback(async () => {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams({
+        page: '1',
+        limit: '1000',
+        sortBy,
+        sortDir,
+      })
+      if (searchDebounced.length > 0) params.set('search', searchDebounced)
+      if (selectedQueueTypes.length > 0) params.set('queueTypes', selectedQueueTypes.join(','))
+      if (orderStatusFilter) params.set('orderStatuses', orderStatusFilter)
+      if (paymentStatusFilter) params.set('paymentStatuses', paymentStatusFilter)
+      if (ticketStatusFilter) params.set('ticketStatuses', ticketStatusFilter)
+      if (assignedFilter !== 'all') params.set('assigned', assignedFilter)
+      if (ageBucket !== 'all') params.set('ageBucket', ageBucket)
+      if (dateFromFilter) params.set('dateFrom', dateFromFilter)
+      if (dateToFilter) params.set('dateTo', dateToFilter)
+      if (totalMinFilter) params.set('totalMin', totalMinFilter)
+      if (totalMaxFilter) params.set('totalMax', totalMaxFilter)
+
+      const response = await fetch(`/api/admin/fulfillment/queue?${params.toString()}`)
+      if (!response.ok) throw new Error('Failed to fetch queue for export')
+      const payload: QueueResponse = await response.json()
+      const rows = payload.data || []
+
+      const escape = (value: unknown) => {
+        const stringValue = value === null || value === undefined ? '' : String(value)
+        return `"${stringValue.replace(/"/g, '""')}"`
+      }
+      const header = [
+        'Created',
+        'Queue',
+        'Order Number',
+        'Order Status',
+        'Payment',
+        'Total',
+        'Customer Name',
+        'Customer Email',
+        'Tracking',
+        'Carrier',
+        'Ticket Number',
+        'Ticket Status',
+        'Assignee',
+      ]
+      const lines = [header.map(escape).join(',')]
+      for (const item of rows) {
+        lines.push(
+          [
+            item.createdAt,
+            item.queueType,
+            item.orderNumber,
+            item.orderStatus,
+            item.paymentStatus,
+            item.total,
+            item.customerName,
+            item.customerEmail,
+            item.trackingNumber,
+            item.carrier,
+            item.ticketNumber,
+            item.ticketStatus,
+            item.assignedToName,
+          ]
+            .map(escape)
+            .join(',')
+        )
+      }
+      const csv = lines.join('\n')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `fulfillment-queue-${new Date().toISOString().split('T')[0]}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      toast.success(`Exported ${rows.length} rows`)
+    } catch (error) {
+      console.error('CSV export failed:', error)
+      toast.error('Failed to export CSV')
+    } finally {
+      setExporting(false)
+    }
+  }, [
+    ageBucket,
+    assignedFilter,
+    dateFromFilter,
+    dateToFilter,
+    orderStatusFilter,
+    paymentStatusFilter,
+    searchDebounced,
+    selectedQueueTypes,
+    sortBy,
+    sortDir,
+    ticketStatusFilter,
+    totalMaxFilter,
+    totalMinFilter,
+  ])
+
   const clearAllFilters = useCallback(() => {
     setSearchInput('')
     setSearchDebounced('')
@@ -851,10 +1111,102 @@ export default function AdminFulfillmentPage() {
     setTicketStatusFilter('')
     setAssignedFilter('all')
     setAgeBucket('all')
+    setDateFromFilter('')
+    setDateToFilter('')
+    setTotalMinFilter('')
+    setTotalMaxFilter('')
     setSortBy('priority')
     setSortDir('desc')
     setPagination((prev) => ({ ...prev, page: 1 }))
   }, [operatorPrefs.defaultLane])
+
+  const applySavedView = useCallback((view: SavedView) => {
+    const f = view.filters
+    setSelectedQueueTypes(f.selectedQueueTypes.length > 0 ? f.selectedQueueTypes : [operatorPrefs.defaultLane])
+    setOrderStatusFilter(f.orderStatusFilter)
+    setPaymentStatusFilter(f.paymentStatusFilter)
+    setTicketStatusFilter(f.ticketStatusFilter)
+    setAssignedFilter(f.assignedFilter)
+    setAgeBucket(f.ageBucket)
+    setDateFromFilter(f.dateFrom)
+    setDateToFilter(f.dateTo)
+    setTotalMinFilter(f.totalMin)
+    setTotalMaxFilter(f.totalMax)
+    setActiveViewId(view.id)
+    setPagination((prev) => ({ ...prev, page: 1 }))
+  }, [operatorPrefs.defaultLane])
+
+  const saveCurrentView = useCallback(() => {
+    const name = window.prompt('Name this view:')?.trim()
+    if (!name) return
+    const newView: SavedView = {
+      id: `custom-${Date.now()}`,
+      name,
+      filters: {
+        selectedQueueTypes,
+        orderStatusFilter,
+        paymentStatusFilter,
+        ticketStatusFilter,
+        assignedFilter,
+        ageBucket,
+        dateFrom: dateFromFilter,
+        dateTo: dateToFilter,
+        totalMin: totalMinFilter,
+        totalMax: totalMaxFilter,
+      },
+    }
+    setSavedViews((previous) => [...previous, newView])
+    setActiveViewId(newView.id)
+  }, [
+    ageBucket,
+    assignedFilter,
+    dateFromFilter,
+    dateToFilter,
+    orderStatusFilter,
+    paymentStatusFilter,
+    selectedQueueTypes,
+    ticketStatusFilter,
+    totalMaxFilter,
+    totalMinFilter,
+  ])
+
+  const deleteSavedView = useCallback((id: string) => {
+    setSavedViews((previous) => previous.filter((view) => view.id !== id || view.builtIn))
+    setActiveViewId((current) => (current === id ? null : current))
+  }, [])
+
+  // Clear active-view highlight whenever any filter diverges from it.
+  useEffect(() => {
+    if (!activeViewId) return
+    const view = savedViews.find((candidate) => candidate.id === activeViewId)
+    if (!view) return
+    const f = view.filters
+    const matches =
+      JSON.stringify(selectedQueueTypes) === JSON.stringify(f.selectedQueueTypes) &&
+      orderStatusFilter === f.orderStatusFilter &&
+      paymentStatusFilter === f.paymentStatusFilter &&
+      ticketStatusFilter === f.ticketStatusFilter &&
+      assignedFilter === f.assignedFilter &&
+      ageBucket === f.ageBucket &&
+      dateFromFilter === f.dateFrom &&
+      dateToFilter === f.dateTo &&
+      totalMinFilter === f.totalMin &&
+      totalMaxFilter === f.totalMax
+    if (!matches) setActiveViewId(null)
+  }, [
+    activeViewId,
+    savedViews,
+    selectedQueueTypes,
+    orderStatusFilter,
+    paymentStatusFilter,
+    ticketStatusFilter,
+    assignedFilter,
+    ageBucket,
+    dateFromFilter,
+    dateToFilter,
+    totalMinFilter,
+    totalMaxFilter,
+  ])
 
   const toggleQueueType = (queueType: FulfillmentQueueType) => {
     if (!OPERATIONAL_QUEUE_TYPES.includes(queueType)) {
@@ -900,7 +1252,10 @@ export default function AdminFulfillmentPage() {
     }
   }, [activeItem?.orderId, activeItem?.ticketId, context?.order?.id, context?.selectedTicket?.id, fetchContext])
 
-  const purchaseSingleLabel = async (orderId: string) => {
+  const purchaseSingleLabel = async (
+    orderId: string,
+    options?: { rateId?: string; shipmentId?: string }
+  ) => {
     setActionLoading(true)
     const loadingToast = toast.loading('Purchasing shipping label...')
     try {
@@ -909,9 +1264,23 @@ export default function AdminFulfillmentPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          ...(options?.rateId ? { rateId: options.rateId } : {}),
+          ...(options?.shipmentId ? { shipmentId: options.shipmentId } : {}),
+        }),
       })
       const payload = await response.json().catch(() => ({}))
+
+      // 409 = idempotency guard tripped. The order already has a label —
+      // not a hard failure; refresh state and tell the operator.
+      if (response.status === 409 && payload?.alreadyPurchased) {
+        toast.dismiss(loadingToast)
+        toast.info('Label already purchased for this order')
+        await fetchQueue(true)
+        await refreshActiveContext()
+        return
+      }
+
       if (!response.ok) {
         throw new Error(payload.error || 'Failed to purchase shipping label')
       }
@@ -919,7 +1288,7 @@ export default function AdminFulfillmentPage() {
       const labelUrl = payload.label?.labelUrl as string | undefined
       if (labelUrl) {
         setLastSingleLabelUrl(labelUrl)
-        window.open(labelUrl, '_blank', 'noopener,noreferrer')
+        setPreviewLabelUrl(labelUrl)
       }
 
       toast.dismiss(loadingToast)
@@ -1194,6 +1563,7 @@ export default function AdminFulfillmentPage() {
         trackingNumber: orderDraft.trackingNumber,
         carrier: orderDraft.carrier,
         trackingUrl: orderDraft.trackingUrl,
+        estimatedDelivery: orderDraft.estimatedDelivery,
         internalNotes: orderDraft.internalNotes,
       },
       'Order fulfillment details saved'
@@ -1610,15 +1980,41 @@ export default function AdminFulfillmentPage() {
         clear: () => setAgeBucket('all'),
       })
     }
+    if (dateFromFilter || dateToFilter) {
+      chips.push({
+        key: 'dateRange',
+        label: 'Date',
+        value: `${dateFromFilter || '…'} → ${dateToFilter || '…'}`,
+        clear: () => {
+          setDateFromFilter('')
+          setDateToFilter('')
+        },
+      })
+    }
+    if (totalMinFilter || totalMaxFilter) {
+      chips.push({
+        key: 'totalRange',
+        label: 'Total',
+        value: `$${totalMinFilter || '0'} – $${totalMaxFilter || '∞'}`,
+        clear: () => {
+          setTotalMinFilter('')
+          setTotalMaxFilter('')
+        },
+      })
+    }
     return chips
   }, [
     ageBucket,
     assignedFilter,
+    dateFromFilter,
+    dateToFilter,
     orderStatusFilter,
     paymentStatusFilter,
     searchDebounced,
     selectedQueueTypes,
     ticketStatusFilter,
+    totalMaxFilter,
+    totalMinFilter,
   ])
 
   const openBatchPrintUrls = () => {
@@ -1663,6 +2059,7 @@ export default function AdminFulfillmentPage() {
       orderDraft.trackingNumber !== (context.order.trackingNumber || '') ||
       orderDraft.carrier !== (context.order.carrier || '') ||
       orderDraft.trackingUrl !== (context.order.trackingUrl || '') ||
+      orderDraft.estimatedDelivery !== formatDateInputValue(context.order.estimatedDelivery) ||
       orderDraft.internalNotes !== (context.order.internalNotes || '')
     )
   }, [
@@ -1672,12 +2069,14 @@ export default function AdminFulfillmentPage() {
     context?.order?.status,
     context?.order?.trackingNumber,
     context?.order?.trackingUrl,
+    context?.order?.estimatedDelivery,
     orderDraft.carrier,
     orderDraft.internalNotes,
     orderDraft.paymentStatus,
     orderDraft.status,
     orderDraft.trackingNumber,
     orderDraft.trackingUrl,
+    orderDraft.estimatedDelivery,
   ])
 
   const hasTicketDraftChanges = useMemo(() => {
@@ -2036,11 +2435,70 @@ export default function AdminFulfillmentPage() {
         }
         return
       }
+      // `b` — toggle current order in/out of the batch selection
+      if (event.key === 'b') {
+        if (activeItem?.orderId) {
+          event.preventDefault()
+          toggleSelectOrder(activeItem.orderId)
+        }
+        return
+      }
+      // `l` — purchase a label for the current order (preferred), or open
+      // the most recently printed single label as a fallback.
+      if (event.key === 'l') {
+        if (activeItem?.orderId && activeItem.labelEligible) {
+          event.preventDefault()
+          void purchaseSingleLabel(activeItem.orderId)
+          return
+        }
+        if (lastSingleLabelUrl) {
+          event.preventDefault()
+          window.open(lastSingleLabelUrl, '_blank', 'noopener,noreferrer')
+        }
+        return
+      }
+      // `p` — re-open the most recently printed single label (kept for muscle memory)
       if (event.key === 'p') {
         if (lastSingleLabelUrl) {
           event.preventDefault()
           window.open(lastSingleLabelUrl, '_blank', 'noopener,noreferrer')
         }
+        return
+      }
+      // `←` / `→` — navigate prev/next when drawer is open
+      if (event.key === 'ArrowLeft' && isDrawerOpen) {
+        event.preventDefault()
+        moveSelectionByOffset(-1)
+        return
+      }
+      if (event.key === 'ArrowRight' && isDrawerOpen) {
+        event.preventDefault()
+        moveSelectionByOffset(1)
+        return
+      }
+      // `?` — toggle keyboard shortcut help overlay
+      if (event.key === '?') {
+        event.preventDefault()
+        setIsHelpOpen((previous) => !previous)
+        return
+      }
+      // `Escape` — close help, clear batch selection, or close drawer
+      if (event.key === 'Escape') {
+        if (isHelpOpen) {
+          event.preventDefault()
+          setIsHelpOpen(false)
+          return
+        }
+        if (selectedOrderIds.size > 0) {
+          event.preventDefault()
+          setSelectedOrderIds(new Set())
+          return
+        }
+        if (isDrawerOpen) {
+          event.preventDefault()
+          requestCloseDrawer()
+        }
+        return
       }
     }
 
@@ -2048,36 +2506,27 @@ export default function AdminFulfillmentPage() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [activeItem?.orderId, lastSingleLabelUrl, markOrderShipped, moveSelectionByOffset, runPrimaryActionForActive])
+  }, [
+    activeItem?.orderId,
+    activeItem?.labelEligible,
+    lastSingleLabelUrl,
+    markOrderShipped,
+    moveSelectionByOffset,
+    runPrimaryActionForActive,
+    selectedOrderIds.size,
+    isDrawerOpen,
+    isHelpOpen,
+    requestCloseDrawer,
+    // toggleSelectOrder + purchaseSingleLabel are stable inline closures
+    // declared in the component body — referenced via lexical scope.
+  ])
 
   return (
     <AdminLayout
       title="Fulfillment Workbench"
-      subtitle="Legacy-style queue table with side operations drawer"
+      subtitle="Triage, ship, and resolve orders + tickets in one queue"
       contentScroll="hidden"
       contentClassName="p-3 sm:p-4 lg:p-4 pb-20 sm:pb-24 lg:pb-4"
-      headerActions={
-        <div className="flex items-center gap-2">
-          <Link
-            href="/admin/orders"
-            className="h-8 px-2.5 rounded-md border border-white/10 bg-white/5 text-[11px] uppercase tracking-[0.12em] text-white/70 hover:text-white hover:bg-white/10 inline-flex items-center"
-          >
-            Legacy Orders
-          </Link>
-          <Link
-            href="/admin/support/tickets"
-            className="h-8 px-2.5 rounded-md border border-white/10 bg-white/5 text-[11px] uppercase tracking-[0.12em] text-white/70 hover:text-white hover:bg-white/10 inline-flex items-center"
-          >
-            Legacy Tickets
-          </Link>
-          <Link
-            href="/admin/customers"
-            className="h-8 px-2.5 rounded-md border border-white/10 bg-white/5 text-[11px] uppercase tracking-[0.12em] text-white/70 hover:text-white hover:bg-white/10 inline-flex items-center"
-          >
-            Legacy Customers
-          </Link>
-        </div>
-      }
     >
       <div className="h-full min-h-0 flex flex-col gap-3 text-white">
         <div className="sticky top-0 z-30 bg-neutral-950/90 backdrop-blur py-1">
@@ -2109,6 +2558,26 @@ export default function AdminFulfillmentPage() {
               setAgeBucket(value)
               setPagination((prev) => ({ ...prev, page: 1 }))
             }}
+            dateFrom={dateFromFilter}
+            onDateFromChange={(value) => {
+              setDateFromFilter(value)
+              setPagination((prev) => ({ ...prev, page: 1 }))
+            }}
+            dateTo={dateToFilter}
+            onDateToChange={(value) => {
+              setDateToFilter(value)
+              setPagination((prev) => ({ ...prev, page: 1 }))
+            }}
+            totalMin={totalMinFilter}
+            onTotalMinChange={(value) => {
+              setTotalMinFilter(value)
+              setPagination((prev) => ({ ...prev, page: 1 }))
+            }}
+            totalMax={totalMaxFilter}
+            onTotalMaxChange={(value) => {
+              setTotalMaxFilter(value)
+              setPagination((prev) => ({ ...prev, page: 1 }))
+            }}
             sortBy={sortBy}
             onSortByChange={setSortBy}
             sortDir={sortDir}
@@ -2116,6 +2585,8 @@ export default function AdminFulfillmentPage() {
             totalResults={pagination.total}
             refreshing={refreshingQueue}
             onRefresh={() => fetchQueue(true)}
+            onExportCsv={exportQueueCsv}
+            exporting={exporting}
             selectedQueueTypes={selectedQueueTypes}
             onToggleQueueType={toggleQueueType}
             queueTypeCounts={counts.byType}
@@ -2123,104 +2594,28 @@ export default function AdminFulfillmentPage() {
             queueTypes={OPERATIONAL_QUEUE_TYPES}
             onResetFilters={clearAllFilters}
             activeFilterChips={activeFilterChips}
+            operatorPrefs={operatorPrefs}
+            onChangeQuickShip={(value) => setOperatorPrefs((previous) => ({ ...previous, quickShipMode: value }))}
+            onChangeDenseRows={(value) => setOperatorPrefs((previous) => ({ ...previous, denseRows: value }))}
+            onChangeDefaultLane={(value) => {
+              setOperatorPrefs((previous) => ({ ...previous, defaultLane: value }))
+              setSelectedQueueTypes([value])
+            }}
+            onChangeDefaultCarrier={(value) => setOperatorPrefs((previous) => ({ ...previous, defaultCarrier: value }))}
+            onChangeDefaultService={(value) => setOperatorPrefs((previous) => ({ ...previous, defaultService: value }))}
+            savedViewsSlot={
+              <FulfillmentSavedViews
+                views={savedViews}
+                activeViewId={activeViewId}
+                onApplyView={applySavedView}
+                onSaveCurrent={saveCurrentView}
+                onDeleteView={deleteSavedView}
+              />
+            }
           />
         </div>
 
-        <section className="rounded-xl border border-white/10 bg-neutral-900/80 px-3 py-2.5 flex flex-wrap items-center gap-2">
-          <label className="inline-flex items-center gap-1.5 text-[11px] text-white/70">
-            <input
-              type="checkbox"
-              checked={operatorPrefs.quickShipMode}
-              onChange={(event) =>
-                setOperatorPrefs((previous) => ({ ...previous, quickShipMode: event.target.checked }))
-              }
-              className="h-3.5 w-3.5 rounded border border-white/20 bg-white/5"
-            />
-            Quick Ship Mode
-          </label>
-          <label className="inline-flex items-center gap-1.5 text-[11px] text-white/70">
-            <input
-              type="checkbox"
-              checked={operatorPrefs.denseRows}
-              onChange={(event) =>
-                setOperatorPrefs((previous) => ({ ...previous, denseRows: event.target.checked }))
-              }
-              className="h-3.5 w-3.5 rounded border border-white/20 bg-white/5"
-            />
-            Dense Rows
-          </label>
-          <div className="ml-auto flex items-center gap-2">
-            <select
-              value={operatorPrefs.defaultLane}
-              onChange={(event) => {
-                const lane = event.target.value as FulfillmentQueueType
-                setOperatorPrefs((previous) => ({ ...previous, defaultLane: lane }))
-                setSelectedQueueTypes([lane])
-              }}
-              className="h-8 px-2 rounded-md border border-white/10 bg-white/5 text-[11px] text-white"
-            >
-              {OPERATIONAL_QUEUE_TYPES.map((queueType) => (
-                <option key={queueType} value={queueType} className="bg-neutral-900">
-                  Default: {QUEUE_LABELS[queueType]}
-                </option>
-              ))}
-            </select>
-            <input
-              value={operatorPrefs.defaultCarrier}
-              onChange={(event) =>
-                setOperatorPrefs((previous) => ({ ...previous, defaultCarrier: event.target.value }))
-              }
-              placeholder="Carrier"
-              className="h-8 w-28 px-2 rounded-md border border-white/10 bg-white/5 text-[11px] text-white placeholder:text-white/35"
-            />
-            <input
-              value={operatorPrefs.defaultService}
-              onChange={(event) =>
-                setOperatorPrefs((previous) => ({ ...previous, defaultService: event.target.value }))
-              }
-              placeholder="Service"
-              className="h-8 w-28 px-2 rounded-md border border-white/10 bg-white/5 text-[11px] text-white placeholder:text-white/35"
-            />
-          </div>
-        </section>
-
-        {selectedCount > 0 ? (
-          <section className="sticky top-[11.1rem] z-20 border border-[#FF3131]/35 rounded-xl bg-[#FF3131]/12 px-3 py-2 flex items-center gap-3">
-            <CheckSquare className="w-4.5 h-4.5 text-[#ff6b6b]" />
-            <p className="text-sm text-white">
-              {selectedCount} order{selectedCount > 1 ? 's' : ''} selected
-            </p>
-            <button
-              onClick={() => void purchaseBatchLabels(selectedForLabel)}
-              disabled={actionLoading || selectedForLabel.length === 0}
-              className="h-8 px-3 rounded-md bg-[#FF3131] text-white text-xs uppercase tracking-[0.12em] hover:bg-[#ff4747] disabled:opacity-60"
-            >
-              Buy Labels ({selectedForLabel.length})
-            </button>
-            <button
-              onClick={() => void markShippedBatch(selectedForMarkShipped)}
-              disabled={actionLoading || selectedForMarkShipped.length === 0}
-              className="h-8 px-3 rounded-md border border-white/15 text-xs uppercase tracking-[0.12em] text-white/75 hover:text-white hover:bg-white/10 disabled:opacity-60"
-            >
-              Mark Shipped ({selectedForMarkShipped.length})
-            </button>
-            <button
-              onClick={() => void sendTrackingUpdatesBatch(selectedForTrackingUpdate)}
-              disabled={actionLoading || selectedForTrackingUpdate.length === 0}
-              className="h-8 px-3 rounded-md border border-white/15 text-xs uppercase tracking-[0.12em] text-white/75 hover:text-white hover:bg-white/10 disabled:opacity-60"
-            >
-              Send Tracking ({selectedForTrackingUpdate.length})
-            </button>
-            {latestBatchPrintUrls.length > 0 ? (
-              <button
-                onClick={openBatchPrintUrls}
-                className="h-8 px-3 rounded-md border border-white/15 text-xs uppercase tracking-[0.12em] text-white/75 hover:text-white hover:bg-white/10"
-              >
-                Print All
-              </button>
-            ) : null}
-          </section>
-        ) : null}
+        {/* Selection banner moved to <FulfillmentBatchBar> at the bottom of the page */}
 
         {(batchProgress.running || batchProgress.processed > 0) && batchProgress.action ? (
           <section className="rounded-xl border border-white/10 bg-neutral-900/80 px-3 py-2.5 flex flex-wrap items-center gap-3">
@@ -2268,6 +2663,9 @@ export default function AdminFulfillmentPage() {
             onToggleSelectAll={toggleSelectAll}
             onToggleSelectOrder={toggleSelectOrder}
             onPurchaseSingleLabel={purchaseSingleLabel}
+            onMarkShippedRow={markOrderShipped}
+            onPrintLastLabel={lastSingleLabelUrl ? () => window.open(lastSingleLabelUrl, '_blank', 'noopener,noreferrer') : undefined}
+            lastLabelAvailable={Boolean(lastSingleLabelUrl)}
             onRunNextAction={(row) => {
               const source = queueItems.find((item) => item.id === row.id)
               if (!source) return
@@ -2297,6 +2695,10 @@ export default function AdminFulfillmentPage() {
             onChangeTab={setActiveDrawerTab}
             tabAvailability={tabAvailability}
             onRequestClose={requestCloseDrawer}
+            onNavigatePrev={() => moveSelectionByOffset(-1)}
+            onNavigateNext={() => moveSelectionByOffset(1)}
+            hasPrev={activeQueueIndex > 0}
+            hasNext={activeQueueIndex >= 0 && activeQueueIndex < queueItems.length - 1}
             context={context}
             fulfillmentReadiness={context?.fulfillmentReadiness || null}
             selectedTicket={selectedTicket}
@@ -2331,6 +2733,10 @@ export default function AdminFulfillmentPage() {
             statusClassName={getStatusColor}
             onSaveOrder={saveOrderFromDrawer}
             onPurchaseSingleLabel={purchaseSingleLabelFromDrawer}
+            onChooseShippingRate={(rateId, shipmentId) => {
+              if (!context?.order?.id) return
+              void purchaseSingleLabel(context.order.id, { rateId, shipmentId })
+            }}
             onMarkShipped={markOrderShippedFromDrawer}
             onNotifyTrackingUpdate={notifyTrackingUpdateFromDrawer}
             onRunPrimaryAction={runPrimaryActionForActive}
@@ -2371,6 +2777,30 @@ export default function AdminFulfillmentPage() {
         ) : null}
 
       </div>
+
+      <KeyboardShortcutHelp isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+
+      <LabelPreviewModal
+        isOpen={Boolean(previewLabelUrl)}
+        url={previewLabelUrl}
+        onClose={() => setPreviewLabelUrl(null)}
+      />
+
+      {/* Sticky bottom batch bar — appears whenever orders are selected */}
+      <FulfillmentBatchBar
+        selectedCount={selectedCount}
+        selectedTotal={selectedTotal}
+        labelableCount={selectedForLabel.length}
+        markShippableCount={selectedForMarkShipped.length}
+        trackingNotifiableCount={selectedForTrackingUpdate.length}
+        latestPrintCount={latestBatchPrintUrls.length}
+        loading={actionLoading}
+        onClear={() => setSelectedOrderIds(new Set())}
+        onPurchaseLabels={() => void purchaseBatchLabels(selectedForLabel)}
+        onMarkShipped={() => void markShippedBatch(selectedForMarkShipped)}
+        onSendTracking={() => void sendTrackingUpdatesBatch(selectedForTrackingUpdate)}
+        onPrintLabels={openBatchPrintUrls}
+      />
     </AdminLayout>
   )
 }

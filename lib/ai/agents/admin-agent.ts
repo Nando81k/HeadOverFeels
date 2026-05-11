@@ -16,7 +16,7 @@ export interface AdminContext {
   adminId: string
   adminName: string
   adminEmail: string
-  currentPage: string        // e.g., '/admin/orders', '/admin/customers'
+  currentPage: string        // e.g., '/admin/fulfillment', '/admin/customers'
   pageContext?: {            // Additional context from the current page
     orderId?: string
     customerId?: string
@@ -133,7 +133,7 @@ function getRelevantTools(currentPage: string): AdminToolConfig[] {
   
   // Page-specific tool prioritization
   const pageToolMap: Record<string, string[]> = {
-    '/admin/orders': ['getOrderDetails', 'listOrders', 'updateOrderStatus', 'processRefund'],
+    '/admin/fulfillment': ['getOrderDetails', 'listOrders', 'updateOrderStatus', 'processRefund'],
     '/admin/customers': ['getCustomerProfile', 'listCustomers', 'adjustLoyaltyPoints', 'addCustomerNote'],
     '/admin/support': ['listTickets', 'getTicketDetails', 'updateTicketStatus', 'assignTicket', 'sendTicketResponse', 'suggestTicketResponse'],
     '/admin/analytics': ['getDailySummary', 'getRevenueAnalytics', 'getTopProducts'],

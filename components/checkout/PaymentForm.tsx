@@ -4,6 +4,7 @@ import { useState, FormEvent } from 'react'
 import { useStripe, useElements, PaymentElement } from '@stripe/react-stripe-js'
 import { Button } from '@/components/ui/button'
 import { CircleNotch, ShieldCheck, Lock } from '@phosphor-icons/react'
+import { useTierAccent } from '@/lib/loyalty/use-tier-accent'
 
 interface PaymentFormProps {
   amount: number
@@ -15,6 +16,7 @@ interface PaymentFormProps {
 export function PaymentForm({ amount, orderId, onSuccess, onError }: PaymentFormProps) {
   const stripe = useStripe()
   const elements = useElements()
+  const tierAccent = useTierAccent()
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string>('')
 
@@ -78,7 +80,7 @@ export function PaymentForm({ amount, orderId, onSuccess, onError }: PaymentForm
         <PaymentElement />
         
         {errorMessage && (
-          <div className="mt-4 p-4 bg-[#FF3131]/10 border border-[#FF3131]/20 rounded-2xl">
+          <div className="mt-4 border-l-2 border-[#FF3131] bg-[#FF3131]/4 py-2 pl-3">
             <p className="text-sm text-[#FF3131] font-medium">{errorMessage}</p>
           </div>
         )}
@@ -87,7 +89,8 @@ export function PaymentForm({ amount, orderId, onSuccess, onError }: PaymentForm
       <Button
         type="submit"
         disabled={!stripe || loading}
-        className="w-full bg-black hover:bg-black/80 text-white font-bold py-6 text-base rounded-full transition-all duration-300 hover:scale-[1.02] hover:shadow-lg disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none"
+        style={{ backgroundColor: tierAccent.accent }}
+        className="w-full text-white font-black uppercase tracking-[0.16em] py-6 text-xs rounded-none transition-all duration-300 hover:brightness-90 hover:shadow-lg disabled:opacity-50 disabled:hover:brightness-100 disabled:hover:shadow-none"
         size="lg"
       >
         {loading ? (

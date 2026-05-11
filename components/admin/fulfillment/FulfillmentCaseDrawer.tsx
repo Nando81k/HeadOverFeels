@@ -4,7 +4,9 @@ import Link from 'next/link'
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ArrowSquareOut,
+  CaretDown,
   ChatCircleText,
+  CheckCircle,
   Clock,
   CopySimple,
   CreditCard,
@@ -25,6 +27,7 @@ import type { FulfillmentDrawerTab } from '@/lib/fulfillment/console'
 import type { FulfillmentNextAction } from '@/lib/fulfillment/queue'
 import type { TrackingResult } from '@/lib/shipping/tracking'
 import { toast } from '@/lib/toast'
+import { ShippingRatePicker } from './ShippingRatePicker'
 
 type FulfillmentOrderContext = {
   id: string
@@ -207,6 +210,7 @@ type OrderDraft = {
   trackingNumber: string
   carrier: string
   trackingUrl: string
+  estimatedDelivery: string
   internalNotes: string
 }
 
@@ -234,6 +238,10 @@ interface FulfillmentCaseDrawerProps {
   onChangeTab: (tab: FulfillmentDrawerTab) => void
   tabAvailability: Record<FulfillmentDrawerTab, boolean>
   onRequestClose: () => void
+  onNavigatePrev?: () => void
+  onNavigateNext?: () => void
+  hasPrev?: boolean
+  hasNext?: boolean
   context: FulfillmentContext
   fulfillmentReadiness?: {
     hasOrder: boolean
@@ -277,6 +285,8 @@ interface FulfillmentCaseDrawerProps {
   statusClassName?: (status: string | null | undefined) => string
   onSaveOrder: () => void
   onPurchaseSingleLabel: () => void
+  /** Operator picked a specific carrier+service rate for the buy step. */
+  onChooseShippingRate?: (rateId: string, shipmentId: string) => void
   onMarkShipped: () => void
   onNotifyTrackingUpdate: () => void
   onRunPrimaryAction: () => void
@@ -326,13 +336,6 @@ function getDefaultStatusClass(status: string | null | undefined) {
   return DEFAULT_STATUS_CLASS
 }
 
-function buildDetailsHref(orderId: string | null | undefined, ticketId: string | null | undefined, tab: string) {
-  const params = new URLSearchParams()
-  if (orderId) params.set('orderId', orderId)
-  if (ticketId) params.set('ticketId', ticketId)
-  if (tab) params.set('tab', tab)
-  return `/admin/fulfillment/details${params.toString() ? `?${params.toString()}` : ''}`
-}
 
 function normalizeImage(images: unknown): string | null {
   if (!images) return null
@@ -416,6 +419,200 @@ function getGuidedActionLabel(stepId: FulfillmentReadinessStepId) {
   }
 }
 
+type StepState = 'done' | 'active' | 'blocked' | 'pending'
+
+interface TimelineStep {
+  id: FulfillmentReadinessStepId
+  label: string
+  ready: boolean
+  reason?: string
+}
+
+interface FulfillmentTimelineProps {
+  steps: TimelineStep[]
+  orderStatus: string
+  hasTrackingNumber: boolean
+  hasLabelOpened: boolean
+  shippedAt: string | null
+  actionLoading: boolean
+  canPrintLabel: boolean
+  onRunStep: (stepId: FulfillmentReadinessStepId) => void
+  /** Order id required by the inline rate picker (active Buy label step). */
+  orderId?: string
+  /** Operator picked a specific carrier + service tier for the buy step. */
+  onChooseShippingRate?: (rateId: string, shipmentId: string) => void
+  /** Customer's selected shipping method at checkout (e.g. "Priority Mail"). */
+  customerShippingMethod?: string | null
+  /** Amount the customer paid for shipping at checkout. */
+  customerShippingPaid?: number | null
+}
+
+/**
+ * Vertical step-by-step timeline of the order's fulfillment progress.
+ *
+ * Replaces the workbench-feel "Guided Fulfillment Stack" with a numbered
+ * timeline where state at each step is derived from the order itself:
+ *  - done: order has progressed past this step
+ *  - active: first non-done step that's ready (i.e., what to do next)
+ *  - blocked: not ready, with a reason from the readiness data
+ *  - pending: not yet reached (still upstream blockers)
+ *
+ * Action buttons appear inline only on the active or blocked step, so the
+ * operator's eye lands on a single CTA at a time. Connecting line + numbered
+ * circles communicate forward motion.
+ */
+function FulfillmentTimeline({
+  steps,
+  orderStatus,
+  hasTrackingNumber,
+  hasLabelOpened,
+  shippedAt,
+  actionLoading,
+  canPrintLabel,
+  onRunStep,
+  orderId,
+  onChooseShippingRate,
+  customerShippingMethod,
+  customerShippingPaid,
+}: FulfillmentTimelineProps) {
+  const isDoneFor = (step: TimelineStep): boolean => {
+    switch (step.id) {
+      case 'validate_address':
+        // Validate is a passive gate — done when the address is valid
+        // (which is exactly what `step.ready` tells us for this step).
+        return step.ready
+      case 'buy_label':
+        return hasTrackingNumber
+      case 'print_label':
+        return hasLabelOpened || orderStatus === 'SHIPPED' || orderStatus === 'DELIVERED'
+      case 'mark_shipped':
+        return orderStatus === 'SHIPPED' || orderStatus === 'DELIVERED'
+      case 'notify_customer':
+        return Boolean(shippedAt)
+      default:
+        return false
+    }
+  }
+
+  const firstActiveIndex = steps.findIndex((step) => !isDoneFor(step))
+
+  return (
+    <ol className="space-y-0">
+      {steps.map((step, index) => {
+        const isLast = index === steps.length - 1
+        const done = isDoneFor(step)
+        let state: StepState
+        if (done) state = 'done'
+        else if (index === firstActiveIndex && step.ready) state = 'active'
+        else if (index === firstActiveIndex && !step.ready) state = 'blocked'
+        else state = 'pending'
+
+        const circleClass =
+          state === 'done'
+            ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-300'
+            : state === 'active'
+              ? 'border-[#FF3131] bg-[#FF3131] text-white'
+              : state === 'blocked'
+                ? 'border-amber-500/60 bg-amber-500/15 text-amber-300'
+                : 'border-white/15 bg-white/5 text-white/40'
+
+        const cardClass =
+          state === 'active'
+            ? 'border-[#FF3131]/40 bg-[#FF3131]/[0.06]'
+            : state === 'done'
+              ? 'border-emerald-500/15 bg-emerald-500/[0.04]'
+              : state === 'blocked'
+                ? 'border-amber-500/25 bg-amber-500/[0.05]'
+                : 'border-white/10 bg-white/[0.02]'
+
+        const titleClass =
+          state === 'pending' ? 'text-white/55' : state === 'blocked' ? 'text-amber-100' : 'text-white'
+
+        const stateLabel =
+          state === 'done' ? 'Done' : state === 'active' ? 'Now' : state === 'blocked' ? 'Blocked' : 'Up next'
+        const stateLabelClass =
+          state === 'done'
+            ? 'text-emerald-300'
+            : state === 'active'
+              ? 'text-[#ff8080]'
+              : state === 'blocked'
+                ? 'text-amber-300'
+                : 'text-white/40'
+
+        const showAction = state === 'active' || state === 'blocked'
+        const buttonDisabled =
+          actionLoading ||
+          (step.id !== 'validate_address' && !step.ready) ||
+          (step.id === 'print_label' && !canPrintLabel)
+
+        return (
+          <li key={step.id} className="relative pb-3 pl-12 last:pb-0">
+            {!isLast ? (
+              <span
+                aria-hidden
+                className={`absolute left-4 top-8 bottom-0 w-px ${
+                  done ? 'bg-emerald-500/30' : 'bg-white/10'
+                }`}
+              />
+            ) : null}
+
+            <span
+              aria-hidden
+              className={`absolute left-0 top-0 h-8 w-8 rounded-full border-2 inline-flex items-center justify-center ${circleClass}`}
+            >
+              {state === 'done' ? (
+                <CheckCircle weight="fill" className="w-5 h-5" />
+              ) : (
+                <span className="text-[11px] font-bold tabular-nums">{index + 1}</span>
+              )}
+            </span>
+
+            <div className={`rounded-lg border px-3 py-2.5 ${cardClass}`}>
+              <div className="flex items-start justify-between gap-2">
+                <p className={`text-[13px] font-semibold ${titleClass}`}>{step.label}</p>
+                <span
+                  className={`text-[10px] font-bold uppercase tracking-[0.14em] shrink-0 ${stateLabelClass}`}
+                >
+                  {stateLabel}
+                </span>
+              </div>
+              {!done && step.reason ? (
+                <p className="mt-1 text-[11px] text-amber-100/85">{step.reason}</p>
+              ) : null}
+              {showAction ? (
+                <div className="mt-2.5">
+                  {step.id === 'buy_label' && state === 'active' && orderId && onChooseShippingRate ? (
+                    <ShippingRatePicker
+                      orderId={orderId}
+                      disabled={actionLoading}
+                      onChooseRate={onChooseShippingRate}
+                      customerShippingMethod={customerShippingMethod}
+                      customerShippingPaid={customerShippingPaid}
+                    />
+                  ) : (
+                    <button
+                      data-testid={`guided-step-action-${step.id}`}
+                      onClick={() => onRunStep(step.id)}
+                      disabled={buttonDisabled}
+                      className={`h-8 px-3 rounded-md text-[11px] font-bold uppercase tracking-[0.12em] transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                        state === 'active'
+                          ? 'bg-[#FF3131] text-white hover:bg-[#ff4747]'
+                          : 'border border-white/10 bg-white/5 text-white/80 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      {getGuidedActionLabel(step.id)}
+                    </button>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
 function MoneyMetric({
   label,
   value,
@@ -428,12 +625,12 @@ function MoneyMetric({
   tone?: string
 }) {
   return (
-    <div className="rounded-md border border-white/10 bg-white/5 p-2.5">
-      <div className="flex items-center justify-between gap-2 mb-1">
-        <p className="text-[10px] uppercase tracking-[0.12em] text-white/45">{label}</p>
-        <Icon className="w-3.5 h-3.5 text-white/45" />
+    <div className="rounded-md border border-white/10 bg-white/5 px-2.5 sm:px-3 py-2 sm:py-2.5">
+      <div className="flex items-center justify-between gap-2 mb-1 sm:mb-1.5">
+        <p className="text-[10px] uppercase tracking-[0.12em] text-white/45 truncate">{label}</p>
+        <Icon className="w-3.5 h-3.5 text-white/45 shrink-0" />
       </div>
-      <p className={`text-sm font-semibold ${tone}`}>{value}</p>
+      <p className={`text-sm font-semibold truncate ${tone}`}>{value}</p>
     </div>
   )
 }
@@ -450,56 +647,34 @@ function SectionTitle({ icon: Icon, title }: { icon: typeof Receipt; title: stri
 }
 
 function QuickLinks({
-  detailHref,
-  orderId,
   ticketId,
   customerId,
 }: {
-  detailHref: string
-  orderId: string | null | undefined
   ticketId: string | null | undefined
   customerId: string | null | undefined
 }) {
+  if (!ticketId && !customerId) return null
+
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5">
-      <Link
-        href={detailHref}
-        className="h-7 px-2.5 rounded-md border border-white/10 text-[10px] uppercase tracking-[0.12em] text-white/75 hover:text-white hover:bg-white/10 inline-flex items-center gap-1"
-      >
-        <ArrowSquareOut className="w-3.5 h-3.5" />
-        Open Full Details
-      </Link>
-      <details className="relative">
-        <summary className="list-none h-7 px-2.5 rounded-md border border-white/10 text-[10px] uppercase tracking-[0.12em] text-white/65 hover:text-white hover:bg-white/10 inline-flex items-center gap-1 cursor-pointer">
-          More Actions
-        </summary>
-        <div className="absolute right-0 mt-1 w-40 rounded-md border border-white/10 bg-neutral-900 shadow-xl p-1.5 flex flex-col gap-1 z-20">
-          {orderId ? (
-            <Link
-              href={`/admin/orders/${orderId}`}
-              className="h-7 px-2 rounded text-[10px] uppercase tracking-[0.12em] text-white/70 hover:text-white hover:bg-white/10 inline-flex items-center"
-            >
-              Legacy Order
-            </Link>
-          ) : null}
-          {ticketId ? (
-            <Link
-              href={`/admin/support/tickets/${ticketId}`}
-              className="h-7 px-2 rounded text-[10px] uppercase tracking-[0.12em] text-white/70 hover:text-white hover:bg-white/10 inline-flex items-center"
-            >
-              Legacy Ticket
-            </Link>
-          ) : null}
-          {customerId ? (
-            <Link
-              href={`/admin/customers/${customerId}`}
-              className="h-7 px-2 rounded text-[10px] uppercase tracking-[0.12em] text-white/70 hover:text-white hover:bg-white/10 inline-flex items-center"
-            >
-              Legacy Customer
-            </Link>
-          ) : null}
-        </div>
-      </details>
+      {ticketId ? (
+        <Link
+          href={`/admin/support/tickets/${ticketId}`}
+          className="h-7 px-2.5 rounded-md border border-white/10 text-[10px] uppercase tracking-[0.12em] text-white/75 hover:text-white hover:bg-white/10 inline-flex items-center gap-1"
+        >
+          <ArrowSquareOut className="w-3.5 h-3.5" />
+          Open Ticket
+        </Link>
+      ) : null}
+      {customerId ? (
+        <Link
+          href={`/admin/customers/${customerId}`}
+          className="h-7 px-2.5 rounded-md border border-white/10 text-[10px] uppercase tracking-[0.12em] text-white/75 hover:text-white hover:bg-white/10 inline-flex items-center gap-1"
+        >
+          <ArrowSquareOut className="w-3.5 h-3.5" />
+          Open Customer
+        </Link>
+      ) : null}
     </div>
   )
 }
@@ -513,6 +688,10 @@ export function FulfillmentCaseDrawer({
   onChangeTab,
   tabAvailability,
   onRequestClose,
+  onNavigatePrev,
+  onNavigateNext,
+  hasPrev = false,
+  hasNext = false,
   context,
   fulfillmentReadiness,
   selectedTicket,
@@ -547,6 +726,7 @@ export function FulfillmentCaseDrawer({
   statusClassName,
   onSaveOrder,
   onPurchaseSingleLabel,
+  onChooseShippingRate,
   onMarkShipped,
   onNotifyTrackingUpdate,
   onRunPrimaryAction,
@@ -563,7 +743,6 @@ export function FulfillmentCaseDrawer({
   const customer = context?.customer || null
   const relatedTickets = context?.relatedTickets || []
   const statusClass = statusClassName || getDefaultStatusClass
-  const detailHref = buildDetailsHref(order?.id, selectedTicket?.id, activeTab === 'summary' ? 'order' : activeTab)
 
   const [trackingLoading, setTrackingLoading] = useState(false)
   const [trackingData, setTrackingData] = useState<TrackingResult | null>(null)
@@ -707,14 +886,14 @@ export function FulfillmentCaseDrawer({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed inset-y-0 right-0 z-50 w-full max-w-[760px] border-l border-white/10 bg-neutral-900 shadow-2xl"
+            className="fixed inset-y-0 right-0 z-50 w-full max-w-[960px] flex flex-col border-l border-white/10 bg-neutral-900 shadow-2xl"
           >
-            <header className="px-4 py-3 border-b border-white/10 bg-neutral-900">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/45">{activeRecordHeader.secondaryLabel}</p>
-                  <p className="text-sm font-semibold text-white mt-0.5">{activeRecordHeader.primaryLabel}</p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <header className="shrink-0 px-4 py-3 sm:px-6 sm:py-4 border-b border-white/10 bg-neutral-900">
+              <div className="flex items-start justify-between gap-2 sm:gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/45 truncate">{activeRecordHeader.secondaryLabel}</p>
+                  <p className="text-sm sm:text-base font-semibold text-white mt-1 truncate">{activeRecordHeader.primaryLabel}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
                     {activeQueueRow ? (
                       <>
                         <span className="inline-flex px-2 py-0.5 rounded border border-white/10 bg-white/5 text-[10px] uppercase tracking-[0.12em] text-white/70">
@@ -738,6 +917,28 @@ export function FulfillmentCaseDrawer({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {onNavigatePrev || onNavigateNext ? (
+                    <div className="hidden sm:flex items-center rounded-md border border-white/10 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={onNavigatePrev}
+                        disabled={!hasPrev}
+                        aria-label="Previous order"
+                        className="h-8 w-8 inline-flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        ‹
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onNavigateNext}
+                        disabled={!hasNext}
+                        aria-label="Next order"
+                        className="h-8 w-8 inline-flex items-center justify-center border-l border-white/10 text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        ›
+                      </button>
+                    </div>
+                  ) : null}
                   <button
                     onClick={() => {
                       const recordCode = order?.orderNumber || selectedTicket?.ticketNumber
@@ -757,7 +958,7 @@ export function FulfillmentCaseDrawer({
                   </button>
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-1.5">
+              <div className="mt-4 flex flex-wrap gap-2">
                 {DRAWER_TABS.map((tab) => {
                   const active = tab.key === activeTab
                   const disabled = !tabAvailability[tab.key]
@@ -768,7 +969,7 @@ export function FulfillmentCaseDrawer({
                       data-testid={`fulfillment-drawer-tab-${tab.key}`}
                       onClick={() => onChangeTab(tab.key)}
                       disabled={disabled}
-                      className={`h-7 px-2.5 rounded-md border text-[10px] uppercase tracking-[0.12em] inline-flex items-center gap-1.5 ${
+                      className={`h-8 px-3 rounded-md border text-[11px] uppercase tracking-[0.12em] inline-flex items-center gap-1.5 ${
                         active
                           ? 'border-white bg-white text-black'
                           : disabled
@@ -784,16 +985,14 @@ export function FulfillmentCaseDrawer({
               </div>
             </header>
 
-            <div className="h-[calc(100%-117px)] overflow-y-auto bg-neutral-950/50 p-3 space-y-3">
+            <div className="flex-1 min-h-0 overflow-y-auto bg-neutral-950/50 p-3 sm:p-5 space-y-3 sm:space-y-4">
               {loading ? <p className="text-sm text-white/55">Loading case details...</p> : null}
 
               {activeTab === 'summary' ? (
-                <section className="rounded-lg border border-white/10 bg-neutral-900 p-3 space-y-3">
+                <section className="rounded-lg border border-white/10 bg-neutral-900 p-3 sm:p-4 space-y-3 sm:space-y-4">
                   <div className="flex items-center justify-between gap-2">
                     <SectionTitle icon={Receipt} title="Summary" />
                     <QuickLinks
-                      detailHref={detailHref}
-                      orderId={order?.id}
                       ticketId={selectedTicket?.id}
                       customerId={customer?.id}
                     />
@@ -803,7 +1002,7 @@ export function FulfillmentCaseDrawer({
                     <p className="text-sm text-white/55">Select a queue row to load details.</p>
                   ) : (
                     <>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         <MoneyMetric
                           label="Subtotal"
                           value={formatCurrency(order?.subtotal)}
@@ -837,28 +1036,28 @@ export function FulfillmentCaseDrawer({
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-[11px]">
-                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2">
+                      <div className="grid grid-cols-2 gap-3 text-[11px]">
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
                           <p className="text-white/45 mb-1">Order ID</p>
                           <p className="text-white">{order?.orderNumber || '-'}</p>
                         </div>
-                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2">
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
                           <p className="text-white/45 mb-1">Ticket ID</p>
                           <p className="text-white">{selectedTicket?.ticketNumber || '-'}</p>
                         </div>
-                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2">
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
                           <p className="text-white/45 mb-1">Customer</p>
                           <p className="text-white truncate">{customer?.name || customer?.email || '-'}</p>
                         </div>
-                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2">
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
                           <p className="text-white/45 mb-1">Queue Lane</p>
                           <p className="text-white">{activeRecordHeader.secondaryLabel || '-'}</p>
                         </div>
-                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2">
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
                           <p className="text-white/45 mb-1">Created</p>
                           <p className="text-white">{formatDate(order?.createdAt || selectedTicket?.createdAt)}</p>
                         </div>
-                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2">
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
                           <p className="text-white/45 mb-1">Updated</p>
                           <p className="text-white">{formatDate(order?.updatedAt || selectedTicket?.updatedAt)}</p>
                         </div>
@@ -887,9 +1086,9 @@ export function FulfillmentCaseDrawer({
                         ) : null}
                       </div>
 
-                      <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5 space-y-2">
+                      <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5 sm:p-3 space-y-2.5 sm:space-y-3">
                         <SectionTitle icon={Clock} title="Recent Activity" />
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1">
                             <p className="text-[10px] uppercase tracking-[0.12em] text-white/45">Recent Orders</p>
                             {context?.recentOrders?.slice(0, 4).map((recentOrder) => (
@@ -933,12 +1132,10 @@ export function FulfillmentCaseDrawer({
               ) : null}
 
               {activeTab === 'fulfillment' ? (
-                <section className="rounded-lg border border-white/10 bg-neutral-900 p-3 space-y-3">
+                <section className="rounded-lg border border-white/10 bg-neutral-900 p-3 sm:p-4 space-y-3 sm:space-y-4">
                   <div className="flex items-center justify-between gap-2">
                     <SectionTitle icon={Truck} title="Fulfillment" />
                     <QuickLinks
-                      detailHref={detailHref}
-                      orderId={order?.id}
                       ticketId={selectedTicket?.id}
                       customerId={customer?.id}
                     />
@@ -948,7 +1145,42 @@ export function FulfillmentCaseDrawer({
                     <p className="text-sm text-white/55">No order context for fulfillment operations.</p>
                   ) : (
                     <>
-                      <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5 space-y-2">
+                      {visibleReadinessSteps.length ? (
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <SectionTitle icon={Clock} title="Fulfillment progress" />
+                            <p className="text-[10px] uppercase tracking-[0.14em] text-white/35">
+                              Step {Math.max(1, visibleReadinessSteps.findIndex((step) => {
+                                const status = order.status
+                                const hasTracking = Boolean(orderDraft.trackingNumber || order.trackingNumber)
+                                if (step.id === 'validate_address') return !step.ready
+                                if (step.id === 'buy_label') return !hasTracking
+                                if (step.id === 'print_label') return !(canPrintLabel || status === 'SHIPPED' || status === 'DELIVERED')
+                                if (step.id === 'mark_shipped') return !(status === 'SHIPPED' || status === 'DELIVERED')
+                                if (step.id === 'notify_customer') return !order.shippedAt
+                                return true
+                              }) + 1)} of {visibleReadinessSteps.length}
+                            </p>
+                          </div>
+                          <FulfillmentTimeline
+                            steps={visibleReadinessSteps}
+                            orderStatus={order.status}
+                            hasTrackingNumber={Boolean(orderDraft.trackingNumber || order.trackingNumber)}
+                            hasLabelOpened={canPrintLabel}
+                            shippedAt={order.shippedAt}
+                            actionLoading={actionLoading}
+                            canPrintLabel={canPrintLabel}
+                            onRunStep={runGuidedFulfillmentAction}
+                            orderId={order.id}
+                            onChooseShippingRate={onChooseShippingRate}
+                            customerShippingMethod={order.shippingMethod}
+                            customerShippingPaid={order.shipping}
+                          />
+                        </div>
+                      ) : null}
+
+                      {(orderDraft.trackingNumber || order.trackingNumber || order.status === 'SHIPPED' || order.status === 'DELIVERED') ? (
+                      <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5 sm:p-3 space-y-2.5 sm:space-y-3">
                         <div className="flex items-center justify-between">
                           <SectionTitle icon={Truck} title="Live Courier Tracking" />
                           <div className="flex items-center gap-2">
@@ -968,20 +1200,20 @@ export function FulfillmentCaseDrawer({
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
-                          <div className="rounded border border-white/10 bg-white/5 p-2">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[11px]">
+                          <div className="rounded border border-white/10 bg-white/5 p-2.5">
                             <p className="text-white/45 mb-1">Tracking #</p>
                             <p className="text-white truncate">{activeTrackingNumber || 'Not set'}</p>
                           </div>
-                          <div className="rounded border border-white/10 bg-white/5 p-2">
+                          <div className="rounded border border-white/10 bg-white/5 p-2.5">
                             <p className="text-white/45 mb-1">Carrier</p>
                             <p className="text-white truncate">{orderDraft.carrier || order.carrier || '-'}</p>
                           </div>
-                          <div className="rounded border border-white/10 bg-white/5 p-2">
+                          <div className="rounded border border-white/10 bg-white/5 p-2.5">
                             <p className="text-white/45 mb-1">Status</p>
                             <p className="text-white truncate">{trackingData?.statusDescription || order.status}</p>
                           </div>
-                          <div className="rounded border border-white/10 bg-white/5 p-2">
+                          <div className="rounded border border-white/10 bg-white/5 p-2.5">
                             <p className="text-white/45 mb-1">Progress</p>
                             <p className="text-white">{trackingData ? `${trackingData.transitProgress}%` : '-'}</p>
                           </div>
@@ -1039,8 +1271,9 @@ export function FulfillmentCaseDrawer({
                           </div>
                         ) : null}
                       </div>
+                      ) : null}
 
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         <MoneyMetric label="Subtotal" value={formatCurrency(order.subtotal)} icon={Receipt} />
                         <MoneyMetric label="Discount" value={formatCurrency(order.discount)} icon={Receipt} tone="text-emerald-300" />
                         <MoneyMetric label="Shipping" value={formatCurrency(order.shipping)} icon={Truck} />
@@ -1049,7 +1282,7 @@ export function FulfillmentCaseDrawer({
                         <MoneyMetric label="Payment" value={order.paymentStatus} icon={CreditCard} />
                       </div>
 
-                      <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5 space-y-2">
+                      <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5 sm:p-3 space-y-2.5 sm:space-y-3">
                         <SectionTitle icon={Package} title="Order Items" />
                         <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                           {order.items.map((item) => {
@@ -1080,8 +1313,8 @@ export function FulfillmentCaseDrawer({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
                           <p className="text-[10px] uppercase tracking-[0.12em] text-white/45 mb-1">Shipping Address</p>
                           {formatAddressLines(order.shippingAddress).map((line) => (
                             <p key={`ship-${line}`} className="text-[11px] text-white/80">
@@ -1089,7 +1322,7 @@ export function FulfillmentCaseDrawer({
                             </p>
                           ))}
                         </div>
-                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2">
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
                           <p className="text-[10px] uppercase tracking-[0.12em] text-white/45 mb-1">Billing Address</p>
                           {formatAddressLines(order.billingAddress).map((line) => (
                             <p key={`bill-${line}`} className="text-[11px] text-white/80">
@@ -1099,53 +1332,21 @@ export function FulfillmentCaseDrawer({
                         </div>
                       </div>
 
-                      {visibleReadinessSteps.length ? (
-                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5 space-y-2">
-                          <SectionTitle icon={Clock} title="Guided Fulfillment Stack" />
-                          <div className="space-y-1.5">
-                            {visibleReadinessSteps.map((step) => (
-                              <div
-                                key={step.id}
-                                className={`rounded border px-2 py-1.5 ${
-                                  step.ready
-                                    ? 'border-emerald-500/25 bg-emerald-500/10'
-                                    : 'border-amber-500/25 bg-amber-500/10'
-                                }`}
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <p className="text-[11px] text-white">{step.label}</p>
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className={`text-[10px] uppercase tracking-[0.12em] ${
-                                        step.ready ? 'text-emerald-300' : 'text-amber-300'
-                                      }`}
-                                    >
-                                      {step.ready ? 'Ready' : 'Blocked'}
-                                    </span>
-                                    <button
-                                      data-testid={`guided-step-action-${step.id}`}
-                                      onClick={() => runGuidedFulfillmentAction(step.id)}
-                                      disabled={
-                                        actionLoading ||
-                                        (step.id !== 'validate_address' && !step.ready) ||
-                                        (step.id === 'print_label' && !canPrintLabel)
-                                      }
-                                      className="h-7 px-2.5 rounded-md border border-white/10 bg-white/10 text-[10px] uppercase tracking-[0.12em] text-white/80 hover:text-white hover:bg-white/15 disabled:opacity-45 disabled:cursor-not-allowed"
-                                    >
-                                      {getGuidedActionLabel(step.id)}
-                                    </button>
-                                  </div>
-                                </div>
-                                {!step.ready && step.reason ? (
-                                  <p className="text-[10px] text-amber-100/90 mt-0.5">{step.reason}</p>
-                                ) : null}
-                              </div>
-                            ))}
+                      <details className="group rounded-md border border-white/10 bg-white/3">
+                        <summary className="list-none cursor-pointer flex items-center justify-between gap-2 px-3 py-2.5 select-none">
+                          <div className="flex items-center gap-2">
+                            <Notepad className="w-3.5 h-3.5 text-white/60" />
+                            <span className="text-[11px] uppercase tracking-[0.14em] text-white/65">
+                              Manual override
+                            </span>
                           </div>
-                        </div>
-                      ) : null}
-
-                      <div className="grid grid-cols-2 gap-2">
+                          <CaretDown className="w-3.5 h-3.5 text-white/45 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="px-3 pb-3 pt-1 space-y-3">
+                          <p className="text-[10px] text-white/40">
+                            Edit raw fulfillment fields directly. Prefer the steps above for the standard flow.
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block mb-1 text-[10px] uppercase tracking-[0.12em] text-white/45">Order status</label>
                           <select
@@ -1176,7 +1377,7 @@ export function FulfillmentCaseDrawer({
                           </select>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <input
                           value={orderDraft.trackingNumber}
                           onChange={(event) => setOrderDraft((previous) => ({ ...previous, trackingNumber: event.target.value }))}
@@ -1188,6 +1389,15 @@ export function FulfillmentCaseDrawer({
                           onChange={(event) => setOrderDraft((previous) => ({ ...previous, carrier: event.target.value }))}
                           className="h-8 px-2 rounded-md border border-white/10 bg-white/5 text-xs text-white placeholder:text-white/35"
                           placeholder="Carrier"
+                        />
+                      </div>
+                      <div>
+                        <label className="block mb-1 text-[10px] uppercase tracking-[0.12em] text-white/45">Estimated delivery</label>
+                        <input
+                          type="date"
+                          value={orderDraft.estimatedDelivery}
+                          onChange={(event) => setOrderDraft((previous) => ({ ...previous, estimatedDelivery: event.target.value }))}
+                          className="h-8 px-2 rounded-md border border-white/10 bg-white/5 text-xs text-white placeholder:text-white/35"
                         />
                       </div>
                       <textarea
@@ -1223,8 +1433,10 @@ export function FulfillmentCaseDrawer({
                           Send Tracking Update
                         </button>
                       </div>
+                        </div>
+                      </details>
 
-                      <div className="sticky bottom-0 z-10 -mx-3 px-3 py-2 bg-gradient-to-t from-neutral-900 via-neutral-900 to-transparent border-t border-white/10">
+                      <div className="sticky bottom-0 z-10 -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 bg-gradient-to-t from-neutral-900 via-neutral-900 to-transparent border-t border-white/10">
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-[10px] uppercase tracking-[0.12em] text-white/45">
                             Primary Action
@@ -1258,12 +1470,10 @@ export function FulfillmentCaseDrawer({
               ) : null}
 
               {activeTab === 'ticket' ? (
-                <section className="rounded-lg border border-white/10 bg-neutral-900 p-3 space-y-3">
+                <section className="rounded-lg border border-white/10 bg-neutral-900 p-3 sm:p-4 space-y-3 sm:space-y-4">
                   <div className="flex items-center justify-between gap-2">
                     <SectionTitle icon={Ticket} title="Ticket" />
                     <QuickLinks
-                      detailHref={detailHref}
-                      orderId={order?.id}
                       ticketId={selectedTicket?.id}
                       customerId={customer?.id}
                     />
@@ -1273,7 +1483,7 @@ export function FulfillmentCaseDrawer({
                     <p className="text-sm text-white/55">No ticket context available for this row.</p>
                   ) : (
                     <>
-                      <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div className="grid grid-cols-2 gap-3 text-[11px]">
                         <div className="rounded-md border border-white/10 bg-white/5 p-2">
                           <p className="text-white/45 mb-1">Type</p>
                           <p className="text-white">{formatTicketType(selectedTicket.type)}</p>
@@ -1296,8 +1506,8 @@ export function FulfillmentCaseDrawer({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-[11px]">
-                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2">
+                      <div className="grid grid-cols-2 gap-3 text-[11px]">
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
                           <p className="text-white/45 mb-1">Return</p>
                           <p className="text-white">
                             {selectedTicket.returnRequested
@@ -1310,7 +1520,7 @@ export function FulfillmentCaseDrawer({
                           </p>
                           <p className="text-white/60 text-[10px] truncate">{selectedTicket.returnLabel || '-'}</p>
                         </div>
-                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2">
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
                           <p className="text-white/45 mb-1">Refund</p>
                           <p className="text-white">{selectedTicket.refundAmount ? formatCurrency(selectedTicket.refundAmount) : '-'}</p>
                           <p className="text-white/60 text-[10px] truncate">{selectedTicket.refundReason || '-'}</p>
@@ -1318,7 +1528,7 @@ export function FulfillmentCaseDrawer({
                       </div>
 
                       {relatedTickets.length > 0 ? (
-                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2">
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
                           <p className="text-[10px] uppercase tracking-[0.12em] text-white/45 mb-1">Related Tickets</p>
                           <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
                             {relatedTickets.slice(0, 4).map((ticket) => (
@@ -1331,7 +1541,7 @@ export function FulfillmentCaseDrawer({
                         </div>
                       ) : null}
 
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-3">
                         <select
                           value={ticketStatusDraft}
                           onChange={(event) => setTicketStatusDraft(event.target.value)}
@@ -1464,12 +1674,10 @@ export function FulfillmentCaseDrawer({
               ) : null}
 
               {activeTab === 'customer' ? (
-                <section className="rounded-lg border border-white/10 bg-neutral-900 p-3 space-y-3">
+                <section className="rounded-lg border border-white/10 bg-neutral-900 p-3 sm:p-4 space-y-3 sm:space-y-4">
                   <div className="flex items-center justify-between gap-2">
                     <SectionTitle icon={IdentificationCard} title="Customer" />
                     <QuickLinks
-                      detailHref={detailHref}
-                      orderId={order?.id}
                       ticketId={selectedTicket?.id}
                       customerId={customer?.id}
                     />
@@ -1479,7 +1687,7 @@ export function FulfillmentCaseDrawer({
                     <p className="text-sm text-white/55">No customer context available.</p>
                   ) : (
                     <>
-                      <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div className="grid grid-cols-2 gap-3 text-[11px]">
                         <div className="rounded-md border border-white/10 bg-white/5 p-2">
                           <p className="text-white/45 mb-1">Customer</p>
                           <p className="text-white">{customer.name || customer.email}</p>
@@ -1496,12 +1704,12 @@ export function FulfillmentCaseDrawer({
                             </span>
                           </div>
                         </div>
-                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2">
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
                           <p className="text-white/45 mb-1">Orders / Spend</p>
                           <p className="text-white">{customer.totalOrders} orders</p>
                           <p className="text-white/60">{formatCurrency(customer.totalSpent)}</p>
                         </div>
-                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2">
+                        <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
                           <p className="text-white/45 mb-1">Loyalty</p>
                           <p className="text-white">{customer.loyaltyTier?.name || 'None'} ({customer.loyaltyTier?.pointMultiplier || 1}x)</p>
                           <p className="text-white/60">Current {customer.currentPoints.toLocaleString()} pts</p>
@@ -1509,7 +1717,7 @@ export function FulfillmentCaseDrawer({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-3">
                         <input
                           value={customerDraft.name}
                           onChange={(event) => setCustomerDraft((previous) => ({ ...previous, name: event.target.value }))}
@@ -1523,7 +1731,7 @@ export function FulfillmentCaseDrawer({
                           placeholder="Phone"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-3">
                         <label className="inline-flex items-center gap-1.5 text-[11px] text-white/65 rounded-md border border-white/10 bg-white/5 px-2">
                           <input
                             type="checkbox"
@@ -1552,7 +1760,7 @@ export function FulfillmentCaseDrawer({
                         Save Profile
                       </button>
 
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-3 gap-3">
                         <input
                           value={customerPointsDelta}
                           onChange={(event) => setCustomerPointsDelta(event.target.value)}
@@ -1593,7 +1801,7 @@ export function FulfillmentCaseDrawer({
                         </button>
                       </div>
 
-                      <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5 space-y-2">
+                      <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5 sm:p-3 space-y-2.5 sm:space-y-3">
                         <SectionTitle icon={Notepad} title="Notes" />
                         <textarea
                           rows={2}
@@ -1644,7 +1852,7 @@ export function FulfillmentCaseDrawer({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-md border border-white/10 bg-white/[0.03] p-2.5">
                           <p className="text-[10px] uppercase tracking-[0.12em] text-white/45 mb-1">Recent Orders</p>
                           <div className="space-y-1 max-h-24 overflow-y-auto pr-1">

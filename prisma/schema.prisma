@@ -169,6 +169,7 @@ model Customer {
   password                 String?
   name                     String?
   phone                    String?
+  profilePictureUrl        String?
   isAdmin                  Boolean                   @default(false)
   birthday                 DateTime?
   newsletter               Boolean                   @default(false)

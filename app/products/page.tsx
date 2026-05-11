@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'rea
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { AnimatePresence, motion, PanInfo } from 'framer-motion'
-import { ArrowRight, CircleNotch, Faders, FunnelSimple, X } from '@phosphor-icons/react'
+import { ArrowRight, Faders, FunnelSimple, X } from '@phosphor-icons/react'
 import { Navigation } from '@/components/layout/Navigation'
 import { Product, productApi } from '@/lib/api/products'
-import { ProductCard } from '@/components/products/ProductCard'
+import { ProductCard, ProductCardSkeleton } from '@/components/products/ProductCard'
 import { ProductFilters } from '@/components/products/ProductFilters'
 import {
   applyProductFilters,
@@ -19,7 +19,6 @@ import {
   getPriceBounds,
   isDefaultPriceRange,
   parseFilterStateFromSearchParams,
-  ProductSortBy,
   serializeFilterStateToSearchParams,
 } from '@/components/products/product-filtering'
 
@@ -222,6 +221,18 @@ function ProductsContent() {
     [syncFiltersToUrl]
   )
 
+  const categories = useMemo(() => {
+    const seen = new Set<string>()
+    const cats: Array<{ id: string; name: string; slug: string }> = []
+    products.forEach((p) => {
+      if (p.category && !seen.has(p.category.slug)) {
+        seen.add(p.category.slug)
+        cats.push(p.category)
+      }
+    })
+    return cats.sort((a, b) => a.name.localeCompare(b.name))
+  }, [products])
+
   const scopedProducts = useMemo(() => {
     if (!categorySlug) {
       return products
@@ -275,6 +286,18 @@ function ProductsContent() {
     const params = new URLSearchParams(searchParamsString)
     params.delete('category')
 
+    const nextQuery = params.toString()
+    const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname
+    router.replace(nextUrl, { scroll: false })
+  }, [pathname, router, searchParamsString])
+
+  const handleCategoryChange = useCallback((slug: string | null) => {
+    const params = new URLSearchParams(searchParamsString)
+    if (slug) {
+      params.set('category', slug)
+    } else {
+      params.delete('category')
+    }
     const nextQuery = params.toString()
     const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname
     router.replace(nextUrl, { scroll: false })
@@ -374,7 +397,7 @@ function ProductsContent() {
             <button
               type="button"
               onClick={() => setShowFilters(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-black bg-black px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white transition-colors hover:bg-black/90"
+              className="inline-flex items-center gap-2 rounded-full border border-black bg-black px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white transition-colors hover:bg-black/90 active:scale-[0.97]"
               data-testid="products-filter-trigger"
             >
               <FunnelSimple size={16} weight="bold" />
@@ -388,32 +411,6 @@ function ProductsContent() {
                 </span>
               ) : null}
             </button>
-
-            <div className="flex items-center gap-2 rounded-full border border-black/15 px-3 py-2">
-              <label
-                htmlFor="products-toolbar-sort"
-                className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/55"
-              >
-                Sort
-              </label>
-              <select
-                id="products-toolbar-sort"
-                value={filters.sortBy}
-                onChange={(event) =>
-                  handleFilterChange({
-                    ...filters,
-                    sortBy: event.target.value as ProductSortBy,
-                  })
-                }
-                className="border-0 bg-transparent pr-1 text-sm font-semibold text-black outline-none"
-                data-testid="products-sort-control"
-              >
-                <option value="newest">Newest</option>
-                <option value="price-asc">Price ↑</option>
-                <option value="price-desc">Price ↓</option>
-                <option value="name">Name A-Z</option>
-              </select>
-            </div>
 
             <p
               className="ml-auto text-xs font-semibold uppercase tracking-[0.12em] text-black/55 sm:text-sm"
@@ -432,7 +429,7 @@ function ProductsContent() {
                 <button
                   type="button"
                   onClick={clearCategoryChip}
-                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-black"
+                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-black"
                   data-testid="filter-chip-category"
                 >
                   Category: {formatCategoryName(categorySlug)}
@@ -444,7 +441,7 @@ function ProductsContent() {
                 <button
                   type="button"
                   onClick={removeSearch}
-                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-black"
+                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-black"
                   data-testid="filter-chip-search"
                 >
                   Search: {filters.search.trim()}
@@ -457,7 +454,7 @@ function ProductsContent() {
                   key={size}
                   type="button"
                   onClick={() => removeSize(size)}
-                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-black"
+                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-black"
                   data-testid={`filter-chip-size-${size}`}
                 >
                   Size: {size}
@@ -470,7 +467,7 @@ function ProductsContent() {
                   key={color}
                   type="button"
                   onClick={() => removeColor(color)}
-                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-black"
+                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-black"
                   data-testid={`filter-chip-color-${color}`}
                 >
                   Color: {colorLabelByKey.get(color) || color.toUpperCase()}
@@ -482,7 +479,7 @@ function ProductsContent() {
                 <button
                   type="button"
                   onClick={removePrice}
-                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-black"
+                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-black"
                   data-testid="filter-chip-price"
                 >
                   Price: ${filters.priceRange[0]} - ${filters.priceRange[1]}
@@ -494,7 +491,7 @@ function ProductsContent() {
                 <button
                   type="button"
                   onClick={removeInStock}
-                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-black"
+                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-black"
                   data-testid="filter-chip-instock"
                 >
                   In Stock
@@ -506,7 +503,7 @@ function ProductsContent() {
                 <button
                   type="button"
                   onClick={removeSort}
-                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-black"
+                  className="inline-flex items-center gap-1 rounded-full border border-black/20 bg-black/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-black"
                   data-testid="filter-chip-sort"
                 >
                   Sorted
@@ -534,7 +531,7 @@ function ProductsContent() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="fixed inset-0 z-[60] bg-black/55 backdrop-blur-sm"
+                className="fixed inset-0 z-60 bg-black/55 backdrop-blur-sm"
                 onClick={() => setShowFilters(false)}
               />
 
@@ -543,7 +540,7 @@ function ProductsContent() {
                 animate={{ x: 0 }}
                 exit={{ x: '100%' }}
                 transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-                className="fixed inset-y-0 right-0 z-[61] hidden w-[420px] max-w-[92vw] border-l border-black/10 bg-white lg:flex lg:flex-col"
+                className="fixed inset-y-0 right-0 z-61 hidden w-[420px] max-w-[92vw] border-l border-black/10 bg-white lg:flex lg:flex-col"
                 onClick={(event) => event.stopPropagation()}
               >
                 <div className="flex items-center justify-between border-b border-black/10 px-6 py-5">
@@ -570,8 +567,11 @@ function ProductsContent() {
                     availableColors={availableColors}
                     searchSuggestions={searchSuggestions}
                     priceBounds={priceBounds}
+                    categories={categories}
+                    selectedCategory={categorySlug || undefined}
                     onFilterChange={handleFilterChange}
                     onClearAll={clearAllFilters}
+                    onCategoryChange={handleCategoryChange}
                   />
                 </div>
               </motion.aside>
@@ -589,7 +589,7 @@ function ProductsContent() {
                     setShowFilters(false)
                   }
                 }}
-                className="fixed inset-x-0 bottom-0 z-[61] h-[92vh] rounded-t-3xl border-t border-black/10 bg-white lg:hidden"
+                className="fixed inset-x-0 bottom-0 z-61 h-[92vh] rounded-t-3xl border-t border-black/10 bg-white lg:hidden"
                 onClick={(event) => event.stopPropagation()}
               >
                 <div className="flex justify-center pb-2 pt-3">
@@ -620,8 +620,11 @@ function ProductsContent() {
                     availableColors={availableColors}
                     searchSuggestions={searchSuggestions}
                     priceBounds={priceBounds}
+                    categories={categories}
+                    selectedCategory={categorySlug || undefined}
                     onFilterChange={handleFilterChange}
                     onClearAll={clearAllFilters}
+                    onCategoryChange={handleCategoryChange}
                   />
                 </div>
               </motion.aside>
@@ -631,9 +634,10 @@ function ProductsContent() {
 
         <div className="pt-6 sm:pt-8">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <CircleNotch size={46} weight="bold" className="mb-4 animate-spin text-black" />
-              <p className="text-black/65">Loading products...</p>
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4 lg:gap-6">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <ProductCardSkeleton key={i} />
+              ))}
             </div>
           ) : null}
 
@@ -676,8 +680,14 @@ export default function ProductsPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-white">
-          <CircleNotch size={32} weight="bold" className="animate-spin text-black" />
+        <div className="min-h-screen bg-white px-4 pt-8 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4 lg:gap-6">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <ProductCardSkeleton key={i} />
+              ))}
+            </div>
+          </div>
         </div>
       }
     >

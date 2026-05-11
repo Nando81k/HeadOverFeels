@@ -120,6 +120,7 @@ function buildProps(overrides: Partial<React.ComponentProps<typeof FulfillmentCa
       trackingNumber: '',
       carrier: '',
       trackingUrl: '',
+      estimatedDelivery: '',
       internalNotes: '',
     },
     setOrderDraft: vi.fn(),

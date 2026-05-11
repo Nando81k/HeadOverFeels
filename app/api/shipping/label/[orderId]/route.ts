@@ -1,8 +1,13 @@
 /**
- * Return Shipping Label API
- * 
- * Generates a printable return label PDF for customers
- * Used in demo mode when EasyPost is not configured
+ * Shipping Label API
+ *
+ * Generates a printable shipping label HTML for both directions:
+ *  - Outbound (warehouse → customer): used by the admin "Buy + Print Label"
+ *    flow when EasyPost demo mode is on. Caller passes `mode=outbound` plus
+ *    explicit `from`/`to` addresses in the base64 `data` query param.
+ *  - Return (customer → warehouse): used when a customer requests a return
+ *    label. No mode/data passed — the route falls back to deriving the
+ *    customer's shipping address as the sender.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -48,51 +53,77 @@ export async function GET(
     }
 
     // Parse label data if provided
-    let parsedLabelData = null
+    let parsedLabelData: ParsedLabelData | null = null
     if (labelData) {
       try {
-        parsedLabelData = JSON.parse(Buffer.from(labelData, 'base64').toString())
+        parsedLabelData = JSON.parse(Buffer.from(labelData, 'base64').toString()) as ParsedLabelData
       } catch {
         // Ignore parse errors, generate fresh data
       }
     }
 
-    // Generate tracking number if not in data
-    const trackingNumber = parsedLabelData?.tracking || `RET${Date.now().toString(36).toUpperCase()}`
+    const mode: LabelMode = parsedLabelData?.mode === 'outbound' ? 'outbound' : 'return'
+
+    // Tracking number prefix differentiates demo outbound vs demo return labels
+    const trackingPrefix = mode === 'outbound' ? 'SHIP' : 'RET'
+    const trackingNumber =
+      parsedLabelData?.tracking || `${trackingPrefix}${Date.now().toString(36).toUpperCase()}`
+
+    const warehouseAddress: LabelData['toAddress'] = {
+      name: 'Head Over Feels',
+      company: 'Head Over Feels LLC',
+      street1: process.env.STORE_ADDRESS_STREET || '123 Fashion Ave',
+      street2: process.env.STORE_ADDRESS_STREET2 || 'Suite 100',
+      city: process.env.STORE_ADDRESS_CITY || 'Los Angeles',
+      state: process.env.STORE_ADDRESS_STATE || 'CA',
+      zip: process.env.STORE_ADDRESS_ZIP || '90001',
+      country: 'US',
+    }
+
+    const customerAddress: LabelData['fromAddress'] = order.shippingAddress
+      ? {
+          name: `${order.shippingAddress.firstName} ${order.shippingAddress.lastName}`,
+          company: order.shippingAddress.company,
+          street1: order.shippingAddress.address1,
+          street2: order.shippingAddress.address2,
+          city: order.shippingAddress.city,
+          state: order.shippingAddress.state,
+          zip: order.shippingAddress.postalCode,
+          country: order.shippingAddress.country,
+        }
+      : null
+
+    // Honor explicit from/to in the URL data when provided (outbound flow);
+    // otherwise default to the current customer→warehouse return shape.
+    const fromAddress =
+      parsedLabelData?.from && mode === 'outbound'
+        ? toLabelAddress(parsedLabelData.from)
+        : mode === 'outbound'
+          ? warehouseAddress
+          : customerAddress
+    const toAddress =
+      parsedLabelData?.to && mode === 'outbound'
+        ? toLabelAddress(parsedLabelData.to)
+        : mode === 'outbound'
+          ? customerAddress ?? warehouseAddress
+          : warehouseAddress
 
     // Generate HTML label (styled for printing)
     const labelHTML = generateLabelHTML({
       orderId,
       orderNumber: order.orderNumber,
       trackingNumber,
-      fromAddress: order.shippingAddress ? {
-        name: `${order.shippingAddress.firstName} ${order.shippingAddress.lastName}`,
-        company: order.shippingAddress.company,
-        street1: order.shippingAddress.address1,
-        street2: order.shippingAddress.address2,
-        city: order.shippingAddress.city,
-        state: order.shippingAddress.state,
-        zip: order.shippingAddress.postalCode,
-        country: order.shippingAddress.country,
-      } : null,
-      toAddress: {
-        name: 'Head Over Feels Returns',
-        company: 'Head Over Feels LLC',
-        street1: process.env.STORE_ADDRESS_STREET || '123 Fashion Ave',
-        street2: process.env.STORE_ADDRESS_STREET2 || 'Suite 100',
-        city: process.env.STORE_ADDRESS_CITY || 'Los Angeles',
-        state: process.env.STORE_ADDRESS_STATE || 'CA',
-        zip: process.env.STORE_ADDRESS_ZIP || '90001',
-        country: 'US',
-      },
+      fromAddress,
+      toAddress: toAddress ?? warehouseAddress,
       carrier: 'USPS',
       service: 'Priority Mail',
+      mode,
     })
 
     return new NextResponse(labelHTML, {
       headers: {
         'Content-Type': 'text/html',
-        'Content-Disposition': `inline; filename="return-label-${order.orderNumber}.html"`,
+        'Content-Disposition': `inline; filename="${mode === 'outbound' ? 'shipping' : 'return'}-label-${order.orderNumber}.html"`,
       },
     })
   } catch (error) {
@@ -107,42 +138,64 @@ export async function GET(
   }
 }
 
+type LabelMode = 'outbound' | 'return'
+
+interface LabelAddress {
+  name: string
+  company?: string | null
+  street1: string
+  street2?: string | null
+  city: string
+  state: string
+  zip: string
+  country: string
+}
+
+interface ParsedLabelData {
+  tracking?: string
+  mode?: LabelMode
+  from?: Partial<LabelAddress> & { name?: string; street1?: string }
+  to?: Partial<LabelAddress> & { name?: string; street1?: string }
+}
+
 interface LabelData {
   orderId: string
   orderNumber: string
   trackingNumber: string
-  fromAddress: {
-    name: string
-    company?: string | null
-    street1: string
-    street2?: string | null
-    city: string
-    state: string
-    zip: string
-    country: string
-  } | null
-  toAddress: {
-    name: string
-    company?: string | null
-    street1: string
-    street2?: string | null
-    city: string
-    state: string
-    zip: string
-    country: string
-  }
+  fromAddress: LabelAddress | null
+  toAddress: LabelAddress
   carrier: string
   service: string
+  mode: LabelMode
+}
+
+function toLabelAddress(input: ParsedLabelData['from']): LabelAddress | null {
+  if (!input || !input.name || !input.street1) return null
+  return {
+    name: input.name,
+    company: input.company ?? null,
+    street1: input.street1,
+    street2: input.street2 ?? null,
+    city: input.city ?? '',
+    state: input.state ?? '',
+    zip: input.zip ?? '',
+    country: input.country ?? 'US',
+  }
 }
 
 function generateLabelHTML(data: LabelData): string {
-  const { orderNumber, trackingNumber, fromAddress, toAddress, carrier, service } = data
+  const { orderNumber, trackingNumber, fromAddress, toAddress, carrier, service, mode } = data
+  const isOutbound = mode === 'outbound'
+  const docTitle = isOutbound ? 'Shipping Label' : 'Return Label'
+  const badgeLabel = isOutbound ? 'SHIPPING LABEL' : 'RETURN LABEL'
+  const dropoffVerb = isOutbound ? 'Hand off to' : 'Drop off at any'
+  const instructionsTitle = isOutbound ? '📦 How to Ship This Order' : '📦 How to Use This Label'
 
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Return Label - ${orderNumber}</title>
+  <title>${docTitle} - ${orderNumber}</title>
   <style>
     @page {
       size: 4in 6in;
@@ -189,8 +242,8 @@ function generateLabelHTML(data: LabelData): string {
       font-size: 12px;
     }
     
-    .return-badge {
-      background: #FF3131;
+    .label-badge {
+      background: ${isOutbound ? '#1f6feb' : '#FF3131'};
       color: white;
       padding: 4px 12px;
       font-size: 12px;
@@ -357,7 +410,7 @@ function generateLabelHTML(data: LabelData): string {
         <div class="carrier">${carrier}</div>
         <div class="service">${service}</div>
       </div>
-      <div class="return-badge">RETURN LABEL</div>
+      <div class="label-badge">${badgeLabel}</div>
     </div>
     
     <div class="addresses">
@@ -400,13 +453,13 @@ function generateLabelHTML(data: LabelData): string {
   </div>
   
   <div class="print-instructions">
-    <h3>📦 How to Use This Label</h3>
+    <h3>${instructionsTitle}</h3>
     <ol>
       <li>Click the "Print Label" button below</li>
       <li>Print on standard paper (no special label paper required)</li>
       <li>Cut out the label along the border</li>
       <li>Tape securely to your package</li>
-      <li>Drop off at any ${carrier} location</li>
+      <li>${dropoffVerb} ${carrier} ${isOutbound ? 'for pickup or hand off at any drop location' : 'location'}</li>
     </ol>
     <button class="print-button" onclick="window.print()">🖨️ Print Label</button>
   </div>

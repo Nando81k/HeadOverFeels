@@ -16,11 +16,14 @@ import {
 export const dynamic = 'force-dynamic'
 
 async function getTicketStats() {
+  const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+
   const [
     openCount,
     inProgressCount,
     resolvedTodayCount,
-    totalCount
+    totalCount,
+    recentResolvedTickets,
   ] = await Promise.all([
     prisma.supportTicket.count({ where: { status: 'OPEN' } }),
     prisma.supportTicket.count({ where: { status: 'IN_PROGRESS' } }),
@@ -32,15 +35,34 @@ async function getTicketStats() {
         }
       }
     }),
-    prisma.supportTicket.count()
+    prisma.supportTicket.count(),
+    prisma.supportTicket.findMany({
+      where: {
+        status: 'RESOLVED',
+        resolvedAt: { gte: last30Days, not: null },
+      },
+      select: { createdAt: true, resolvedAt: true },
+      take: 500,
+    }),
   ])
+
+  // Calculate average resolution time from the last 30 days of resolved tickets.
+  // Falls back to null when there's no data (rendered as "—" instead of a fake number).
+  let avgResolutionHours: number | null = null
+  if (recentResolvedTickets.length > 0) {
+    const totalMs = recentResolvedTickets.reduce((sum, ticket) => {
+      if (!ticket.resolvedAt) return sum
+      return sum + (ticket.resolvedAt.getTime() - ticket.createdAt.getTime())
+    }, 0)
+    avgResolutionHours = totalMs / recentResolvedTickets.length / (1000 * 60 * 60)
+  }
 
   return {
     open: openCount,
     inProgress: inProgressCount,
     resolvedToday: resolvedTodayCount,
     total: totalCount,
-    avgResolutionHours: 24 // Placeholder
+    avgResolutionHours,
   }
 }
 
@@ -176,10 +198,15 @@ async function SupportDashboard() {
         />
         <StatCard
           title="Avg Resolution Time"
-          value={`${stats.avgResolutionHours}h`}
+          value={
+            stats.avgResolutionHours === null
+              ? '—'
+              : stats.avgResolutionHours >= 24
+                ? `${(stats.avgResolutionHours / 24).toFixed(1)}d`
+                : `${stats.avgResolutionHours.toFixed(1)}h`
+          }
           icon={TrendingUp}
-          trend={-10}
-          trendLabel="vs last month"
+          trendLabel="last 30 days"
         />
       </div>
 

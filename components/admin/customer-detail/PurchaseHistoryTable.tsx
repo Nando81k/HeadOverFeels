@@ -320,7 +320,7 @@ export default function PurchaseHistoryTable({
 
                           {/* View order link */}
                           <Link
-                            href={`/admin/orders/${order.id}`}
+                            href={`/admin/fulfillment?orderId=${order.id}`}
                             className="mt-4 flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
                           >
                             View Full Order

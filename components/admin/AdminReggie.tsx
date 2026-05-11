@@ -61,7 +61,7 @@ const PAGE_SUGGESTIONS: Record<string, Array<{ label: string; prompt: string }>>
     { label: 'Check urgent items', prompt: 'Show me anything urgent that needs attention' },
     { label: 'Low stock alerts', prompt: 'Which products are running low on stock?' },
   ],
-  '/admin/orders': [
+  '/admin/fulfillment': [
     { label: 'Recent orders', prompt: 'Show me the most recent orders' },
     { label: 'Pending shipments', prompt: 'Which orders are still waiting to ship?' },
     { label: 'Refund requests', prompt: 'Are there any orders needing refunds?' },

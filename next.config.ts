@@ -28,6 +28,25 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/admin/orders/:id',
+        destination: '/admin/fulfillment?orderId=:id',
+        permanent: true,
+      },
+      {
+        source: '/admin/orders',
+        destination: '/admin/fulfillment',
+        permanent: true,
+      },
+      {
+        source: '/admin/fulfillment/details',
+        destination: '/admin/fulfillment',
+        permanent: true,
+      },
+    ]
+  },
 };
 
 export default nextConfig;

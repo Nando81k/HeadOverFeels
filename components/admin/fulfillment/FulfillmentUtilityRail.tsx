@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { CaretDown, CaretUp, ChatCircle, Package, Receipt, User } from '@phosphor-icons/react'
+import { CaretDown, CaretUp, ChatCircle, Receipt, User } from '@phosphor-icons/react'
 import type { FulfillmentQueueItem, FulfillmentQueueType } from '@/lib/fulfillment/queue'
 import type {
   FulfillmentConsoleLayoutState,
@@ -357,15 +357,6 @@ export function FulfillmentUtilityRail({
         </section>
 
         <div className="px-3 py-2 flex items-center gap-2">
-          {context?.order ? (
-            <Link
-              href={`/admin/orders/${context.order.id}`}
-              className="h-7 px-2 rounded-md border border-slate-300 text-[10px] uppercase tracking-[0.12em] text-slate-700 inline-flex items-center gap-1"
-            >
-              <Package className="w-3 h-3" />
-              Order
-            </Link>
-          ) : null}
           {selectedTicketId ? (
             <Link
               href={`/admin/support/tickets/${selectedTicketId}`}

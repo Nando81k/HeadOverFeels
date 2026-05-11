@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { generateProductSchema, generateBreadcrumbSchema, jsonLdScript, combineSchemas } from '@/lib/seo/schemas'
 import ProductPageClient from './ProductPageClient'
+import type { Product } from '@/lib/api/products'
 
 interface ProductPageProps {
   params: Promise<{
@@ -164,7 +165,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       />
       
       {/* Client Component */}
-      <ProductPageClient slug={slug} />
+      <ProductPageClient slug={slug} initialProduct={product as unknown as Product} />
     </>
   )
 }

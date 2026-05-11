@@ -425,7 +425,7 @@ export default function TicketsPage() {
                           <p className="text-xs text-white/50">{ticket.customerEmail}</p>
                           {ticket.order?.id ? (
                             <Link
-                              href={`/admin/orders/${ticket.order.id}`}
+                              href={`/admin/fulfillment?orderId=${ticket.order.id}`}
                               className="text-xs text-blue-300 hover:text-blue-200 mt-1 inline-block"
                             >
                               Order: {ticket.order.orderNumber}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Check, MagnifyingGlass, Package, Palette, SlidersHorizontal, X } from '@phosphor-icons/react'
+import { Check, MagnifyingGlass, Package, Palette, SlidersHorizontal, Tag, X } from '@phosphor-icons/react'
 import {
   ColorOption,
   FilterState,
@@ -9,21 +9,30 @@ import {
   ProductSortBy,
 } from '@/components/products/product-filtering'
 
+interface Category {
+  id: string
+  name: string
+  slug: string
+}
+
 interface ProductFiltersProps {
   filters: FilterState
   availableSizes: string[]
   availableColors: ColorOption[]
   searchSuggestions: string[]
   priceBounds: PriceBounds
+  categories?: Category[]
+  selectedCategory?: string
   onFilterChange: (filters: FilterState) => void
   onClearAll: () => void
+  onCategoryChange?: (slug: string | null) => void
 }
 
 const SORT_OPTIONS: Array<{ value: ProductSortBy; label: string }> = [
-  { value: 'newest', label: 'Newest First' },
-  { value: 'price-asc', label: 'Price: Low to High' },
-  { value: 'price-desc', label: 'Price: High to Low' },
-  { value: 'name', label: 'Name: A to Z' },
+  { value: 'newest', label: 'Newest' },
+  { value: 'price-asc', label: 'Price ↑' },
+  { value: 'price-desc', label: 'Price ↓' },
+  { value: 'name', label: 'Name A–Z' },
 ]
 
 function clamp(value: number, min: number, max: number): number {
@@ -31,40 +40,25 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function sanitizeHexColor(value: string | null): string | null {
-  if (!value) {
-    return null
-  }
-
+  if (!value) return null
   const hex = value.trim()
-  if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
-    return hex
-  }
-
-  return null
+  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex) ? hex : null
 }
 
 function createPricePresets(bounds: PriceBounds): Array<{ label: string; range: [number, number] }> {
   const presets: Array<{ label: string; range: [number, number] }> = []
 
   const under50: [number, number] = [bounds.min, Math.min(50, bounds.max)]
-  if (under50[0] <= under50[1]) {
-    presets.push({ label: 'Under $50', range: under50 })
-  }
+  if (under50[0] <= under50[1]) presets.push({ label: 'Under $50', range: under50 })
 
-  const between50And100: [number, number] = [Math.max(bounds.min, 50), Math.min(bounds.max, 100)]
-  if (between50And100[0] <= between50And100[1]) {
-    presets.push({ label: '$50 - $100', range: between50And100 })
-  }
+  const mid: [number, number] = [Math.max(bounds.min, 50), Math.min(bounds.max, 100)]
+  if (mid[0] <= mid[1]) presets.push({ label: '$50–$100', range: mid })
 
-  const between100And150: [number, number] = [Math.max(bounds.min, 100), Math.min(bounds.max, 150)]
-  if (between100And150[0] <= between100And150[1]) {
-    presets.push({ label: '$100 - $150', range: between100And150 })
-  }
+  const upper: [number, number] = [Math.max(bounds.min, 100), Math.min(bounds.max, 150)]
+  if (upper[0] <= upper[1]) presets.push({ label: '$100–$150', range: upper })
 
-  const over150: [number, number] = [Math.max(bounds.min, 150), bounds.max]
-  if (over150[0] <= over150[1]) {
-    presets.push({ label: '$150+', range: over150 })
-  }
+  const top: [number, number] = [Math.max(bounds.min, 150), bounds.max]
+  if (top[0] <= top[1]) presets.push({ label: '$150+', range: top })
 
   return presets
 }
@@ -75,8 +69,11 @@ export function ProductFilters({
   availableColors,
   searchSuggestions,
   priceBounds,
+  categories,
+  selectedCategory,
   onFilterChange,
   onClearAll,
+  onCategoryChange,
 }: ProductFiltersProps) {
   const [isSearchFocused, setIsSearchFocused] = useState(false)
 
@@ -86,44 +83,34 @@ export function ProductFilters({
 
   const filteredSearchSuggestions = useMemo(() => {
     const query = filters.search.trim().toLowerCase()
-    if (query.length < 1) {
-      return []
-    }
+    if (query.length < 1) return []
 
     const seen = new Set<string>()
-    const nextSuggestions: string[] = []
+    const next: string[] = []
 
     searchSuggestions.forEach((suggestion) => {
       const trimmed = suggestion.trim()
-      if (!trimmed) {
-        return
-      }
-
+      if (!trimmed) return
       const normalized = trimmed.toLowerCase()
-      if (seen.has(normalized) || !normalized.includes(query)) {
-        return
-      }
-
+      if (seen.has(normalized) || !normalized.includes(query)) return
       seen.add(normalized)
-      nextSuggestions.push(trimmed)
+      next.push(trimmed)
     })
 
-    return nextSuggestions.slice(0, 8)
+    return next.slice(0, 8)
   }, [filters.search, searchSuggestions])
 
   const toggleSize = (size: string) => {
     const nextSizes = filters.sizes.includes(size)
-      ? filters.sizes.filter((value) => value !== size)
+      ? filters.sizes.filter((v) => v !== size)
       : [...filters.sizes, size]
-
     updateFilters({ sizes: nextSizes })
   }
 
   const toggleColor = (colorKey: string) => {
     const nextColors = filters.colors.includes(colorKey)
-      ? filters.colors.filter((value) => value !== colorKey)
+      ? filters.colors.filter((v) => v !== colorKey)
       : [...filters.colors, colorKey]
-
     updateFilters({ colors: nextColors })
   }
 
@@ -132,23 +119,87 @@ export function ProductFilters({
   const maxPercent = ((selectedMax - priceBounds.min) / Math.max(priceBounds.max - priceBounds.min, 1)) * 100
 
   const handleMinPriceChange = (value: number) => {
-    const nextMin = clamp(value, priceBounds.min, selectedMax)
-    updateFilters({ priceRange: [nextMin, selectedMax] })
+    updateFilters({ priceRange: [clamp(value, priceBounds.min, selectedMax), selectedMax] })
   }
 
   const handleMaxPriceChange = (value: number) => {
-    const nextMax = clamp(value, selectedMin, priceBounds.max)
-    updateFilters({ priceRange: [selectedMin, nextMax] })
+    updateFilters({ priceRange: [selectedMin, clamp(value, selectedMin, priceBounds.max)] })
   }
 
   const pricePresets = createPricePresets(priceBounds)
 
+  const sectionLabel = 'inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-black/55'
+  const divider = 'border-t border-black/8'
+
   return (
-    <div className="space-y-8" data-testid="products-filter-panel">
-      <section className="space-y-3">
+    <div className="space-y-0" data-testid="products-filter-panel">
+
+      {/* Category */}
+      {categories && categories.length > 0 && (
+        <section className="pb-6 space-y-3">
+          <p className={sectionLabel}>
+            <Tag size={14} weight="bold" />
+            Category
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => onCategoryChange?.(null)}
+              className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                !selectedCategory
+                  ? 'border-black bg-black text-white'
+                  : 'border-black/15 bg-white text-black/65 hover:border-black/35 hover:text-black'
+              }`}
+            >
+              All
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat.slug}
+                type="button"
+                onClick={() => onCategoryChange?.(selectedCategory === cat.slug ? null : cat.slug)}
+                className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                  selectedCategory === cat.slug
+                    ? 'border-black bg-black text-white'
+                    : 'border-black/15 bg-white text-black/65 hover:border-black/35 hover:text-black'
+                }`}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Sort */}
+      <section className={`py-6 space-y-3 ${divider}`}>
+        <p className={sectionLabel}>
+          <SlidersHorizontal size={14} weight="bold" />
+          Sort
+        </p>
+        <div className="grid grid-cols-2 gap-2" data-testid="products-sort-control">
+          {SORT_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => updateFilters({ sortBy: option.value })}
+              className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors ${
+                filters.sortBy === option.value
+                  ? 'border-black bg-black text-white'
+                  : 'border-black/15 bg-white text-black/65 hover:border-black/35 hover:text-black'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Search */}
+      <section className={`py-6 space-y-3 ${divider}`}>
         <label
           htmlFor="products-search-filter"
-          className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-black/55"
+          className={sectionLabel}
         >
           <MagnifyingGlass size={14} weight="bold" />
           Search
@@ -159,12 +210,12 @@ export function ProductFilters({
             type="search"
             value={filters.search}
             placeholder="Search products"
-            onChange={(event) => updateFilters({ search: event.target.value })}
+            onChange={(e) => updateFilters({ search: e.target.value })}
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => setIsSearchFocused(false)}
-            className="h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-sm text-black outline-none transition-colors placeholder:text-black/35 focus:border-black"
+            className="h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-sm text-black outline-none transition-colors placeholder:text-black/35 focus:border-black focus-visible:outline-none"
           />
-          {isSearchFocused && filteredSearchSuggestions.length > 0 ? (
+          {isSearchFocused && filteredSearchSuggestions.length > 0 && (
             <div
               className="absolute left-0 right-0 top-[calc(100%+8px)] z-10 overflow-hidden rounded-xl border border-black/10 bg-white shadow-[0_12px_28px_rgba(0,0,0,0.08)]"
               data-testid="products-filter-autocomplete-list"
@@ -177,12 +228,12 @@ export function ProductFilters({
                   <button
                     key={suggestion}
                     type="button"
-                    onMouseDown={(event) => event.preventDefault()}
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
                       updateFilters({ search: suggestion })
                       setIsSearchFocused(false)
                     }}
-                    className="flex w-full items-center justify-between border-b border-black/5 px-3 py-2.5 text-left text-sm text-black/75 transition-colors hover:bg-black/[0.03] hover:text-black last:border-b-0"
+                    className="flex w-full items-center justify-between border-b border-black/5 px-3 py-2.5 text-left text-sm text-black/75 transition-colors hover:bg-black/3 hover:text-black last:border-b-0"
                   >
                     <span className="truncate">{suggestion}</span>
                     <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-black/35">
@@ -192,7 +243,7 @@ export function ProductFilters({
                 ))}
               </div>
             </div>
-          ) : null}
+          )}
           {filters.search && (
             <button
               type="button"
@@ -206,36 +257,12 @@ export function ProductFilters({
         </div>
       </section>
 
-      <section className="space-y-3">
-        <label
-          htmlFor="products-sort-filter"
-          className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-black/55"
-        >
-          <SlidersHorizontal size={14} weight="bold" />
-          Sort
-        </label>
-        <div className="relative">
-          <select
-            id="products-sort-filter"
-            value={filters.sortBy}
-            onChange={(event) => updateFilters({ sortBy: event.target.value as ProductSortBy })}
-            className="h-11 w-full appearance-none rounded-xl border border-black/15 bg-white px-3 pr-10 text-sm font-medium text-black outline-none transition-colors focus:border-black"
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-black/55">▼</span>
-        </div>
-      </section>
-
-      <section className="space-y-4">
+      {/* Price */}
+      <section className={`py-6 space-y-4 ${divider}`}>
         <div className="flex items-center justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-black/55">Price</p>
-          <p className="text-sm font-semibold text-black">
-            ${selectedMin} - ${selectedMax}
+          <p className={sectionLabel}>Price</p>
+          <p className="text-sm font-semibold text-black tabular-nums">
+            ${selectedMin} – ${selectedMax}
           </p>
         </div>
 
@@ -246,25 +273,23 @@ export function ProductFilters({
               className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-black"
               style={{ left: `${minPercent}%`, width: `${Math.max(maxPercent - minPercent, 0)}%` }}
             />
-
             <input
               type="range"
               min={priceBounds.min}
               max={priceBounds.max}
               step={1}
               value={selectedMin}
-              onChange={(event) => handleMinPriceChange(Number(event.target.value))}
+              onChange={(e) => handleMinPriceChange(Number(e.target.value))}
               aria-label="Minimum price"
               className="pointer-events-none absolute inset-0 h-10 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-black [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-black"
             />
-
             <input
               type="range"
               min={priceBounds.min}
               max={priceBounds.max}
               step={1}
               value={selectedMax}
-              onChange={(event) => handleMaxPriceChange(Number(event.target.value))}
+              onChange={(e) => handleMaxPriceChange(Number(e.target.value))}
               aria-label="Maximum price"
               className="pointer-events-none absolute inset-0 h-10 w-full appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-black [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-black"
             />
@@ -278,8 +303,8 @@ export function ProductFilters({
                 min={priceBounds.min}
                 max={selectedMax}
                 value={selectedMin}
-                onChange={(event) => handleMinPriceChange(Number(event.target.value))}
-                className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm text-black outline-none focus:border-black"
+                onChange={(e) => handleMinPriceChange(Number(e.target.value))}
+                className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm text-black outline-none focus:border-black focus-visible:outline-none"
               />
             </label>
             <label className="space-y-1">
@@ -289,8 +314,8 @@ export function ProductFilters({
                 min={selectedMin}
                 max={priceBounds.max}
                 value={selectedMax}
-                onChange={(event) => handleMaxPriceChange(Number(event.target.value))}
-                className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm text-black outline-none focus:border-black"
+                onChange={(e) => handleMaxPriceChange(Number(e.target.value))}
+                className="h-10 w-full rounded-lg border border-black/15 px-3 text-sm text-black outline-none focus:border-black focus-visible:outline-none"
               />
             </label>
           </div>
@@ -300,7 +325,6 @@ export function ProductFilters({
               const isActive =
                 filters.priceRange[0] === preset.range[0] &&
                 filters.priceRange[1] === preset.range[1]
-
               return (
                 <button
                   key={preset.label}
@@ -309,7 +333,7 @@ export function ProductFilters({
                   className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                     isActive
                       ? 'border-black bg-black text-white'
-                      : 'border-black/15 bg-white text-black/70 hover:border-black/35 hover:text-black'
+                      : 'border-black/15 bg-white text-black/65 hover:border-black/35 hover:text-black'
                   }`}
                 >
                   {preset.label}
@@ -320,12 +344,12 @@ export function ProductFilters({
         </div>
       </section>
 
-      <section className="space-y-3">
-        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-black/55">
+      {/* Sizes */}
+      <section className={`py-6 space-y-3 ${divider}`}>
+        <p className={sectionLabel}>
           <Package size={14} weight="bold" />
           Sizes
         </p>
-
         {availableSizes.length === 0 ? (
           <p className="text-sm text-black/45">No size variants available.</p>
         ) : (
@@ -337,10 +361,10 @@ export function ProductFilters({
                   key={size}
                   type="button"
                   onClick={() => toggleSize(size)}
-                  className={`min-w-[48px] rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] transition-colors ${
+                  className={`min-w-12 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] transition-colors ${
                     isActive
                       ? 'border-black bg-black text-white'
-                      : 'border-black/15 bg-white text-black/70 hover:border-black/35 hover:text-black'
+                      : 'border-black/15 bg-white text-black/65 hover:border-black/35 hover:text-black'
                   }`}
                   aria-pressed={isActive}
                   aria-label={`Filter size ${size}`}
@@ -353,12 +377,12 @@ export function ProductFilters({
         )}
       </section>
 
-      <section className="space-y-3">
-        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-black/55">
+      {/* Colors */}
+      <section className={`py-6 space-y-3 ${divider}`}>
+        <p className={sectionLabel}>
           <Palette size={14} weight="bold" />
           Colors
         </p>
-
         {availableColors.length === 0 ? (
           <p className="text-sm text-black/45">No color variants available.</p>
         ) : (
@@ -380,7 +404,7 @@ export function ProductFilters({
                   aria-label={`Filter color ${option.label}`}
                 >
                   <span
-                    className={`h-4 w-4 rounded-full border ${isActive ? 'border-white/60' : 'border-black/20'}`}
+                    className={`h-4 w-4 shrink-0 rounded-full border ${isActive ? 'border-white/60' : 'border-black/20'}`}
                     style={safeHex ? { backgroundColor: safeHex } : undefined}
                   >
                     {!safeHex && (
@@ -398,7 +422,8 @@ export function ProductFilters({
         )}
       </section>
 
-      <section className="space-y-3">
+      {/* In Stock */}
+      <section className={`py-6 ${divider}`}>
         <button
           type="button"
           onClick={() => updateFilters({ inStockOnly: !filters.inStockOnly })}
@@ -410,17 +435,20 @@ export function ProductFilters({
           aria-pressed={filters.inStockOnly}
         >
           <span className="text-sm font-semibold uppercase tracking-[0.08em]">In Stock Only</span>
-          {filters.inStockOnly ? <Check size={16} weight="bold" /> : null}
+          {filters.inStockOnly && <Check size={16} weight="bold" />}
         </button>
       </section>
 
-      <button
-        type="button"
-        onClick={onClearAll}
-        className="w-full rounded-xl border border-black/15 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.08em] text-black/70 transition-colors hover:border-black/30 hover:text-black"
-      >
-        Clear all filters
-      </button>
+      {/* Clear */}
+      <div className={`pt-6 ${divider}`}>
+        <button
+          type="button"
+          onClick={onClearAll}
+          className="w-full rounded-xl border border-black/15 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.08em] text-black/65 transition-colors hover:border-black/30 hover:text-black"
+        >
+          Clear all filters
+        </button>
+      </div>
     </div>
   )
 }

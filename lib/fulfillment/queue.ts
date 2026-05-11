@@ -99,6 +99,10 @@ export type FulfillmentFilterState = {
   ticketStatuses: SupportTicketStatus[]
   assigned: FulfillmentAssignedFilter
   ageBucket: FulfillmentAgeBucket
+  dateFrom: string
+  dateTo: string
+  totalMin: number | null
+  totalMax: number | null
   sortBy: FulfillmentSortField
   sortDir: FulfillmentSortDirection
   page: number
@@ -622,11 +626,30 @@ export function parseFulfillmentFilterState(searchParams: URLSearchParams): Fulf
     ticketStatuses: parseTicketStatuses(searchParams.get('ticketStatuses')),
     assigned: parseAssigned(searchParams.get('assigned')),
     ageBucket: parseAgeBucket(searchParams.get('ageBucket')),
+    dateFrom: parseDateInput(searchParams.get('dateFrom')),
+    dateTo: parseDateInput(searchParams.get('dateTo')),
+    totalMin: parseNumericInput(searchParams.get('totalMin')),
+    totalMax: parseNumericInput(searchParams.get('totalMax')),
     sortBy: parseSortBy(searchParams.get('sortBy')),
     sortDir: parseSortDir(searchParams.get('sortDir')),
     page: parsePage(searchParams.get('page')),
     limit: parseLimit(searchParams.get('limit')),
   }
+}
+
+function parseDateInput(raw: string | null): string {
+  const value = raw?.trim() || ''
+  if (!value) return ''
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return ''
+  return value
+}
+
+function parseNumericInput(raw: string | null): number | null {
+  const value = raw?.trim()
+  if (!value) return null
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed < 0) return null
+  return parsed
 }
 
 export function buildFulfillmentQueueItems(
@@ -721,6 +744,28 @@ export function filterAndSortFulfillmentQueueItems(
     }
 
     if (!matchesAgeBucket(item.ageHours, filters.ageBucket)) {
+      return false
+    }
+
+    if (filters.dateFrom) {
+      const fromMs = Date.parse(`${filters.dateFrom}T00:00:00.000Z`)
+      if (Number.isFinite(fromMs) && Date.parse(item.createdAt) < fromMs) {
+        return false
+      }
+    }
+
+    if (filters.dateTo) {
+      const toMs = Date.parse(`${filters.dateTo}T23:59:59.999Z`)
+      if (Number.isFinite(toMs) && Date.parse(item.createdAt) > toMs) {
+        return false
+      }
+    }
+
+    if (filters.totalMin !== null && (item.total ?? 0) < filters.totalMin) {
+      return false
+    }
+
+    if (filters.totalMax !== null && (item.total ?? 0) > filters.totalMax) {
       return false
     }
 

@@ -88,7 +88,7 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
     <div className="space-y-8">
       {/* Contact Information */}
       <div className="space-y-4">
-        <h3 className="text-sm font-bold uppercase tracking-wide text-black/60">Contact Details</h3>
+        <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-black/55">Contact Details</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             label="First Name"
@@ -137,7 +137,7 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
 
       {/* Shipping Address */}
       <div className="space-y-4">
-        <h3 className="text-sm font-bold uppercase tracking-wide text-black/60">Shipping Address</h3>
+        <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-black/55">Shipping Address</h3>
         <AddressAutocomplete
           label="Address"
           value={data.address}
@@ -181,11 +181,11 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
                 value={data.state}
                 onChange={(e) => handleChange('state', e.target.value)}
                 className={`
-                  w-full px-4 py-3.5 border bg-white text-black
-                  transition-all duration-200 appearance-none cursor-pointer
-                  focus:ring-2 focus:ring-black focus:border-transparent focus:outline-none
+                  w-full px-4 py-3 border bg-white text-black rounded-none
+                  transition-colors duration-150 appearance-none cursor-pointer
+                  focus:border-black focus:ring-1 focus:ring-black focus:outline-none
                   hover:border-black/30
-                  ${errors.state ? 'border-[#FF3131] ring-1 ring-[#FF3131]' : 'border-black/10'}
+                  ${errors.state ? 'border-[#FF3131] ring-1 ring-[#FF3131]' : 'border-black/15'}
                 `}
               >
                 {US_STATES.map((state) => (

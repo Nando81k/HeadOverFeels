@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Star, Check, X, Eye, Flag, Trash, ChatText, PaperPlaneTilt, PencilSimple, X as XIcon } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { AdminLayout } from '@/components/admin/AdminLayout'
+import { BulkActionToolbar } from '@/components/admin/BulkActionToolbar'
+import { toast } from '@/lib/toast'
 
 interface Review {
   id: string
@@ -37,6 +39,8 @@ export default function AdminReviewsPage() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [replyText, setReplyText] = useState<string>('')
   const [submittingReply, setSubmittingReply] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkLoading, setBulkLoading] = useState(false)
 
   const fetchReviews = useCallback(async () => {
     setLoading(true)
@@ -182,6 +186,102 @@ export default function AdminReviewsPage() {
     setReplyText('')
   }
 
+  // ─── Bulk selection ───────────────────────────────────────────────────
+  // Drop selection whenever the underlying list changes (filter, page).
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [page, statusFilter])
+
+  const allSelected = useMemo(
+    () => reviews.length > 0 && reviews.every((r) => selectedIds.has(r.id)),
+    [reviews, selectedIds]
+  )
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      if (reviews.every((r) => prev.has(r.id))) return new Set()
+      return new Set(reviews.map((r) => r.id))
+    })
+  }
+
+  const clearSelection = () => setSelectedIds(new Set())
+
+  const handleBulkStatus = async (newStatus: 'APPROVED' | 'REJECTED' | 'FLAGGED') => {
+    if (selectedIds.size === 0 || bulkLoading) return
+    setBulkLoading(true)
+    const ids = Array.from(selectedIds)
+    try {
+      const results = await Promise.allSettled(
+        ids.map((id) =>
+          fetch(`/api/reviews/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus, moderatedBy: 'admin' }),
+          }).then((res) => {
+            if (!res.ok) throw new Error(`Failed for ${id}`)
+            return id
+          })
+        )
+      )
+      const success = results.filter((r) => r.status === 'fulfilled').length
+      const failed = results.length - success
+      if (failed === 0) {
+        toast.success(`${success} ${success === 1 ? 'review' : 'reviews'} updated to ${newStatus.toLowerCase()}`)
+      } else {
+        toast.error(`Updated ${success}, ${failed} failed`)
+      }
+      clearSelection()
+      fetchReviews()
+    } catch (error) {
+      console.error('Bulk status update failed:', error)
+      toast.error('Bulk update failed')
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0 || bulkLoading) return
+    if (!confirm(`Delete ${selectedIds.size} ${selectedIds.size === 1 ? 'review' : 'reviews'}? This cannot be undone.`)) {
+      return
+    }
+    setBulkLoading(true)
+    const ids = Array.from(selectedIds)
+    try {
+      const results = await Promise.allSettled(
+        ids.map((id) =>
+          fetch(`/api/reviews/${id}`, { method: 'DELETE' }).then((res) => {
+            if (!res.ok) throw new Error(`Failed for ${id}`)
+            return id
+          })
+        )
+      )
+      const success = results.filter((r) => r.status === 'fulfilled').length
+      const failed = results.length - success
+      if (failed === 0) {
+        toast.success(`${success} ${success === 1 ? 'review' : 'reviews'} deleted`)
+      } else {
+        toast.error(`Deleted ${success}, ${failed} failed`)
+      }
+      clearSelection()
+      fetchReviews()
+    } catch (error) {
+      console.error('Bulk delete failed:', error)
+      toast.error('Bulk delete failed')
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'APPROVED':
@@ -228,9 +328,65 @@ export default function AdminReviewsPage() {
       title="Review Moderation"
       subtitle="Moderate customer reviews and manage product feedback"
     >
+      {/* Bulk action toolbar — appears when one or more reviews are selected */}
+      <BulkActionToolbar
+        selectedCount={selectedIds.size}
+        itemNoun="review"
+        onClear={clearSelection}
+        actions={[
+          {
+            key: 'approve',
+            label: 'Approve',
+            icon: <Check size={13} weight="bold" />,
+            tone: 'primary',
+            onClick: () => handleBulkStatus('APPROVED'),
+            loading: bulkLoading,
+          },
+          {
+            key: 'reject',
+            label: 'Reject',
+            icon: <X size={13} weight="bold" />,
+            tone: 'danger',
+            onClick: () => handleBulkStatus('REJECTED'),
+            loading: bulkLoading,
+          },
+          {
+            key: 'flag',
+            label: 'Flag',
+            icon: <Flag size={13} weight="bold" />,
+            onClick: () => handleBulkStatus('FLAGGED'),
+            loading: bulkLoading,
+          },
+          {
+            key: 'delete',
+            label: 'Delete',
+            icon: <Trash size={13} weight="bold" />,
+            tone: 'danger',
+            onClick: handleBulkDelete,
+            loading: bulkLoading,
+          },
+        ]}
+      />
+
       {/* Filters */}
       <div className="bg-neutral-900 border border-white/10 p-4 mb-6">
           <div className="flex flex-wrap items-center gap-4">
+            {/* Select-all checkbox */}
+            {reviews.length > 0 && (
+              <label className="flex items-center gap-2 text-xs text-white/70 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                  aria-label="Select all reviews on this page"
+                  className="w-4 h-4 accent-white cursor-pointer"
+                />
+                <span className="font-bold uppercase tracking-wider text-[10px] text-white/55">
+                  {allSelected ? 'Deselect all' : 'Select all'}
+                </span>
+              </label>
+            )}
+
             <div>
               <label htmlFor="status" className="block text-[10px] font-medium text-white/40 uppercase tracking-[0.15em] mb-1">
                 Status
@@ -273,8 +429,24 @@ export default function AdminReviewsPage() {
         ) : (
           <div className="space-y-4">
             {reviews.map((review) => (
-              <div key={review.id} className="bg-neutral-900 border border-white/10 p-6">
-                <div className="flex gap-6">
+              <div
+                key={review.id}
+                className={`bg-neutral-900 border p-6 transition-colors ${
+                  selectedIds.has(review.id) ? 'border-white/30 bg-white/2' : 'border-white/10'
+                }`}
+              >
+                <div className="flex gap-4 sm:gap-6">
+                  {/* Selection checkbox */}
+                  <div className="shrink-0 pt-1">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(review.id)}
+                      onChange={() => toggleSelect(review.id)}
+                      aria-label={`Select review by ${review.customerName}`}
+                      className="w-4 h-4 accent-white cursor-pointer"
+                    />
+                  </div>
+
                   {/* Product Image */}
                   <div className="shrink-0 relative w-24 h-24 overflow-hidden border border-white/10">
                     <Image

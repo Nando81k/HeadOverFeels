@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/lib/auth/context'
 import { TIER_HIERARCHY } from '@/lib/loyalty/tier-progress'
-import { Sparkle, Gift, Heart, Truck, Lightning, Users, Download, Package, CircleNotch, Lock, CheckCircle, Warning, TrendUp, Medal, X, Copy, Check, Confetti, Star, ArrowRight } from '@phosphor-icons/react'
+import { Sparkle, Gift, Heart, Truck, Lightning, Users, Download, Package, CircleNotch, Lock, CheckCircle, Warning, TrendUp, Medal, X, Copy, Check, Confetti, Star, ArrowRight, ClockCounterClockwise } from '@phosphor-icons/react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { EarlyAccessDrops } from '@/components/loyalty/EarlyAccessDrops'
@@ -47,6 +47,17 @@ interface RedemptionResult {
   error?: string
 }
 
+interface MyRedemption {
+  id: string
+  rewardName: string
+  rewardType: string
+  pointsSpent: number
+  status: string
+  couponCode: string | null
+  usedAt: string | null
+  createdAt: string
+}
+
 interface RewardsHubSectionProps {
   embedded?: boolean
   openTierModalSignal?: number
@@ -84,100 +95,6 @@ const rewardTypeLabels = {
   CHARITY_DONATION: 'Charity',
   DIGITAL_CONTENT: 'Digital',
   PHYSICAL_PERK: 'Physical Perk',
-}
-
-// Colorful reward category styling
-const rewardTypeColors = {
-  DISCOUNT: {
-    bg: 'bg-emerald-50',
-    iconBg: 'bg-emerald-100',
-    iconColor: 'text-emerald-600',
-    border: 'border-emerald-200',
-    badge: 'bg-emerald-100 text-emerald-700',
-    gradient: 'from-emerald-500 to-teal-600',
-    ring: 'ring-emerald-500',
-    activeBg: 'bg-emerald-600',
-    hoverBg: 'hover:bg-emerald-50',
-  },
-  FREE_SHIPPING: {
-    bg: 'bg-sky-50',
-    iconBg: 'bg-sky-100',
-    iconColor: 'text-sky-600',
-    border: 'border-sky-200',
-    badge: 'bg-sky-100 text-sky-700',
-    gradient: 'from-sky-500 to-blue-600',
-    ring: 'ring-sky-500',
-    activeBg: 'bg-sky-600',
-    hoverBg: 'hover:bg-sky-50',
-  },
-  EARLY_ACCESS: {
-    bg: 'bg-violet-50',
-    iconBg: 'bg-violet-100',
-    iconColor: 'text-violet-600',
-    border: 'border-violet-200',
-    badge: 'bg-violet-100 text-violet-700',
-    gradient: 'from-violet-500 to-purple-600',
-    ring: 'ring-violet-500',
-    activeBg: 'bg-violet-600',
-    hoverBg: 'hover:bg-violet-50',
-  },
-  EXCLUSIVE_PRODUCT: {
-    bg: 'bg-amber-50',
-    iconBg: 'bg-amber-100',
-    iconColor: 'text-amber-600',
-    border: 'border-amber-200',
-    badge: 'bg-amber-100 text-amber-700',
-    gradient: 'from-amber-500 to-orange-600',
-    ring: 'ring-amber-500',
-    activeBg: 'bg-amber-600',
-    hoverBg: 'hover:bg-amber-50',
-  },
-  CHARITY_DONATION: {
-    bg: 'bg-rose-50',
-    iconBg: 'bg-rose-100',
-    iconColor: 'text-rose-600',
-    border: 'border-rose-200',
-    badge: 'bg-rose-100 text-rose-700',
-    gradient: 'from-rose-500 to-pink-600',
-    ring: 'ring-rose-500',
-    activeBg: 'bg-rose-600',
-    hoverBg: 'hover:bg-rose-50',
-  },
-  DIGITAL_CONTENT: {
-    bg: 'bg-indigo-50',
-    iconBg: 'bg-indigo-100',
-    iconColor: 'text-indigo-600',
-    border: 'border-indigo-200',
-    badge: 'bg-indigo-100 text-indigo-700',
-    gradient: 'from-indigo-500 to-blue-600',
-    ring: 'ring-indigo-500',
-    activeBg: 'bg-indigo-600',
-    hoverBg: 'hover:bg-indigo-50',
-  },
-  PHYSICAL_PERK: {
-    bg: 'bg-orange-50',
-    iconBg: 'bg-orange-100',
-    iconColor: 'text-orange-600',
-    border: 'border-orange-200',
-    badge: 'bg-orange-100 text-orange-700',
-    gradient: 'from-orange-500 to-red-600',
-    ring: 'ring-orange-500',
-    activeBg: 'bg-orange-600',
-    hoverBg: 'hover:bg-orange-50',
-  },
-}
-
-// Default colors for "all" category
-const defaultColors = {
-  bg: 'bg-gray-50',
-  iconBg: 'bg-gray-100',
-  iconColor: 'text-gray-600',
-  border: 'border-gray-200',
-  badge: 'bg-gray-100 text-gray-700',
-  gradient: 'from-gray-500 to-gray-600',
-  ring: 'ring-gray-500',
-  activeBg: 'bg-black',
-  hoverBg: 'hover:bg-gray-50',
 }
 
 const FALLBACK_TIER_BENEFITS: Record<string, string[]> = {
@@ -332,8 +249,13 @@ export function RewardsHubSection({ embedded = false, openTierModalSignal = 0 }:
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [showTierModal, setShowTierModal] = useState(false)
-  
-  // Redemption state
+
+  // My Redemptions state — eagerly loaded now that we render unified
+  const [myRedemptions, setMyRedemptions] = useState<MyRedemption[]>([])
+  const [redemptionsLoading, setRedemptionsLoading] = useState(false)
+  const [showAllRedemptions, setShowAllRedemptions] = useState(false)
+
+  // Redemption modal state
   const [redeemingRewardId, setRedeemingRewardId] = useState<string | null>(null)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [redemptionResult, setRedemptionResult] = useState<RedemptionResult | null>(null)
@@ -345,6 +267,12 @@ export function RewardsHubSection({ embedded = false, openTierModalSignal = 0 }:
     fetchRewards()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategory])
+
+  // Eagerly load redemptions on mount so the unified loyalty page shows them inline
+  useEffect(() => {
+    fetchRedemptions()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (openTierModalSignal > 0) {
@@ -398,6 +326,19 @@ export function RewardsHubSection({ embedded = false, openTierModalSignal = 0 }:
     }
   }
 
+  const fetchRedemptions = useCallback(async () => {
+    setRedemptionsLoading(true)
+    try {
+      const res = await fetch('/api/loyalty/redemptions?limit=50')
+      if (res.ok) {
+        const data = await res.json()
+        setMyRedemptions(data.data || [])
+      }
+    } catch { /* silent */ } finally {
+      setRedemptionsLoading(false)
+    }
+  }, [])
+
   const handleRedeem = async (rewardId: string) => {
     setRedeemingRewardId(rewardId)
     
@@ -415,6 +356,7 @@ export function RewardsHubSection({ embedded = false, openTierModalSignal = 0 }:
         setCustomerPoints(data.newPointsBalance || 0)
         setShowSuccessModal(true)
         fetchRewards()
+        fetchRedemptions()
         refreshUser()
       } else {
         setErrorMessage(data.error || 'Failed to redeem reward')
@@ -469,43 +411,285 @@ export function RewardsHubSection({ embedded = false, openTierModalSignal = 0 }:
   }, 0)
   const currentTierIndex = currentTierIndexFromSlug >= 0 ? currentTierIndexFromSlug : inferredTierIndex
 
+  const redemptionStatusConfig: Record<string, { label: string; bg: string; text: string }> = {
+    PENDING: { label: 'Pending', bg: 'bg-amber-100', text: 'text-amber-800' },
+    FULFILLED: { label: 'Fulfilled', bg: 'bg-emerald-100', text: 'text-emerald-800' },
+    USED: { label: 'Used', bg: 'bg-blue-100', text: 'text-blue-800' },
+    CANCELLED: { label: 'Cancelled', bg: 'bg-gray-100', text: 'text-gray-500' },
+    EXPIRED: { label: 'Expired', bg: 'bg-red-100', text: 'text-red-700' },
+  }
+
   return (
     <section
       id="rewards"
       className={embedded ? 'bg-white' : 'border-t border-black/10 bg-white'}
     >
 
-      {/* Hero Section - Editorial Style */}
-      <section className={`relative bg-white ${embedded ? 'pt-6 md:pt-8 lg:pt-10 pb-2 md:pb-6' : 'pt-10 md:pt-12 lg:pt-14 pb-4 md:pb-8'}`}>
-        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-12">
-          <div className="max-w-2xl">
-            <h2 className="text-3xl md:text-5xl lg:text-7xl font-black text-black tracking-tight mb-2 md:mb-4">
-              Rewards
-            </h2>
-            <p className="text-sm md:text-xl lg:text-2xl text-black/70 leading-relaxed">
-              Turn your Care Points into exclusive perks and discounts.
-            </p>
-          </div>
-        </div>
-      </section>
+      {/* Loyalty Tier Hero — the "expanded" form of the Overview card (shared layoutId) */}
+      {(() => {
+        const currentTier = tierDefinitions[currentTierIndex]
+        const nextTier = tierDefinitions[currentTierIndex + 1]
+        const progressPct = nextTier
+          ? Math.min(100, Math.max(0, (annualPointsEarned / Math.max(1, nextTier.minAnnualPoints)) * 100))
+          : 100
+        const pendingFulfillCount = myRedemptions.filter((r) => r.status === 'PENDING' && !r.couponCode).length
+        const tierFill = currentTier?.primaryColor || '#ffffff'
 
-      {/* Main Content */}
-      <div className={`max-w-7xl mx-auto px-4 md:px-6 lg:px-12 ${embedded ? 'py-4 md:py-6 lg:py-8' : 'py-4 md:py-8 lg:py-12'}`}>
+        if (!currentTier) return null
+
+        return (
+          <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-12 pt-6 md:pt-8">
+            <motion.div
+              layoutId="loyalty-tier-hero"
+              className="rounded-2xl bg-black text-white overflow-hidden relative"
+              transition={{ layout: { duration: 0.4, ease: [0.32, 0.72, 0, 1] } }}
+            >
+              <motion.div layoutId="loyalty-tier-hero-glow" className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-16 -left-12 w-48 h-48 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+
+              <div className="relative p-6 md:p-8 lg:p-10">
+                <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 md:gap-8 mb-6 md:mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
+                      <Medal size={28} weight="fill" className="text-white" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] md:text-[11px] font-bold uppercase tracking-[0.2em] text-white/60 mb-1">
+                        Member Loyalty
+                      </p>
+                      <h1 className="text-2xl md:text-4xl font-black tracking-tight leading-none">
+                        {currentTier.name}
+                      </h1>
+                      <p className="text-xs md:text-sm text-white/70 mt-1.5">
+                        Earning {formatMultiplier(currentTier.pointMultiplier)}× points on every order
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="md:text-right">
+                    <p className="text-[10px] md:text-[11px] font-bold uppercase tracking-[0.2em] text-white/60 mb-1">
+                      Available
+                    </p>
+                    <p className="text-3xl md:text-5xl font-black leading-none tabular-nums">
+                      {customerPoints.toLocaleString()}
+                      <span className="text-sm md:text-base text-white/55 ml-1.5 font-medium">pts</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tier progress */}
+                <div className="mb-5 md:mb-6">
+                  <div className="flex items-center justify-between text-[11px] md:text-xs text-white/70 font-semibold mb-2.5">
+                    <span>
+                      {nextTier ? (
+                        <>
+                          <span className="font-black text-white">
+                            {Math.max(0, nextTier.minAnnualPoints - annualPointsEarned).toLocaleString()}
+                          </span>{' '}
+                          pts to <span className="font-black text-white">{nextTier.name}</span>
+                        </>
+                      ) : (
+                        <span className="font-black text-white">Top tier reached</span>
+                      )}
+                    </span>
+                    <span className="text-white/55 tabular-nums">{Math.round(progressPct)}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-white/15 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{ width: `${progressPct}%`, backgroundColor: tierFill }}
+                    />
+                  </div>
+                </div>
+
+                {/* Action chips */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowTierModal(true)}
+                    className="inline-flex items-center gap-1.5 px-3 h-8 rounded-full bg-white/15 text-white text-[11px] font-bold uppercase tracking-wider hover:bg-white/25 transition-colors"
+                  >
+                    <TrendUp size={12} weight="bold" />
+                    View tiers
+                  </button>
+                  {pendingFulfillCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (typeof window !== 'undefined') {
+                          document.getElementById('redemptions-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 h-8 rounded-full bg-amber-400 text-amber-950 text-[11px] font-bold uppercase tracking-wider hover:bg-amber-300 transition-colors"
+                    >
+                      <ClockCounterClockwise size={12} weight="bold" />
+                      {pendingFulfillCount} processing
+                    </button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )
+      })()}
+
+      {/* Your Redemptions — only renders when redemptions exist */}
+      {!redemptionsLoading && myRedemptions.length > 0 && (
+        <div
+          id="redemptions-anchor"
+          className={`max-w-7xl mx-auto px-4 md:px-6 lg:px-12 ${embedded ? 'pt-6 md:pt-8' : 'pt-6 md:pt-10'}`}
+        >
+          <div className="flex items-end justify-between mb-4 md:mb-5">
+            <div>
+              <p className="text-[10px] md:text-[11px] font-bold uppercase tracking-[0.2em] text-black/40 mb-1">
+                Your activity
+              </p>
+              <h2 className="text-xl md:text-2xl font-black text-black tracking-tight">
+                Recent redemptions
+              </h2>
+            </div>
+            {myRedemptions.length > 5 && (
+              <button
+                type="button"
+                onClick={() => setShowAllRedemptions((v) => !v)}
+                className="text-xs font-bold uppercase tracking-wider text-black/55 hover:text-black transition-colors flex items-center gap-1"
+              >
+                {showAllRedemptions ? 'Show less' : `Show all ${myRedemptions.length}`}
+                <ArrowRight size={12} weight="bold" />
+              </button>
+            )}
+          </div>
+
+          <>
+              {/* Summary chips */}
+              {(() => {
+                const pendingFulfillment = myRedemptions.filter((r) => r.status === 'PENDING' && !r.couponCode).length
+                const pendingCoupons = myRedemptions.filter((r) => r.status === 'PENDING' && r.couponCode).length
+                const totalSpent = myRedemptions.reduce((sum, r) => sum + r.pointsSpent, 0)
+                return (
+                  <div className="grid grid-cols-3 gap-2 md:gap-3 mb-5 md:mb-6">
+                    <div className="rounded-2xl bg-black/3 border border-black/5 p-3 md:p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-black/45 mb-1">Total</p>
+                      <p className="text-lg md:text-2xl font-black text-black leading-none">{myRedemptions.length}</p>
+                    </div>
+                    <div className={`rounded-2xl border p-3 md:p-4 ${pendingFulfillment > 0 ? 'bg-amber-50 border-amber-200' : 'bg-black/3 border-black/5'}`}>
+                      <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${pendingFulfillment > 0 ? 'text-amber-700' : 'text-black/45'}`}>Processing</p>
+                      <p className={`text-lg md:text-2xl font-black leading-none ${pendingFulfillment > 0 ? 'text-amber-800' : 'text-black'}`}>{pendingFulfillment}</p>
+                    </div>
+                    <div className="rounded-2xl bg-black/3 border border-black/5 p-3 md:p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-black/45 mb-1">Pts Spent</p>
+                      <p className="text-lg md:text-2xl font-black text-black leading-none">{totalSpent.toLocaleString()}</p>
+                    </div>
+                    <div className="hidden md:block" />
+                    <div className="hidden md:block" />
+                    {pendingCoupons > 0 && (
+                      <div className="col-span-3 md:col-span-1 rounded-2xl bg-blue-50 border border-blue-200 p-3 md:p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-blue-700 mb-1">Active Coupons</p>
+                        <p className="text-lg md:text-2xl font-black text-blue-900 leading-none">{pendingCoupons}</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+
+              {/* Redemption list */}
+              <div className="space-y-2.5 md:space-y-3">
+                {(showAllRedemptions ? myRedemptions : myRedemptions.slice(0, 5)).map((r) => {
+                  const Icon = rewardTypeIcons[r.rewardType as keyof typeof rewardTypeIcons] || Gift
+                  const statusConfig = redemptionStatusConfig[r.status] || redemptionStatusConfig.PENDING
+                  const isPendingFulfillment = r.status === 'PENDING' && !r.couponCode
+                  const hasActiveCoupon = r.status === 'PENDING' && r.couponCode
+
+                  return (
+                    <div
+                      key={r.id}
+                      className={`flex items-start gap-3 md:gap-4 p-3.5 md:p-4 rounded-2xl border transition-all ${
+                        isPendingFulfillment
+                          ? 'border-amber-200 bg-amber-50'
+                          : hasActiveCoupon
+                            ? 'border-blue-200 bg-blue-50'
+                            : 'border-black/8 bg-white hover:border-black/15'
+                      }`}
+                    >
+                      <div className={`w-10 h-10 md:w-11 md:h-11 rounded-xl flex items-center justify-center shrink-0 ${
+                        isPendingFulfillment ? 'bg-amber-100' : hasActiveCoupon ? 'bg-blue-100' : 'bg-black/5'
+                      }`}>
+                        <Icon size={18} weight="fill" className={
+                          isPendingFulfillment ? 'text-amber-600' : hasActiveCoupon ? 'text-blue-600' : 'text-black/60'
+                        } />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="text-sm font-black text-black leading-tight">{r.rewardName}</p>
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${statusConfig.bg} ${statusConfig.text}`}>
+                            {statusConfig.label}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-[11px] text-black/45 mb-1.5">
+                          <span>{new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                          <span className="text-black/30">·</span>
+                          <span className="font-semibold text-black/55">-{r.pointsSpent.toLocaleString()} pts</span>
+                        </div>
+
+                        {r.couponCode && (
+                          <button
+                            onClick={() => copyToClipboard(r.couponCode!)}
+                            className="inline-flex items-center gap-1.5 mt-1 px-2.5 py-1 rounded-lg bg-white border border-black/10 hover:border-black/30 transition-colors group"
+                          >
+                            <code className="text-[11px] font-mono font-bold text-black tracking-wider">{r.couponCode}</code>
+                            <Copy size={11} weight="bold" className="text-black/35 group-hover:text-black/70 transition-colors" />
+                          </button>
+                        )}
+
+                        {isPendingFulfillment && (
+                          <p className="text-[11px] text-amber-700 mt-1.5 flex items-center gap-1">
+                            <ClockCounterClockwise size={11} weight="bold" />
+                            Our team is processing your reward
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+          </>
+        </div>
+      )}
+
+      {/* Available Rewards — always shown */}
+      <div className={`max-w-7xl mx-auto px-4 md:px-6 lg:px-12 ${embedded ? 'py-6 md:py-8 lg:py-10' : 'py-6 md:py-10 lg:py-12'}`}>
+        <div className="mb-5 md:mb-7">
+          <p className="text-[10px] md:text-[11px] font-bold uppercase tracking-[0.2em] text-black/40 mb-1">
+            Use your points
+          </p>
+          <h2 className="text-xl md:text-2xl font-black text-black tracking-tight">
+            Available rewards
+          </h2>
+        </div>
         {/* Early Access Drops Section */}
         <div className="mb-8 md:mb-12">
-          <EarlyAccessDrops 
-            currentPoints={customerPoints} 
+          <EarlyAccessDrops
+            currentPoints={customerPoints}
             onPointsChange={(newPoints) => {
               setCustomerPoints(newPoints)
-              fetchRewards() // Refresh rewards to update points display
-            }} 
+              fetchRewards()
+            }}
           />
         </div>
 
-        {/* Category Filter - Matching Products Page Style */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-8 pb-4 md:pb-6 border-b border-black/5 gap-2">
-          {/* Categories - Wrap on mobile */}
-          <div className="flex flex-wrap gap-1.5 md:gap-2">
+        {/* Category Filter — horizontal scroll */}
+        <div className="mb-5 md:mb-8 -mx-4 md:mx-0">
+          <div className="flex items-center justify-between mb-3 md:mb-4 px-4 md:px-0">
+            <h3 className="text-xs md:text-sm font-bold uppercase tracking-wider text-black/50">
+              Browse by category
+            </h3>
+            <span className="text-xs text-black/40 font-medium">
+              <span className="font-bold text-black">{rewards.length}</span> {rewards.length === 1 ? 'reward' : 'rewards'}
+            </span>
+          </div>
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 md:px-0 pb-1">
             {categories.map((category) => {
               const Icon = category.icon
               const isSelected = selectedCategory === category.value
@@ -513,25 +697,18 @@ export function RewardsHubSection({ embedded = false, openTierModalSignal = 0 }:
                 <button
                   key={category.value}
                   onClick={() => setSelectedCategory(category.value)}
-                  className={`flex items-center gap-1.5 md:gap-2 px-3 py-2 md:px-5 md:py-3 text-[10px] md:text-sm font-bold transition-all uppercase tracking-wider ${
+                  className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 text-xs md:text-sm font-semibold rounded-full transition-all whitespace-nowrap ${
                     isSelected
-                      ? 'bg-black text-white shadow-lg'
-                      : 'bg-white text-black/70 border border-black/10 hover:border-black/30 hover:text-black'
+                      ? 'bg-black text-white shadow-md'
+                      : 'bg-white text-black/65 border border-black/10 hover:border-black/30 hover:text-black'
                   }`}
                 >
-                  <Icon size={14} weight={isSelected ? 'fill' : 'bold'} className="md:hidden shrink-0" />
-                  <Icon size={18} weight={isSelected ? 'fill' : 'bold'} className="hidden md:block shrink-0" />
-                  <span className="hidden sm:inline">{category.label}</span>
-                  <span className="sm:hidden">{category.label.split(' ')[0]}</span>
+                  <Icon size={14} weight={isSelected ? 'fill' : 'bold'} className="shrink-0" />
+                  <span>{category.label}</span>
                 </button>
               )
             })}
           </div>
-
-          {/* Results Count */}
-          <span className="text-xs md:text-sm text-black/50 font-medium tracking-wide hidden lg:block">
-            <span className="font-bold text-black">{rewards.length}</span> {rewards.length === 1 ? 'reward' : 'rewards'}
-          </span>
         </div>
 
         {/* Rewards Grid */}
@@ -541,193 +718,204 @@ export function RewardsHubSection({ embedded = false, openTierModalSignal = 0 }:
             <p className="text-black/70">Loading rewards...</p>
           </div>
         ) : rewards.length === 0 ? (
-          <div className="text-center py-12 md:py-20 px-4 md:px-6">
+          <div className="text-center py-16 md:py-24">
             <div className="max-w-md mx-auto">
-              <div className="w-14 h-14 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 bg-black/5 flex items-center justify-center">
-                <Sparkle size={28} weight="fill" className="text-black/20 md:hidden" />
-                <Sparkle size={40} weight="fill" className="text-black/20 hidden md:block" />
+              <div className="w-16 h-16 mx-auto mb-5 bg-black/5 rounded-full flex items-center justify-center">
+                <Sparkle size={26} weight="fill" className="text-black/25" />
               </div>
-              <h3 className="text-xl md:text-2xl font-black text-black mb-2 md:mb-3">No rewards found</h3>
-              <p className="text-sm md:text-base text-black/70 mb-4 md:mb-6">Try selecting a different category.</p>
+              <h3 className="text-lg md:text-xl font-black text-black mb-2">No rewards in this category</h3>
+              <p className="text-sm text-black/55 mb-6">Try a different category to discover more.</p>
               <button
                 onClick={() => setSelectedCategory('all')}
-                className="inline-flex items-center gap-2 px-4 py-2.5 md:px-6 md:py-3 bg-black text-white font-bold text-xs md:text-sm uppercase tracking-wider hover:bg-black/90 transition-all"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-black text-white text-xs font-bold uppercase tracking-wider rounded-full hover:bg-black/85 transition-all"
               >
                 View All Rewards
-                <ArrowRight size={14} weight="bold" className="md:hidden" />
-                <ArrowRight size={16} weight="bold" className="hidden md:block" />
+                <ArrowRight size={13} weight="bold" />
               </button>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 lg:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             {rewards.map((reward, index) => {
               const Icon = rewardTypeIcons[reward.rewardType as keyof typeof rewardTypeIcons] || Gift
-              const colors = rewardTypeColors[reward.rewardType as keyof typeof rewardTypeColors] || defaultColors
               const canRedeem = reward.canAfford && reward.meetsTierRequirement && reward.isAvailable
+              const pointsShort = !reward.canAfford && reward.meetsTierRequirement
+                ? reward.pointsCost - customerPoints
+                : 0
 
               return (
                 <motion.div
                   key={reward.id}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                  className={`group bg-white border border-black/10 p-4 md:p-6 transition-all duration-300 hover:shadow-xl hover:border-black/20 hover:-translate-y-1 overflow-hidden ${
-                    !canRedeem ? 'opacity-60' : ''
+                  transition={{ duration: 0.25, delay: Math.min(index * 0.04, 0.3) }}
+                  className={`group relative bg-white rounded-2xl border border-black/8 overflow-hidden transition-all duration-300 hover:shadow-lg hover:border-black/20 hover:-translate-y-0.5 flex flex-col ${
+                    !canRedeem ? 'opacity-75' : ''
                   }`}
                 >
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-4 md:mb-6">
-                    <div className={`w-10 h-10 md:w-14 md:h-14 ${colors.iconBg} flex items-center justify-center`}>
-                      <Icon className={`w-5 h-5 md:w-7 md:h-7 ${colors.iconColor}`} weight="fill" />
+                  {/* Top: icon + type chip */}
+                  <div className="px-4 pt-4 md:px-5 md:pt-5 flex items-center justify-between">
+                    <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-black/5 flex items-center justify-center">
+                      <Icon size={18} weight="fill" className="text-black/75" />
                     </div>
-                    <span className={`px-2 py-1 md:px-3 md:py-1.5 text-[9px] md:text-xs font-bold uppercase tracking-wider ${colors.badge}`}>
+                    <span className="px-2.5 py-1 text-[9px] md:text-[10px] font-bold uppercase tracking-wider rounded-full bg-black/4 text-black/55">
                       {rewardTypeLabels[reward.rewardType as keyof typeof rewardTypeLabels]}
                     </span>
                   </div>
 
-                  {/* Content */}
-                  <h3 className="text-base md:text-xl font-black text-black mb-1 md:mb-2 tracking-tight line-clamp-2">
-                    {reward.name}
-                  </h3>
-                  <p className="text-xs md:text-sm text-black/60 mb-4 md:mb-6 leading-relaxed line-clamp-2 min-h-8 md:min-h-12">
-                    {reward.description}
-                  </p>
-
-                  {/* Points Cost */}
-                  <div className={`flex items-center gap-2 md:gap-3 mb-4 md:mb-6 p-3 md:p-4 ${colors.bg} border ${colors.border}`}>
-                    <Sparkle size={16} weight="fill" className={`${colors.iconColor} md:hidden`} />
-                    <Sparkle size={20} weight="fill" className={`${colors.iconColor} hidden md:block`} />
-                    <div>
-                      <span className={`text-xl md:text-3xl font-black ${colors.iconColor}`}>
-                        {reward.pointsCost.toLocaleString()}
-                      </span>
-                      <span className="text-xs md:text-sm text-black/50 ml-1 md:ml-2">pts</span>
-                    </div>
+                  {/* Title + description */}
+                  <div className="px-4 md:px-5 pt-3 pb-4 flex-1">
+                    <h3 className="text-[15px] md:text-base font-black text-black tracking-tight leading-tight line-clamp-2 mb-1.5">
+                      {reward.name}
+                    </h3>
+                    {reward.description && (
+                      <p className="text-xs text-black/55 leading-relaxed line-clamp-2">
+                        {reward.description}
+                      </p>
+                    )}
                   </div>
 
-                  {/* Status Indicators */}
-                  {!reward.meetsTierRequirement && reward.minTierRequired && (
-                    <div className="flex items-center gap-1.5 md:gap-2 mb-3 md:mb-4 text-xs md:text-sm text-amber-700 bg-amber-50 border border-amber-200 p-2 md:p-3">
-                      <Lock size={14} weight="bold" className="shrink-0" />
-                      <span>Requires <span className="font-bold">{reward.minTierRequired}</span></span>
+                  {/* Optional inline status hint */}
+                  {!canRedeem && (
+                    <div className="mx-4 md:mx-5 mb-3 inline-flex items-center gap-1.5 text-[11px] text-black/55">
+                      {!reward.meetsTierRequirement && reward.minTierRequired ? (
+                        <>
+                          <Lock size={11} weight="bold" />
+                          <span>Requires <span className="font-bold capitalize text-black/70">{reward.minTierRequired}</span> tier</span>
+                        </>
+                      ) : pointsShort > 0 ? (
+                        <>
+                          <Warning size={11} weight="bold" className="text-amber-500" />
+                          <span><span className="font-bold text-black/75">{pointsShort.toLocaleString()}</span> pts short</span>
+                        </>
+                      ) : (
+                        <>
+                          <X size={11} weight="bold" />
+                          <span>Out of stock</span>
+                        </>
+                      )}
                     </div>
                   )}
 
-                  {!reward.canAfford && reward.meetsTierRequirement && (
-                    <div className="flex items-center gap-1.5 md:gap-2 mb-3 md:mb-4 text-xs md:text-sm text-rose-700 bg-rose-50 border border-rose-200 p-2 md:p-3">
-                      <Warning size={14} weight="bold" className="shrink-0" />
-                      <span>Need <span className="font-bold">{(reward.pointsCost - customerPoints).toLocaleString()}</span> more</span>
+                  {/* Footer: points + CTA on one row */}
+                  <div className="px-3 pb-3 md:px-3 md:pb-3 mt-auto">
+                    <div className="flex items-center justify-between gap-2 bg-black/3 rounded-xl pl-3 pr-1 py-1">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkle size={14} weight="fill" className="text-black/55" />
+                        <span className="text-base md:text-lg font-black text-black leading-none tracking-tight">
+                          {reward.pointsCost.toLocaleString()}
+                        </span>
+                        <span className="text-[10px] md:text-[11px] text-black/45 font-medium">pts</span>
+                      </div>
+                      <button
+                        onClick={() => handleRedeem(reward.id)}
+                        disabled={!canRedeem || redeemingRewardId === reward.id}
+                        className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[11px] md:text-xs font-bold uppercase tracking-wider transition-all active:scale-[0.97] ${
+                          canRedeem
+                            ? 'bg-black text-white hover:bg-black/85'
+                            : 'bg-black/10 text-black/35 cursor-not-allowed'
+                        }`}
+                      >
+                        {redeemingRewardId === reward.id ? (
+                          <CircleNotch size={13} weight="bold" className="animate-spin" />
+                        ) : canRedeem ? (
+                          <>
+                            Redeem
+                            <ArrowRight size={11} weight="bold" />
+                          </>
+                        ) : (
+                          'Locked'
+                        )}
+                      </button>
                     </div>
-                  )}
 
-                  {canRedeem && (
-                    <div className="flex items-center gap-1.5 md:gap-2 mb-3 md:mb-4 text-xs md:text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 p-2 md:p-3">
-                      <CheckCircle size={14} weight="fill" className="shrink-0" />
-                      <span className="font-bold">Available!</span>
-                    </div>
-                  )}
-
-                  {/* Redeem Button */}
-                  <button
-                    onClick={() => handleRedeem(reward.id)}
-                    disabled={!canRedeem || redeemingRewardId === reward.id}
-                    className={`w-full py-3 md:py-4 font-bold uppercase tracking-wider text-xs md:text-sm transition-all flex items-center justify-center gap-2 ${
-                      canRedeem
-                        ? 'bg-black text-white hover:bg-black/90 shadow-lg hover:shadow-xl'
-                        : 'bg-black/10 text-black/40 cursor-not-allowed'
-                    }`}
-                  >
-                    {redeemingRewardId === reward.id ? (
-                      <>
-                        <CircleNotch size={16} weight="bold" className="animate-spin" />
-                        <span className="hidden sm:inline">Redeeming...</span>
-                        <span className="sm:hidden">...</span>
-                      </>
-                    ) : canRedeem ? (
-                      <>
-                        <span className="hidden sm:inline">Redeem Now</span>
-                        <span className="sm:hidden">Redeem</span>
-                        <ArrowRight size={14} weight="bold" />
-                      </>
-                    ) : (
-                      <span className="hidden sm:inline">Cannot Redeem</span>
+                    {reward._count.redemptions > 0 && (
+                      <p className="text-[10px] text-black/35 text-center mt-2 font-medium flex items-center justify-center gap-1">
+                        <Users size={9} weight="bold" />
+                        {reward._count.redemptions.toLocaleString()} {reward._count.redemptions === 1 ? 'person' : 'people'} redeemed
+                      </p>
                     )}
-                    {!canRedeem && redeemingRewardId !== reward.id && (
-                      <span className="sm:hidden">Locked</span>
-                    )}
-                  </button>
-
-                  {/* Redemption Count */}
-                  {reward._count.redemptions > 0 && (
-                    <p className="text-[10px] md:text-xs text-black/40 text-center mt-3 md:mt-4 font-medium">
-                      <Users size={10} weight="bold" className="inline mr-1" />
-                      {reward._count.redemptions.toLocaleString()} redeemed
-                    </p>
-                  )}
+                  </div>
                 </motion.div>
               )
             })}
           </div>
         )}
 
-        {/* How to Earn Section */}
-        <section className="mt-12 md:mt-20 pt-10 md:pt-16 border-t border-black/5">
-          <div className="text-center mb-8 md:mb-12">
-            <span className="text-[9px] md:text-[10px] font-medium tracking-[0.3em] text-black/40 uppercase block mb-2 md:mb-4">
-              Maximize Your Rewards
-            </span>
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-black text-black tracking-tight">
-              How to Earn More
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 md:grid-cols-3 md:gap-8">
-            <div className="text-center">
-              <div className="w-12 h-12 md:w-16 md:h-16 bg-black mx-auto mb-3 md:mb-6 flex items-center justify-center">
-                <Gift size={20} weight="fill" className="text-white md:hidden" />
-                <Gift size={28} weight="fill" className="text-white hidden md:block" />
-              </div>
-              <h3 className="text-xs md:text-lg font-black text-black mb-1 md:mb-2">Purchases</h3>
-              <p className="text-[10px] md:text-base text-black/60 hidden md:block">
-                Earn 1 point per $1 spent, multiplied by your current tier level.
+        {/* How to Earn — modernized cards */}
+        <section className="mt-10 md:mt-16 pt-8 md:pt-12 border-t border-black/5">
+          <div className="flex items-end justify-between mb-5 md:mb-7">
+            <div>
+              <p className="text-[10px] font-bold tracking-[0.18em] text-black/40 uppercase mb-1.5">
+                Maximize Your Rewards
               </p>
+              <h2 className="text-xl md:text-2xl font-black text-black tracking-tight">
+                Ways to earn points
+              </h2>
             </div>
-            <div className="text-center">
-              <div className="w-12 h-12 md:w-16 md:h-16 bg-black mx-auto mb-3 md:mb-6 flex items-center justify-center">
-                <Users size={20} weight="fill" className="text-white md:hidden" />
-                <Users size={28} weight="fill" className="text-white hidden md:block" />
-              </div>
-              <h3 className="text-xs md:text-lg font-black text-black mb-1 md:mb-2">Referrals</h3>
-              <p className="text-[10px] md:text-base text-black/60 hidden md:block">
-                Get 250 bonus points when a friend makes their first purchase.
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 md:w-16 md:h-16 bg-black mx-auto mb-3 md:mb-6 flex items-center justify-center">
-                <Sparkle size={20} weight="fill" className="text-white md:hidden" />
-                <Sparkle size={28} weight="fill" className="text-white hidden md:block" />
-              </div>
-              <h3 className="text-xs md:text-lg font-black text-black mb-1 md:mb-2">Events</h3>
-              <p className="text-[10px] md:text-base text-black/60 hidden md:block">
-                Earn bonus points during your birthday and special promotions.
-              </p>
-            </div>
-          </div>
-
-          {/* CTA */}
-          <div className="text-center mt-8 md:mt-12">
             <Link
               href="/products"
-              className="inline-flex items-center gap-2 md:gap-3 px-5 py-3 md:px-8 md:py-4 bg-black text-white font-bold text-xs md:text-sm uppercase tracking-wider hover:bg-black/90 transition-all shadow-lg"
+              className="hidden md:inline-flex items-center gap-2 px-4 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider rounded-full hover:bg-black/85 transition-all active:scale-[0.97]"
+            >
+              Shop Now
+              <ArrowRight size={13} weight="bold" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+            {[
+              {
+                icon: Gift,
+                title: 'Make a purchase',
+                description: 'Earn 1 point per $1 spent, multiplied by your tier.',
+                accent: '1× – 2×',
+              },
+              {
+                icon: Users,
+                title: 'Refer a friend',
+                description: 'Get 250 bonus points when they make their first purchase.',
+                accent: '+250',
+              },
+              {
+                icon: Sparkle,
+                title: 'Special events',
+                description: 'Bonus points on your birthday and during promotions.',
+                accent: '+50',
+              },
+            ].map(({ icon: ItemIcon, title, description, accent }) => (
+              <div
+                key={title}
+                className="flex items-start gap-3 md:gap-4 p-4 md:p-5 rounded-2xl bg-black/3 border border-black/5 hover:bg-black/5 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center shrink-0">
+                  <ItemIcon size={18} weight="fill" className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <h3 className="text-sm font-black text-black tracking-tight">{title}</h3>
+                    <span className="text-[10px] font-bold text-black/45 bg-black/4 px-2 py-0.5 rounded-full">
+                      {accent}
+                    </span>
+                  </div>
+                  <p className="text-xs text-black/55 leading-relaxed">{description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Mobile CTA */}
+          <div className="md:hidden text-center mt-6">
+            <Link
+              href="/products"
+              className="inline-flex items-center gap-2 px-5 py-3 bg-black text-white text-xs font-bold uppercase tracking-wider rounded-full hover:bg-black/85 transition-all active:scale-[0.97]"
             >
               Start Shopping
-              <ArrowRight size={14} weight="bold" className="md:hidden" />
-              <ArrowRight size={18} weight="bold" className="hidden md:block" />
+              <ArrowRight size={13} weight="bold" />
             </Link>
           </div>
         </section>
       </div>
+      {/* end Available Rewards */}
 
       {/* Tier Details Modal */}
       <AnimatePresence>
@@ -960,12 +1148,13 @@ export function RewardsHubSection({ embedded = false, openTierModalSignal = 0 }:
                   </span>
                 </div>
 
+                {/* Coupon code — discount / free shipping rewards */}
                 {redemptionResult.redemption?.couponCode && (
                   <div className="mt-3 md:mt-4 p-3 md:p-4 bg-amber-50 border border-amber-200">
                     <div className="flex items-center gap-1.5 md:gap-2 mb-1.5 md:mb-2">
                       <Gift size={14} weight="fill" className="text-amber-600 md:hidden" />
                       <Gift size={18} weight="fill" className="text-amber-600 hidden md:block" />
-                      <span className="text-xs md:text-sm font-bold text-amber-900">Coupon Code</span>
+                      <span className="text-xs md:text-sm font-bold text-amber-900">Your Coupon Code</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <code className="flex-1 bg-white px-3 py-2 md:px-4 md:py-3 font-mono text-sm md:text-lg font-black text-center tracking-wider border border-amber-200">
@@ -981,41 +1170,79 @@ export function RewardsHubSection({ embedded = false, openTierModalSignal = 0 }:
                       </button>
                     </div>
                     <p className="text-[10px] md:text-xs text-amber-700 mt-2 text-center">
-                      Use at checkout
+                      Apply at checkout · expires in 90 days
                     </p>
                   </div>
                 )}
 
-                {redemptionResult.reward?.value && (
+                {/* Processing notice — physical / digital / charity / exclusive rewards */}
+                {!redemptionResult.redemption?.couponCode && redemptionResult.redemption?.status === 'PENDING' && (
+                  <div className="mt-3 md:mt-4 p-3 md:p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                    <div className="flex items-start gap-2.5">
+                      <ClockCounterClockwise size={16} weight="bold" className="text-blue-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs md:text-sm font-bold text-blue-900 mb-1">We&apos;re on it!</p>
+                        <p className="text-xs text-blue-700 leading-relaxed">
+                          Our team will process your reward shortly. Track it in{' '}
+                          <button
+                            onClick={() => {
+                              setShowSuccessModal(false)
+                              if (typeof window !== 'undefined') {
+                                document.getElementById('redemptions-anchor')?.scrollIntoView({ behavior: 'smooth' })
+                              }
+                            }}
+                            className="font-bold underline underline-offset-2"
+                          >
+                            My Redemptions
+                          </button>
+                          .
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {redemptionResult.reward?.value && redemptionResult.reward.type === 'DISCOUNT' && (
                   <div className="mt-3 md:mt-4 flex items-center gap-2 text-xs md:text-sm text-black/60">
                     <Star size={14} weight="fill" className="text-amber-500" />
-                    {redemptionResult.reward.type === 'DISCOUNT' && (
-                      <span>Save ${redemptionResult.reward.value} on your next order</span>
-                    )}
-                    {redemptionResult.reward.type === 'FREE_SHIPPING' && (
-                      <span>Free shipping on orders over ${redemptionResult.reward.value}</span>
-                    )}
+                    <span>Save ${redemptionResult.reward.value} on your next order</span>
                   </div>
                 )}
               </div>
 
               {/* Actions */}
               <div className="p-4 md:p-6 pt-0 space-y-2 md:space-y-3">
-                <Link
-                  href="/products"
-                  className="block w-full bg-black text-white py-3 md:py-4 font-bold text-xs md:text-sm uppercase tracking-wider hover:bg-black/90 transition-colors text-center"
-                >
-                  Shop Now
-                </Link>
+                {redemptionResult.redemption?.couponCode ? (
+                  <Link
+                    href="/products"
+                    className="block w-full bg-black text-white py-3 md:py-4 font-bold text-xs md:text-sm uppercase tracking-wider hover:bg-black/90 transition-colors text-center rounded-xl"
+                  >
+                    Shop Now
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setShowSuccessModal(false)
+                      if (typeof window !== 'undefined') {
+                        setTimeout(() => {
+                          document.getElementById('redemptions-anchor')?.scrollIntoView({ behavior: 'smooth' })
+                        }, 50)
+                      }
+                    }}
+                    className="block w-full bg-black text-white py-3 md:py-4 font-bold text-xs md:text-sm uppercase tracking-wider hover:bg-black/90 transition-colors text-center rounded-xl"
+                  >
+                    View My Redemptions
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setShowSuccessModal(false)
                     setRedemptionResult(null)
                     setCopiedCode(false)
                   }}
-                  className="w-full bg-white text-black py-3 md:py-4 font-bold text-xs md:text-sm uppercase tracking-wider border border-black/10 hover:bg-black/5 transition-colors"
+                  className="w-full bg-white text-black py-3 md:py-4 font-bold text-xs md:text-sm uppercase tracking-wider border border-black/10 hover:bg-black/5 transition-colors rounded-xl"
                 >
-                  Continue
+                  Close
                 </button>
               </div>
             </motion.div>

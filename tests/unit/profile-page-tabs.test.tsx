@@ -147,9 +147,11 @@ describe('ProfilePage tabs', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Profile' }))
 
     expect(window.location.hash).toBe('#profile')
-    const rewardsPanel = document.getElementById('rewards-panel')
-    expect(rewardsPanel?.hidden).toBe(true)
-    expect(screen.getByTestId('rewards-hub')).toBeTruthy()
+    // AnimatePresence unmounts after the exit animation — wait for unmount
+    await waitFor(() => {
+      expect(document.getElementById('rewards-panel')).toBeNull()
+      expect(screen.queryByTestId('rewards-hub')).toBeNull()
+    })
   })
 
   it('updates hash on tab click and switches via Redeem Rewards CTA', async () => {
@@ -163,7 +165,10 @@ describe('ProfilePage tabs', () => {
 
     expect(window.location.hash).toBe('#rewards')
     expect(screen.getByRole('tab', { name: 'Rewards' }).getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByTestId('rewards-hub')).toBeTruthy()
+
+    await waitFor(() => {
+      expect(screen.getByTestId('rewards-hub')).toBeTruthy()
+    })
 
     fireEvent.click(screen.getByRole('tab', { name: 'Profile' }))
 

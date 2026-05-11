@@ -5,6 +5,8 @@ import { verifyAdmin } from '@/lib/auth/admin'
 import { prisma } from '@/lib/prisma'
 import { getFulfillmentAuditLogger } from '@/lib/fulfillment/audit'
 import { appendHighValueHoldReviewMarker } from '@/lib/fulfillment/high-value-hold'
+import { sendShippingNotification } from '@/lib/email/resend'
+import { notifyOrderStatus } from '@/lib/notifications/service'
 
 const UpdateOrderStatusSchema = z.object({
   status: z
@@ -14,6 +16,7 @@ const UpdateOrderStatusSchema = z.object({
   trackingNumber: z.string().max(80).optional(),
   carrier: z.string().max(80).optional(),
   trackingUrl: z.string().url().or(z.literal('')).optional(),
+  estimatedDelivery: z.string().or(z.literal('')).optional(),
   internalNotes: z.string().max(4000).optional(),
   reviewHighValueHold: z.boolean().optional(),
 })
@@ -50,7 +53,13 @@ export async function PATCH(
         trackingNumber: true,
         carrier: true,
         trackingUrl: true,
+        estimatedDelivery: true,
         internalNotes: true,
+        // shippedAt is the idempotency key — if the order has ever been
+        // shipped (even if status was later toggled back), we don't want
+        // to re-fire the customer notification when it transitions to
+        // SHIPPED again.
+        shippedAt: true,
       },
     })
 
@@ -69,6 +78,15 @@ export async function PATCH(
     if (trackingNumber !== undefined) updateData.trackingNumber = trackingNumber || null
     if (carrier !== undefined) updateData.carrier = carrier || null
     if (body.trackingUrl !== undefined) updateData.trackingUrl = trackingUrl
+    if (body.estimatedDelivery !== undefined) {
+      const trimmed = body.estimatedDelivery.trim()
+      if (!trimmed) {
+        updateData.estimatedDelivery = null
+      } else {
+        const parsed = new Date(trimmed)
+        updateData.estimatedDelivery = Number.isNaN(parsed.getTime()) ? null : parsed
+      }
+    }
 
     let nextInternalNotes: string | null | undefined = undefined
     if (body.internalNotes !== undefined) {
@@ -131,6 +149,7 @@ export async function PATCH(
           trackingNumber: currentOrder.trackingNumber,
           carrier: currentOrder.carrier,
           trackingUrl: currentOrder.trackingUrl,
+          estimatedDelivery: currentOrder.estimatedDelivery,
           internalNotes: currentOrder.internalNotes,
         },
         after: {
@@ -139,10 +158,71 @@ export async function PATCH(
           trackingNumber: updatedOrder.trackingNumber,
           carrier: updatedOrder.carrier,
           trackingUrl: updatedOrder.trackingUrl,
+          estimatedDelivery: updatedOrder.estimatedDelivery,
           internalNotes: updatedOrder.internalNotes,
         },
       },
     })
+
+    // First-time SHIPPED transition fires the customer "your order has
+    // shipped" email automatically. Conditions:
+    //   - Order wasn't shipped before (shippedAt was null)
+    //   - Order is shipped now (final status SHIPPED or DELIVERED)
+    //   - We have a tracking number to put in the email
+    const wasShippedBefore = Boolean(currentOrder.shippedAt)
+    const isShippedNow = updatedOrder.status === 'SHIPPED' || updatedOrder.status === 'DELIVERED'
+    if (
+      !wasShippedBefore &&
+      isShippedNow &&
+      updatedOrder.trackingNumber &&
+      updatedOrder.customerEmail
+    ) {
+      const customerName = updatedOrder.shippingAddress
+        ? `${updatedOrder.shippingAddress.firstName} ${updatedOrder.shippingAddress.lastName}`.trim()
+        : updatedOrder.customer?.name || 'Customer'
+      const shipToCity = updatedOrder.shippingAddress
+        ? [updatedOrder.shippingAddress.city, updatedOrder.shippingAddress.state]
+            .filter(Boolean)
+            .join(', ') || null
+        : null
+      try {
+        await sendShippingNotification({
+          to: updatedOrder.customerEmail,
+          orderNumber: updatedOrder.orderNumber,
+          customerName,
+          trackingNumber: updatedOrder.trackingNumber,
+          shippingMethod: updatedOrder.shippingMethod || 'Standard Shipping',
+          trackingUrl: updatedOrder.trackingUrl || undefined,
+          carrier: updatedOrder.carrier || undefined,
+          estimatedDelivery: updatedOrder.estimatedDelivery?.toISOString() || null,
+          shipToCity,
+        })
+      } catch (emailError) {
+        // Email failure shouldn't fail the status update — the order is
+        // shipped in the database. Operator can resend manually via the
+        // timeline's Notify Customer step if needed.
+        console.error(`Failed to send shipping notification for order ${updatedOrder.id}:`, emailError)
+      }
+    }
+
+    // Mirror status transitions into the in-app notification feed. Fires on
+    // any transition into SHIPPED or DELIVERED so customers see it even when
+    // the email is filtered or the operator skips the auto-email.
+    const transitionedToShippedOrDelivered =
+      currentOrder.status !== updatedOrder.status &&
+      (updatedOrder.status === 'SHIPPED' || updatedOrder.status === 'DELIVERED')
+    if (transitionedToShippedOrDelivered && updatedOrder.customer?.id) {
+      try {
+        await notifyOrderStatus(
+          updatedOrder.customer.id,
+          updatedOrder.orderNumber,
+          updatedOrder.status === 'SHIPPED' ? 'shipped' : 'delivered',
+          updatedOrder.trackingUrl || undefined
+        )
+      } catch (notifError) {
+        console.error(`Failed to write order-status notification for ${updatedOrder.id}:`, notifError)
+      }
+    }
 
     return NextResponse.json({
       success: true,

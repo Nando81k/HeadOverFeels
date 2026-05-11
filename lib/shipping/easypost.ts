@@ -64,6 +64,26 @@ export interface ReturnLabelResult {
   error?: string
 }
 
+export interface OutboundShippingRate {
+  id: string
+  carrier: string
+  service: string
+  rate: number
+  currency: string
+  /** EasyPost's "delivery_days" — best-effort number of days in transit. */
+  deliveryDays: number | null
+  /** ISO 8601 carrier-committed delivery date when present. */
+  deliveryDate: string | null
+}
+
+export interface OutboundShippingRatesResult {
+  success: boolean
+  shipmentId?: string
+  rates?: OutboundShippingRate[]
+  validationErrors?: string[]
+  error?: string
+}
+
 export interface OutboundLabelResult {
   success: boolean
   shipmentId?: string
@@ -74,6 +94,8 @@ export interface OutboundLabelResult {
   carrier?: string
   service?: string
   rate?: number
+  /** ISO 8601 timestamp of the carrier's estimated delivery, when available. */
+  estimatedDeliveryDate?: string | null
   validationErrors?: string[]
   error?: string
 }
@@ -313,12 +335,185 @@ export async function createReturnLabel(
  * Purchase outbound shipping label for an order.
  * This creates a carrier label for fulfillment (store -> customer).
  */
+/**
+ * Build a shipment for the given order and return ALL available rates so the
+ * operator can pick a courier + service tier. Holds onto the EasyPost
+ * shipmentId so the subsequent purchase call can buy a specific rate from the
+ * same shipment (rate IDs are scoped to the shipment that produced them).
+ *
+ * In demo mode (no API key), returns a stable set of synthetic rates whose
+ * IDs match what `purchaseOutboundLabel` knows about — so the picker → buy
+ * round-trip works locally without EasyPost.
+ */
+export async function getOutboundShippingRates(
+  orderId: string,
+  options?: {
+    toAddress?: ShippingAddress
+    parcel?: ShippingParcel
+  }
+): Promise<OutboundShippingRatesResult> {
+  try {
+    let destinationAddress = options?.toAddress
+
+    if (!destinationAddress) {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: { shippingAddress: true },
+      })
+
+      if (!order?.shippingAddress) {
+        return { success: false, error: 'Order or shipping address not found' }
+      }
+
+      destinationAddress = {
+        name: `${order.shippingAddress.firstName} ${order.shippingAddress.lastName}`,
+        company: order.shippingAddress.company || undefined,
+        street1: order.shippingAddress.address1,
+        street2: order.shippingAddress.address2 || undefined,
+        city: order.shippingAddress.city,
+        state: order.shippingAddress.state,
+        zip: order.shippingAddress.postalCode,
+        country: order.shippingAddress.country || 'US',
+        email: order.customerEmail,
+        phone: order.customerPhone || undefined,
+      }
+    }
+
+    const validation = await validateAddress(destinationAddress)
+    if (!validation.valid) {
+      return {
+        success: false,
+        error: 'Address validation failed',
+        validationErrors: validation.errors,
+      }
+    }
+
+    const normalizedAddress = validation.suggestions || destinationAddress
+
+    if (!isEasyPostConfigured()) {
+      return {
+        success: true,
+        shipmentId: `demo_shipment_${orderId}`,
+        rates: getDemoOutboundRates(),
+      }
+    }
+
+    const parcel = options?.parcel || DEFAULT_PARCEL
+    const shipment = await easyPostRequest<{
+      id: string
+      rates: Array<{
+        id: string
+        carrier: string
+        service: string
+        rate: string
+        currency: string
+        delivery_days?: number | null
+        est_delivery_days?: number | null
+        delivery_date?: string | null
+      }>
+    }>('/shipments', 'POST', {
+      shipment: {
+        from_address: toEasyPostAddress(RETURN_ADDRESS),
+        to_address: toEasyPostAddress(normalizedAddress),
+        parcel,
+        options: { label_format: 'PDF', label_size: '4x6' },
+      },
+    })
+
+    const rates: OutboundShippingRate[] = shipment.rates.map((rate) => ({
+      id: rate.id,
+      carrier: rate.carrier,
+      service: rate.service,
+      rate: parseFloat(rate.rate),
+      currency: rate.currency || 'USD',
+      deliveryDays: rate.delivery_days ?? rate.est_delivery_days ?? null,
+      deliveryDate: rate.delivery_date ?? null,
+    }))
+
+    return { success: true, shipmentId: shipment.id, rates }
+  } catch (error) {
+    console.error('[Shipping] Error fetching outbound rates:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch shipping rates',
+    }
+  }
+}
+
+function getDemoOutboundRates(): OutboundShippingRate[] {
+  const now = Date.now()
+  const day = 24 * 60 * 60 * 1000
+  return [
+    {
+      id: 'demo_usps_overnight',
+      carrier: 'USPS',
+      service: 'Priority Mail Express',
+      rate: 38.5,
+      currency: 'USD',
+      deliveryDays: 1,
+      deliveryDate: new Date(now + 1 * day).toISOString(),
+    },
+    {
+      id: 'demo_ups_next_day',
+      carrier: 'UPS',
+      service: 'Next Day Air',
+      rate: 45.2,
+      currency: 'USD',
+      deliveryDays: 1,
+      deliveryDate: new Date(now + 1 * day).toISOString(),
+    },
+    {
+      id: 'demo_fedex_2day',
+      carrier: 'FedEx',
+      service: '2Day',
+      rate: 22.5,
+      currency: 'USD',
+      deliveryDays: 2,
+      deliveryDate: new Date(now + 2 * day).toISOString(),
+    },
+    {
+      id: 'demo_usps_priority',
+      carrier: 'USPS',
+      service: 'Priority Mail',
+      rate: 8.95,
+      currency: 'USD',
+      deliveryDays: 3,
+      deliveryDate: new Date(now + 3 * day).toISOString(),
+    },
+    {
+      id: 'demo_ups_ground',
+      carrier: 'UPS',
+      service: 'Ground',
+      rate: 9.99,
+      currency: 'USD',
+      deliveryDays: 5,
+      deliveryDate: new Date(now + 5 * day).toISOString(),
+    },
+    {
+      id: 'demo_usps_ground',
+      carrier: 'USPS',
+      service: 'Ground Advantage',
+      rate: 5.95,
+      currency: 'USD',
+      deliveryDays: 5,
+      deliveryDate: new Date(now + 5 * day).toISOString(),
+    },
+  ]
+}
+
 export async function purchaseOutboundLabel(
   orderId: string,
   options?: {
     toAddress?: ShippingAddress
     parcel?: ShippingParcel
     rateId?: string
+    /**
+     * EasyPost shipmentId from a prior `getOutboundShippingRates` call. When
+     * supplied alongside `rateId`, we skip shipment re-creation and buy the
+     * exact rate the operator picked. Without it, we fall back to creating a
+     * fresh shipment and auto-selecting from preferred carriers.
+     */
+    shipmentId?: string
     preferredCarriers?: string[]
   }
 ): Promise<OutboundLabelResult> {
@@ -366,11 +561,14 @@ export async function purchaseOutboundLabel(
     const normalizedAddress = validation.suggestions || destinationAddress
 
     if (!isEasyPostConfigured()) {
-      return generateDemoOutboundLabel(orderId, normalizedAddress)
+      return generateDemoOutboundLabel(orderId, normalizedAddress, options?.rateId)
     }
 
     const parcel = options?.parcel || DEFAULT_PARCEL
-    const shipment = await easyPostRequest<{
+
+    // If the operator already saw rates and picked one, skip shipment
+    // re-creation — fetch the existing shipment by id and buy that rate.
+    let shipment: {
       id: string
       rates: Array<{
         id: string
@@ -378,17 +576,22 @@ export async function purchaseOutboundLabel(
         service: string
         rate: string
       }>
-    }>('/shipments', 'POST', {
-      shipment: {
-        from_address: toEasyPostAddress(RETURN_ADDRESS),
-        to_address: toEasyPostAddress(normalizedAddress),
-        parcel,
-        options: {
-          label_format: 'PDF',
-          label_size: '4x6',
+    }
+    if (options?.shipmentId && options?.rateId) {
+      shipment = await easyPostRequest<typeof shipment>(`/shipments/${options.shipmentId}`, 'GET')
+    } else {
+      shipment = await easyPostRequest<typeof shipment>('/shipments', 'POST', {
+        shipment: {
+          from_address: toEasyPostAddress(RETURN_ADDRESS),
+          to_address: toEasyPostAddress(normalizedAddress),
+          parcel,
+          options: {
+            label_format: 'PDF',
+            label_size: '4x6',
+          },
         },
-      },
-    })
+      })
+    }
 
     const preferredCarriers = options?.preferredCarriers ?? ['USPS', 'UPS', 'FedEx']
     const sortedRates = [...shipment.rates].sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate))
@@ -410,7 +613,15 @@ export async function purchaseOutboundLabel(
       tracking_code: string
       postage_label: { label_url: string }
       tracker?: { public_url?: string | null }
-      selected_rate: { id: string; carrier: string; service: string; rate: string }
+      selected_rate: {
+        id: string
+        carrier: string
+        service: string
+        rate: string
+        delivery_date?: string | null
+        delivery_days?: number | null
+        est_delivery_days?: number | null
+      }
     }>(`/shipments/${shipment.id}/buy`, 'POST', {
       rate: { id: selectedRate.id },
     })
@@ -419,6 +630,19 @@ export async function purchaseOutboundLabel(
       purchasedShipment.selected_rate?.carrier,
       purchasedShipment.tracking_code
     )
+
+    const rate = purchasedShipment.selected_rate
+    const estimatedDeliveryDate = (() => {
+      if (rate?.delivery_date) {
+        const parsed = new Date(rate.delivery_date)
+        return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
+      }
+      const days = rate?.delivery_days ?? rate?.est_delivery_days
+      if (typeof days === 'number' && days >= 0) {
+        return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
+      }
+      return null
+    })()
 
     return {
       success: true,
@@ -430,6 +654,7 @@ export async function purchaseOutboundLabel(
       carrier: purchasedShipment.selected_rate?.carrier,
       service: purchasedShipment.selected_rate?.service,
       rate: parseFloat(purchasedShipment.selected_rate?.rate || selectedRate.rate),
+      estimatedDeliveryDate,
     }
   } catch (error) {
     console.error('[Shipping] Error purchasing outbound label:', error)
@@ -632,9 +857,18 @@ function generateDemoReturnLabel(orderId: string, fromAddress: ShippingAddress):
   }
 }
 
-function generateDemoOutboundLabel(orderId: string, destinationAddress: ShippingAddress): OutboundLabelResult {
+function generateDemoOutboundLabel(
+  orderId: string,
+  destinationAddress: ShippingAddress,
+  rateId?: string
+): OutboundLabelResult {
+  // Honor the operator's choice when present so demo mode reflects what the
+  // rate picker selected. Default to standard Priority Mail otherwise.
+  const allRates = getDemoOutboundRates()
+  const chosen = (rateId && allRates.find((rate) => rate.id === rateId)) || allRates.find((r) => r.id === 'demo_usps_priority') || allRates[0]
+
   const trackingNumber = `SHIP${Date.now().toString(36).toUpperCase()}`
-  const trackingUrl = buildCarrierTrackingUrl('USPS', trackingNumber)
+  const trackingUrl = buildCarrierTrackingUrl(chosen.carrier, trackingNumber)
 
   const labelData = {
     orderId,
@@ -643,18 +877,21 @@ function generateDemoOutboundLabel(orderId: string, destinationAddress: Shipping
     to: destinationAddress,
     created: new Date().toISOString(),
     mode: 'outbound',
+    carrier: chosen.carrier,
+    service: chosen.service,
   }
 
   return {
     success: true,
     shipmentId: `demo_shipment_${orderId}`,
-    rateId: 'demo_usps_priority',
+    rateId: chosen.id,
     trackingNumber,
     trackingUrl,
     labelUrl: `/api/shipping/label/${orderId}?data=${Buffer.from(JSON.stringify(labelData)).toString('base64')}`,
-    carrier: 'USPS',
-    service: 'Priority Mail',
-    rate: 8.95,
+    carrier: chosen.carrier,
+    service: chosen.service,
+    rate: chosen.rate,
+    estimatedDeliveryDate: chosen.deliveryDate,
   }
 }
 

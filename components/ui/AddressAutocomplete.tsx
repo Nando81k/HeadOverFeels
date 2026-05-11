@@ -169,20 +169,20 @@ export function AddressAutocomplete({
 
   return (
     <div ref={containerRef} className="relative w-full">
-      <label className="block text-sm font-semibold text-black mb-2">
+      <label className="block text-[10px] font-black uppercase tracking-[0.16em] text-black/65 mb-2">
         {label}
         {required && <span className="text-[#FF3131] ml-1">*</span>}
       </label>
-      
+
       <div className="relative">
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-black/40">
+        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/40">
           {loading ? (
-            <CircleNotch size={18} className="animate-spin" />
+            <CircleNotch size={16} className="animate-spin" />
           ) : (
-            <MagnifyingGlass size={18} />
+            <MagnifyingGlass size={16} />
           )}
         </div>
-        
+
         <input
           ref={inputRef}
           type="text"
@@ -194,14 +194,14 @@ export function AddressAutocomplete({
           autoComplete={apiAvailable ? "off" : "street-address"}
           name="street-address"
           className={`
-            w-full pl-11 pr-10 py-3.5 border bg-white text-black placeholder:text-black/40
-            transition-all duration-200
-            focus:ring-2 focus:ring-black focus:border-transparent focus:outline-none
-            hover:border-black/30
-            ${error ? 'border-[#FF3131] ring-1 ring-[#FF3131]' : 'border-black/10'}
+            w-full pl-10 pr-10 py-3 border bg-white text-black placeholder:text-black/35 rounded-none
+            transition-colors duration-150
+            focus:border-black focus:ring-1 focus:ring-black focus:outline-none
+            hover:border-black/35
+            ${error ? 'border-[#FF3131] ring-1 ring-[#FF3131]' : 'border-black/15'}
           `}
         />
-        
+
         {value && (
           <button
             type="button"
@@ -211,34 +211,34 @@ export function AddressAutocomplete({
               setIsOpen(false)
               inputRef.current?.focus()
             }}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-black/40 hover:text-black transition-colors"
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-black/40 hover:text-black transition-colors"
           >
-            <X size={16} />
+            <X size={14} />
           </button>
         )}
       </div>
 
       {/* Suggestions Dropdown */}
       {isOpen && suggestions.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-black/10 shadow-lg max-h-64 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-1 bg-white border border-black/15 shadow-md max-h-64 overflow-y-auto">
           {suggestions.map((suggestion, index) => (
             <button
               key={suggestion.placeId}
               type="button"
               onClick={() => handleSelectPlace(suggestion)}
-              className={`w-full px-4 py-3 text-left flex items-start gap-3 transition-colors ${
+              className={`w-full px-4 py-3 text-left flex items-start gap-3 transition-colors border-b border-black/5 last:border-b-0 ${
                 index === selectedIndex
                   ? 'bg-black text-white'
                   : 'hover:bg-black/5'
               }`}
             >
               <MapPin
-                size={18}
+                size={16}
                 weight="fill"
                 className={`shrink-0 mt-0.5 ${index === selectedIndex ? 'text-white' : 'text-black/40'}`}
               />
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium truncate ${index === selectedIndex ? 'text-white' : 'text-black'}`}>
+                <p className={`text-sm font-semibold truncate ${index === selectedIndex ? 'text-white' : 'text-black'}`}>
                   {suggestion.mainText}
                 </p>
                 <p className={`text-xs truncate ${index === selectedIndex ? 'text-white/70' : 'text-black/50'}`}>
@@ -251,7 +251,7 @@ export function AddressAutocomplete({
       )}
 
       {error && (
-        <p className="mt-1.5 text-sm text-[#FF3131] font-medium">{error}</p>
+        <p className="mt-1.5 text-xs text-[#FF3131] font-medium">{error}</p>
       )}
     </div>
   )

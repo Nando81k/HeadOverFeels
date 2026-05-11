@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Product } from '@/lib/api/products'
@@ -23,9 +23,29 @@ interface ProductCardProps {
   onProductClick?: () => void
 }
 
+export function ProductCardSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-black/10 bg-white">
+      <div className="aspect-5/6 animate-pulse bg-black/5" />
+      <div className="p-3 sm:p-3.5">
+        <div className="mb-2 h-3.5 w-3/4 animate-pulse rounded-full bg-black/6" />
+        <div className="mb-3 h-3 w-1/2 animate-pulse rounded-full bg-black/4" />
+        <div className="flex gap-1.5">
+          <div className="h-5 w-5 animate-pulse rounded-full bg-black/6" />
+          <div className="h-5 w-5 animate-pulse rounded-full bg-black/4" />
+          <div className="h-5 w-5 animate-pulse rounded-full bg-black/3" />
+        </div>
+        <div className="mt-3 h-4 w-1/4 animate-pulse rounded-full bg-black/6" />
+      </div>
+    </div>
+  )
+}
+
 export function ProductCard({ product, badge, onProductClick }: ProductCardProps) {
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [previewColor, setPreviewColor] = useState<string | null>(null)
+  const [swatchPage, setSwatchPage] = useState(0)
+  const swatchTouchStartX = useRef(0)
   const activeColor = previewColor ?? selectedColor
 
   // Get unique colors with their variants (one per color)
@@ -121,55 +141,96 @@ export function ProductCard({ product, badge, onProductClick }: ProductCardProps
               {product.name}
             </h3>
 
-            {colorVariants.length > 1 && (
-              <div
-                className="mt-2.5 -mx-0.5 overflow-x-auto pb-1 scrollbar-hide [touch-action:pan-x]"
-                onClick={(e) => e.preventDefault()}
-                aria-label={`Available colors: ${colorVariants.map((variant) => variant.color).filter(Boolean).join(', ')}`}
-              >
-                <div className="flex w-max items-center gap-1.5 px-0.5">
-                  {colorVariants.map((variant) => {
-                    const isSelected = activeColor === variant.color
-                    return (
-                      <button
-                        key={variant.id}
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setSelectedColor(isSelected ? null : variant.color || null)
-                        }}
-                        onMouseEnter={() => setPreviewColor(variant.color || null)}
-                        onMouseLeave={() => setPreviewColor(null)}
-                        onFocus={() => setPreviewColor(variant.color || null)}
-                        onBlur={() => setPreviewColor(null)}
-                        title={variant.color || undefined}
-                        aria-label={`Preview ${variant.color}`}
-                        className={`
-                          relative h-8 w-8 shrink-0 rounded-full border-2 transition-all
-                          ${isSelected 
-                            ? 'border-black ring-2 ring-black/35 ring-offset-1'
-                            : 'border-black/20 hover:border-black/45'
-                          }
-                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/50 focus-visible:ring-offset-1
-                        `}
-                        style={{ backgroundColor: variant.colorHex || '#ccc' }}
-                      >
-                        {isSelected && variant.colorHex && (
-                          <span className="absolute inset-0 flex items-center justify-center">
-                            <Check 
-                              className="h-3.5 w-3.5"
-                              weight="bold"
-                              style={{ color: isLightColor(variant.colorHex) ? '#000' : '#FFF' }} 
-                            />
-                          </span>
-                        )}
-                      </button>
-                    )
-                  })}
+            {colorVariants.length > 1 && (() => {
+              const perPage = 4
+              const totalPages = Math.ceil(colorVariants.length / perPage)
+              return (
+                <div
+                  className="mt-2.5"
+                  onClick={(e) => e.preventDefault()}
+                  aria-label={`Available colors: ${colorVariants.map((v) => v.color).filter(Boolean).join(', ')}`}
+                >
+                  <div
+                    className="overflow-hidden"
+                    onTouchStart={(e) => { swatchTouchStartX.current = e.touches[0].clientX }}
+                    onTouchEnd={(e) => {
+                      const delta = e.changedTouches[0].clientX - swatchTouchStartX.current
+                      if (delta < -30 && swatchPage < totalPages - 1) setSwatchPage((p) => p + 1)
+                      else if (delta > 30 && swatchPage > 0) setSwatchPage((p) => p - 1)
+                    }}
+                  >
+                    <div
+                      className="flex transition-transform duration-300 ease-out"
+                      style={{ transform: `translateX(-${swatchPage * 100}%)` }}
+                    >
+                      {Array.from({ length: totalPages }).map((_, pageIdx) => (
+                        <div key={pageIdx} className="flex w-full shrink-0 items-center gap-1.5 px-0.5">
+                          {colorVariants.slice(pageIdx * perPage, pageIdx * perPage + perPage).map((variant) => {
+                            const isSelected = activeColor === variant.color
+                            return (
+                              <button
+                                key={variant.id}
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  setSelectedColor(isSelected ? null : variant.color || null)
+                                }}
+                                onMouseEnter={() => setPreviewColor(variant.color || null)}
+                                onMouseLeave={() => setPreviewColor(null)}
+                                onFocus={() => setPreviewColor(variant.color || null)}
+                                onBlur={() => setPreviewColor(null)}
+                                title={variant.color || undefined}
+                                aria-label={`Preview ${variant.color}`}
+                                className={`
+                                  relative h-8 w-8 shrink-0 rounded-full border-2 transition-all active:scale-90
+                                  ${isSelected
+                                    ? 'border-black ring-2 ring-black/35 ring-offset-1'
+                                    : 'border-black/20 hover:border-black/45'
+                                  }
+                                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/50 focus-visible:ring-offset-1
+                                `}
+                                style={{ backgroundColor: variant.colorHex || '#ccc' }}
+                              >
+                                {isSelected && variant.colorHex && (
+                                  <span className="absolute inset-0 flex items-center justify-center">
+                                    <Check
+                                      className="h-3.5 w-3.5"
+                                      weight="bold"
+                                      style={{ color: isLightColor(variant.colorHex) ? '#000' : '#FFF' }}
+                                    />
+                                  </span>
+                                )}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {totalPages > 1 && (
+                    <div className="mt-2 flex items-center gap-1">
+                      {Array.from({ length: totalPages }).map((_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setSwatchPage(i)
+                          }}
+                          className={`h-1 rounded-full transition-all duration-300 ${
+                            i === swatchPage ? 'w-4 bg-black' : 'w-1 bg-black/20 hover:bg-black/40'
+                          }`}
+                          aria-label={`Color page ${i + 1}`}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              )
+            })()}
 
             <div className="mt-2.5 flex items-baseline gap-2">
               <span className="text-base font-black text-black sm:text-lg">

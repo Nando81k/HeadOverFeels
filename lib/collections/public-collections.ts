@@ -37,7 +37,12 @@ export interface CollectionCardViewModel {
   name: string
   slug: string
   description: string
-  imageUrl: string
+  /** Real cover image URL when available; null when the card should fall back to composite/gradient. */
+  imageUrl: string | null
+  /** Origin of the resolved imageUrl (or `'none'` when null). Lets the card pick a fallback. */
+  imageSource: 'collection' | 'product' | 'none'
+  /** Up to 4 product image URLs from this collection's products, used for the 2×2 composite fallback. */
+  previewImages: string[]
   isFeatured: boolean
   productCount: number
 }
@@ -170,13 +175,50 @@ export function resolveCollectionCoverImage(collection: Pick<CollectionWithProdu
   return DEFAULT_COLLECTION_IMAGE
 }
 
+/** Collect up to N unique product image URLs from a collection's products. */
+function collectPreviewImages(collection: Pick<CollectionWithProducts, 'products'>, max = 4): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const row of collection.products) {
+    for (const candidate of parseImages(row.product.images)) {
+      if (!candidate || seen.has(candidate)) continue
+      seen.add(candidate)
+      out.push(candidate)
+      if (out.length >= max) return out
+    }
+    if (out.length >= max) return out
+  }
+  return out
+}
+
 export function toCollectionCardViewModel(collection: CollectionWithProducts): CollectionCardViewModel {
+  const hasOwnImage = !!(collection.image && collection.image.trim().length > 0)
+  const previewImages = collectPreviewImages(collection, 4)
+
+  let imageUrl: string | null
+  let imageSource: CollectionCardViewModel['imageSource']
+
+  if (hasOwnImage) {
+    imageUrl = collection.image as string
+    imageSource = 'collection'
+  } else if (previewImages.length > 0) {
+    // Prefer null here so the card chooses the composite fallback instead of
+    // showing a single product image as a fake cover.
+    imageUrl = null
+    imageSource = 'product'
+  } else {
+    imageUrl = null
+    imageSource = 'none'
+  }
+
   return {
     id: collection.id,
     name: collection.name,
     slug: collection.slug,
     description: collection.description || 'Explore this curated collection.',
-    imageUrl: resolveCollectionCoverImage(collection),
+    imageUrl,
+    imageSource,
+    previewImages,
     isFeatured: collection.isFeatured,
     productCount: collection._count.products,
   }

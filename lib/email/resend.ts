@@ -44,6 +44,12 @@ interface SendShippingNotificationParams {
   trackingNumber: string;
   shippingMethod: string;
   trackingUrl?: string;
+  /** Carrier brand (USPS, UPS, FedEx, DHL) — surfaced as a separate label. */
+  carrier?: string;
+  /** ISO 8601 estimated delivery date — formatted as "Wed, May 13" in the email. */
+  estimatedDelivery?: string | null;
+  /** Customer city/state for a "heading to …" line; e.g. "Arlington, VA". */
+  shipToCity?: string | null;
 }
 
 /**
@@ -114,6 +120,9 @@ export async function sendShippingNotification(params: SendShippingNotificationP
         trackingNumber: params.trackingNumber,
         shippingMethod: params.shippingMethod,
         trackingUrl: params.trackingUrl,
+        carrier: params.carrier,
+        estimatedDelivery: params.estimatedDelivery ?? null,
+        shipToCity: params.shipToCity ?? null,
       })
     );
 

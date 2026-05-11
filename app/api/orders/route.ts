@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { Prisma } from '@prisma/client'
+import { nanoid } from 'nanoid'
 import { isValidGuestEmail } from '@/lib/security/guest-session'
 import { getPaginationParams, createPaginatedResponse } from '@/lib/validation/schemas'
 import { auth } from '@/lib/auth/auth'
@@ -13,6 +14,7 @@ import {
   parseDateValue,
   parseSort,
 } from '@/lib/orders/admin-order-query'
+import { computeOrderPricing } from '@/lib/checkout/server-pricing'
 
 // Validation schemas
 const AddressSchema = z.object({
@@ -31,7 +33,7 @@ const OrderItemSchema = z.object({
   productId: z.string(),
   productVariantId: z.string().optional(),
   quantity: z.number().int().positive('Quantity must be positive'),
-  price: z.number().positive('Price must be positive'),
+  price: z.number().positive('Price must be positive').optional(), // ignored — server uses DB price
 })
 
 const CreateOrderSchema = z.object({
@@ -41,17 +43,12 @@ const CreateOrderSchema = z.object({
   shippingAddress: AddressSchema,
   billingAddress: AddressSchema,
   items: z.array(OrderItemSchema).min(1, 'Order must have at least one item'),
-  subtotal: z.number().positive('Subtotal must be positive'),
-  discount: z.number().min(0, 'Discount must be non-negative').default(0),
-  shipping: z.number().min(0, 'Shipping must be non-negative'),
-  tax: z.number().min(0, 'Tax must be non-negative'),
-  total: z.number().positive('Total must be positive'),
-  shippingMethod: z.string().optional(), // STANDARD, EXPRESS, OVERNIGHT
+  shippingMethod: z.string().optional(), // STANDARD, EXPRESS, OVERNIGHT — server computes pricing
   paymentIntentId: z.string().optional(),
   sessionId: z.string().optional(),
   couponCode: z.string().optional(),
   redemptionId: z.string().optional(),
-  promotionId: z.string().optional(), // For marketing promotions
+  promotionId: z.string().optional(),
 })
 
 const CANONICAL_CUSTOMER_ORDER = [
@@ -153,34 +150,34 @@ export async function POST(request: NextRequest) {
       })
 
       // 4. Generate unique order number
-      const orderNumber = `HOF-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+      const orderNumber = `HOF-${nanoid(12).toUpperCase()}`
 
-      // 5. Fetch product details for order items
+      // 5. Fetch product details for order items (prices from DB — not trusted from client)
       const enrichedItems = await Promise.all(
         validatedData.items.map(async (item) => {
+          const cleanVariantId =
+            item.productVariantId && item.productVariantId.trim() !== ''
+              ? item.productVariantId
+              : undefined
+
           const product = await tx.product.findUnique({
             where: { id: item.productId },
-            select: {
-              name: true,
-              images: true,
-            },
+            select: { name: true, images: true, price: true },
           })
-
-          // Only fetch variant if productVariantId is provided and not empty
-          const variant = item.productVariantId && item.productVariantId.trim() !== ''
-            ? await tx.productVariant.findUnique({
-                where: { id: item.productVariantId },
-                select: {
-                  size: true,
-                  color: true,
-                  sku: true,
-                },
-              })
-            : null
 
           if (!product) {
             throw new Error(`Product ${item.productId} not found`)
           }
+
+          const variant = cleanVariantId
+            ? await tx.productVariant.findUnique({
+                where: { id: cleanVariantId },
+                select: { size: true, color: true, sku: true, price: true },
+              })
+            : null
+
+          // Authoritative unit price: variant price if present, else product base price
+          const unitPrice = variant?.price ?? product.price
 
           // Parse images and extract URL from the first image object
           let imageUrl: string | null = null
@@ -190,16 +187,16 @@ export async function POST(request: NextRequest) {
               if (Array.isArray(parsedImages) && parsedImages.length > 0) {
                 imageUrl = parsedImages[0]?.url || null
               }
-            } catch (error) {
-              console.error('Error parsing product images:', error)
+            } catch {
+              // ignore malformed images JSON
             }
           }
 
           return {
-            ...item,
-            productVariantId: item.productVariantId && item.productVariantId.trim() !== '' 
-              ? item.productVariantId 
-              : undefined,
+            productId: item.productId,
+            productVariantId: cleanVariantId,
+            quantity: item.quantity,
+            price: unitPrice,
             productName: product.name,
             productImage: imageUrl,
             variantDetails: variant
@@ -213,29 +210,41 @@ export async function POST(request: NextRequest) {
         })
       )
 
-      // Log enriched items for debugging
-      console.log('Enriched items before order creation:', JSON.stringify(enrichedItems, null, 2))
-      console.log('Customer ID:', customer.id)
-      console.log('Shipping Address ID:', shippingAddress.id)
-      console.log('Billing Address ID:', billingAddress.id)
+      // 5b. Compute authoritative pricing server-side
+      const pricing = await computeOrderPricing(tx, {
+        items: validatedData.items.map((item) => ({
+          productId: item.productId,
+          productVariantId: item.productVariantId && item.productVariantId.trim() !== ''
+            ? item.productVariantId
+            : undefined,
+          quantity: item.quantity,
+        })),
+        shippingMethod: validatedData.shippingMethod,
+        redemptionId: validatedData.redemptionId,
+        promotionId: validatedData.promotionId,
+        customerId: customer.id,
+      })
 
-      // Validate that all productIds exist
+      // 5c. Validate that all products/variants exist and have sufficient inventory
       for (const item of enrichedItems) {
         const productExists = await tx.product.findUnique({
           where: { id: item.productId },
-          select: { id: true, name: true }
+          select: { id: true, name: true },
         })
         if (!productExists) {
           throw new Error(`Product ${item.productId} does not exist. Please refresh your cart and try again.`)
         }
-        
+
         if (item.productVariantId) {
-          const variantExists = await tx.productVariant.findUnique({
+          const variant = await tx.productVariant.findUnique({
             where: { id: item.productVariantId },
-            select: { id: true, size: true, color: true }
+            select: { id: true, size: true, color: true, inventory: true },
           })
-          if (!variantExists) {
+          if (!variant) {
             throw new Error(`The selected variant for "${productExists.name}" is no longer available. Please remove it from your cart and add it again with an available size/color.`)
+          }
+          if (variant.inventory < item.quantity) {
+            throw new Error(`"${productExists.name}" only has ${variant.inventory} in stock. Please update your cart.`)
           }
         }
       }
@@ -249,11 +258,11 @@ export async function POST(request: NextRequest) {
           customerPhone: validatedData.customerPhone,
           shippingAddressId: shippingAddress.id,
           billingAddressId: billingAddress.id,
-          subtotal: validatedData.subtotal,
-          discount: validatedData.discount || 0,
-          shipping: validatedData.shipping,
-          tax: validatedData.tax,
-          total: validatedData.total,
+          subtotal: pricing.subtotal,
+          discount: pricing.discount,
+          shipping: pricing.shipping,
+          tax: pricing.tax,
+          total: pricing.total,
           shippingMethod: validatedData.shippingMethod || null,
           couponCode: validatedData.couponCode || null,
           redemptionId: validatedData.redemptionId || null,
@@ -323,7 +332,7 @@ export async function POST(request: NextRequest) {
             where: { id: validatedData.promotionId },
             data: {
               usedCount: { increment: 1 },
-              totalDiscountGiven: { increment: validatedData.discount },
+              totalDiscountGiven: { increment: pricing.discount },
             },
           })
         }
