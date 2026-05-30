@@ -1,8 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import AvatarCanvas from './AvatarCanvas';
+import dynamic from 'next/dynamic';
 import { CaretLeft, CaretRight, Sparkle } from '@phosphor-icons/react';
+
+const AvatarCanvas = dynamic(() => import('./AvatarCanvas'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-black/5 rounded-xl animate-pulse" />
+  ),
+});
 
 interface MemojiWizardProps {
   customerId: string;

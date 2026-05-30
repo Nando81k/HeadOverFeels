@@ -19,11 +19,28 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendUp, ShoppingCart, Users as UsersIcon, CurrencyDollar, Sparkle, ChartLine } from '@phosphor-icons/react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import MetricCard from '@/components/analytics/MetricCard';
-import RevenueChart from '@/components/analytics/RevenueChart';
-import ProductPerformanceChart from '@/components/analytics/ProductPerformanceChart';
-import CustomerAcquisitionChart from '@/components/analytics/CustomerAcquisitionChart';
-import OrderStatusChart from '@/components/analytics/OrderStatusChart';
+import dynamic from 'next/dynamic';
+
+const MetricCard = dynamic(() => import('@/components/analytics/MetricCard'), {
+  ssr: false,
+  loading: () => <div className="h-32 animate-pulse bg-black/5 rounded-lg" />,
+});
+const RevenueChart = dynamic(() => import('@/components/analytics/RevenueChart'), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse bg-black/5 rounded-lg" />,
+});
+const ProductPerformanceChart = dynamic(() => import('@/components/analytics/ProductPerformanceChart'), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse bg-black/5 rounded-lg" />,
+});
+const CustomerAcquisitionChart = dynamic(() => import('@/components/analytics/CustomerAcquisitionChart'), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse bg-black/5 rounded-lg" />,
+});
+const OrderStatusChart = dynamic(() => import('@/components/analytics/OrderStatusChart'), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse bg-black/5 rounded-lg" />,
+});
 import DateRangeSelector, { DateRange } from '@/components/analytics/DateRangeSelector';
 import ExportButton from '@/components/analytics/ExportButton';
 import AnalyticsFilterPanel, { AnalyticsFilters } from '@/components/analytics/AnalyticsFilterPanel';

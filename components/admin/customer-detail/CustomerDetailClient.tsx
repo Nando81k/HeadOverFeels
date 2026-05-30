@@ -29,8 +29,16 @@ import {
 } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import CustomerSpendingChart from './CustomerSpendingChart';
-import CarePointsActivityChart from './CarePointsActivityChart';
+import dynamic from 'next/dynamic';
+
+const CustomerSpendingChart = dynamic(() => import('./CustomerSpendingChart'), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse bg-black/5 rounded-lg" />,
+});
+const CarePointsActivityChart = dynamic(() => import('./CarePointsActivityChart'), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse bg-black/5 rounded-lg" />,
+});
 import CarePointsSummaryCard from './CarePointsSummaryCard';
 import GiftPointsModal from './GiftPointsModal';
 import PointsHistoryTable from './PointsHistoryTable';
