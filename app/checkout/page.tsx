@@ -251,7 +251,12 @@ export default function CheckoutPage() {
     setLoading(true)
 
     try {
-      // 1. Create order in database
+      // Wave 3A — single atomic call: POST /api/orders creates both the Order DB
+      // row and the Stripe PaymentIntent in one round trip. The response contains
+      // both the orderId and the PI client secret needed to initialize Stripe Elements.
+      //
+      // The piIdempotencyKey (Wave 2 #15) is forwarded so Stripe deduplicates
+      // retried requests from network flakiness within the same checkout attempt.
       const orderResponse = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -285,6 +290,7 @@ export default function CheckoutPage() {
             quantity: item.quantity,
           })),
           shippingMethod: selectedOption.id,
+          piIdempotencyKey: getPiIdempotencyKey(),
           sessionId: localStorage.getItem('sessionId') || undefined,
           couponCode: appliedCoupon?.code || undefined,
           redemptionId: appliedCoupon?.redemptionId || undefined,
@@ -298,32 +304,10 @@ export default function CheckoutPage() {
       }
 
       const orderData = await orderResponse.json()
-      const createdOrderId = orderData.order.id
+      // Wave 3A: both orderId and PI client secret come from the single POST.
+      const { orderId: createdOrderId, paymentIntentClientSecret } = orderData
       setOrderId(createdOrderId)
-
-      // 2. Create payment intent with order ID in metadata.
-      // Pass a stable idempotency key so retried requests (network flakiness)
-      // return the same PaymentIntent instead of creating a duplicate.
-      const response = await fetch('/api/stripe/payment-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: Math.round(orderData.order.total * 100),
-          currency: 'usd',
-          metadata: {
-            orderId: createdOrderId,
-            customerEmail: shippingData.email,
-          },
-          idempotencyKey: getPiIdempotencyKey(),
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to create payment intent')
-      }
-
-      const data = await response.json()
-      setClientSecret(data.clientSecret)
+      setClientSecret(paymentIntentClientSecret)
       setStep('payment')
     } catch (error) {
       console.error('Checkout error:', error)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { stripe } from '@/lib/stripe/config'
 import { z } from 'zod'
 import { Prisma } from '@prisma/client'
 import { nanoid } from 'nanoid'
@@ -44,7 +45,12 @@ const CreateOrderSchema = z.object({
   billingAddress: AddressSchema,
   items: z.array(OrderItemSchema).min(1, 'Order must have at least one item'),
   shippingMethod: z.string().optional(), // STANDARD, EXPRESS, OVERNIGHT — server computes pricing
+  // Wave 3A: paymentIntentId is no longer accepted from the client — the PI is
+  // created atomically server-side. Field kept in schema as ignored for back-compat.
   paymentIntentId: z.string().optional(),
+  // Wave 2 #15 idempotency key: client generates a UUID per checkout attempt.
+  // Reused on every retry so Stripe deduplicates duplicate PI creation requests.
+  piIdempotencyKey: z.string().min(1).max(200).optional(),
   sessionId: z.string().optional(),
   couponCode: z.string().optional(),
   redemptionId: z.string().optional(),
@@ -92,7 +98,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Start a transaction to ensure all operations succeed or fail together
+    // Wave 3A — Atomic endpoint: Stripe PaymentIntent + Order DB row are created
+    // in a single prisma.$transaction (Option B from the audit synthesis).
+    //
+    // Order of operations inside the transaction:
+    //   1. Resolve/create customer
+    //   2. Persist addresses
+    //   3. Fetch products & compute authoritative server-side pricing
+    //   4. Atomically decrement inventory
+    //   5. CREATE the Stripe PaymentIntent (external call, inside the tx)
+    //   6. Create the Order row with stripePaymentIntentId already set
+    //   7. Release cart reservations, update promotion usage
+    //
+    // Split-brain trade-off (documented per spec):
+    //   Stripe is not transactional with the DB. If the DB commit fails AFTER
+    //   the PI is created, the PI would become orphaned. To mitigate this, the
+    //   PI is created FIRST (step 5), then the DB writes follow. If any DB write
+    //   throws, the transaction rolls back and the catch block CANCELS the PI via
+    //   stripe.paymentIntents.cancel(). This is the best achievable guarantee
+    //   short of a saga/outbox pattern (deferred to a future wave).
+    let orphanPiId: string | null = null
+
     const result = await prisma.$transaction(async (tx) => {
       // 1. Create or find customer
       let customer = null as Awaited<ReturnType<typeof tx.customer.findFirst>>
@@ -261,7 +287,42 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 6. Create order
+      // 5. Create Stripe PaymentIntent BEFORE DB writes so that if the DB
+      //    commit fails we can cancel the PI in the catch block below.
+      //    The idempotency key from the client (Wave 2 #15) is forwarded so that
+      //    Stripe deduplicates retries from network flakiness.
+      let pi: import('stripe').default.PaymentIntent
+      try {
+        const idempotencyKey = validatedData.piIdempotencyKey ?? crypto.randomUUID()
+        if (!validatedData.piIdempotencyKey) {
+          console.warn(
+            '[orders] No piIdempotencyKey supplied by client — generated server-side fallback:',
+            idempotencyKey,
+            '— update the caller to send a stable key per checkout attempt.'
+          )
+        }
+        pi = await stripe.paymentIntents.create(
+          {
+            amount: Math.round(pricing.total * 100), // cents, authoritative server total
+            currency: 'usd',
+            metadata: {
+              orderId: orderNumber, // order number at PI-create time; updated to real ID below
+              customerEmail: normalizedEmail,
+            },
+            automatic_payment_methods: { enabled: true },
+          },
+          { idempotencyKey }
+        )
+        // Track the PI id so the catch block can cancel it if DB writes fail.
+        orphanPiId = pi.id
+      } catch (stripeErr) {
+        // Stripe itself failed — bubble up so the transaction aborts cleanly.
+        throw stripeErr
+      }
+
+      // 6. Create order row — PI already exists so we can stamp stripePaymentIntentId
+      //    immediately. The webhook's payment_intent.succeeded handler will find
+      //    this row by orderId from PI metadata and mark it PAID.
       const order = await tx.order.create({
         data: {
           orderNumber,
@@ -279,8 +340,9 @@ export async function POST(request: NextRequest) {
           couponCode: validatedData.couponCode || null,
           redemptionId: validatedData.redemptionId || null,
           status: 'PENDING',
-          paymentStatus: validatedData.paymentIntentId ? 'PENDING' : 'PENDING',
+          paymentStatus: 'PENDING',
           paymentMethod: 'stripe',
+          stripePaymentIntentId: pi.id,
           items: {
             create: enrichedItems.map((item) => ({
               productId: item.productId,
@@ -305,6 +367,17 @@ export async function POST(request: NextRequest) {
           customer: true,
         },
       })
+
+      // 6b. Update PI metadata with the real DB order ID now that the row exists.
+      //     Best-effort — a failure here is non-fatal; the webhook can still find
+      //     the order via stripePaymentIntentId stored on the order row.
+      try {
+        await stripe.paymentIntents.update(pi.id, {
+          metadata: { orderId: order.id, customerEmail: normalizedEmail },
+        })
+      } catch (metaErr) {
+        console.warn('[orders] Could not update PI metadata with real orderId:', metaErr)
+      }
 
       // 7. (Inventory already decremented atomically in step 5c above)
 
@@ -338,7 +411,22 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return order
+      return { order, pi }
+    }).catch(async (txError) => {
+      // Orphan-PI cleanup: if the PI was created successfully but the DB commit
+      // failed (split-brain), cancel the PI so Stripe doesn't hold open a
+      // pending charge. This is the best-effort mitigation for Wave 3A.
+      if (orphanPiId) {
+        try {
+          await stripe.paymentIntents.cancel(orphanPiId)
+          console.warn('[orders] Orphan PI canceled after transaction failure:', orphanPiId)
+        } catch (cancelErr) {
+          // Log but don't mask the original transaction error.
+          console.error('[orders] Failed to cancel orphan PI:', orphanPiId, cancelErr)
+        }
+        orphanPiId = null
+      }
+      throw txError
     })
 
     if (validatedData.newsletterOptIn) {
@@ -354,9 +442,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Wave 3A response: return both the orderId and the PI client secret so the
+    // client can initialize Stripe Elements in a single round trip.
     return NextResponse.json({
       success: true,
-      order: result,
+      order: result.order,
+      orderId: result.order.id,
+      paymentIntentClientSecret: result.pi.client_secret,
     })
   } catch (error) {
     console.error('Order creation error:', error)
