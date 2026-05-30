@@ -109,71 +109,96 @@ export async function POST(request: NextRequest) {
     // Clean up expired reservations first
     await cleanupExpiredReservations();
 
-    // Calculate available inventory (actual - active reservations)
-    const activeReservations = await prisma.cartReservation.aggregate({
-      where: {
-        productVariantId: variant.id,
-        isActive: true,
-        expiresAt: {
-          gt: new Date(),
-        },
-      },
-      _sum: {
-        quantity: true,
-      },
-    });
-
-    const reservedQuantity = activeReservations._sum.quantity || 0;
-    const availableInventory = variant.inventory - reservedQuantity;
-
-    if (availableInventory < validatedData.quantity) {
-      return NextResponse.json(
-        {
-          error: 'Not enough inventory available',
-          available: availableInventory,
-          requested: validatedData.quantity,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Create or update reservation
-    const expiresAt = new Date(Date.now() + RESERVATION_DURATION_MS);
-
-    // Check for existing reservation from this session
-    const existingReservation = await prisma.cartReservation.findFirst({
-      where: {
-        sessionId,
-        productVariantId: variant.id,
-        isActive: true,
-        expiresAt: {
-          gt: new Date(),
-        },
-      },
-    });
-
+    // Wrap the inventory check + reservation create/update in a serializable
+    // transaction so that two concurrent requests for the last unit cannot both
+    // pass the availability check before either has written its reservation row.
     let reservation;
+    try {
+      reservation = await prisma.$transaction(async (tx) => {
+        // Re-read variant inventory inside the transaction
+        const variantInTx = await tx.productVariant.findUnique({
+          where: { id: variant.id },
+          select: { inventory: true },
+        });
 
-    if (existingReservation) {
-      // Update existing reservation
-      reservation = await prisma.cartReservation.update({
-        where: { id: existingReservation.id },
-        data: {
-          quantity: validatedData.quantity,
-          expiresAt,
-        },
-      });
-    } else {
-      // Create new reservation
-      reservation = await prisma.cartReservation.create({
-        data: {
-          sessionId,
-          productId: validatedData.productId,
-          productVariantId: variant.id,
-          quantity: validatedData.quantity,
-          expiresAt,
-        },
-      });
+        if (!variantInTx) {
+          throw new Error('Product variant not found');
+        }
+
+        // Calculate available inventory (actual - active reservations)
+        const activeReservations = await tx.cartReservation.aggregate({
+          where: {
+            productVariantId: variant.id,
+            isActive: true,
+            expiresAt: {
+              gt: new Date(),
+            },
+          },
+          _sum: {
+            quantity: true,
+          },
+        });
+
+        const reservedQuantity = activeReservations._sum.quantity || 0;
+        const availableInventory = variantInTx.inventory - reservedQuantity;
+
+        if (availableInventory < validatedData.quantity) {
+          throw Object.assign(
+            new Error('Not enough inventory available'),
+            { available: availableInventory, requested: validatedData.quantity, isInventoryError: true }
+          );
+        }
+
+        // Create or update reservation
+        const expiresAt = new Date(Date.now() + RESERVATION_DURATION_MS);
+
+        // Check for existing reservation from this session
+        const existingReservation = await tx.cartReservation.findFirst({
+          where: {
+            sessionId,
+            productVariantId: variant.id,
+            isActive: true,
+            expiresAt: {
+              gt: new Date(),
+            },
+          },
+        });
+
+        if (existingReservation) {
+          // Update existing reservation
+          return tx.cartReservation.update({
+            where: { id: existingReservation.id },
+            data: {
+              quantity: validatedData.quantity,
+              expiresAt,
+            },
+          });
+        } else {
+          // Create new reservation
+          return tx.cartReservation.create({
+            data: {
+              sessionId,
+              productId: validatedData.productId,
+              productVariantId: variant.id,
+              quantity: validatedData.quantity,
+              expiresAt,
+            },
+          });
+        }
+      }, { isolationLevel: 'Serializable' });
+    } catch (txError) {
+      if (txError instanceof Error && (txError as NodeJS.ErrnoException & { isInventoryError?: boolean }).isInventoryError) {
+        const errWithMeta = txError as Error & { available: number; requested: number };
+        return NextResponse.json(
+          {
+            error: 'Not enough inventory available',
+            available: errWithMeta.available,
+            requested: errWithMeta.requested,
+          },
+          { status: 400 }
+        );
+      }
+      throw txError;
     }
 
     return NextResponse.json({
