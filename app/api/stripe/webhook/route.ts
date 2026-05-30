@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { stripe } from '@/lib/stripe/config'
 import { prisma } from '@/lib/prisma'
-import { sendOrderConfirmation } from '@/lib/email/resend'
+import { enqueueEmail } from '@/lib/email/queue'
 import { notifyOrderStatus } from '@/lib/notifications/service'
 import { updateCustomerStatsOnOrderCompletion } from '@/lib/crm/service'
 import { awardReferralPoints } from '@/lib/loyalty/service'
@@ -102,36 +102,44 @@ export async function POST(request: NextRequest) {
               }
             }
 
-            // Send order confirmation email
+            // Enqueue order confirmation email for durable delivery with retry.
+            // The webhook no longer awaits a Resend HTTP call — a Resend outage
+            // will not drop the receipt; the cron at /api/cron/process-email-queue
+            // drains the queue every 5 min with exponential backoff (max 5 attempts).
             try {
-              await sendOrderConfirmation({
-                to: order.customerEmail,
-                orderNumber: order.orderNumber,
-                customerName: `${order.shippingAddress.firstName} ${order.shippingAddress.lastName}`,
-                items: order.items.map((item) => ({
-                  productName: item.product.name,
-                  variantDetails: item.variantDetails || 'N/A',
-                  quantity: item.quantity,
-                  price: item.price,
-                })),
-                subtotal: order.subtotal,
-                shipping: order.shipping,
-                tax: order.tax,
-                total: order.total,
-                shippingAddress: {
-                  firstName: order.shippingAddress.firstName,
-                  lastName: order.shippingAddress.lastName,
-                  addressLine1: order.shippingAddress.address1,
-                  addressLine2: order.shippingAddress.address2 || undefined,
-                  city: order.shippingAddress.city,
-                  state: order.shippingAddress.state,
-                  zipCode: order.shippingAddress.postalCode,
+              await enqueueEmail({
+                type: 'order-confirmation',
+                recipient: order.customerEmail,
+                payload: {
+                  to: order.customerEmail,
+                  orderNumber: order.orderNumber,
+                  customerName: `${order.shippingAddress.firstName} ${order.shippingAddress.lastName}`,
+                  items: order.items.map((item) => ({
+                    productName: item.product.name,
+                    variantDetails: item.variantDetails || 'N/A',
+                    quantity: item.quantity,
+                    price: item.price,
+                  })),
+                  subtotal: order.subtotal,
+                  shipping: order.shipping,
+                  tax: order.tax,
+                  total: order.total,
+                  shippingAddress: {
+                    firstName: order.shippingAddress.firstName,
+                    lastName: order.shippingAddress.lastName,
+                    addressLine1: order.shippingAddress.address1,
+                    addressLine2: order.shippingAddress.address2 || undefined,
+                    city: order.shippingAddress.city,
+                    state: order.shippingAddress.state,
+                    zipCode: order.shippingAddress.postalCode,
+                  },
                 },
               })
-              console.log(`Order confirmation email sent for order ${orderId}`)
+              console.log(`Order confirmation email queued for order ${orderId}`)
             } catch (emailError) {
-              // Log error but don't fail the webhook
-              console.error(`Failed to send order confirmation email for order ${orderId}:`, emailError)
+              // Log error but don't fail the webhook — the row may still have
+              // been written; the cron will pick it up on the next run.
+              console.error(`Failed to enqueue order confirmation email for order ${orderId}:`, emailError)
             }
 
             // Write in-app notification (signed-in customers only). Wrapped

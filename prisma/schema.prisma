@@ -1767,3 +1767,28 @@ model ProcessedWebhookEvent {
   @@index([processedAt])
   @@map("processed_webhook_events")
 }
+
+enum EmailQueueStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model EmailQueue {
+  id          String           @id @default(cuid())
+  type        String           // 'order-confirmation' | 'shipping-notification' | etc.
+  recipient   String           // email address
+  payload     Json             // template props
+  status      EmailQueueStatus @default(PENDING)
+  attempts    Int              @default(0)
+  maxAttempts Int              @default(5)
+  nextRetryAt DateTime         @default(now())
+  lastError   String?
+  sentAt      DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([status, nextRetryAt])
+  @@index([type])
+  @@map("email_queue")
+}
