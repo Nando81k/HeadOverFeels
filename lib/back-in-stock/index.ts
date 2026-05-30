@@ -5,8 +5,17 @@
  * triggers notifications when products come back in stock.
  */
 
+import { Resend } from 'resend'
+import { render } from '@react-email/components'
 import { prisma } from '@/lib/prisma'
 import { BackInStockStatus } from '@prisma/client'
+import BackInStockEmail from '@/emails/BackInStock'
+
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://headoverfeels.com'
+
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null
 
 // ===== TYPES =====
 
@@ -312,20 +321,76 @@ export async function triggerBackInStockNotifications(
     return { notificationCount: 0, emails: [] }
   }
 
-  const emails = notifications.map(n => n.email)
-  
-  // TODO: Send actual emails here
-  // For now, we'll just mark them as notified
-  // In production, integrate with your email service (Resend, SendGrid, etc.)
-  
-  console.log(`[Back-in-Stock] Sending notifications to ${emails.length} subscribers for ${product.name}`)
+  if (!resend) {
+    console.warn('[Back-in-Stock] Resend API key not configured — skipping email send')
+    return { notificationCount: 0, emails: [] }
+  }
 
-  // Mark as notified
-  await markNotificationsAsSent(notifications.map(n => n.id))
+  // Parse the first product image (stored as JSON string array)
+  let productImage: string | undefined
+  try {
+    const parsed = JSON.parse(product.images) as string[]
+    productImage = parsed[0] || undefined
+  } catch {
+    // images field unreadable — proceed without an image
+  }
+
+  const productUrl = `${BASE_URL}/products/${product.slug}`
+
+  const sentEmails: string[] = []
+
+  for (const notification of notifications) {
+    const unsubscribeUrl =
+      `${BASE_URL}/api/back-in-stock?` +
+      `productId=${encodeURIComponent(productId)}` +
+      `&email=${encodeURIComponent(notification.email)}` +
+      (variantId ? `&variantId=${encodeURIComponent(variantId)}` : '')
+
+    try {
+      const emailHtml = await render(
+        BackInStockEmail({
+          productName: product.name,
+          productImage,
+          productUrl,
+          unsubscribeUrl,
+        })
+      )
+
+      const { error } = await resend.emails.send({
+        from: process.env.EMAIL_FROM || 'Head Over Feels <notifications@headoverfeels.com>',
+        to: notification.email,
+        subject: `${product.name} is back in stock`,
+        html: emailHtml,
+      })
+
+      if (error) {
+        console.error(
+          `[Back-in-Stock] Resend error for subscriber ${notification.id} (product ${productId}):`,
+          error.message
+        )
+        // Leave isNotified=false so the next inventory cycle retries this subscriber.
+        continue
+      }
+
+      // Only mark as notified after a confirmed successful send.
+      await markNotificationsAsSent([notification.id])
+      sentEmails.push(notification.email)
+    } catch (err) {
+      console.error(
+        `[Back-in-Stock] Failed to send notification for subscriber ${notification.id} (product ${productId}):`,
+        err instanceof Error ? err.message : String(err)
+      )
+      // Leave isNotified=false so the next inventory cycle retries this subscriber.
+    }
+  }
+
+  console.log(
+    `[Back-in-Stock] Sent ${sentEmails.length}/${notifications.length} notifications for product ${productId}`
+  )
 
   return {
-    notificationCount: notifications.length,
-    emails,
+    notificationCount: sentEmails.length,
+    emails: sentEmails,
   }
 }
 
