@@ -112,7 +112,7 @@ export function EmailCaptureModal({ content, onClose, onAction, previewMode }: P
           <div className="relative h-48 w-full">
             <Image
               src={image}
-              alt=""
+              alt={heading}
               fill
               className="object-cover"
             />
@@ -260,7 +260,7 @@ export function ModalTemplate({ content, onClose, onAction, previewMode }: Popup
           <div className="relative h-64 w-full">
             <Image
               src={image}
-              alt=""
+              alt={heading}
               fill
               className="object-cover"
             />
