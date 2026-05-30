@@ -100,7 +100,11 @@ export function ProductCard({ product, badge, onProductClick }: ProductCardProps
     <div className="group relative h-full">
       <Link href={`/products/${product.slug}`} onClick={onProductClick} className="block h-full">
         <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-black/10 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:border-black/30 hover:shadow-[0_10px_20px_rgba(0,0,0,0.08)] active:scale-[0.99]">
-          <div className="relative aspect-[5/6] overflow-hidden bg-black/[0.02]">
+          <div
+            className="relative aspect-[5/6] overflow-hidden bg-black/[0.02]"
+            aria-live="polite"
+            aria-atomic="true"
+          >
             <Image
               src={currentImage}
               alt={product.name}
@@ -108,6 +112,9 @@ export function ProductCard({ product, badge, onProductClick }: ProductCardProps
               className="object-cover transition-transform duration-500 group-hover:scale-105"
               sizes="(max-width: 640px) 45vw, (max-width: 768px) 45vw, (max-width: 1200px) 33vw, 25vw"
             />
+            {activeColor && (
+              <span className="sr-only">Showing {activeColor} variant</span>
+            )}
 
             <div className="absolute left-2.5 top-2.5 z-10 flex flex-col gap-1">
               {badge && (
@@ -146,6 +153,7 @@ export function ProductCard({ product, badge, onProductClick }: ProductCardProps
               const totalPages = Math.ceil(colorVariants.length / perPage)
               return (
                 <div
+                  role="group"
                   className="mt-2.5"
                   onClick={(e) => e.preventDefault()}
                   aria-label={`Available colors: ${colorVariants.map((v) => v.color).filter(Boolean).join(', ')}`}
@@ -180,8 +188,8 @@ export function ProductCard({ product, badge, onProductClick }: ProductCardProps
                                 onMouseLeave={() => setPreviewColor(null)}
                                 onFocus={() => setPreviewColor(variant.color || null)}
                                 onBlur={() => setPreviewColor(null)}
-                                title={variant.color || undefined}
-                                aria-label={`Preview ${variant.color}`}
+                                aria-label={`Color: ${variant.color}`}
+                                aria-pressed={isSelected}
                                 className={`
                                   relative h-8 w-8 shrink-0 rounded-full border-2 transition-all active:scale-90
                                   ${isSelected
@@ -224,6 +232,7 @@ export function ProductCard({ product, badge, onProductClick }: ProductCardProps
                             i === swatchPage ? 'w-4 bg-black' : 'w-1 bg-black/20 hover:bg-black/40'
                           }`}
                           aria-label={`Color page ${i + 1}`}
+                          aria-current={i === swatchPage ? 'true' : undefined}
                         />
                       ))}
                     </div>
