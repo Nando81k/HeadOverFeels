@@ -19,6 +19,11 @@ import {
   FileText,
   EnvelopeSimple,
   CircleNotch,
+  SquaresFour,
+  Truck,
+  Megaphone,
+  Lifebuoy,
+  Browser,
 } from '@phosphor-icons/react'
 
 interface CommandPaletteProps {
@@ -172,11 +177,34 @@ export function CommandPalette({ isAdmin = false }: CommandPaletteProps) {
         ],
       },
       {
-        group: 'Actions',
+        group: 'Quick Actions',
         items: [
           { icon: Plus, label: 'New Product', href: '/admin/products/new', shortcut: 'Ctrl + N' },
           { icon: Plus, label: 'New Collection', href: '/admin/collections/new' },
           { icon: FileText, label: 'Export Data', href: '/admin/analytics' },
+        ],
+      },
+      // v2 navigation group — matches admin v2 information architecture
+      {
+        group: 'Go to',
+        items: [
+          { icon: SquaresFour, label: 'Dashboard', href: '/admin', shortcut: 'G then D' },
+          { icon: Package, label: 'Products & Drops', href: '/admin/products', shortcut: 'G then P' },
+          { icon: Truck, label: 'Fulfillment', href: '/admin/fulfillment', shortcut: 'G then F' },
+          { icon: Users, label: 'Customers', href: '/admin/customers', shortcut: 'G then C' },
+          { icon: Star, label: 'Loyalty', href: '/admin/loyalty' },
+          { icon: Megaphone, label: 'Marketing', href: '/admin/marketing' },
+          { icon: ChartBar, label: 'Analytics', href: '/admin/analytics' },
+          { icon: Lifebuoy, label: 'Support', href: '/admin/support' },
+        ],
+      },
+      // v2 actions group — admin v2 quick-create shortcuts
+      {
+        group: 'Actions',
+        items: [
+          { icon: Plus, label: 'Add product', href: '/admin/products?new=true', shortcut: '⌘N' },
+          { icon: Tag, label: 'Create promotion', href: '/admin/promotions?new=true' },
+          { icon: Browser, label: 'Create popup', href: '/admin/popups?new=true' },
         ],
       },
     ],
@@ -347,6 +375,9 @@ export function CommandPalette({ isAdmin = false }: CommandPaletteProps) {
                 ))}
               </Command.Group>
             )}
+
+            {/* Jump to SKU — stub; autocomplete wired in Phase 3 */}
+            {/* TODO: wire SKU autocomplete in Phase 3 (Products & Drops rebuild) */}
 
             {/* Static commands — Navigation + Actions */}
             {filteredCommands.map((group) => (
