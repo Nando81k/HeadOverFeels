@@ -225,7 +225,7 @@ export async function POST(request: NextRequest) {
         customerId: customer.id,
       })
 
-      // 5c. Validate that all products/variants exist and have sufficient inventory
+      // 5c. Validate that all products/variants exist and atomically decrement inventory
       for (const item of enrichedItems) {
         const productExists = await tx.product.findUnique({
           where: { id: item.productId },
@@ -238,13 +238,25 @@ export async function POST(request: NextRequest) {
         if (item.productVariantId) {
           const variant = await tx.productVariant.findUnique({
             where: { id: item.productVariantId },
-            select: { id: true, size: true, color: true, inventory: true },
+            select: { id: true, size: true, color: true },
           })
           if (!variant) {
             throw new Error(`The selected variant for "${productExists.name}" is no longer available. Please remove it from your cart and add it again with an available size/color.`)
           }
-          if (variant.inventory < item.quantity) {
-            throw new Error(`"${productExists.name}" only has ${variant.inventory} in stock. Please update your cart.`)
+          // Atomic check-and-decrement: only decrements if inventory >= quantity.
+          // If another concurrent order claimed the last unit first, count will be 0
+          // and the transaction rolls back cleanly — no oversell possible.
+          const decrementResult = await tx.productVariant.updateMany({
+            where: {
+              id: item.productVariantId,
+              inventory: { gte: item.quantity },
+            },
+            data: {
+              inventory: { decrement: item.quantity },
+            },
+          })
+          if (decrementResult.count === 0) {
+            throw new Error(`Insufficient inventory for variant ${item.productVariantId}`)
           }
         }
       }
@@ -294,19 +306,7 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      // 7. Reduce inventory for each item
-      for (const item of validatedData.items) {
-        if (item.productVariantId) {
-          await tx.productVariant.update({
-            where: { id: item.productVariantId },
-            data: {
-              inventory: {
-                decrement: item.quantity,
-              },
-            },
-          })
-        }
-      }
+      // 7. (Inventory already decremented atomically in step 5c above)
 
       // 8. Release cart reservations if sessionId provided
       if (validatedData.sessionId) {
