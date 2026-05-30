@@ -18,9 +18,20 @@ import { AdminLayout } from '@/components/admin/AdminLayout'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { TableSkeleton } from '@/components/ui/skeleton'
 import CustomerMetricCards from '@/components/customers/CustomerMetricCards'
-import CustomerSegmentChart from '@/components/customers/CustomerSegmentChart'
-import CustomerActivityChart from '@/components/customers/CustomerActivityChart'
-import CustomerRetentionChart from '@/components/customers/CustomerRetentionChart'
+import dynamic from 'next/dynamic'
+
+const CustomerSegmentChart = dynamic(() => import('@/components/customers/CustomerSegmentChart'), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse bg-black/5 rounded-lg" />,
+})
+const CustomerActivityChart = dynamic(() => import('@/components/customers/CustomerActivityChart'), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse bg-black/5 rounded-lg" />,
+})
+const CustomerRetentionChart = dynamic(() => import('@/components/customers/CustomerRetentionChart'), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse bg-black/5 rounded-lg" />,
+})
 import { downloadCustomersCSV, type CustomerListItem } from '@/lib/api/customers'
 import {
   ADMIN_CUSTOMER_SEGMENTS,
