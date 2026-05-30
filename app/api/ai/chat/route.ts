@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   const ip = getClientIdentifier(request.headers)
   const identifier = session?.user?.email ?? ip
 
-  const minuteCheck = checkRateLimit(
+  const minuteCheck = await checkRateLimit(
     `ai:customer-chat:min:${identifier}`,
     AI_RATE_LIMITS.customerChat.perMinute,
     ONE_MINUTE_MS
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   if (!minuteCheck.allowed) {
     return rateLimitResponse(minuteCheck.retryAfter)
   }
-  const dayCheck = checkRateLimit(
+  const dayCheck = await checkRateLimit(
     `ai:customer-chat:day:${identifier}`,
     AI_RATE_LIMITS.customerChat.perDay,
     ONE_DAY_MS

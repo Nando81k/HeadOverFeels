@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit by admin ID — before any AI call
-    const minuteCheck = checkRateLimit(
+    const minuteCheck = await checkRateLimit(
       `ai:admin-chat:min:${admin.id}`,
       AI_RATE_LIMITS.adminChat.perMinute,
       ONE_MINUTE_MS
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     if (!minuteCheck.allowed) {
       return rateLimitResponse(minuteCheck.retryAfter)
     }
-    const dayCheck = checkRateLimit(
+    const dayCheck = await checkRateLimit(
       `ai:admin-chat:day:${admin.id}`,
       AI_RATE_LIMITS.adminChat.perDay,
       ONE_DAY_MS

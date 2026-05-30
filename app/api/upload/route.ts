@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     // Rate limit file uploads: 20 per minute per IP
     const clientIp = getClientIdentifier(request.headers)
-    const rateLimit = checkRateLimit(
+    const rateLimit = await checkRateLimit(
       clientIp,
       RATE_LIMITS.upload.maxRequests,
       RATE_LIMITS.upload.windowMs
@@ -169,7 +169,7 @@ export async function DELETE(request: NextRequest) {
 
     // Rate limit delete operations
     const clientIp = getClientIdentifier(request.headers)
-    const rateLimit = checkRateLimit(
+    const rateLimit = await checkRateLimit(
       clientIp,
       RATE_LIMITS.upload.maxRequests,
       RATE_LIMITS.upload.windowMs

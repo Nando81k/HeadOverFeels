@@ -19,7 +19,7 @@ async function getAuthenticatedUserId(request: NextRequest): Promise<string | nu
 // POST /api/profile/avatar — upload a new profile picture
 export async function POST(request: NextRequest) {
   const clientIp = getClientIdentifier(request.headers)
-  const rateLimit = checkRateLimit(clientIp, RATE_LIMITS.upload.maxRequests, RATE_LIMITS.upload.windowMs)
+  const rateLimit = await checkRateLimit(clientIp, RATE_LIMITS.upload.maxRequests, RATE_LIMITS.upload.windowMs)
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfter)
 
   const userId = await getAuthenticatedUserId(request)
