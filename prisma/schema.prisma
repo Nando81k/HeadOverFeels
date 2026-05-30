@@ -815,23 +815,24 @@ model LoyaltyTier {
 }
 
 model PointsTransaction {
-  id           String                @id @default(cuid())
-  customerId   String
-  points       Int
-  type         PointsTransactionType
-  description  String
-  orderId      String?
-  reviewId     String?
-  redemptionId String?
-  referralId   String?
-  expiresAt    DateTime?
-  isExpired    Boolean               @default(false)
-  metadata     String?
-  createdAt    DateTime              @default(now())
-  customer     Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  order        Order?                @relation(fields: [orderId], references: [id])
-  redemption   RewardRedemption?     @relation(fields: [redemptionId], references: [id])
-  review       Review?               @relation(fields: [reviewId], references: [id])
+  id              String                @id @default(cuid())
+  customerId      String
+  points          Int
+  type            PointsTransactionType
+  description     String
+  orderId         String?
+  reviewId        String?
+  redemptionId    String?
+  referralId      String?
+  expiresAt       DateTime?
+  isExpired       Boolean               @default(false)
+  metadata        String?
+  idempotencyKey  String?               @unique
+  createdAt       DateTime              @default(now())
+  customer        Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order           Order?                @relation(fields: [orderId], references: [id])
+  redemption      RewardRedemption?     @relation(fields: [redemptionId], references: [id])
+  review          Review?               @relation(fields: [reviewId], references: [id])
 
   @@index([customerId])
   @@index([orderId])
