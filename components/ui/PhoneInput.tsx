@@ -13,6 +13,7 @@ interface PhoneInputProps {
   required?: boolean
   disabled?: boolean
   className?: string
+  autoComplete?: string
 }
 
 export function PhoneInput({
@@ -24,6 +25,7 @@ export function PhoneInput({
   required = false,
   disabled = false,
   className,
+  autoComplete = 'tel',
 }: PhoneInputProps) {
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value
@@ -45,6 +47,8 @@ export function PhoneInput({
     <Input
       label={label}
       type="tel"
+      inputMode="tel"
+      autoComplete={autoComplete}
       value={value}
       onChange={handleChange}
       error={error}

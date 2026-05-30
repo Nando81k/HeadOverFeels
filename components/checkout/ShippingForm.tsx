@@ -92,6 +92,7 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             label="First Name"
+            autoComplete="given-name"
             value={data.firstName}
             onChange={(e) => handleChange('firstName', e.target.value)}
             error={errors.firstName}
@@ -99,6 +100,7 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
           />
           <Input
             label="Last Name"
+            autoComplete="family-name"
             value={data.lastName}
             onChange={(e) => handleChange('lastName', e.target.value)}
             error={errors.lastName}
@@ -108,6 +110,8 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
         <Input
           label="Email"
           type="email"
+          inputMode="email"
+          autoComplete="email"
           value={data.email}
           onChange={(e) => handleChange('email', e.target.value)}
           error={errors.email}
@@ -127,6 +131,7 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
         </label>
         <PhoneInput
           label="Phone"
+          autoComplete="tel"
           value={data.phone}
           onChange={(e) => handleChange('phone', e.target.value)}
           error={errors.phone}
@@ -158,6 +163,7 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
         />
         <Input
           label="Apartment, suite, etc."
+          autoComplete="address-line2"
           value={data.apartment || ''}
           onChange={(e) => handleChange('apartment', e.target.value)}
           error={errors.apartment}
@@ -166,6 +172,7 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             label="City"
+            autoComplete="address-level2"
             value={data.city}
             onChange={(e) => handleChange('city', e.target.value)}
             error={errors.city}
@@ -180,6 +187,7 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
               <select
                 value={data.state}
                 onChange={(e) => handleChange('state', e.target.value)}
+                autoComplete="address-level1"
                 className={`
                   w-full px-4 py-3 border bg-white text-black rounded-none
                   transition-colors duration-150 appearance-none cursor-pointer
@@ -206,6 +214,8 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             label="ZIP Code"
+            autoComplete="postal-code"
+            inputMode="numeric"
             value={data.zipCode}
             onChange={(e) => handleChange('zipCode', e.target.value)}
             error={errors.zipCode}
@@ -214,6 +224,7 @@ export function ShippingForm({ data, onChange, errors }: ShippingFormProps) {
           />
           <Input
             label="Country"
+            autoComplete="country-name"
             value={data.country}
             onChange={(e) => handleChange('country', e.target.value)}
             error={errors.country}

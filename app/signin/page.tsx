@@ -449,6 +449,8 @@ function SignInContent() {
                         <input
                           id="signin-email"
                           type="email"
+                          inputMode="email"
+                          autoComplete="email"
                           required
                           value={signinEmail}
                           onChange={(e) => setSigninEmail(e.target.value)}
@@ -467,6 +469,7 @@ function SignInContent() {
                         <input
                           id="signin-password"
                           type={showPassword ? 'text' : 'password'}
+                          autoComplete="current-password"
                           required
                           value={signinPassword}
                           onChange={(e) => setSigninPassword(e.target.value)}
@@ -526,6 +529,7 @@ function SignInContent() {
                         <input
                           id="signup-name"
                           type="text"
+                          autoComplete="name"
                           required
                           value={signupName}
                           onChange={(e) => setSignupName(e.target.value)}
@@ -552,6 +556,8 @@ function SignInContent() {
                         <input
                           id="signup-email"
                           type="email"
+                          inputMode="email"
+                          autoComplete="email"
                           required
                           value={signupEmail}
                           onChange={(e) => setSignupEmail(e.target.value)}
@@ -578,6 +584,7 @@ function SignInContent() {
                         <input
                           id="signup-password"
                           type={showPassword ? 'text' : 'password'}
+                          autoComplete="new-password"
                           required
                           value={signupPassword}
                           onChange={(e) => setSignupPassword(e.target.value)}
@@ -634,6 +641,7 @@ function SignInContent() {
                         <input
                           id="signup-confirm-password"
                           type={showConfirmPassword ? 'text' : 'password'}
+                          autoComplete="new-password"
                           required
                           value={signupConfirmPassword}
                           onChange={(e) => setSignupConfirmPassword(e.target.value)}
