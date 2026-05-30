@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -94,6 +94,20 @@ export default function CheckoutPage() {
   const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingMethod>('STANDARD')
   const [paymentSuccessful, setPaymentSuccessful] = useState(false)
   const [orderSummaryExpanded, setOrderSummaryExpanded] = useState(false)
+
+  // Stable idempotency key for the current checkout attempt.
+  // Generated lazily on first use (avoids SSR issues with crypto.randomUUID).
+  // The SAME key is reused on every retry of this attempt so Stripe deduplicates
+  // duplicate PaymentIntent creations from network flakiness.
+  // A new key is generated whenever the user initiates a new checkout attempt
+  // (page reload / navigating away and back resets the ref naturally).
+  const piIdempotencyKeyRef = useRef<string | null>(null)
+  const getPiIdempotencyKey = (): string => {
+    if (!piIdempotencyKeyRef.current) {
+      piIdempotencyKeyRef.current = crypto.randomUUID()
+    }
+    return piIdempotencyKeyRef.current
+  }
   
   const [shippingData, setShippingData] = useState<ShippingFormData>({
     firstName: '',
@@ -287,7 +301,9 @@ export default function CheckoutPage() {
       const createdOrderId = orderData.order.id
       setOrderId(createdOrderId)
 
-      // 2. Create payment intent with order ID in metadata
+      // 2. Create payment intent with order ID in metadata.
+      // Pass a stable idempotency key so retried requests (network flakiness)
+      // return the same PaymentIntent instead of creating a duplicate.
       const response = await fetch('/api/stripe/payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -298,6 +314,7 @@ export default function CheckoutPage() {
             orderId: createdOrderId,
             customerEmail: shippingData.email,
           },
+          idempotencyKey: getPiIdempotencyKey(),
         }),
       })
 
