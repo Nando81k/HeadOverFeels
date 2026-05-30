@@ -276,7 +276,7 @@ export default function CollectionDetailPage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-neutral-100 via-stone-50 to-neutral-100">
         <Navigation />
-        <main className="mx-auto max-w-4xl px-4 pb-16 pt-24 text-center sm:px-6 lg:px-8 lg:pt-28">
+        <main id="main-content" className="mx-auto max-w-4xl px-4 pb-16 pt-24 text-center sm:px-6 lg:px-8 lg:pt-28">
           <h1 className="text-3xl font-black tracking-tight text-black sm:text-4xl">Collection not found</h1>
           <p className="mt-3 text-sm text-black/60 sm:text-base">
             This collection may have moved or is no longer available.
@@ -304,7 +304,7 @@ export default function CollectionDetailPage() {
     <div className="min-h-screen bg-gradient-to-b from-neutral-100 via-stone-50 to-neutral-100">
       <Navigation />
 
-      <main className="mx-auto max-w-7xl px-4 pb-20 pt-24 sm:px-6 lg:px-8 lg:pt-28">
+      <main id="main-content" className="mx-auto max-w-7xl px-4 pb-20 pt-24 sm:px-6 lg:px-8 lg:pt-28">
         <section
           className="relative overflow-hidden rounded-[1.8rem] border border-black/10 bg-white shadow-[0_24px_50px_-32px_rgba(0,0,0,0.5)]"
           aria-labelledby="collection-detail-title"

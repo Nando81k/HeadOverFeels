@@ -646,7 +646,7 @@ function NotificationsHubInner() {
   return (
     <>
       <Navigation />
-      <main className="min-h-screen bg-white pt-24 pb-16">
+      <main id="main-content" className="min-h-screen bg-white pt-24 pb-16">
         <div className="max-w-2xl mx-auto px-4 sm:px-6">
           {/* Header */}
           <div className="mb-6">
