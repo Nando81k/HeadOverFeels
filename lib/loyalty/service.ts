@@ -366,46 +366,95 @@ export async function hasEnoughPoints(customerId: string, pointsRequired: number
 }
 
 /**
- * Deduct points from customer
+ * Deduct points from customer — atomic and idempotent.
+ *
+ * The balance check and decrement happen in a single conditional `updateMany`
+ * so two concurrent redemptions cannot both pass the balance check and then
+ * each deduct, driving the balance negative.
+ *
+ * If an optional `idempotencyKey` is supplied, a prior transaction with the
+ * same key is returned immediately (safe replay). On a concurrent race where
+ * two callers share the same key, the P2002 unique-index violation is caught
+ * and treated as success — only one row ever lands.
  */
 export async function deductPoints(
   customerId: string,
   points: number,
   redemptionId: string,
-  description: string
+  description: string,
+  idempotencyKey?: string
 ) {
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
+  return prisma.$transaction(async (tx) => {
+    // --- Idempotency check (before any mutation) ---
+    if (idempotencyKey) {
+      const existing = await tx.pointsTransaction.findUnique({
+        where: { idempotencyKey },
+      })
+      if (existing) {
+        // Already processed — return the existing transaction as-is.
+        return existing
+      }
+    }
+
+    // --- Atomic conditional decrement ---
+    // `updateMany` with a `where` filter on currentPoints is a single
+    // compare-and-set at the DB level; no separate read required.
+    const result = await tx.customer.updateMany({
+      where: { id: customerId, currentPoints: { gte: points } },
+      data: { currentPoints: { decrement: points } },
+    })
+
+    if (result.count === 0) {
+      // Either the customer doesn't exist or they don't have enough points.
+      // Distinguish the two cases for a clearer error message.
+      const exists = await tx.customer.findUnique({
+        where: { id: customerId },
+        select: { id: true },
+      })
+      if (!exists) {
+        throw new Error('Customer not found')
+      }
+      throw new Error('Insufficient points balance')
+    }
+
+    // --- Insert the transaction record ---
+    try {
+      const transaction = await tx.pointsTransaction.create({
+        data: {
+          customerId,
+          points: -points,
+          type: 'REDEMPTION',
+          description,
+          redemptionId,
+          ...(idempotencyKey ? { idempotencyKey } : {}),
+        },
+      })
+      return transaction
+    } catch (err) {
+      // P2002 = unique constraint on idempotencyKey — a concurrent caller
+      // with the same key just won the race and inserted first.  The balance
+      // was already decremented exactly once (the updateMany above also ran
+      // for the winner), so we need to roll back our own decrement by
+      // re-incrementing, then look up and return the winning transaction.
+      if (
+        idempotencyKey &&
+        typeof err === 'object' &&
+        err !== null &&
+        (err as { code?: string }).code === 'P2002'
+      ) {
+        // Undo our decrement — the concurrent winner already owns this deduction.
+        await tx.customer.update({
+          where: { id: customerId },
+          data: { currentPoints: { increment: points } },
+        })
+        const winner = await tx.pointsTransaction.findUnique({
+          where: { idempotencyKey },
+        })
+        if (winner) return winner
+      }
+      throw err
+    }
   })
-
-  if (!customer) {
-    throw new Error('Customer not found')
-  }
-
-  if (customer.currentPoints < points) {
-    throw new Error('Insufficient points')
-  }
-
-  // Create negative transaction
-  const transaction = await prisma.pointsTransaction.create({
-    data: {
-      customerId,
-      points: -points,
-      type: 'REDEMPTION',
-      description,
-      redemptionId,
-    },
-  })
-
-  // Update customer points
-  await prisma.customer.update({
-    where: { id: customerId },
-    data: {
-      currentPoints: { decrement: points },
-    },
-  })
-
-  return transaction
 }
 
 // ===== TIER MANAGEMENT =====
