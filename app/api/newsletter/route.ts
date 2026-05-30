@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     const normalizedEmail = email.toLowerCase().trim()
     const clientIdentifier = getClientIdentifier(request.headers)
 
-    const ipRateLimit = checkRateLimit(
+    const ipRateLimit = await checkRateLimit(
       `newsletter:ip:${clientIdentifier}`,
       NEWSLETTER_RATE_LIMITS.perIp.maxRequests,
       NEWSLETTER_RATE_LIMITS.perIp.windowMs
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       return rateLimitResponse(ipRateLimit.retryAfter)
     }
 
-    const emailRateLimit = checkRateLimit(
+    const emailRateLimit = await checkRateLimit(
       `newsletter:email:${normalizedEmail}`,
       NEWSLETTER_RATE_LIMITS.perEmail.maxRequests,
       NEWSLETTER_RATE_LIMITS.perEmail.windowMs

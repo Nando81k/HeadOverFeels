@@ -21,7 +21,7 @@ const signupSchema = z.object({
 export async function POST(request: NextRequest) {
   // Rate limit by IP address: 5 attempts per minute
   const clientIp = getClientIdentifier(request.headers)
-  const rateLimit = checkRateLimit(clientIp, RATE_LIMITS.auth.maxRequests, RATE_LIMITS.auth.windowMs)
+  const rateLimit = await checkRateLimit(clientIp, RATE_LIMITS.auth.maxRequests, RATE_LIMITS.auth.windowMs)
 
   if (!rateLimit.allowed) {
     return rateLimitResponse(rateLimit.retryAfter)

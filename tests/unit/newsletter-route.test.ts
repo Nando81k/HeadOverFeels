@@ -6,7 +6,7 @@ vi.mock('@/lib/newsletter/subscribers', () => ({
 }))
 
 vi.mock('@/lib/security/rateLimit', () => ({
-  checkRateLimit: vi.fn(() => ({ allowed: true, remaining: 10, retryAfter: 0 })),
+  checkRateLimit: vi.fn(async () => ({ allowed: true, remaining: 10, retryAfter: 0 })),
   getClientIdentifier: vi.fn(() => '127.0.0.1'),
   rateLimitResponse: vi.fn((retryAfter: number) =>
     new Response(
@@ -26,7 +26,7 @@ describe('/api/newsletter route', () => {
     const { checkRateLimit } = await import('@/lib/security/rateLimit')
     const { POST } = await import('@/app/api/newsletter/route')
 
-    vi.mocked(checkRateLimit).mockReturnValue({ allowed: true, remaining: 10, retryAfter: 0 })
+    vi.mocked(checkRateLimit).mockResolvedValue({ allowed: true, remaining: 10, retryAfter: 0 })
     vi.mocked(subscribeToNewsletter).mockResolvedValue({
       normalizedEmail: 'test@example.com',
       alreadySubscribed: true,
@@ -65,8 +65,8 @@ describe('/api/newsletter route', () => {
     const { POST } = await import('@/app/api/newsletter/route')
 
     vi.mocked(checkRateLimit)
-      .mockReturnValueOnce({ allowed: false, remaining: 0, retryAfter: 30 })
-      .mockReturnValue({ allowed: true, remaining: 10, retryAfter: 0 })
+      .mockResolvedValueOnce({ allowed: false, remaining: 0, retryAfter: 30 })
+      .mockResolvedValue({ allowed: true, remaining: 10, retryAfter: 0 })
 
     const response = await POST({
       json: async () => ({ email: 'limited@example.com' }),

@@ -11,7 +11,7 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000
 export async function GET(request: NextRequest) {
   // Rate limit by IP — per-minute and per-day caps
   const ip = getClientIdentifier(request.headers)
-  const minuteCheck = checkRateLimit(
+  const minuteCheck = await checkRateLimit(
     `ai:review-summary:min:${ip}`,
     AI_RATE_LIMITS.reviewSummary.perMinute,
     ONE_MINUTE_MS
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   if (!minuteCheck.allowed) {
     return rateLimitResponse(minuteCheck.retryAfter)
   }
-  const dayCheck = checkRateLimit(
+  const dayCheck = await checkRateLimit(
     `ai:review-summary:day:${ip}`,
     AI_RATE_LIMITS.reviewSummary.perDay,
     ONE_DAY_MS
