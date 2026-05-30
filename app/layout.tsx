@@ -34,6 +34,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${allura.variable} ${harlow.variable}`}>
       <body className="antialiased">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-ring"
+        >
+          Skip to main content
+        </a>
         <Providers>
           {children}
         </Providers>
