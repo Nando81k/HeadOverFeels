@@ -1570,7 +1570,7 @@ export default function ProductPageClient({ slug, initialProduct }: ProductPageC
                         <div className="flex flex-wrap gap-2">
                           {reviewImages.map((url, index) => (
                             <div key={index} className="relative w-16 h-16 border border-black/20 group">
-                              <Image src={url} alt="" fill className="object-cover" />
+                              <Image src={url} alt={`Review photo ${index + 1}`} fill className="object-cover" />
                               <button
                                 type="button"
                                 onClick={() => setReviewImages(prev => prev.filter((_, i) => i !== index))}

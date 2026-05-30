@@ -84,7 +84,7 @@ export function CollectionCardImage({
             <div key={`${collection.id}-tile-${i}`} className="relative overflow-hidden bg-white">
               <Image
                 src={src}
-                alt=""
+                alt={`${collection.name} product preview`}
                 fill
                 unoptimized
                 sizes={sizes ?? '(max-width: 640px) 25vw, (max-width: 1280px) 17vw, 13vw'}

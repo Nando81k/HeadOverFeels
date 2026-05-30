@@ -70,7 +70,7 @@ export function SlideInTemplate({
           <div className="relative w-16 h-16 shrink-0">
             <Image
               src={image}
-              alt=""
+              alt={heading}
               fill
               className="object-cover rounded"
             />
@@ -168,7 +168,7 @@ export function ExitIntentModal({ content, onClose, onAction, previewMode }: Pop
           <div className="relative h-48 w-full">
             <Image
               src={image}
-              alt=""
+              alt={heading}
               fill
               className="object-cover"
             />
@@ -244,7 +244,7 @@ export function FullScreenTemplate({ content, onClose, onAction, previewMode }: 
         <div className="absolute inset-0">
           <Image
             src={image}
-            alt=""
+            alt={heading}
             fill
             className="object-cover opacity-40"
           />
