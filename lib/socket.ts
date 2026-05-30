@@ -1,15 +1,64 @@
 import { Server as HTTPServer } from 'http'
 import { Server as SocketIOServer, Socket } from 'socket.io'
+import { jwtVerify } from 'jose'
 import { prisma } from '@/lib/prisma'
+
+// ─── Auth helpers ────────────────────────────────────────────────────────────
+
+function getAuthSecret(): Uint8Array {
+  const secret = process.env.AUTH_SECRET
+  if (!secret) throw new Error('AUTH_SECRET environment variable is required')
+  return new TextEncoder().encode(secret)
+}
+
+/**
+ * Parse a raw Cookie header and return the value for `name`, or undefined.
+ */
+function parseCookieValue(cookieHeader: string, name: string): string | undefined {
+  for (const part of cookieHeader.split(';')) {
+    const [key, ...rest] = part.trim().split('=')
+    if (key.trim() === name) return rest.join('=').trim()
+  }
+  return undefined
+}
+
+interface SocketSession {
+  userId: string
+  email: string
+  isAdmin: boolean
+}
+
+async function verifySocketToken(token: string): Promise<SocketSession | null> {
+  try {
+    const { payload } = await jwtVerify(token, getAuthSecret())
+    const p = payload as unknown as SocketSession
+    if (!p.userId) return null
+    return { userId: p.userId, email: p.email ?? '', isAdmin: p.isAdmin ?? false }
+  } catch {
+    return null
+  }
+}
+
+// ─── Augment socket.data type ─────────────────────────────────────────────────
+
+declare module 'socket.io' {
+  interface SocketData {
+    userId: string
+    email: string
+    isAdmin: boolean
+  }
+}
+
+// ─── Module-level IO instance ─────────────────────────────────────────────────
 
 let io: SocketIOServer | null = null
 
 export function getIO(): SocketIOServer {
-  if (!io) {
-    throw new Error('Socket.IO not initialized')
-  }
+  if (!io) throw new Error('Socket.IO not initialized')
   return io
 }
+
+// ─── Initialisation ───────────────────────────────────────────────────────────
 
 export function initializeSocket(httpServer: HTTPServer) {
   io = new SocketIOServer(httpServer, {
@@ -21,19 +70,66 @@ export function initializeSocket(httpServer: HTTPServer) {
     path: '/api/socket',
   })
 
-  io.on('connection', (socket: Socket) => {
-    console.log(`🔌 Client connected: ${socket.id}`)
+  // ── Connection-level auth middleware ────────────────────────────────────────
+  io.use(async (socket, next) => {
+    try {
+      // 1. Prefer explicit auth token sent by the client (io({ auth: { token } }))
+      let token: string | undefined = socket.handshake.auth?.token
 
-    // Join a chat session room
+      // 2. Fall back to the auth_token cookie in the HTTP handshake headers
+      if (!token) {
+        const cookieHeader = socket.handshake.headers.cookie ?? ''
+        token = parseCookieValue(cookieHeader, 'auth_token')
+      }
+
+      if (!token) {
+        return next(new Error('Unauthorized'))
+      }
+
+      const session = await verifySocketToken(token)
+      if (!session) {
+        return next(new Error('Unauthorized'))
+      }
+
+      // Stamp verified identity onto the socket — event handlers trust these values
+      socket.data.userId = session.userId
+      socket.data.email = session.email
+      socket.data.isAdmin = session.isAdmin
+
+      next()
+    } catch (err) {
+      console.error('Socket auth middleware error:', err)
+      next(new Error('Unauthorized'))
+    }
+  })
+
+  // ── Event handlers ──────────────────────────────────────────────────────────
+
+  io.on('connection', (socket: Socket) => {
+    console.log(`Socket connected: ${socket.id} (user=${socket.data.userId} admin=${socket.data.isAdmin})`)
+
+    // ── chat:join ────────────────────────────────────────────────────────────
     socket.on('chat:join', async (data: {
       sessionId: string
       userId: string
       userType: 'customer' | 'admin'
     }) => {
       const { sessionId, userId, userType } = data
-      
+
+      // Reject if client-supplied userId doesn't match the verified identity,
+      // unless the socket belongs to an admin (admins can act on behalf of sessions).
+      if (userId !== socket.data.userId && !socket.data.isAdmin) {
+        socket.emit('error', { message: 'Unauthorized: userId mismatch' })
+        return
+      }
+
+      // Reject if a non-admin claims to be an admin via userType
+      if (userType === 'admin' && !socket.data.isAdmin) {
+        socket.emit('error', { message: 'Unauthorized: insufficient privileges' })
+        return
+      }
+
       try {
-        // Verify session exists
         const session = await prisma.liveChatSession.findUnique({
           where: { sessionId },
           include: { ticket: true, admin: true, customer: true }
@@ -44,18 +140,15 @@ export function initializeSocket(httpServer: HTTPServer) {
           return
         }
 
-        // Join the room
         socket.join(sessionId)
-        console.log(`✅ ${userType} ${userId} joined session ${sessionId}`)
+        console.log(`${userType} ${socket.data.userId} joined session ${sessionId}`)
 
-        // Notify others in the room
         socket.to(sessionId).emit('user:joined', {
           userType,
-          userId,
+          userId: socket.data.userId,
           sessionId,
         })
 
-        // Send session details to the joining user
         socket.emit('chat:session-details', {
           session: {
             id: session.id,
@@ -73,7 +166,7 @@ export function initializeSocket(httpServer: HTTPServer) {
       }
     })
 
-    // Send a message
+    // ── chat:send-message ────────────────────────────────────────────────────
     socket.on('chat:send-message', async (data: {
       sessionId: string
       message: string
@@ -83,8 +176,19 @@ export function initializeSocket(httpServer: HTTPServer) {
     }) => {
       const { sessionId, message, senderType, senderId, senderName } = data
 
+      // Reject if client-supplied senderId doesn't match the verified identity
+      if (senderId !== socket.data.userId && !socket.data.isAdmin) {
+        socket.emit('error', { message: 'Unauthorized: senderId mismatch' })
+        return
+      }
+
+      // Reject if a non-admin claims to be an admin via senderType
+      if (senderType === 'admin' && !socket.data.isAdmin) {
+        socket.emit('error', { message: 'Unauthorized: insufficient privileges' })
+        return
+      }
+
       try {
-        // Verify session is active
         const session = await prisma.liveChatSession.findUnique({
           where: { sessionId },
         })
@@ -99,18 +203,17 @@ export function initializeSocket(httpServer: HTTPServer) {
           return
         }
 
-        // Save message to database
+        // Use verified identity for the stored record
         const chatMessage = await prisma.liveChatMessage.create({
           data: {
             sessionId: session.id,
             message,
             senderType,
-            senderId,
+            senderId: socket.data.userId,   // authoritative identity
             senderName,
           }
         })
 
-        // Broadcast message to all in the room
         io?.to(sessionId).emit('chat:message', {
           messageId: chatMessage.id,
           message: chatMessage.message,
@@ -119,30 +222,33 @@ export function initializeSocket(httpServer: HTTPServer) {
           timestamp: chatMessage.createdAt,
         })
 
-        console.log(`💬 Message in ${sessionId} from ${senderName}: ${message.substring(0, 50)}`)
+        console.log(`Message in ${sessionId} from ${senderName}: ${message.substring(0, 50)}`)
       } catch (error) {
         console.error('Error sending message:', error)
         socket.emit('error', { message: 'Failed to send message' })
       }
     })
 
-    // Typing indicator
-    socket.on('chat:typing', async (data: {
+    // ── chat:typing ──────────────────────────────────────────────────────────
+    socket.on('chat:typing', (data: {
       sessionId: string
       isTyping: boolean
       senderType: 'customer' | 'admin'
     }) => {
       const { sessionId, isTyping, senderType } = data
-      
-      // Broadcast typing status to others in the room
+
+      // Non-admins cannot claim admin senderType
+      const effectiveSenderType: 'customer' | 'admin' =
+        senderType === 'admin' && !socket.data.isAdmin ? 'customer' : senderType
+
       socket.to(sessionId).emit('chat:typing', {
         sessionId,
-        senderType,
+        senderType: effectiveSenderType,
         isTyping,
       })
     })
 
-    // Mark messages as read
+    // ── chat:mark-read ───────────────────────────────────────────────────────
     socket.on('chat:mark-read', async (data: {
       sessionId: string
       lastMessageId: string
@@ -155,7 +261,6 @@ export function initializeSocket(httpServer: HTTPServer) {
         })
 
         if (session) {
-          // Update all messages up to lastMessageId as read
           await prisma.liveChatMessage.updateMany({
             where: {
               sessionId: session.id,
@@ -168,7 +273,6 @@ export function initializeSocket(httpServer: HTTPServer) {
             }
           })
 
-          // Notify the room
           io?.to(sessionId).emit('chat:messages-read', {
             sessionId,
             lastMessageId,
@@ -179,39 +283,50 @@ export function initializeSocket(httpServer: HTTPServer) {
       }
     })
 
-    // Admin-specific: Join admin room for notifications
+    // ── admin:register ───────────────────────────────────────────────────────
     socket.on('admin:register', (data: { adminId: string }) => {
       const { adminId } = data
-      socket.join(`admin-${adminId}`)
-      console.log(`👤 Admin ${adminId} registered for notifications`)
+
+      // Only verified admins may register in an admin room
+      if (!socket.data.isAdmin) {
+        socket.emit('error', { message: 'Unauthorized: admin privileges required' })
+        return
+      }
+
+      // The adminId in the payload must match the verified identity
+      if (adminId !== socket.data.userId) {
+        socket.emit('error', { message: 'Unauthorized: adminId mismatch' })
+        return
+      }
+
+      socket.join(`admin-${socket.data.userId}`)
+      console.log(`Admin ${socket.data.userId} registered for notifications`)
     })
 
-    // Disconnect
+    // ── disconnect ───────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
-      console.log(`🔌 Client disconnected: ${socket.id}`)
+      console.log(`Socket disconnected: ${socket.id}`)
     })
   })
 
-  console.log('✅ Socket.IO server initialized')
+  console.log('Socket.IO server initialized')
   return io
 }
 
-// Helper functions for emitting events from API routes
+// ─── Server-side helpers (called from API routes) ─────────────────────────────
 
 export async function notifyNewChatRequest(sessionId: string, ticketNumber: string, customerName: string) {
   if (!io) return
 
-  // Get all online admins with capacity
   const onlineAdmins = await prisma.adminAvailability.findMany({
-    where: { 
-      isOnline: true, 
-      activeChats: { lt: 3 } // Less than max chats (default is 3)
+    where: {
+      isOnline: true,
+      activeChats: { lt: 3 },
     },
     include: { admin: true }
   })
 
-  // Broadcast to all available admins
-  onlineAdmins.forEach((admin: any) => {
+  onlineAdmins.forEach((admin: { adminId: string; admin: { name: string | null } }) => {
     io?.to(`admin-${admin.adminId}`).emit('admin:new-request', {
       sessionId,
       ticketNumber,
@@ -220,44 +335,25 @@ export async function notifyNewChatRequest(sessionId: string, ticketNumber: stri
     })
   })
 
-  console.log(`📢 New chat request broadcast to ${onlineAdmins.length} admins`)
+  console.log(`New chat request broadcast to ${onlineAdmins.length} admins`)
 }
 
 export async function notifyAdminJoined(sessionId: string, adminName: string, adminId: string) {
   if (!io) return
-
-  io.to(sessionId).emit('chat:admin-joined', {
-    sessionId,
-    adminName,
-    adminId,
-  })
+  io.to(sessionId).emit('chat:admin-joined', { sessionId, adminName, adminId })
 }
 
 export async function notifySessionClosed(sessionId: string, closedBy: 'customer' | 'admin', duration: number) {
   if (!io) return
-
-  io.to(sessionId).emit('chat:session-closed', {
-    sessionId,
-    closedBy,
-    duration,
-  })
+  io.to(sessionId).emit('chat:session-closed', { sessionId, closedBy, duration })
 }
 
 export async function notifyAdminLeft(sessionId: string, reason: string) {
   if (!io) return
-
-  io.to(sessionId).emit('chat:admin-left', {
-    sessionId,
-    reason,
-  })
+  io.to(sessionId).emit('chat:admin-left', { sessionId, reason })
 }
 
 export async function updateAdminAvailability(adminId: string, isOnline: boolean, activeChats: number) {
   if (!io) return
-
-  io.emit('admin:availability-changed', {
-    adminId,
-    isOnline,
-    activeChats,
-  })
+  io.emit('admin:availability-changed', { adminId, isOnline, activeChats })
 }
