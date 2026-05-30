@@ -57,6 +57,32 @@
   --color-success-foreground: #FFFFFF;
   --color-warning: #F59E0B;
   --color-warning-foreground: #000000;
+
+  /* === Admin V2 design tokens === */
+  /* Surfaces */
+  --color-surface-base: #0d0d12;
+  --color-surface-elevated: rgba(255, 255, 255, 0.03);
+  --color-surface-glass: rgba(255, 255, 255, 0.02);
+
+  /* Glows (use as box-shadow recipes via var()) */
+  --shadow-glow-primary: 0 0 20px rgba(255, 49, 49, 0.3);
+  --shadow-glow-success: 0 0 12px rgba(16, 185, 129, 0.4);
+  --shadow-glow-warning: 0 0 12px rgba(245, 158, 11, 0.4);
+
+  /* Borders */
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-emphasis: rgba(255, 255, 255, 0.12);
+  --color-border-primary: rgba(255, 49, 49, 0.3);
+
+  /* Backdrop blur */
+  --blur-sm: 8px;
+  --blur-md: 16px;
+  --blur-lg: 24px;
+
+  /* Motion timing */
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
 }
 
 :root {
