@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Allura } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
 
@@ -9,6 +10,15 @@ const allura = Allura({
   subsets: ["latin"],
   variable: "--font-allura",
   display: "swap",
+});
+
+// Self-hosted Harlow Solid Italic - eliminates render-blocking CDN request and FOIT
+const harlow = localFont({
+  src: "./fonts/HarlowSolidItalic.woff",
+  variable: "--font-harlow",
+  display: "swap",
+  weight: "400",
+  style: "italic",
 });
 
 export const metadata: Metadata = {
@@ -22,13 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={allura.variable}>
-      <head>
-        <link
-          rel="stylesheet"
-          href="https://fonts.cdnfonts.com/css/harlow-solid-italic"
-        />
-      </head>
+    <html lang="en" className={`${allura.variable} ${harlow.variable}`}>
       <body className="antialiased">
         <Providers>
           {children}
