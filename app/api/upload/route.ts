@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { uploadImage } from '@/lib/cloudinary/config'
 import { checkRateLimit, rateLimitResponse, getClientIdentifier, RATE_LIMITS } from '@/lib/security/rateLimit'
+import { verifyAdmin } from '@/lib/auth/admin'
 
 export const runtime = 'nodejs'
 
@@ -60,6 +61,16 @@ async function validateImageDimensions(
 // POST /api/upload - Upload image to Cloudinary
 export async function POST(request: NextRequest) {
   try {
+    // Auth check: require admin before consuming any rate-limit budget
+    const sessionId = request.cookies.get('auth_session')?.value
+    if (!sessionId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const adminId = await verifyAdmin(request)
+    if (!adminId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     // Rate limit file uploads: 20 per minute per IP
     const clientIp = getClientIdentifier(request.headers)
     const rateLimit = checkRateLimit(
@@ -146,6 +157,16 @@ export async function POST(request: NextRequest) {
 // DELETE /api/upload - Delete image from Cloudinary
 export async function DELETE(request: NextRequest) {
   try {
+    // Auth check: require admin before consuming any rate-limit budget
+    const sessionId = request.cookies.get('auth_session')?.value
+    if (!sessionId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const adminId = await verifyAdmin(request)
+    if (!adminId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     // Rate limit delete operations
     const clientIp = getClientIdentifier(request.headers)
     const rateLimit = checkRateLimit(
