@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { ReviewSubmitSchema, sanitizeString, getPaginationParams, createPaginatedResponse } from '@/lib/validation/schemas'
+import { verifyAdmin } from '@/lib/auth/admin'
 
 // POST /api/reviews - Submit a new review
 export async function POST(request: NextRequest) {
@@ -166,21 +167,30 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/reviews - List all reviews (admin only)
+// GET /api/reviews - List reviews
+// Admins can filter by any status and see all fields.
+// Non-admins are restricted to PUBLISHED reviews and receive a reduced field set
+// (internal moderation fields and personally-identifiable reviewer data are stripped).
 export async function GET(request: NextRequest) {
   try {
+    const adminId = await verifyAdmin(request)
+    const isAdmin = adminId !== null
+
     const searchParams = request.nextUrl.searchParams
     const { page, limit } = getPaginationParams(searchParams)
-    const status = searchParams.get('status') // PENDING, APPROVED, REJECTED, FLAGGED
+    const requestedStatus = searchParams.get('status') // PENDING, PUBLISHED, REJECTED, FLAGGED
     const productId = searchParams.get('productId')
     const sortBy = searchParams.get('sortBy') || 'newest' // newest, oldest, highest, lowest
 
     const skip = (page - 1) * limit
 
+    // Non-admins may only see PUBLISHED reviews regardless of what status was requested.
+    const effectiveStatus = isAdmin ? requestedStatus : 'PUBLISHED'
+
     // Build where clause
     const where: Record<string, unknown> = {}
-    if (status) {
-      where.status = status
+    if (effectiveStatus) {
+      where.status = effectiveStatus
     }
     if (productId) {
       where.productId = productId
@@ -196,25 +206,54 @@ export async function GET(request: NextRequest) {
       orderBy = { rating: 'asc' }
     }
 
-    // Fetch reviews
+    // Fetch reviews — admins get all fields; non-admins get a reduced select
+    // that omits internal moderation fields and reviewer PII.
+    const productSelect = {
+      id: true,
+      name: true,
+      slug: true,
+      images: true,
+    }
+
     const [reviews, totalCount] = await Promise.all([
-      prisma.review.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limit,
-        include: {
-          product: {
+      isAdmin
+        ? prisma.review.findMany({
+            where,
+            orderBy,
+            skip,
+            take: limit,
+            include: {
+              product: {
+                select: productSelect,
+              },
+            },
+          })
+        : prisma.review.findMany({
+            where,
+            orderBy,
+            skip,
+            take: limit,
             select: {
               id: true,
-              name: true,
-              slug: true,
-              images: true
-            }
-          }
-        }
-      }),
-      prisma.review.count({ where })
+              productId: true,
+              rating: true,
+              title: true,
+              comment: true,
+              customerName: true,
+              isVerified: true,
+              status: true,
+              helpfulCount: true,
+              notHelpfulCount: true,
+              adminReply: true,
+              adminReplyAt: true,
+              createdAt: true,
+              updatedAt: true,
+              product: {
+                select: productSelect,
+              },
+            },
+          }),
+      prisma.review.count({ where }),
     ])
 
     return NextResponse.json(
