@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { cookies } from 'next/headers'
 
 // DELETE /api/wishlist/[id] - Remove item from wishlist
 export async function DELETE(
@@ -47,7 +48,7 @@ export async function PATCH(
   try {
     const { id } = await params
     const body = await request.json()
-    const { notes, priority } = body
+    const { notes, priority, customerId } = body
 
     // Check if wishlist item exists
     const existingItem = await prisma.wishlistItem.findUnique({
@@ -59,6 +60,27 @@ export async function PATCH(
         { error: 'Wishlist item not found' },
         { status: 404 }
       )
+    }
+
+    // Ownership check — mirror the same pattern used throughout the wishlist API.
+    // Authenticated users supply customerId in the request body; guests are
+    // identified by the wishlist_session cookie set at item-creation time.
+    if (customerId) {
+      if (existingItem.customerId !== customerId) {
+        return NextResponse.json(
+          { error: 'Forbidden' },
+          { status: 403 }
+        )
+      }
+    } else {
+      const cookieStore = await cookies()
+      const sessionId = cookieStore.get('wishlist_session')?.value
+      if (!sessionId || existingItem.sessionId !== sessionId) {
+        return NextResponse.json(
+          { error: 'Forbidden' },
+          { status: 403 }
+        )
+      }
     }
 
     // Update wishlist item
