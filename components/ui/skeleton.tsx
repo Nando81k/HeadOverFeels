@@ -139,3 +139,41 @@ export function ChartSkeleton() {
     </div>
   )
 }
+
+export function HeroMetricSkeleton() {
+  return (
+    <div className="rounded-xl border border-[var(--color-border-subtle)] p-5 bg-[var(--color-surface-elevated)] flex items-center gap-6">
+      <div className="flex-1 min-w-0">
+        <Skeleton className="h-2.5 w-24 mb-2" />
+        <Skeleton className="h-8 w-32 mb-2" />
+        <Skeleton className="h-2.5 w-40" />
+      </div>
+      <div className="flex-[1.2] hidden sm:block">
+        <Skeleton className="h-16 w-full" />
+      </div>
+    </div>
+  )
+}
+
+export function NeedsAttentionCardSkeleton() {
+  return (
+    <div className="rounded-md p-2.5 bg-white/[0.03] border border-white/8 flex items-center gap-2">
+      <Skeleton className="w-6 h-6 rounded flex-shrink-0" />
+      <div className="flex-1 min-w-0">
+        <Skeleton className="h-2.5 w-3/4 mb-1" />
+        <Skeleton className="h-2 w-1/2" />
+      </div>
+    </div>
+  )
+}
+
+export function ActivityFeedItemSkeleton() {
+  return (
+    <div className="flex items-center gap-2 py-1.5">
+      <Skeleton className="w-1.5 h-1.5 rounded-full" />
+      <Skeleton className="h-2.5 w-1/3" />
+      <Skeleton className="h-2.5 w-1/3" />
+      <Skeleton className="h-2.5 w-12 ml-auto" />
+    </div>
+  )
+}
