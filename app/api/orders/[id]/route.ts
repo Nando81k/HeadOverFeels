@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendShippingNotification } from '@/lib/email/resend'
 import { updateCustomerStatsOnOrderCompletion } from '@/lib/crm/service'
+import { verifyAdmin } from '@/lib/auth/admin'
 import { Prisma } from '@prisma/client'
 
 // GET /api/orders/[id] - Get order by ID
@@ -11,6 +12,14 @@ export async function GET(
 ) {
   try {
     const { id } = await params
+
+    // Auth gate: admin OR authenticated customer who owns the order
+    const adminId = await verifyAdmin(request)
+    const sessionId = request.cookies.get('auth_session')?.value
+
+    if (!adminId && !sessionId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     // First, try to get the basic order data
     const order = await prisma.order.findUnique({
@@ -27,6 +36,13 @@ export async function GET(
         { error: 'Order not found' },
         { status: 404 }
       )
+    }
+
+    // Ownership check: non-admins may only view their own orders
+    if (!adminId) {
+      if (order.customerId !== sessionId) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
     }
 
     // Then get items separately to handle potential product deletion
@@ -138,6 +154,17 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
+
+    // Auth gate: admin only
+    const sessionId = request.cookies.get('auth_session')?.value
+    if (!sessionId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const adminId = await verifyAdmin(request)
+    if (!adminId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const body = await request.json()
 
     // Get current order state to check for status changes
