@@ -1,5 +1,64 @@
 @import "tailwindcss";
 
+/*
+ * =============================================================================
+ * SEMANTIC COLOR TOKENS — SOURCE OF TRUTH FOR BRAND COLORS
+ * =============================================================================
+ *
+ * These @theme tokens are the single source of truth for all brand colors.
+ * Tailwind v4 exposes them as utility classes: bg-primary, text-foreground, etc.
+ *
+ * MIGRATION PATH: Hardcoded inline colors (e.g. bg-[#FF3131], text-[#2B2B2B])
+ * should be incrementally replaced with their semantic equivalents in future PRs:
+ *   bg-[#FF3131]  → bg-primary
+ *   bg-[#E02828]  → bg-primary-hover
+ *   bg-[#F6F1EE]  → bg-background
+ *   text-[#000000]→ text-foreground
+ *   text-[#2B2B2B]→ text-muted
+ *   text-[#6B6B6B]→ text-muted-foreground
+ *   border-[#CDA09B] → border-tertiary
+ *   bg-[#DC2626]  → bg-destructive
+ *
+ * ADDING A NEW COLOR: Define the variable here first — never inline a new hex.
+ * =============================================================================
+ */
+@theme {
+  /* Primary brand red */
+  --color-primary: #FF3131;
+  --color-primary-hover: #E02828;
+  --color-primary-foreground: #FFFFFF;
+
+  /* Secondary — black */
+  --color-secondary: #000000;
+  --color-secondary-foreground: #FFFFFF;
+
+  /* Tertiary — brand pink/mauve */
+  --color-tertiary: #CDA09B;
+  --color-accent: #CDA09B;
+  --color-accent-foreground: #FFFFFF;
+
+  /* Surface / layout */
+  --color-background: #F6F1EE;
+  --color-foreground: #000000;
+
+  /* Muted text */
+  --color-muted: #2B2B2B;
+  --color-muted-foreground: #6B6B6B;
+
+  /* Borders & inputs */
+  --color-border: rgba(0, 0, 0, 0.1);
+  --color-input: rgba(0, 0, 0, 0.1);
+  --color-ring: #000000;
+
+  /* Semantic status */
+  --color-destructive: #DC2626;
+  --color-destructive-foreground: #FFFFFF;
+  --color-success: #16A34A;
+  --color-success-foreground: #FFFFFF;
+  --color-warning: #F59E0B;
+  --color-warning-foreground: #000000;
+}
+
 :root {
   /* Logo font - loaded via Next.js font optimization */
   --font-logo: var(--font-allura), 'Allura', cursive;
