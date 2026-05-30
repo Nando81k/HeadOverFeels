@@ -1755,3 +1755,12 @@ model EarlyAccessGrant {
   @@index([validUntil])
   @@map("early_access_grants")
 }
+
+model ProcessedWebhookEvent {
+  stripeEventId String   @id
+  eventType     String
+  processedAt   DateTime @default(now())
+
+  @@index([processedAt])
+  @@map("processed_webhook_events")
+}

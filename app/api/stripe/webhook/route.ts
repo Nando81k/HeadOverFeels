@@ -37,6 +37,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Idempotency guard: record this event before any side effects.
+    // If Stripe retries, the unique PK constraint raises P2002 and we return
+    // 200 immediately — short-circuiting all per-event logic.
+    // Trade-off: event is marked processed BEFORE the handler runs, so a
+    // mid-handler crash will not be retried by Stripe. Acceptable for Wave 1
+    // vs. duplicate-effect risk. Follow-up: per-side-effect idempotency keys.
+    try {
+      await prisma.processedWebhookEvent.create({
+        data: { stripeEventId: event.id, eventType: event.type },
+      });
+    } catch (err) {
+      // P2002 = unique constraint violation — already processed
+      if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'P2002') {
+        return NextResponse.json({ received: true, duplicate: true });
+      }
+      throw err;
+    }
+
     // Handle the event
     switch (event.type) {
       case 'payment_intent.succeeded': {
