@@ -162,7 +162,7 @@ function CollectionsPageContent() {
     <div className="min-h-screen bg-white">
       <Navigation />
 
-      <main className="mx-auto max-w-7xl px-4 pb-20 pt-20 sm:px-6 lg:px-8 lg:pt-24">
+      <main id="main-content" className="mx-auto max-w-7xl px-4 pb-20 pt-20 sm:px-6 lg:px-8 lg:pt-24">
 
         {/* Slim editorial header */}
         <header className="text-center mb-8 md:mb-10">
@@ -321,7 +321,7 @@ function CollectionsPageFallback() {
   return (
     <div className="min-h-screen bg-white">
       <Navigation />
-      <main className="mx-auto max-w-7xl px-4 pb-20 pt-20 sm:px-6 lg:px-8 lg:pt-24">
+      <main id="main-content" className="mx-auto max-w-7xl px-4 pb-20 pt-20 sm:px-6 lg:px-8 lg:pt-24">
         <header className="text-center mb-8 md:mb-10">
           <div className="inline-flex items-center gap-3 mb-3 md:mb-4">
             <span className="inline-block w-6 h-px bg-black/30" />
