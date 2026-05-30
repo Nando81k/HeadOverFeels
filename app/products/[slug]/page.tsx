@@ -170,6 +170,5 @@ export default async function ProductPage({ params }: ProductPageProps) {
   )
 }
 
-// Force dynamic rendering (no static generation during build)
-export const dynamic = 'force-dynamic'
+export const revalidate = 3600
 
