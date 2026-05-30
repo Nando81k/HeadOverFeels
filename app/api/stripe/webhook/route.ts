@@ -178,11 +178,13 @@ export async function POST(request: NextRequest) {
                 console.log(`✅ CRM integration completed for order ${orderId}:`, crmResult)
 
                 // Award referral points if this was the first purchase and customer was referred.
-                // TODO: apply the same idempotency pattern to awardPoints / awardReferralPoints
-                //       (add an optional idempotencyKey param and check/insert on PointsTransaction)
-                //       so that a webhook retry cannot double-award referral points.
+                // Stable per-event key ensures webhook retries cannot double-award.
                 if (crmResult?.isFirstOrder && customer?.referredBy) {
-                  await awardReferralPoints(customer.referredBy, order.customerId)
+                  await awardReferralPoints(
+                    customer.referredBy,
+                    order.customerId,
+                    `stripe-evt-${event.id}-referral`
+                  )
                   console.log(`Awarded referral points to customer ${customer.referredBy}`)
                 }
               } catch (loyaltyError) {

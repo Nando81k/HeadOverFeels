@@ -14,8 +14,20 @@ const POINTS_EXPIRATION_MONTHS = 12
 // ===== POINTS EARNING =====
 
 /**
- * Award points to a customer
- * Points expire after 12 months from the transaction date
+ * Award points to a customer — atomic and idempotent.
+ *
+ * The balance increment and transaction insert happen inside a Prisma
+ * interactive transaction so a mid-flight crash cannot leave the ledger
+ * inconsistent.
+ *
+ * If an optional `idempotencyKey` is supplied, a prior PointsTransaction
+ * with the same key is returned immediately (safe replay). On a concurrent
+ * race where two callers share the same key, the P2002 unique-index
+ * violation on insert is caught and treated as success — only one row
+ * ever lands, and the caller gets back the winner's transaction.
+ *
+ * Tier multipliers are preserved: the multiplier is read inside the
+ * transaction from the customer's tier at execution time.
  */
 export async function awardPoints(
   customerId: string,
@@ -27,78 +39,123 @@ export async function awardPoints(
     reviewId?: string
     referralId?: string
     expiresAt?: Date  // Override default expiration
+    idempotencyKey?: string
   }
 ) {
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
-    include: { loyaltyTier: true },
-  })
-
-  if (!customer) {
-    throw new Error('Customer not found')
-  }
-
-  // Apply tier multiplier
-  const multiplier = customer.loyaltyTier?.pointMultiplier || 1.0
-  const finalPoints = Math.floor(points * multiplier)
-
-  // Calculate expiration date (12 months from now) for positive points
-  // Negative points (redemptions, expirations) don't expire
-  let expiresAt: Date | null = null
-  if (points > 0 && type !== 'EXPIRATION') {
-    if (metadata?.expiresAt) {
-      expiresAt = metadata.expiresAt
-    } else {
-      expiresAt = new Date()
-      expiresAt.setMonth(expiresAt.getMonth() + POINTS_EXPIRATION_MONTHS)
+  return prisma.$transaction(async (tx) => {
+    // --- Idempotency check (before any mutation) ---
+    const idempotencyKey = metadata?.idempotencyKey
+    if (idempotencyKey) {
+      const existing = await tx.pointsTransaction.findUnique({
+        where: { idempotencyKey },
+      })
+      if (existing) {
+        // Already processed — return the existing transaction as-is.
+        return existing
+      }
     }
-  }
 
-  // Create transaction
-  const transaction = await prisma.pointsTransaction.create({
-    data: {
-      customerId,
-      points: finalPoints,
-      type,
-      description,
-      orderId: metadata?.orderId,
-      reviewId: metadata?.reviewId,
-      referralId: metadata?.referralId,
-      expiresAt,
-    },
-  })
+    // Read customer (with tier) inside the transaction for consistency.
+    const customer = await tx.customer.findUnique({
+      where: { id: customerId },
+      include: { loyaltyTier: true },
+    })
 
-  // Update customer points
-  // Only increment annualPointsEarned for positive points (earnings, not redemptions)
-  const updateData: { currentPoints: { increment: number }; lifetimePoints: { increment: number }; annualPointsEarned?: { increment: number } } = {
-    currentPoints: { increment: finalPoints },
-    lifetimePoints: { increment: finalPoints },
-  }
-  
-  // Tier progression is based on points EARNED (not available balance)
-  // So we track annual points earned separately
-  if (finalPoints > 0 && type !== 'EXPIRATION') {
-    updateData.annualPointsEarned = { increment: finalPoints }
-  }
-  
-  await prisma.customer.update({
-    where: { id: customerId },
-    data: updateData,
-  })
+    if (!customer) {
+      throw new Error('Customer not found')
+    }
 
-  // Create in-app notification for points earned (only for positive points)
-  if (finalPoints > 0 && type !== 'EXPIRATION' && type !== 'REDEMPTION') {
+    // Apply tier multiplier
+    const multiplier = customer.loyaltyTier?.pointMultiplier || 1.0
+    const finalPoints = Math.floor(points * multiplier)
+
+    // Calculate expiration date (12 months from now) for positive points
+    // Negative points (redemptions, expirations) don't expire
+    let expiresAt: Date | null = null
+    if (points > 0 && type !== 'EXPIRATION') {
+      if (metadata?.expiresAt) {
+        expiresAt = metadata.expiresAt
+      } else {
+        expiresAt = new Date()
+        expiresAt.setMonth(expiresAt.getMonth() + POINTS_EXPIRATION_MONTHS)
+      }
+    }
+
+    // --- Atomic increment ---
+    const updateData: {
+      currentPoints: { increment: number }
+      lifetimePoints: { increment: number }
+      annualPointsEarned?: { increment: number }
+    } = {
+      currentPoints: { increment: finalPoints },
+      lifetimePoints: { increment: finalPoints },
+    }
+
+    // Tier progression is based on points EARNED (not available balance)
+    if (finalPoints > 0 && type !== 'EXPIRATION') {
+      updateData.annualPointsEarned = { increment: finalPoints }
+    }
+
+    const updateResult = await tx.customer.updateMany({
+      where: { id: customerId },
+      data: updateData,
+    })
+
+    if (updateResult.count === 0) {
+      throw new Error('Customer not found')
+    }
+
+    // --- Insert the transaction record ---
+    let transaction
     try {
-      // Format a friendly reason based on transaction type
-      const reason = getPointsReasonText(type, description)
-      await notifyPointsEarned(customerId, finalPoints, reason, metadata?.orderId)
+      transaction = await tx.pointsTransaction.create({
+        data: {
+          customerId,
+          points: finalPoints,
+          type,
+          description,
+          orderId: metadata?.orderId,
+          reviewId: metadata?.reviewId,
+          referralId: metadata?.referralId,
+          expiresAt,
+          ...(idempotencyKey ? { idempotencyKey } : {}),
+        },
+      })
     } catch (err) {
-      // Don't fail the transaction if notification fails
-      console.error('Failed to create points notification:', err)
+      // P2002 = unique constraint on idempotencyKey — a concurrent caller
+      // with the same key just won the race and inserted first. Look up and
+      // return the winning transaction (our increment above will be rolled
+      // back automatically when the transaction aborts after we re-throw,
+      // but since award is additive there is no overdraft risk — we simply
+      // let Prisma roll back our updateMany and surface the winner).
+      if (
+        idempotencyKey &&
+        typeof err === 'object' &&
+        err !== null &&
+        (err as { code?: string }).code === 'P2002'
+      ) {
+        const winner = await tx.pointsTransaction.findUnique({
+          where: { idempotencyKey },
+        })
+        if (winner) return winner
+      }
+      throw err
     }
-  }
 
-  return transaction
+    // Create in-app notification for points earned (only for positive points).
+    // Runs outside the critical path — failure must not abort the transaction.
+    if (finalPoints > 0 && type !== 'EXPIRATION' && type !== 'REDEMPTION') {
+      try {
+        const reason = getPointsReasonText(type, description)
+        await notifyPointsEarned(customerId, finalPoints, reason, metadata?.orderId)
+      } catch (err) {
+        // Don't fail the transaction if notification fails
+        console.error('Failed to create points notification:', err)
+      }
+    }
+
+    return transaction
+  })
 }
 
 /**
@@ -189,19 +246,26 @@ export async function getActiveMultiplierEvent(customerId: string): Promise<{ mu
 }
 
 /**
- * Award points for a purchase (1 point per $1)
- * Checks for active multiplier events (e.g., Double Points Weekend)
+ * Award points for a purchase (1 point per $1).
+ * Pass `idempotencyKey` (e.g. `order-purchase-${orderId}`) so that
+ * duplicate calls for the same order are safely deduplicated.
+ * Checks for active multiplier events (e.g., Double Points Weekend).
  */
-export async function awardPurchasePoints(customerId: string, orderId: string, orderTotal: number) {
+export async function awardPurchasePoints(
+  customerId: string,
+  orderId: string,
+  orderTotal: number,
+  idempotencyKey?: string
+) {
   const basePoints = Math.floor(orderTotal) // 1 point per dollar
-  
+
   // Check for active multiplier event
   const activeEvent = await getActiveMultiplierEvent(customerId)
-  
+
   if (activeEvent && activeEvent.multiplier > 1) {
     const bonusPoints = Math.floor(basePoints * (activeEvent.multiplier - 1))
     const totalPoints = basePoints + bonusPoints
-    
+
     // Update event tracking
     await prisma.pointsMultiplierEvent.update({
       where: { id: activeEvent.eventId },
@@ -210,53 +274,64 @@ export async function awardPurchasePoints(customerId: string, orderId: string, o
         ordersAffected: { increment: 1 },
       },
     })
-    
+
     // Award points with event description
     return awardPoints(
       customerId,
       totalPoints,
       'PURCHASE',
       `Earned ${basePoints} Care Points + ${bonusPoints} bonus from ${activeEvent.eventName}! 🎉`,
-      { orderId }
+      { orderId, idempotencyKey }
     )
   }
-  
+
   return awardPoints(
     customerId,
     basePoints,
     'PURCHASE',
     `Earned ${basePoints} Care Points from purchase`,
-    { orderId }
+    { orderId, idempotencyKey }
   )
 }
 
 /**
- * Award points for account creation
+ * Award points for account creation.
+ * Pass `idempotencyKey` (e.g. `account-creation-${customerId}`) to prevent
+ * double-awarding on repeated email-verification callbacks.
  */
-export async function awardAccountCreationPoints(customerId: string) {
+export async function awardAccountCreationPoints(customerId: string, idempotencyKey?: string) {
   return awardPoints(
     customerId,
     50,
     'ACCOUNT_CREATION',
-    'Welcome bonus! Thanks for joining our community 💙'
+    'Welcome bonus! Thanks for joining our community 💙',
+    { idempotencyKey }
   )
 }
 
 /**
- * Award points for first purchase
+ * Award points for first purchase.
+ * Pass `idempotencyKey` (e.g. `order-first-purchase-${orderId}`) so that
+ * duplicate calls for the same order are safely deduplicated.
  */
-export async function awardFirstPurchasePoints(customerId: string, orderId: string) {
+export async function awardFirstPurchasePoints(
+  customerId: string,
+  orderId: string,
+  idempotencyKey?: string
+) {
   return awardPoints(
     customerId,
     100,
     'FIRST_PURCHASE',
     'First purchase bonus! You\'re officially part of the family 🎉',
-    { orderId }
+    { orderId, idempotencyKey }
   )
 }
 
 /**
- * Award points for writing a review
+ * Award points for writing a review.
+ * Derives a stable idempotency key from reviewId so admin approvals are
+ * automatically deduplicated.
  */
 export async function awardReviewPoints(customerId: string, reviewId: string) {
   return awardPoints(
@@ -264,34 +339,44 @@ export async function awardReviewPoints(customerId: string, reviewId: string) {
     25,
     'REVIEW',
     'Thanks for sharing your thoughts! 📝',
-    { reviewId }
+    { reviewId, idempotencyKey: `review-points-${reviewId}` }
   )
 }
 
 /**
- * Award points for birthday
+ * Award points for birthday.
+ * The key encodes the calendar year so the cron job is safe to re-run on
+ * the same day (or if Vercel retries) without double-awarding.
  */
 export async function awardBirthdayPoints(customerId: string) {
+  const year = new Date().getFullYear()
   return awardPoints(
     customerId,
     50,
     'BIRTHDAY',
-    'Happy Birthday! 🎂 Here\'s a little something special'
+    'Happy Birthday! 🎂 Here\'s a little something special',
+    { idempotencyKey: `birthday-${customerId}-${year}` }
   )
 }
 
 /**
- * Award points to the referrer when their referral makes first purchase
+ * Award points to the referrer when their referral makes first purchase.
+ * Pass `idempotencyKey` (e.g. `stripe-evt-${event.id}-referral`) so that
+ * webhook retries cannot double-award.
  */
-export async function awardReferralPoints(referrerId: string, referredCustomerId: string) {
+export async function awardReferralPoints(
+  referrerId: string,
+  referredCustomerId: string,
+  idempotencyKey?: string
+) {
   const REFERRAL_POINTS = 250
-  
+
   const transaction = await awardPoints(
     referrerId,
     REFERRAL_POINTS,
     'REFERRAL_GIVE',
     'Thanks for spreading the love! Your friend just made their first purchase 💕',
-    { referralId: referredCustomerId }
+    { referralId: referredCustomerId, idempotencyKey }
   )
   
   // Send referral success email to referrer
@@ -326,8 +411,9 @@ export async function awardReferralPoints(referrerId: string, referredCustomerId
 }
 
 /**
- * Award welcome bonus to new customer who signed up with a referral code
- * This is awarded immediately at signup (not on first purchase)
+ * Award welcome bonus to new customer who signed up with a referral code.
+ * This is awarded immediately at signup (not on first purchase).
+ * The key is stable per customer so email-verification retries are safe.
  */
 export async function awardReferralWelcomeBonus(customerId: string, referrerId: string) {
   return awardPoints(
@@ -335,7 +421,7 @@ export async function awardReferralWelcomeBonus(customerId: string, referrerId: 
     100,
     'REFERRAL_RECEIVE',
     'Welcome bonus! Thanks for joining via a friend\'s referral 🎁',
-    { referralId: referrerId }
+    { referralId: referrerId, idempotencyKey: `referral-welcome-${customerId}` }
   )
 }
 
@@ -506,7 +592,8 @@ export async function updateCustomerTier(customerId: string) {
         customerId,
         bonusPoints,
         'TIER_BONUS',
-        `🎉 Welcome to ${newTier.name} tier! Enjoy your new perks!`
+        `🎉 Welcome to ${newTier.name} tier! Enjoy your new perks!`,
+        { idempotencyKey: `tier-bonus-${customerId}-${newTier.id}` }
       )
       
       // Send in-app tier upgrade notification

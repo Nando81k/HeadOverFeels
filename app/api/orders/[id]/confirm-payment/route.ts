@@ -177,9 +177,14 @@ export async function POST(
         pointsEarned = pointsTransaction?.points || 0
         tierUpgrade = crmResult?.tierUpgrade
 
-        // Award referral points if this was the first purchase and customer was referred
+        // Award referral points if this was the first purchase and customer was referred.
+        // Stable per-order key ensures retries (e.g. double-click on confirm) cannot double-award.
         if (crmResult?.isFirstOrder && customer?.referredBy) {
-          await awardReferralPoints(customer.referredBy, order.customerId)
+          await awardReferralPoints(
+            customer.referredBy,
+            order.customerId,
+            `confirm-payment-${orderId}-referral`
+          )
           console.log(`Awarded referral points to customer ${customer.referredBy}`)
         }
       } catch (loyaltyError) {

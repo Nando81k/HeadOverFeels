@@ -53,17 +53,19 @@ export async function POST(request: Request) {
       },
     })
 
-    // Award welcome points now that email is verified (50 points)
+    // Award welcome points now that email is verified (50 points).
+    // Stable per-customer key prevents double-awarding if the verify link is clicked twice.
     let pointsAwarded = 0
     try {
-      await awardAccountCreationPoints(customer.id)
+      await awardAccountCreationPoints(customer.id, `account-creation-${customer.id}`)
       pointsAwarded = 50
       console.log(`Awarded welcome points to customer ${customer.id} after email verification`)
     } catch (loyaltyError) {
       console.error(`Failed to award welcome points to customer ${customer.id}:`, loyaltyError)
     }
 
-    // Award referral welcome bonus if they signed up with a referral code (+100 points)
+    // Award referral welcome bonus if they signed up with a referral code (+100 points).
+    // awardReferralWelcomeBonus already embeds a stable idempotency key internally.
     if (customer.referredBy) {
       try {
         await awardReferralWelcomeBonus(customer.id, customer.referredBy)

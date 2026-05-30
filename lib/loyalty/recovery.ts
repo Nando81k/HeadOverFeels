@@ -72,7 +72,12 @@ export async function recoverMissingLoyaltyForOrder(
     await recalculateCustomerStats(customerId)
   }
 
-  const purchaseTransaction = await awardPurchasePoints(customerId, orderId, orderTotal)
+  const purchaseTransaction = await awardPurchasePoints(
+    customerId,
+    orderId,
+    orderTotal,
+    `order-purchase-${orderId}`
+  )
 
   if (completedOrderCount === 1) {
     const existingFirstPurchaseBonus = await prisma.pointsTransaction.findFirst({
@@ -86,7 +91,7 @@ export async function recoverMissingLoyaltyForOrder(
     })
 
     if (!existingFirstPurchaseBonus) {
-      await awardFirstPurchasePoints(customerId, orderId)
+      await awardFirstPurchasePoints(customerId, orderId, `order-first-purchase-${orderId}`)
     }
 
     if (customerSnapshot.referredBy) {
@@ -101,7 +106,11 @@ export async function recoverMissingLoyaltyForOrder(
       })
 
       if (!existingReferralAward) {
-        await awardReferralPoints(customerSnapshot.referredBy, customerId)
+        await awardReferralPoints(
+          customerSnapshot.referredBy,
+          customerId,
+          `recovery-referral-${orderId}`
+        )
       }
     }
   }
