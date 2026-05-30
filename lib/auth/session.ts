@@ -1,11 +1,16 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
 
-// Generate a secret key from AUTH_SECRET or fallback
-const getSecretKey = () => {
-  const secret = process.env.AUTH_SECRET || 'default-secret-change-in-production'
-  return new TextEncoder().encode(secret)
+// Generate a secret key from AUTH_SECRET — throws if env var is missing
+function getAuthSecret(): string {
+  const secret = process.env.AUTH_SECRET
+  if (!secret) {
+    throw new Error('AUTH_SECRET environment variable is required')
+  }
+  return secret
 }
+
+const getSecretKey = () => new TextEncoder().encode(getAuthSecret())
 
 export interface SessionPayload {
   userId: string
