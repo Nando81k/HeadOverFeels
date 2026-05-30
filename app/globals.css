@@ -521,3 +521,19 @@ html {
 .bg-gradient-radial {
   background: radial-gradient(circle at center, transparent 0%, rgba(10, 10, 10, 0.5) 50%, #0A0A0A 100%);
 }
+
+/* Global reduced-motion override (WCAG SC 2.3.3).
+   Framer Motion respects useReducedMotion separately.
+   Complements the narrow brand-wordmark rule at line 387. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
