@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyAdmin } from '@/lib/auth/admin'
+import { AdminRole, verifyAdmin, verifyAdminRole } from '@/lib/auth/admin'
 import { normalizeTierColor } from '@/lib/loyalty/tier-theme'
 
 // GET /api/admin/loyalty/tiers/[id] - Get single tier
@@ -120,11 +120,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const adminId = await verifyAdmin(request)
+    // Require SUPER_ADMIN — tier deletion is irreversible and affects loyalty program structure
+    const adminId = await verifyAdminRole(request, AdminRole.SUPER_ADMIN)
     if (!adminId) {
       return NextResponse.json(
-        { error: 'Unauthorized - admin access required' },
-        { status: 401 }
+        { error: 'Unauthorized - requires SUPER_ADMIN role' },
+        { status: 403 }
       )
     }
 

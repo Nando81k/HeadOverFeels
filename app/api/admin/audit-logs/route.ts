@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyAdmin } from '@/lib/auth/admin'
+import { AdminRole, verifyAdminRole } from '@/lib/auth/admin'
 import { getPaginationParams, createPaginatedResponse } from '@/lib/validation/schemas'
 import { z } from 'zod'
 
@@ -21,12 +21,12 @@ const AuditLogQuerySchema = z.object({
  */
 export async function GET(request: NextRequest) {
   try {
-    // Verify admin access
-    const adminId = await verifyAdmin(request)
+    // Verify SUPER_ADMIN role — audit logs expose customer PII and transaction history
+    const adminId = await verifyAdminRole(request, AdminRole.SUPER_ADMIN)
     if (!adminId) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+        { error: 'Unauthorized - requires SUPER_ADMIN role' },
+        { status: 403 }
       )
     }
 
@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build where clause
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {}
 
     if (customerId) {
