@@ -30,7 +30,7 @@ model AdminUser {
 
 model AdminAuditLog {
   id          String        @id @default(cuid())
-  adminId     String
+  adminId     String?
   adminEmail  String
   adminName   String
   action      AuditAction
@@ -44,7 +44,7 @@ model AdminAuditLog {
   ipAddress   String?
   userAgent   String?
   createdAt   DateTime      @default(now())
-  admin       AdminUser     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  admin       AdminUser?    @relation(fields: [adminId], references: [id], onDelete: SetNull)
 
   @@index([adminId])
   @@index([action])
@@ -107,6 +107,7 @@ model Product {
   reviews                  Review[]
   wishlistItems            WishlistItem[]
 
+  @@index([categoryId])
   @@map("products")
 }
 
@@ -513,6 +514,7 @@ model Order {
   reviews               Review[]
   supportTickets        SupportTicket[]
 
+  @@index([customerId, status, createdAt])
   @@map("orders")
 }
 

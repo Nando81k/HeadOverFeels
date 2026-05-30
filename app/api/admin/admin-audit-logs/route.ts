@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     const formattedLogs = logs.map(log => ({
       id: log.id,
       admin: {
-        id: log.admin.id,
+        id: log.admin?.id ?? log.adminId,
         name: log.adminName,
         email: log.adminEmail,
       },
