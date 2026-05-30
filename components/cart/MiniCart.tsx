@@ -197,6 +197,15 @@ function MiniCartContent({ subtotal, items, updateQuantity, removeItem, onClose 
 
           {/* Footer */}
           <div className="shrink-0 border-t border-black/10 px-5 py-4 space-y-3">
+            {/* Live region: announces cart count/total changes to SR users (WCAG SC 4.1.3). */}
+            <span
+              className="sr-only"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {items.length} {items.length === 1 ? 'item' : 'items'} in cart, subtotal ${subtotal.toFixed(2)}
+            </span>
             <FreeShippingProgress subtotal={subtotal} />
             <div className="flex items-baseline justify-between">
               <span className="text-xs text-black/60 uppercase tracking-wide">Subtotal</span>

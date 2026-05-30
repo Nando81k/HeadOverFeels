@@ -25,7 +25,6 @@ interface CheckoutStepsProps {
 export function CheckoutSteps({ current }: CheckoutStepsProps) {
   const accent = useTierAccent()
   const currentIndex = STEP_ORDER.indexOf(current)
-  const progressPct = (currentIndex / (STEP_ORDER.length - 1)) * 100
 
   return (
     <div className="flex items-center gap-0">
@@ -76,8 +75,15 @@ export function CheckoutSteps({ current }: CheckoutStepsProps) {
         )
       })}
 
-      {/* Sr-only progress percentage for assistive tech. */}
-      <span className="sr-only">Step {currentIndex + 1} of {STEP_ORDER.length} ({Math.round(progressPct)}% complete)</span>
+      {/* Sr-only live region: announces step transitions to screen reader users (WCAG SC 4.1.3). */}
+      <span
+        className="sr-only"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        Step {currentIndex + 1} of {STEP_ORDER.length}: {STEP_LABEL[current]}
+      </span>
     </div>
   )
 }
