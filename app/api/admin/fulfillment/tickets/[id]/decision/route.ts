@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AuditAction } from '@prisma/client'
 import { z } from 'zod'
-import { verifyAdmin } from '@/lib/auth/admin'
+import { AdminRole, verifyAdminRole } from '@/lib/auth/admin'
 import { prisma } from '@/lib/prisma'
 import { getFulfillmentAuditLogger } from '@/lib/fulfillment/audit'
 import { generateReturnLabel } from '@/lib/support/refund-helpers'
@@ -37,9 +37,13 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const adminId = await verifyAdmin(request)
+    // Require SUPER_ADMIN — refund and return decisions involve financial mutations
+    const adminId = await verifyAdminRole(request, AdminRole.SUPER_ADMIN)
     if (!adminId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json(
+        { error: 'Unauthorized - requires SUPER_ADMIN role' },
+        { status: 403 }
+      )
     }
 
     const { id } = await params

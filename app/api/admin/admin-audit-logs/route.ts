@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAdmin } from '@/lib/auth/admin'
+import { AdminRole, verifyAdminRole } from '@/lib/auth/admin'
 import { queryAuditLogs, AuditAction, AuditCategory } from '@/lib/audit'
 import { z } from 'zod'
 
@@ -23,12 +23,12 @@ const AdminAuditLogQuerySchema = z.object({
  */
 export async function GET(request: NextRequest) {
   try {
-    // Verify admin access
-    const adminId = await verifyAdmin(request)
+    // Verify SUPER_ADMIN role — audit logs contain sensitive PII and admin actions
+    const adminId = await verifyAdminRole(request, AdminRole.SUPER_ADMIN)
     if (!adminId) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+        { error: 'Unauthorized - requires SUPER_ADMIN role' },
+        { status: 403 }
       )
     }
 

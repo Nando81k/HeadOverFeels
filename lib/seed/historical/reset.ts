@@ -1,11 +1,11 @@
-import { PrismaClient } from '@prisma/client'
+import { AdminRole, PrismaClient } from '@prisma/client'
 
 export interface AdminUserIdentityBackup {
   id: string
   email: string
   name: string
   password: string
-  role: 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER'
+  role: AdminRole
   isActive: boolean
 }
 

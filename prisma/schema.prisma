@@ -172,6 +172,7 @@ model Customer {
   phone                    String?
   profilePictureUrl        String?
   isAdmin                  Boolean                   @default(false)
+  adminRole                AdminRole?
   birthday                 DateTime?
   newsletter               Boolean                   @default(false)
   smsOptIn                 Boolean                   @default(false)
@@ -1520,6 +1521,9 @@ enum AdminRole {
   SUPER_ADMIN
   ADMIN
   MANAGER
+  MERCHANDISER
+  SUPPORT
+  FINANCE
 }
 
 enum OrderStatus {
