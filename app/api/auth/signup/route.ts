@@ -29,10 +29,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    console.log('Signup request body:', JSON.stringify(body))
-    
     const validatedData = signupSchema.parse(body)
-    console.log('Validated data:', JSON.stringify(validatedData))
     
     // Normalize email to lowercase (emails are case-insensitive per RFC 5321)
     const normalizedEmail = validatedData.email.toLowerCase()
@@ -107,7 +104,7 @@ export async function POST(request: NextRequest) {
           where: { code: validatedData.referralCode },
           data: { timesUsed: { increment: 1 } },
         })
-        console.log(`Updated referral code usage for ${validatedData.referralCode}`)
+        console.log('Updated referral code usage')
       } catch (referralError) {
         console.error(`Failed to update referral code usage:`, referralError)
       }
@@ -120,9 +117,9 @@ export async function POST(request: NextRequest) {
         name: newCustomer.name || '',
         verificationToken,
       })
-      console.log(`Verification email sent to ${newCustomer.email}`)
+      console.log('Verification email sent')
     } catch (emailError) {
-      console.error(`Failed to send verification email to ${newCustomer.email}:`, emailError)
+      console.error('Failed to send verification email:', emailError)
       // Don't fail signup if email fails - they can request a new one
     }
 
@@ -131,7 +128,7 @@ export async function POST(request: NextRequest) {
       email: newCustomer.email,
       name: newCustomer.name || '',
     }).catch(err => {
-      console.error(`Failed to send welcome email to ${newCustomer.email}:`, err)
+      console.error('Failed to send welcome email:', err)
     })
 
     // Fetch the full customer data with loyalty tier (after points were awarded)
@@ -207,7 +204,7 @@ export async function POST(request: NextRequest) {
     return response
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.log('Validation error:', JSON.stringify(error.issues))
+      console.log('Signup validation error')
       return NextResponse.json(
         { error: error.issues[0].message, issues: error.issues },
         { status: 400 }
