@@ -11,6 +11,7 @@ const createPaymentIntentSchema = z.object({
     customerId: z.string().optional(),
     items: z.string().optional(), // JSON stringified cart items
   }).optional(),
+  idempotencyKey: z.string().min(1).max(200).optional(),
 })
 
 // POST /api/stripe/payment-intent - Create payment intent
@@ -26,17 +27,34 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { amount, currency, metadata } = createPaymentIntentSchema.parse(body)
+    const { amount, currency, metadata, idempotencyKey: clientIdempotencyKey } = createPaymentIntentSchema.parse(body)
+
+    // Use the client-supplied idempotency key so retries from network flakiness
+    // hit Stripe's deduplication layer rather than creating a second PaymentIntent.
+    // Fall back to a server-generated key as a back-compat safety net, but log a
+    // warning so we can track down any caller that omits the key.
+    let idempotencyKey = clientIdempotencyKey
+    if (!idempotencyKey) {
+      idempotencyKey = crypto.randomUUID()
+      console.warn(
+        '[payment-intent] No idempotencyKey supplied by client — generated server-side fallback:',
+        idempotencyKey,
+        '— update the caller to send a stable key per checkout attempt.'
+      )
+    }
 
     // Create payment intent
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount, // Amount in cents
-      currency,
-      metadata: metadata || {},
-      automatic_payment_methods: {
-        enabled: true,
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount, // Amount in cents
+        currency,
+        metadata: metadata || {},
+        automatic_payment_methods: {
+          enabled: true,
+        },
       },
-    })
+      { idempotencyKey }
+    )
 
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
