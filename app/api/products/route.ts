@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { getPaginationParams, createPaginatedResponse } from '@/lib/validation/schemas'
+import { verifyAdmin } from '@/lib/auth/admin'
 
 // Helper function to create slug from name
 function createSlug(name: string): string {
@@ -148,6 +149,11 @@ export async function GET(request: NextRequest) {
 
 // POST /api/products - Create new product
 export async function POST(request: NextRequest) {
+  const adminId = await verifyAdmin(request)
+  if (!adminId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const body = await request.json()
     console.log('Received product data:', JSON.stringify(body, null, 2))
