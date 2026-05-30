@@ -230,7 +230,7 @@ export default function EditCollectionPage({ params }: { params: Promise<{ id: s
           <div className="lg:col-span-2 space-y-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Basic Information */}
-              <Card>
+              <Card variant="dark">
                 <CardHeader>
                   <CardTitle>Basic Information</CardTitle>
                   <CardDescription>
@@ -291,7 +291,7 @@ export default function EditCollectionPage({ params }: { params: Promise<{ id: s
               </Card>
 
               {/* Collection Image */}
-              <Card>
+              <Card variant="dark">
                 <CardHeader>
                   <CardTitle>Collection Image</CardTitle>
                   <CardDescription>
@@ -308,7 +308,7 @@ export default function EditCollectionPage({ params }: { params: Promise<{ id: s
               </Card>
 
               {/* Settings */}
-              <Card>
+              <Card variant="dark">
                 <CardHeader>
                   <CardTitle>Settings</CardTitle>
                 </CardHeader>
@@ -349,7 +349,7 @@ export default function EditCollectionPage({ params }: { params: Promise<{ id: s
 
           {/* Right Column - Product Assignment */}
           <div className="space-y-6">
-            <Card>
+            <Card variant="dark">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -452,7 +452,7 @@ export default function EditCollectionPage({ params }: { params: Promise<{ id: s
             </Card>
 
             {/* Product Count Info */}
-            <Card>
+            <Card variant="dark">
               <CardContent className="pt-6">
                 <div className="text-center">
                   <p className="text-2xl font-bold">{selectedProducts.length}</p>

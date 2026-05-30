@@ -505,7 +505,7 @@ export default function ProductsPage() {
         }
       >
         <div className="sticky top-0 z-30 -mx-3 sm:-mx-4 lg:-mx-6 px-3 sm:px-4 lg:px-6 pb-3 bg-neutral-950/95 backdrop-blur supports-[backdrop-filter]:bg-neutral-950/75">
-          <Card className="border-white/10">
+          <Card variant="dark" className="border-white/10">
             <CardContent className="p-3 sm:p-4 space-y-3">
               <div className="flex flex-col lg:flex-row lg:items-center gap-2">
                 <div className="relative flex-1 min-w-0">
@@ -650,7 +650,7 @@ export default function ProductsPage() {
           <StatsGridSkeleton count={4} />
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-            <Card>
+            <Card variant="dark">
               <CardHeader className="pb-2 px-3 pt-3">
                 <CardTitle className="text-[10px] uppercase tracking-[0.15em] text-white/40 flex items-center gap-1">
                   <Package size={11} />
@@ -663,7 +663,7 @@ export default function ProductsPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card variant="dark">
               <CardHeader className="pb-2 px-3 pt-3">
                 <CardTitle className="text-[10px] uppercase tracking-[0.15em] text-white/40">Active</CardTitle>
               </CardHeader>
@@ -673,7 +673,7 @@ export default function ProductsPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card variant="dark">
               <CardHeader className="pb-2 px-3 pt-3">
                 <CardTitle className="text-[10px] uppercase tracking-[0.15em] text-white/40">Draft</CardTitle>
               </CardHeader>
@@ -683,7 +683,7 @@ export default function ProductsPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card variant="dark">
               <CardHeader className="pb-2 px-3 pt-3">
                 <CardTitle className="text-[10px] uppercase tracking-[0.15em] text-white/40">Low Stock</CardTitle>
               </CardHeader>
@@ -695,7 +695,7 @@ export default function ProductsPage() {
           </div>
         )}
 
-        <Card className="mb-4">
+        <Card variant="dark" className="mb-4">
           <button
             type="button"
             onClick={() => setShowPerformanceSnapshot((previous) => !previous)}
@@ -766,7 +766,7 @@ export default function ProductsPage() {
           )}
         </Card>
 
-        <Card>
+        <Card variant="dark">
           <CardHeader className="p-3 sm:p-4 border-b border-white/10">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>

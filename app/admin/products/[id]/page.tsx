@@ -455,7 +455,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   if (error && !product) {
     return (
       <AdminLayout title="Edit Product" subtitle="Error loading product">
-        <Card>
+        <Card variant="dark">
           <CardContent className="py-12 text-center">
             <p className="text-rose-400 mb-4">{error}</p>
             <Button asChild variant="outline">
@@ -503,7 +503,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Information */}
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6 space-y-4">
               <h2 className="text-lg font-bold text-white">Basic Information</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -576,7 +576,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           </Card>
 
           {/* Pricing */}
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6 space-y-4">
               <h2 className="text-lg font-bold text-white">Pricing</h2>
               <div className="grid md:grid-cols-2 gap-4">
@@ -612,7 +612,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           </Card>
 
           {/* Images */}
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6 space-y-4">
               <h2 className="text-lg font-bold text-white">Product Images</h2>
               <ImageUpload 
@@ -623,7 +623,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           </Card>
 
           {/* Variants */}
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6 space-y-4">
               <div className="flex justify-between items-center">
                 <h2 className="text-lg font-bold text-white">Variants</h2>
@@ -762,7 +762,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           </Card>
 
           {/* Status */}
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6 space-y-4">
               <h2 className="text-lg font-bold text-white">Status</h2>
               <div className="space-y-3">
@@ -793,7 +793,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           </Card>
 
           {/* Collections */}
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6 space-y-4">
               <div className="flex justify-between items-center">
                 <div>
@@ -845,7 +845,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           </Card>
 
           {/* Limited Edition Drop */}
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6 space-y-4">
               <h2 className="text-lg font-bold text-white">Limited Edition Drop</h2>
               <label className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10">
@@ -1055,7 +1055,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           </Card>
 
           {/* Featured Sections */}
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6 space-y-4">
               <h2 className="text-lg font-bold text-white">Featured Sections</h2>
               <p className="text-sm text-white/50">Feature this product in special sections on the home page</p>

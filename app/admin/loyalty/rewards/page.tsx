@@ -210,25 +210,25 @@ export default function AdminRewardsPage() {
         
         {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6">
               <p className="text-xs text-white/50 uppercase tracking-wide mb-1">Total Rewards</p>
               <p className="text-2xl font-bold text-white">{stats.total}</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6">
               <p className="text-xs text-white/50 uppercase tracking-wide mb-1">Active</p>
               <p className="text-2xl font-bold text-emerald-400">{stats.active}</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6">
               <p className="text-xs text-white/50 uppercase tracking-wide mb-1">Inactive</p>
               <p className="text-2xl font-bold text-white/60">{stats.inactive}</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6">
               <p className="text-xs text-white/50 uppercase tracking-wide mb-1">Total Redemptions</p>
               <p className="text-2xl font-bold text-[#FF3131]">{stats.totalRedemptions}</p>
@@ -237,7 +237,7 @@ export default function AdminRewardsPage() {
         </div>
 
         {/* Filters */}
-        <Card>
+        <Card variant="dark">
           <CardHeader>
             <CardTitle>Filters</CardTitle>
           </CardHeader>
@@ -280,7 +280,7 @@ export default function AdminRewardsPage() {
         </Card>
 
         {/* Rewards List */}
-        <Card>
+        <Card variant="dark">
           <CardHeader>
             <CardTitle>Rewards ({rewards.length})</CardTitle>
           </CardHeader>

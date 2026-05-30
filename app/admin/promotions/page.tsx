@@ -184,7 +184,7 @@ export default function PromotionsPage() {
         <StatsGridSkeleton count={4} />
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
-          <Card>
+          <Card variant="dark">
             <CardHeader className="pb-1 md:pb-2 pt-3 md:pt-4 px-3 md:px-4">
               <CardTitle className="text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40 flex items-center gap-1">
                 <Tag size={12} />
@@ -197,7 +197,7 @@ export default function PromotionsPage() {
             </CardContent>
           </Card>
           
-          <Card>
+          <Card variant="dark">
             <CardHeader className="pb-1 md:pb-2 pt-3 md:pt-4 px-3 md:px-4">
               <CardTitle className="text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Active</CardTitle>
             </CardHeader>
@@ -207,7 +207,7 @@ export default function PromotionsPage() {
             </CardContent>
           </Card>
           
-          <Card>
+          <Card variant="dark">
             <CardHeader className="pb-1 md:pb-2 pt-3 md:pt-4 px-3 md:px-4">
               <CardTitle className="text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Usage</CardTitle>
             </CardHeader>
@@ -217,7 +217,7 @@ export default function PromotionsPage() {
             </CardContent>
           </Card>
           
-          <Card>
+          <Card variant="dark">
             <CardHeader className="pb-1 md:pb-2 pt-3 md:pt-4 px-3 md:px-4">
               <CardTitle className="text-[9px] md:text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Auto-Apply</CardTitle>
             </CardHeader>
@@ -232,7 +232,7 @@ export default function PromotionsPage() {
       )}
 
       {/* Search & Filters */}
-      <Card className="mb-4 md:mb-6">
+      <Card variant="dark" className="mb-4 md:mb-6">
         <CardContent className="p-3 md:p-4">
           <div className="flex flex-col md:flex-row gap-3 md:gap-4">
             {/* Search */}
@@ -338,7 +338,7 @@ export default function PromotionsPage() {
           }
         />
       ) : (
-        <Card>
+        <Card variant="dark">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>

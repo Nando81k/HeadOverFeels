@@ -210,7 +210,7 @@ export default function LoyaltySettingsPage() {
         )}
 
         {/* Program Status */}
-        <Card>
+        <Card variant="dark">
           <CardContent className="pt-6 space-y-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-[#FF3131]/10 rounded-lg flex items-center justify-center">
@@ -248,7 +248,7 @@ export default function LoyaltySettingsPage() {
         </Card>
 
         {/* Points Earning */}
-        <Card>
+        <Card variant="dark">
           <CardContent className="pt-6 space-y-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center">
@@ -300,7 +300,7 @@ export default function LoyaltySettingsPage() {
         </Card>
 
         {/* Referral Program */}
-        <Card>
+        <Card variant="dark">
           <CardContent className="pt-6 space-y-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
@@ -353,7 +353,7 @@ export default function LoyaltySettingsPage() {
         </Card>
 
         {/* Review Points */}
-        <Card>
+        <Card variant="dark">
           <CardContent className="pt-6 space-y-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
@@ -406,7 +406,7 @@ export default function LoyaltySettingsPage() {
         </Card>
 
         {/* Birthday Rewards */}
-        <Card>
+        <Card variant="dark">
           <CardContent className="pt-6 space-y-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-pink-500/10 rounded-lg flex items-center justify-center">
@@ -474,7 +474,7 @@ export default function LoyaltySettingsPage() {
         </Card>
 
         {/* Points Expiration */}
-        <Card>
+        <Card variant="dark">
           <CardContent className="pt-6 space-y-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-violet-500/10 rounded-lg flex items-center justify-center">
@@ -513,7 +513,7 @@ export default function LoyaltySettingsPage() {
         </Card>
 
         {/* Tier Settings */}
-        <Card>
+        <Card variant="dark">
           <CardContent className="pt-6 space-y-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-cyan-500/10 rounded-lg flex items-center justify-center">
@@ -554,7 +554,7 @@ export default function LoyaltySettingsPage() {
         </Card>
 
         {/* Display Settings */}
-        <Card>
+        <Card variant="dark">
           <CardContent className="pt-6 space-y-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
