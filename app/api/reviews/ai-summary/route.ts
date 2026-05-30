@@ -1,9 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { generateReviewSummary } from '@/lib/ai/review-summary'
+import { checkRateLimit, rateLimitResponse, getClientIdentifier } from '@/lib/security/rateLimit'
+import { AI_RATE_LIMITS } from '@/lib/ai/config'
+
+const ONE_MINUTE_MS = 60 * 1000
+const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
 // GET /api/reviews/ai-summary?productId=xxx - Get AI summary of reviews for a product
 export async function GET(request: NextRequest) {
+  // Rate limit by IP — per-minute and per-day caps
+  const ip = getClientIdentifier(request.headers)
+  const minuteCheck = checkRateLimit(
+    `ai:review-summary:min:${ip}`,
+    AI_RATE_LIMITS.reviewSummary.perMinute,
+    ONE_MINUTE_MS
+  )
+  if (!minuteCheck.allowed) {
+    return rateLimitResponse(minuteCheck.retryAfter)
+  }
+  const dayCheck = checkRateLimit(
+    `ai:review-summary:day:${ip}`,
+    AI_RATE_LIMITS.reviewSummary.perDay,
+    ONE_DAY_MS
+  )
+  if (!dayCheck.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Try again later.' },
+      { status: 429 }
+    )
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const productId = searchParams.get('productId')
