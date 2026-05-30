@@ -1,4 +1,5 @@
 // tests/setup.ts
+import '@testing-library/jest-dom/vitest'
 import { beforeAll, afterAll, vi } from 'vitest'
 
 // Mock environment variables
