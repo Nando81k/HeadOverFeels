@@ -74,12 +74,13 @@ export async function updateCustomerStatsOnOrderCompletion(
       annualSpend: newAnnualSpend,
     })
 
-    // Award loyalty points (respects tier multipliers)
-    await awardPurchasePoints(customerId, orderId, orderTotal)
+    // Award loyalty points (respects tier multipliers).
+    // Stable per-order key prevents double-awarding on duplicate CRM calls.
+    await awardPurchasePoints(customerId, orderId, orderTotal, `order-purchase-${orderId}`)
 
-    // Award first purchase bonus if applicable
+    // Award first purchase bonus if applicable.
     if (isFirstOrder) {
-      await awardFirstPurchasePoints(customerId, orderId)
+      await awardFirstPurchasePoints(customerId, orderId, `order-first-purchase-${orderId}`)
     }
 
     // Check and update tier based on new annual spend
