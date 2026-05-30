@@ -265,7 +265,7 @@ export default function AdminLoyaltyPage() {
   if (error || !stats) {
     return (
       <AdminLayout title="Loyalty Program" subtitle="Error loading data">
-        <Card>
+        <Card variant="dark">
           <CardContent className="pt-6">
             <p className="text-white/70">{error || 'Failed to load loyalty statistics'}</p>
             <Button onClick={fetchStats} className="mt-4 bg-[#FF3131] hover:bg-[#E02828]">
@@ -292,7 +292,7 @@ export default function AdminLoyaltyPage() {
         {/* Overview Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Total Members */}
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -310,7 +310,7 @@ export default function AdminLoyaltyPage() {
           </Card>
 
           {/* Points in Circulation */}
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -326,7 +326,7 @@ export default function AdminLoyaltyPage() {
           </Card>
 
           {/* Points Earned (30d) */}
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -351,7 +351,7 @@ export default function AdminLoyaltyPage() {
           </Card>
 
           {/* Points Redeemed (30d) */}
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -370,7 +370,7 @@ export default function AdminLoyaltyPage() {
         {/* Quick Controls */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Tier Perks */}
-          <Card>
+          <Card variant="dark">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -437,7 +437,7 @@ export default function AdminLoyaltyPage() {
           </Card>
 
           {/* Quick Rewards */}
-          <Card>
+          <Card variant="dark">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -496,7 +496,7 @@ export default function AdminLoyaltyPage() {
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Points Activity Chart */}
-          <Card className="lg:col-span-2">
+          <Card variant="dark" className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Points Activity (30 Days)</CardTitle>
             </CardHeader>
@@ -531,7 +531,7 @@ export default function AdminLoyaltyPage() {
           </Card>
 
           {/* Tier Distribution */}
-          <Card>
+          <Card variant="dark">
             <CardHeader>
               <CardTitle>Tier Distribution</CardTitle>
             </CardHeader>
@@ -563,7 +563,7 @@ export default function AdminLoyaltyPage() {
         {/* Popular Rewards and Recent Redemptions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Popular Rewards */}
-          <Card>
+          <Card variant="dark">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Popular Rewards</CardTitle>
@@ -596,7 +596,7 @@ export default function AdminLoyaltyPage() {
           </Card>
 
           {/* Recent Redemptions */}
-          <Card>
+          <Card variant="dark">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Recent Redemptions</CardTitle>
@@ -637,7 +637,7 @@ export default function AdminLoyaltyPage() {
         </div>
 
         {/* Recent Transactions Table */}
-        <Card>
+        <Card variant="dark">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Recent Point Transactions</CardTitle>

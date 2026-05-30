@@ -318,25 +318,25 @@ export default function AdminTiersPage() {
         
         {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6">
               <p className="text-xs text-white/50 uppercase tracking-wide mb-1">Total Tiers</p>
               <p className="text-2xl font-bold text-white">{tiers.length}</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6">
               <p className="text-xs text-white/50 uppercase tracking-wide mb-1">Total Members</p>
               <p className="text-2xl font-bold text-[#FF3131]">{totalMembers.toLocaleString()}</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6">
               <p className="text-xs text-white/50 uppercase tracking-wide mb-1">Active Tiers</p>
               <p className="text-2xl font-bold text-emerald-400">{tiers.filter(t => t.isActive).length}</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card variant="dark">
             <CardContent className="pt-6">
               <p className="text-xs text-white/50 uppercase tracking-wide mb-1">Avg Multiplier</p>
               <p className="text-2xl font-bold text-amber-400">
@@ -557,7 +557,7 @@ export default function AdminTiersPage() {
             <CircleNotch size={32} weight="bold" className="animate-spin text-white/30" />
           </div>
         ) : tiers.length === 0 ? (
-          <Card>
+          <Card variant="dark">
             <CardContent className="text-center py-12">
               <Medal size={48} className="mx-auto text-white/20 mb-4" />
               <h3 className="text-lg font-medium text-white mb-2">No tiers yet</h3>
@@ -578,7 +578,7 @@ export default function AdminTiersPage() {
               const perks = getTierPerks(tier)
 
               return (
-                <Card key={tier.id}>
+                <Card variant="dark" key={tier.id}>
                   {/* Tier Header */}
                   <div 
                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"

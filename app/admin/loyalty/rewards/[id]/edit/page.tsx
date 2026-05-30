@@ -206,7 +206,7 @@ export default function EditRewardPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Information */}
-          <Card>
+          <Card variant="dark">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <PencilSimple size={20} weight="bold" />
@@ -295,7 +295,7 @@ export default function EditRewardPage() {
           </Card>
 
           {/* Availability & Requirements */}
-          <Card>
+          <Card variant="dark">
             <CardHeader>
               <CardTitle>Availability & Requirements</CardTitle>
               <CardDescription>Control who can redeem this reward</CardDescription>
@@ -356,7 +356,7 @@ export default function EditRewardPage() {
           </Card>
 
           {/* Additional Settings */}
-          <Card>
+          <Card variant="dark">
             <CardHeader>
               <CardTitle>Additional Settings</CardTitle>
             </CardHeader>

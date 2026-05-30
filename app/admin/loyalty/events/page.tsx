@@ -221,7 +221,7 @@ export default function PointsEventsPage() {
         <LoyaltyNav />
         
         {/* Filters */}
-        <Card>
+        <Card variant="dark">
           <CardContent className="pt-6">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="relative flex-1">
@@ -252,7 +252,7 @@ export default function PointsEventsPage() {
         </Card>
 
         {/* Events Grid */}
-        <Card>
+        <Card variant="dark">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Lightning size={20} weight="bold" />

@@ -101,7 +101,7 @@ export default function NewCollectionPage() {
       <div className="max-w-4xl mx-auto px-6 py-8">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Information */}
-          <Card>
+          <Card variant="dark">
             <CardHeader>
               <CardTitle>Basic Information</CardTitle>
               <CardDescription>
@@ -165,7 +165,7 @@ export default function NewCollectionPage() {
           </Card>
 
           {/* Collection Image */}
-          <Card>
+          <Card variant="dark">
             <CardHeader>
               <CardTitle>Collection Image</CardTitle>
               <CardDescription>
@@ -182,7 +182,7 @@ export default function NewCollectionPage() {
           </Card>
 
           {/* Settings */}
-          <Card>
+          <Card variant="dark">
             <CardHeader>
               <CardTitle>Settings</CardTitle>
             </CardHeader>
