@@ -869,6 +869,7 @@ export function Navigation() {
                                 <Link
                                   href={NAV_FEATURED_DROP.href}
                                   role="menuitem"
+                                  aria-current={pathname === NAV_FEATURED_DROP.href ? 'page' : undefined}
                                   data-shop-menu-item="true"
                                   ref={shopMenuFirstItemRef}
                                   autoFocus={shopMenuFocusTarget === 'first'}
@@ -882,7 +883,7 @@ export function Navigation() {
                                     sizes="(min-width: 1024px) 28rem, 90vw"
                                     className="object-cover transition-transform duration-700 group-hover:scale-105"
                                   />
-                                  <div className="absolute inset-0 bg-linear-to-t from-black/65 via-black/15 to-transparent" />
+                                  <div aria-hidden="true" className="absolute inset-0 bg-linear-to-t from-black/65 via-black/15 to-transparent" />
 
                                   <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
                                     <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/70 mb-1.5">
@@ -894,7 +895,7 @@ export function Navigation() {
                                     <p className="text-xs text-white/80 mb-3">
                                       {NAV_FEATURED_DROP.subtitle}
                                     </p>
-                                    <span className="inline-flex items-center gap-1.5 px-3 h-7 rounded-full bg-white text-black text-[10px] font-bold uppercase tracking-wider transition-transform group-hover:translate-x-0.5">
+                                    <span aria-hidden="true" className="inline-flex items-center gap-1.5 px-3 h-7 rounded-full bg-white text-black text-[10px] font-bold uppercase tracking-wider transition-transform group-hover:translate-x-0.5">
                                       {NAV_FEATURED_DROP.ctaLabel}
                                       <ArrowRight size={11} weight="bold" />
                                     </span>
@@ -906,11 +907,11 @@ export function Navigation() {
                             {/* Right column: The Latest + Categories */}
                             <div className="flex flex-col">
                               {/* The Latest */}
-                              <div>
-                                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-black/40 mb-2">
+                              <div role="group" aria-labelledby="nav-shop-group-latest">
+                                <p id="nav-shop-group-latest" className="text-[10px] font-bold uppercase tracking-[0.22em] text-black/40 mb-2">
                                   The Latest
                                 </p>
-                                <div>
+                                <div role="none">
                                   {NAV_FEATURED_LINKS.map((featuredLink) => {
                                     const Icon = featuredLink.icon
                                     return (
@@ -918,30 +919,31 @@ export function Navigation() {
                                         key={featuredLink.href}
                                         href={featuredLink.href}
                                         role="menuitem"
+                                        aria-current={pathname === featuredLink.href ? 'page' : undefined}
                                         data-shop-menu-item="true"
                                         onClick={() => closeShopDropdown()}
                                         className="group flex items-center gap-2.5 -mx-2 px-2 py-1.5 rounded-lg transition-colors hover:bg-black/3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
                                       >
-                                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-black/5 transition-colors group-hover:bg-black/10">
+                                        <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-black/5 transition-colors group-hover:bg-black/10">
                                           <Icon size={13} weight="bold" className="text-black/70" />
                                         </span>
                                         <div className="min-w-0 flex-1">
                                           <p className="text-[13px] font-black uppercase tracking-wide text-black leading-tight">{featuredLink.label}</p>
                                           <p className="text-[10px] text-black/55 truncate leading-snug">{featuredLink.description}</p>
                                         </div>
-                                        <ArrowRight size={12} weight="bold" className="text-black/30 transition-transform group-hover:translate-x-0.5 group-hover:text-black/70" />
+                                        <ArrowRight aria-hidden="true" size={12} weight="bold" className="text-black/30 transition-transform group-hover:translate-x-0.5 group-hover:text-black/70" />
                                       </Link>
                                     )
                                   })}
                                 </div>
                               </div>
 
-                              <div className="h-px bg-black/5 my-3" />
+                              <div aria-hidden="true" className="h-px bg-black/5 my-3" />
 
                               {/* Categories */}
-                              <div>
+                              <div role="group" aria-labelledby="nav-shop-group-categories">
                                 <div className="flex items-center justify-between mb-2">
-                                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-black/40">
+                                  <p id="nav-shop-group-categories" className="text-[10px] font-bold uppercase tracking-[0.22em] text-black/40">
                                     Categories
                                   </p>
                                   {shopMenuCategoriesLoading ? (
@@ -950,7 +952,7 @@ export function Navigation() {
                                     </span>
                                   ) : null}
                                 </div>
-                                <div data-testid="desktop-shop-categories">
+                                <div role="none" data-testid="desktop-shop-categories">
                                   {displayedShopCategories.slice(0, 5).map((category) => {
                                     const Icon = category.icon
                                     return (
@@ -958,18 +960,19 @@ export function Navigation() {
                                         key={category.id}
                                         href={category.href}
                                         role="menuitem"
+                                        aria-current={pathname === category.href ? 'page' : undefined}
                                         data-shop-menu-item="true"
                                         onClick={() => closeShopDropdown()}
                                         className="group flex items-center gap-2.5 -mx-2 px-2 py-1.5 rounded-lg transition-colors hover:bg-black/3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
                                       >
-                                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-black/5 transition-colors group-hover:bg-black/10">
+                                        <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-black/5 transition-colors group-hover:bg-black/10">
                                           <Icon size={13} weight="bold" className="text-black/70" />
                                         </span>
                                         <div className="min-w-0 flex-1">
                                           <p className="text-[13px] font-black uppercase tracking-wide text-black truncate leading-tight">{category.label}</p>
                                           <p className="text-[10px] text-black/55 truncate leading-snug">{category.description}</p>
                                         </div>
-                                        <ArrowRight size={12} weight="bold" className="text-black/30 transition-transform group-hover:translate-x-0.5 group-hover:text-black/70" />
+                                        <ArrowRight aria-hidden="true" size={12} weight="bold" className="text-black/30 transition-transform group-hover:translate-x-0.5 group-hover:text-black/70" />
                                       </Link>
                                     )
                                   })}
@@ -979,15 +982,17 @@ export function Navigation() {
                           </div>
 
                           {/* Trending Now strip */}
-                          <div className="h-px bg-black/5 my-4" />
+                          <div aria-hidden="true" className="h-px bg-black/5 my-4" />
 
+                          <div role="group" aria-labelledby="nav-shop-group-trending">
                           <div className="mb-3 flex items-center justify-between">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-black/40">
+                            <p id="nav-shop-group-trending" className="text-[10px] font-bold uppercase tracking-[0.22em] text-black/40">
                               Trending Now
                             </p>
                             <Link
                               href="/products"
                               role="menuitem"
+                              aria-current={pathname === '/products' ? 'page' : undefined}
                               data-shop-menu-item="true"
                               ref={shopMenuLastItemRef}
                               autoFocus={shopMenuFocusTarget === 'last'}
@@ -995,12 +1000,12 @@ export function Navigation() {
                               className="group inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-black/55 hover:text-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
                             >
                               View all
-                              <ArrowRight size={11} weight="bold" className="transition-transform group-hover:translate-x-0.5" />
+                              <ArrowRight aria-hidden="true" size={11} weight="bold" className="transition-transform group-hover:translate-x-0.5" />
                             </Link>
                           </div>
 
                           {shopMenuProductsLoading ? (
-                            <div className="grid grid-cols-4 gap-3">
+                            <div role="none" className="grid grid-cols-4 gap-3">
                               {[0, 1, 2, 3].map((skeleton) => (
                                 <div key={`shop-grid-skeleton-${skeleton}`} className="animate-pulse rounded-lg bg-black/2 p-2">
                                   <div className="mb-1.5 aspect-4/3 rounded-md bg-black/10" />
@@ -1012,7 +1017,7 @@ export function Navigation() {
                               ))}
                             </div>
                           ) : shopMenuGridProducts.length > 0 ? (
-                            <div className="grid grid-cols-4 gap-3">
+                            <div role="none" className="grid grid-cols-4 gap-3">
                               {shopMenuGridProducts.map((product) => {
                                 const primaryColor = product.colors[0]
                                 const imageUrl = getPrimaryImageWithFallback({
@@ -1028,14 +1033,15 @@ export function Navigation() {
                                     key={`shop-grid-product-${product.id}`}
                                     href={`/products/${product.slug}`}
                                     role="menuitem"
+                                    aria-current={pathname === `/products/${product.slug}` ? 'page' : undefined}
                                     data-shop-menu-item="true"
                                     onClick={() => closeShopDropdown()}
                                     className="group rounded-lg bg-black/2 p-2 transition-colors hover:bg-black/4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
                                   >
-                                    <div className="relative mb-1.5 aspect-4/3 w-full overflow-hidden rounded-md bg-black/5">
+                                    <div aria-hidden="true" className="relative mb-1.5 aspect-4/3 w-full overflow-hidden rounded-md bg-black/5">
                                       <Image
                                         src={imageUrl}
-                                        alt={product.name}
+                                        alt=""
                                         fill
                                         sizes="(min-width: 1024px) 180px, 120px"
                                         className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
@@ -1047,7 +1053,7 @@ export function Navigation() {
                                     <div className="flex items-center justify-between gap-1.5 mt-0.5">
                                       <span className="text-[11px] font-black text-black/85">{formatCurrency(product.price)}</span>
                                       {product.colors.length > 0 ? (
-                                        <div className="flex items-center gap-0.5">
+                                        <div aria-hidden="true" className="flex items-center gap-0.5">
                                           {product.colors.slice(0, 3).map((color) => (
                                             <span
                                               key={`${product.id}-${color.hex}-${color.label}`}
@@ -1073,6 +1079,7 @@ export function Navigation() {
                               We couldn&apos;t load product previews. Use View all above.
                             </div>
                           )}
+                          </div>
                         </div>
                       </div>
                     </motion.div>
