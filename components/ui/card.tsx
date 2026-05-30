@@ -9,6 +9,8 @@ const cardVariants = cva(
       variant: {
         default: "bg-white border-black/10 text-black",
         dark: "bg-white/5 border-white/10 text-white",
+        glass:
+          'bg-white/[0.02] border border-[var(--color-border-subtle)] text-white backdrop-blur-md',
       },
     },
     defaultVariants: {
