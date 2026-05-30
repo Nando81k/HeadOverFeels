@@ -171,3 +171,6 @@ grep -rl "from '@/components/admin/.*MobileCard'" app components     # 1 file
 CustomerMobileCard and OrderMobileCard exist in `components/admin/` but have
 no import consumers in `app/` or `components/` at this time (they may be used
 via different import paths or are currently unused).
+
+Audit run: 2026-05-30. Re-run these greps at the start of each page-rebuild
+phase to confirm the component is still orphaned before deleting it.
