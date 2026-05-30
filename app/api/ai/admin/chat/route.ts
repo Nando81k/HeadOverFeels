@@ -3,10 +3,15 @@ import { auth } from '@/lib/auth/auth'
 import { prisma } from '@/lib/prisma'
 import { streamAdminResponse, AdminContext } from '@/lib/ai/agents/admin-agent'
 import { getOrCreateAdminConversation, saveUserMessage } from '@/lib/ai/memory'
+import { checkRateLimit, rateLimitResponse } from '@/lib/security/rateLimit'
+import { AI_RATE_LIMITS } from '@/lib/ai/config'
+
+const ONE_MINUTE_MS = 60 * 1000
+const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
 /**
  * Admin Chat API
- * 
+ *
  * Streams responses from Reggie AI for admin-facing interactions.
  * Requires admin authentication.
  */
@@ -30,6 +35,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Admin access required' },
         { status: 403 }
+      )
+    }
+
+    // Rate limit by admin ID — before any AI call
+    const minuteCheck = checkRateLimit(
+      `ai:admin-chat:min:${admin.id}`,
+      AI_RATE_LIMITS.adminChat.perMinute,
+      ONE_MINUTE_MS
+    )
+    if (!minuteCheck.allowed) {
+      return rateLimitResponse(minuteCheck.retryAfter)
+    }
+    const dayCheck = checkRateLimit(
+      `ai:admin-chat:day:${admin.id}`,
+      AI_RATE_LIMITS.adminChat.perDay,
+      ONE_DAY_MS
+    )
+    if (!dayCheck.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Try again later.' },
+        { status: 429 }
       )
     }
 

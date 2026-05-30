@@ -2,20 +2,50 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth/auth'
 import { prisma } from '@/lib/prisma'
 import { streamCustomerResponse } from '@/lib/ai/agents/customer-agent'
-import { 
-  getOrCreateCustomerConversation, 
+import {
+  getOrCreateCustomerConversation,
   saveUserMessage,
-  loadConversationHistory 
+  loadConversationHistory
 } from '@/lib/ai/memory'
+import { checkRateLimit, rateLimitResponse, getClientIdentifier } from '@/lib/security/rateLimit'
+import { AI_RATE_LIMITS } from '@/lib/ai/config'
+
+const ONE_MINUTE_MS = 60 * 1000
+const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
 /**
  * Customer Chat API
- * 
+ *
  * Streams responses from Reggie AI for customer-facing interactions.
  * Supports authenticated customers and guest users.
  */
 
 export async function POST(request: NextRequest) {
+  // Rate limit before any AI call — keyed by session user ID or IP fallback
+  const session = await auth()
+  const ip = getClientIdentifier(request.headers)
+  const identifier = session?.user?.email ?? ip
+
+  const minuteCheck = checkRateLimit(
+    `ai:customer-chat:min:${identifier}`,
+    AI_RATE_LIMITS.customerChat.perMinute,
+    ONE_MINUTE_MS
+  )
+  if (!minuteCheck.allowed) {
+    return rateLimitResponse(minuteCheck.retryAfter)
+  }
+  const dayCheck = checkRateLimit(
+    `ai:customer-chat:day:${identifier}`,
+    AI_RATE_LIMITS.customerChat.perDay,
+    ONE_DAY_MS
+  )
+  if (!dayCheck.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Try again later.' },
+      { status: 429 }
+    )
+  }
+
   try {
     const body = await request.json()
     const { message, conversationId: providedConversationId } = body
@@ -28,7 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get customer from session if logged in
-    const session = await auth()
+    // (session already resolved above for rate-limit key)
     let customerId: string | undefined
     let customerEmail: string | undefined
 

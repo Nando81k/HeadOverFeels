@@ -52,7 +52,7 @@ export const SAFETY_SETTINGS = [
 export const MAX_CONVERSATION_MESSAGES = 50
 export const MAX_CONTEXT_TOKENS = 30000
 
-// Rate limiting
+// Rate limiting — per-role chat limits (legacy shape kept for reference)
 export const RATE_LIMITS = {
   customer: {
     messagesPerMinute: 20,
@@ -61,6 +61,25 @@ export const RATE_LIMITS = {
   admin: {
     messagesPerMinute: 50,
     messagesPerHour: 500,
+  },
+}
+
+// Per-route AI rate limits enforced at the API layer
+export const AI_RATE_LIMITS = {
+  // Public product review summary (IP-keyed)
+  reviewSummary: {
+    perMinute: 5,
+    perDay: 50,
+  },
+  // Customer Reggie AI chat (user-ID or IP keyed)
+  customerChat: {
+    perMinute: 20,
+    perDay: 200,
+  },
+  // Admin Reggie AI chat (admin-ID keyed)
+  adminChat: {
+    perMinute: 50,
+    perDay: 500,
   },
 }
 
