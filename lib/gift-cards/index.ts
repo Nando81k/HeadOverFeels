@@ -253,32 +253,33 @@ export async function getGiftCardDetails(id: string) {
 export async function redeemGiftCard(input: RedeemGiftCardInput): Promise<RedemptionResult> {
   try {
     const normalizedCode = input.code.toUpperCase().trim()
-    
+
     if (!isValidGiftCardCode(normalizedCode)) {
       return { success: false, error: 'Invalid gift card code format' }
     }
-    
-    // Find and lock the gift card
+
+    // Look up the gift card for upfront validation (status, expiry) before entering the transaction.
+    // The actual balance deduction is guarded atomically inside the transaction below.
     const giftCard = await prisma.giftCard.findUnique({
       where: { code: normalizedCode },
     })
-    
+
     if (!giftCard) {
       return { success: false, error: 'Gift card not found' }
     }
-    
+
     // Validate status
     if (giftCard.status !== 'ACTIVE') {
-      return { 
-        success: false, 
-        error: giftCard.status === 'EXPIRED' 
-          ? 'Gift card has expired' 
+      return {
+        success: false,
+        error: giftCard.status === 'EXPIRED'
+          ? 'Gift card has expired'
           : giftCard.status === 'DEPLETED'
             ? 'Gift card has no remaining balance'
-            : 'Gift card is not active' 
+            : 'Gift card is not active'
       }
     }
-    
+
     // Check expiration
     if (giftCard.expiresAt && giftCard.expiresAt < new Date()) {
       await prisma.giftCard.update({
@@ -287,32 +288,49 @@ export async function redeemGiftCard(input: RedeemGiftCardInput): Promise<Redemp
       })
       return { success: false, error: 'Gift card has expired' }
     }
-    
-    // Calculate amount to redeem
+
+    // Calculate amount to redeem (cap at current balance observed pre-transaction)
     const amountToRedeem = Math.min(input.amount, giftCard.currentBalance)
-    
+
     if (amountToRedeem <= 0) {
       return { success: false, error: 'Gift card has no remaining balance' }
     }
-    
-    // Calculate new balance
-    const newBalance = giftCard.currentBalance - amountToRedeem
-    const newStatus: GiftCardStatus = newBalance <= 0 ? 'DEPLETED' : 'ACTIVE'
-    
-    // Update gift card in a transaction
-    await prisma.$transaction([
-      // Update gift card balance
-      prisma.giftCard.update({
-        where: { id: giftCard.id },
+
+    // Atomic interactive transaction: the conditional updateMany ensures the decrement
+    // only fires when currentBalance is still sufficient at the moment of the write,
+    // closing the race window between the pre-check read and the update.
+    const result = await prisma.$transaction(async (tx) => {
+      // Conditionally decrement only if balance is still >= amountToRedeem
+      const updateResult = await tx.giftCard.updateMany({
+        where: {
+          id: giftCard.id,
+          status: 'ACTIVE',
+          currentBalance: { gte: amountToRedeem },
+        },
         data: {
-          currentBalance: newBalance,
-          status: newStatus,
+          currentBalance: { decrement: amountToRedeem },
           redeemedById: input.customerId || giftCard.redeemedById,
         },
-      }),
-      
+      })
+
+      if (updateResult.count === 0) {
+        throw new Error('Insufficient gift card balance')
+      }
+
+      // Derive the new balance without a second read (avoids extra round-trip)
+      const newBalance = giftCard.currentBalance - amountToRedeem
+      const newStatus: GiftCardStatus = newBalance <= 0 ? 'DEPLETED' : 'ACTIVE'
+
+      // If depleted, update status separately (updateMany above already decremented)
+      if (newStatus === 'DEPLETED') {
+        await tx.giftCard.updateMany({
+          where: { id: giftCard.id },
+          data: { status: 'DEPLETED' },
+        })
+      }
+
       // Create transaction record
-      prisma.giftCardTransaction.create({
+      await tx.giftCardTransaction.create({
         data: {
           giftCardId: giftCard.id,
           type: 'REDEMPTION',
@@ -322,25 +340,30 @@ export async function redeemGiftCard(input: RedeemGiftCardInput): Promise<Redemp
           description: `Redeemed $${amountToRedeem.toFixed(2)} for order`,
           customerId: input.customerId,
         },
-      }),
-      
+      })
+
       // Create order-gift card link
-      prisma.orderGiftCard.create({
+      await tx.orderGiftCard.create({
         data: {
           orderId: input.orderId,
           giftCardId: giftCard.id,
           amountApplied: amountToRedeem,
         },
-      }),
-    ])
-    
+      })
+
+      return { amountToRedeem, newBalance, giftCardId: giftCard.id }
+    })
+
     return {
       success: true,
-      amountRedeemed: amountToRedeem,
-      remainingBalance: newBalance,
-      giftCardId: giftCard.id,
+      amountRedeemed: result.amountToRedeem,
+      remainingBalance: result.newBalance,
+      giftCardId: result.giftCardId,
     }
   } catch (error) {
+    if (error instanceof Error && error.message === 'Insufficient gift card balance') {
+      return { success: false, error: 'Insufficient gift card balance' }
+    }
     console.error('Failed to redeem gift card:', error)
     return { success: false, error: 'Failed to redeem gift card' }
   }
@@ -410,41 +433,62 @@ export async function adjustGiftCardBalance(
     const giftCard = await prisma.giftCard.findUnique({
       where: { id: giftCardId },
     })
-    
+
     if (!giftCard) {
       return { success: false, error: 'Gift card not found' }
     }
-    
-    const newBalance = giftCard.currentBalance + amount
-    
-    if (newBalance < 0) {
-      return { success: false, error: 'Adjustment would result in negative balance' }
-    }
-    
-    const newStatus: GiftCardStatus = newBalance <= 0 ? 'DEPLETED' : 'ACTIVE'
-    
-    await prisma.$transaction([
-      prisma.giftCard.update({
-        where: { id: giftCardId },
-        data: {
-          currentBalance: newBalance,
-          status: newStatus,
-        },
-      }),
-      
-      prisma.giftCardTransaction.create({
+
+    // For negative adjustments (debits) use a conditional updateMany so the
+    // operation is atomic — two concurrent admin debits cannot both succeed if
+    // combined they would produce a negative balance.
+    const newBalance = await prisma.$transaction(async (tx) => {
+      if (amount < 0) {
+        const debit = Math.abs(amount)
+        const updateResult = await tx.giftCard.updateMany({
+          where: {
+            id: giftCardId,
+            currentBalance: { gte: debit },
+          },
+          data: {
+            currentBalance: { decrement: debit },
+            status: giftCard.currentBalance - debit <= 0 ? 'DEPLETED' : 'ACTIVE',
+          },
+        })
+
+        if (updateResult.count === 0) {
+          throw new Error('Adjustment would result in negative balance')
+        }
+      } else {
+        // Positive adjustments (credits) are safe to apply non-conditionally
+        await tx.giftCard.update({
+          where: { id: giftCardId },
+          data: {
+            currentBalance: { increment: amount },
+            status: 'ACTIVE',
+          },
+        })
+      }
+
+      const computed = giftCard.currentBalance + amount
+
+      await tx.giftCardTransaction.create({
         data: {
           giftCardId,
           type: 'ADJUSTMENT',
           amount,
-          balanceAfter: newBalance,
+          balanceAfter: computed,
           description: `Admin adjustment: ${reason}`,
         },
-      }),
-    ])
-    
+      })
+
+      return computed
+    })
+
     return { success: true, newBalance }
   } catch (error) {
+    if (error instanceof Error && error.message === 'Adjustment would result in negative balance') {
+      return { success: false, error: 'Adjustment would result in negative balance' }
+    }
     console.error('Failed to adjust gift card balance:', error)
     return { success: false, error: 'Failed to adjust balance' }
   }
