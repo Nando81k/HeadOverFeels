@@ -3,7 +3,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ComponentPropsWithoutRef, ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import ProductsPage from '@/app/admin/products/page'
+import { AdminProductsV1 as ProductsPage } from '@/components/admin/_v1/AdminProductsV1'
 
 const { getAllMock, updateMock, deleteMock } = vi.hoisted(() => ({
   getAllMock: vi.fn(),
