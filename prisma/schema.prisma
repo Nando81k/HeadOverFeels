@@ -1796,3 +1796,13 @@ model EmailQueue {
   @@index([type])
   @@map("email_queue")
 }
+
+// Generic key-value store for admin-configurable settings (e.g. dashboard goals, feature flags)
+model Setting {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
