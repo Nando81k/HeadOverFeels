@@ -1,7 +1,7 @@
 // components/admin/dashboard/NeedsAttention.tsx
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { NeedsAttentionCard } from '@/components/ui/NeedsAttentionCard'
 import type { AttentionAlert } from '@/lib/admin/dashboard'
 import { cn } from '@/lib/utils'
@@ -12,17 +12,18 @@ interface Props {
   initialAlerts: AttentionAlert[]
 }
 
-export function NeedsAttention({ initialAlerts }: Props) {
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+function readDismissed(): Set<string> {
+  try {
+    const raw =
+      typeof window !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY) : null
+    return raw ? new Set<string>(JSON.parse(raw)) : new Set()
+  } catch {
+    return new Set()
+  }
+}
 
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(STORAGE_KEY)
-      if (raw) setDismissed(new Set(JSON.parse(raw)))
-    } catch {
-      /* sessionStorage unavailable — empty set */
-    }
-  }, [])
+export function NeedsAttention({ initialAlerts }: Props) {
+  const [dismissed, setDismissed] = useState<Set<string>>(readDismissed)
 
   const dismiss = (id: string) => {
     setDismissed((prev) => {
