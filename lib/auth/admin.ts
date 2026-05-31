@@ -1,14 +1,10 @@
 import { NextRequest } from 'next/server'
-import { AdminRole } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 
-// Re-export so callers can reference the enum without a separate import
-export { AdminRole }
-
 /**
- * Verify that the current request is from an authenticated admin user.
- * Accepts isAdmin=true (legacy boolean) OR a non-null adminRole (new RBAC).
- * @returns The admin customer's ID, or null if not authenticated / not admin.
+ * Verify that the current request is from an authenticated admin user
+ * @param request - The Next.js request object
+ * @returns The admin user's ID if authenticated, or null if not
  */
 export async function verifyAdmin(request: NextRequest): Promise<string | null> {
   const sessionId = request.cookies.get('auth_session')?.value
@@ -20,19 +16,13 @@ export async function verifyAdmin(request: NextRequest): Promise<string | null> 
   try {
     const customer = await prisma.customer.findUnique({
       where: { id: sessionId },
-      select: {
+      select: { 
         id: true,
-        isAdmin: true,
-        adminRole: true,
+        isAdmin: true 
       },
     })
 
-    if (!customer) {
-      return null
-    }
-
-    // Accept either the legacy boolean or the new role column
-    if (!customer.isAdmin && customer.adminRole === null) {
+    if (!customer || !customer.isAdmin) {
       return null
     }
 
@@ -44,138 +34,69 @@ export async function verifyAdmin(request: NextRequest): Promise<string | null> 
 }
 
 /**
- * Get the current admin user (throws if not authenticated / not admin).
- * Accepts isAdmin=true (legacy boolean) OR a non-null adminRole (new RBAC).
- * @returns The admin customer record.
- * @throws Error if not authenticated or not an admin.
+ * Get the current admin user (throws error if not authenticated).
+ *
+ * Two call signatures:
+ *   requireAdmin(request)  — API route usage (reads auth_session cookie from NextRequest)
+ *   requireAdmin()         — Server Action usage (reads auth_token JWT via next/headers)
+ *
+ * @throws Error if not authenticated or not an admin
  */
-export async function requireAdmin(request: NextRequest) {
-  const sessionId = request.cookies.get('auth_session')?.value
-
-  if (!sessionId) {
-    throw new Error('Not authenticated')
-  }
-
-  const customer = await prisma.customer.findUnique({
-    where: { id: sessionId },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      isAdmin: true,
-      adminRole: true,
-    },
-  })
-
-  if (!customer) {
-    throw new Error('User not found')
-  }
-
-  // Accept either the legacy boolean or the new role column
-  if (!customer.isAdmin && customer.adminRole === null) {
-    throw new Error('Unauthorized - admin access required')
-  }
-
-  return customer
-}
-
 /**
- * Verify that the current request is from an admin with a specific role.
- * SUPER_ADMIN bypasses all role checks.
- * @param request - The Next.js request object.
- * @param requiredRole - The minimum AdminRole required for the action.
- * @returns The admin customer's ID, or null if the role requirement is not met.
+ * Two call signatures:
+ *   requireAdmin(request)  — API route usage (reads auth_session cookie from NextRequest)
+ *   requireAdmin()         — Server Action usage (reads auth_token JWT via next/headers)
+ *
+ * Returns a customer object (API-route path) or userId string (Server Action path).
+ * @throws Error if not authenticated or not an admin
  */
-export async function verifyAdminRole(
-  request: NextRequest,
-  requiredRole: AdminRole
-): Promise<string | null> {
-  const sessionId = request.cookies.get('auth_session')?.value
+export async function requireAdmin(request: NextRequest): Promise<{ id: string; email: string; name: string | null; isAdmin: boolean }>
+export async function requireAdmin(): Promise<string>
+export async function requireAdmin(
+  request?: NextRequest,
+): Promise<{ id: string; email: string; name: string | null; isAdmin: boolean } | string> {
+  if (request) {
+    // API-route path: read auth_session cookie from the request
+    const sessionId = request.cookies.get('auth_session')?.value
+    if (!sessionId) throw new Error('Not authenticated')
 
-  if (!sessionId) {
-    return null
-  }
-
-  try {
     const customer = await prisma.customer.findUnique({
       where: { id: sessionId },
-      select: {
-        id: true,
-        isAdmin: true,
-        adminRole: true,
-      },
+      select: { id: true, email: true, name: true, isAdmin: true },
     })
-
-    if (!customer) {
-      return null
-    }
-
-    // Must have an adminRole (null means non-admin)
-    if (customer.adminRole === null) {
-      return null
-    }
-
-    // SUPER_ADMIN bypasses all role gates
-    if (
-      customer.adminRole === AdminRole.SUPER_ADMIN ||
-      customer.adminRole === requiredRole
-    ) {
-      return customer.id
-    }
-
-    return null
-  } catch (error) {
-    console.error('Admin role verification error:', error)
-    return null
+    if (!customer) throw new Error('User not found')
+    if (!customer.isAdmin) throw new Error('Unauthorized - admin access required')
+    return customer
   }
+
+  // Server Action path: verify JWT session from cookies (next/headers)
+  const { getSession } = await import('@/lib/auth/session')
+  const session = await getSession()
+  if (!session || !session.isAdmin) {
+    throw new Error('Unauthorized — admin access required')
+  }
+  return session.userId
 }
 
 /**
- * Require that the current request is from an admin with a specific role.
- * SUPER_ADMIN bypasses all role checks.
- * @param request - The Next.js request object.
- * @param requiredRole - The AdminRole required for the action.
- * @returns The admin customer record.
- * @throws Error if not authenticated or role requirement is not met.
+ * Role-gated guard for Server Actions.
+ * Verifies the session is an admin and that adminRole matches.
  */
-export async function requireAdminRole(
-  request: NextRequest,
-  requiredRole: AdminRole
-) {
-  const sessionId = request.cookies.get('auth_session')?.value
-
-  if (!sessionId) {
-    throw new Error('Not authenticated')
+export async function requireAdminRole(role: string): Promise<string> {
+  const { getSession } = await import('@/lib/auth/session')
+  const session = await getSession()
+  if (!session || !session.isAdmin) {
+    throw new Error('Unauthorized — admin access required')
   }
-
   const customer = await prisma.customer.findUnique({
-    where: { id: sessionId },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      isAdmin: true,
-      adminRole: true,
-    },
+    where: { id: session.userId },
+    select: { adminRole: true },
   })
-
-  if (!customer) {
-    throw new Error('User not found')
+  if (!customer || customer.adminRole !== role) {
+    throw new Error(`Unauthorized — requires role ${role}`)
   }
-
-  if (customer.adminRole === null) {
-    throw new Error('Unauthorized - admin access required')
-  }
-
-  // SUPER_ADMIN bypasses all role gates
-  if (
-    customer.adminRole !== AdminRole.SUPER_ADMIN &&
-    customer.adminRole !== requiredRole
-  ) {
-    throw new Error(
-      `Unauthorized - requires ${requiredRole} or SUPER_ADMIN role`
-    )
-  }
-
-  return customer
+  return session.userId
 }
+
+/** @deprecated Use requireAdmin() (no-arg) in Server Actions instead */
+export const requireAdminForAction = requireAdmin
