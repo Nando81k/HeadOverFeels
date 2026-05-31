@@ -60,14 +60,18 @@ export async function POST(request: NextRequest) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent
         console.log('Payment succeeded:', paymentIntent.id)
-        
-        // Update order status if orderId is in metadata
+
+        // Wave 3A: the order ALWAYS exists here — it was created atomically in
+        // POST /api/orders (along with the PI) before the customer ever saw the
+        // payment form. This handler only updates an existing order's status; it
+        // never creates a new order. stripePaymentIntentId is already set on the
+        // row, but we write it again as a safe no-op for idempotency.
         const orderId = paymentIntent.metadata?.orderId
         if (orderId) {
           try {
             const order = await prisma.order.update({
               where: { id: orderId },
-              data: { 
+              data: {
                 status: 'CONFIRMED',
                 paymentStatus: 'PAID',
                 stripePaymentIntentId: paymentIntent.id, // Store for refunds
@@ -283,24 +287,72 @@ export async function POST(request: NextRequest) {
       case 'payment_intent.payment_failed': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent
         console.log('Payment failed:', paymentIntent.id)
-        
-        // Update order status if orderId is in metadata
+
+        // Wave 3A: the order ALWAYS exists at this point (created atomically in
+        // POST /api/orders before the PI was presented to the customer). This
+        // handler only updates status — it never creates an order.
         const orderId = paymentIntent.metadata?.orderId
         if (orderId) {
           try {
             await prisma.order.update({
               where: { id: orderId },
-              data: { 
+              data: {
                 status: 'CANCELLED',
-                paymentStatus: 'FAILED'
-              }
+                paymentStatus: 'FAILED',
+              },
             })
             console.log(`Order ${orderId} marked as FAILED`)
           } catch (error) {
-            console.error(`Failed to update order ${orderId}:`, error)
+            console.error(`Failed to update order ${orderId} to FAILED:`, error)
           }
         }
-        
+
+        break
+      }
+
+      case 'payment_intent.canceled': {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent
+        console.log('PaymentIntent canceled:', paymentIntent.id)
+
+        // Wave 3A: mark the pre-existing order as CANCELLED and restore inventory
+        // so the reserved stock becomes available again. The order row was created
+        // atomically when the PI was created, so it always exists here.
+        const orderId = paymentIntent.metadata?.orderId
+        if (orderId) {
+          try {
+            // Fetch order items to restore inventory
+            const order = await prisma.order.findUnique({
+              where: { id: orderId },
+              include: { items: true },
+            })
+
+            if (order) {
+              await prisma.$transaction(async (tx) => {
+                // Restore inventory for each variant that was decremented at order time
+                for (const item of order.items) {
+                  if (item.productVariantId) {
+                    await tx.productVariant.update({
+                      where: { id: item.productVariantId },
+                      data: { inventory: { increment: item.quantity } },
+                    })
+                  }
+                }
+
+                await tx.order.update({
+                  where: { id: orderId },
+                  data: {
+                    status: 'CANCELLED',
+                    paymentStatus: 'FAILED',
+                  },
+                })
+              })
+              console.log(`Order ${orderId} canceled and inventory restored`)
+            }
+          } catch (error) {
+            console.error(`Failed to cancel order ${orderId}:`, error)
+          }
+        }
+
         break
       }
 

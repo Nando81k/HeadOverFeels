@@ -14,6 +14,11 @@ const createPaymentIntentSchema = z.object({
   idempotencyKey: z.string().min(1).max(200).optional(),
 })
 
+// TODO(wave3a): deprecated by atomic order endpoint (POST /api/orders).
+// The checkout client now receives both the orderId and the PI client secret
+// in a single response from /api/orders. This route is preserved as a shim for
+// any in-flight clients or third-party integrations still calling it directly.
+// Remove once all callers have migrated to the atomic endpoint.
 // POST /api/stripe/payment-intent - Create payment intent
 export async function POST(request: NextRequest) {
   try {
