@@ -12,7 +12,7 @@
  * Responsibilities:
  *  - Manages selectedIds Set state (checkbox multi-select)
  *  - Opens ProductInspector when ⋯ row-action or mobile Edit is clicked
- *  - Fetches ProductDetailForInspector via loadProductDetail on demand
+ *  - Fetches ProductDetailForInspector via getProductDetailForInspector server action on demand
  *  - Opens ProductBulkActionsSheet whenever selectedIds.size > 0
  *  - Propagates onRefresh to parent after save / bulk action
  *
@@ -21,7 +21,7 @@
 
 import { useCallback, useState } from 'react'
 import type { ProductRow, ProductDetailForInspector } from '@/lib/admin/products'
-import { loadProductDetail } from '@/lib/admin/products'
+import { getProductDetailForInspector } from '@/app/admin/products/actions'
 import { ProductsListTable } from './ProductsListTable'
 import { ProductsListCardMobile } from './ProductsListCardMobile'
 import { ProductInspector } from './ProductInspector'
@@ -71,7 +71,7 @@ export function ProductsListView({ rows, loading = false, onRefresh }: ProductsL
   const [inspectorProduct, setInspectorProduct] = useState<ProductDetailForInspector | null>(null)
 
   const openInspector = useCallback(async (productId: string) => {
-    const detail = await loadProductDetail(productId)
+    const detail = await getProductDetailForInspector(productId)
     if (detail) {
       setInspectorProduct(detail)
     }
