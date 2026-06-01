@@ -25,6 +25,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin, requireAdminRole } from '@/lib/auth/admin'
+import { loadProductDetail, type ProductDetailForInspector } from '@/lib/admin/products'
 
 // ============================================================
 // Return types
@@ -461,4 +462,17 @@ export async function removeProductFromCollection(
   revalidatePath(`/admin/products/collections/${collectionId}`)
   revalidatePath('/admin/products')
   return { ok: true }
+}
+
+// ============================================================
+// 15. Inspector — Fetch product detail
+// ============================================================
+
+// Server-action wrapper around loadProductDetail so client components can
+// call it without pulling Prisma into the browser bundle.
+export async function getProductDetailForInspector(
+  productId: string,
+): Promise<ProductDetailForInspector | null> {
+  await requireAdmin()
+  return loadProductDetail(productId)
 }
