@@ -73,9 +73,9 @@ function SortableItem({ product, index }: SortableItemProps) {
       style={style}
       data-testid="sortable-item"
       className={[
-        'flex items-center gap-4 rounded-lg border bg-white p-3 shadow-sm',
-        'dark:bg-neutral-900 dark:border-white/10',
-        isDragging ? 'shadow-lg ring-2 ring-indigo-500' : 'border-neutral-200',
+        'flex items-center gap-4 rounded-lg border p-3 transition-colors',
+        'bg-neutral-900/60 border-white/8 hover:bg-neutral-900/80',
+        isDragging ? 'shadow-lg ring-1 ring-red-500/40 bg-neutral-900' : '',
       ].join(' ')}
     >
       {/* Drag handle */}
@@ -83,7 +83,7 @@ function SortableItem({ product, index }: SortableItemProps) {
         {...attributes}
         {...listeners}
         aria-label="Drag to reorder"
-        className="cursor-grab text-neutral-400 hover:text-neutral-600 dark:text-white/30 dark:hover:text-white/60 active:cursor-grabbing focus:outline-none"
+        className="cursor-grab text-white/30 hover:text-white/60 active:cursor-grabbing focus:outline-none focus-visible:ring-1 focus-visible:ring-red-500/40 rounded"
         data-testid="drag-handle"
       >
         {/* Hamburger dots icon */}
@@ -98,12 +98,12 @@ function SortableItem({ product, index }: SortableItemProps) {
       </button>
 
       {/* Position badge */}
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-xs font-semibold text-neutral-500 dark:bg-white/10 dark:text-white/50">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/8 text-xs font-semibold text-white/55">
         {index + 1}
       </span>
 
       {/* Thumbnail */}
-      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-neutral-100 dark:bg-white/5">
+      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-white/5 border border-white/8">
         {product.primaryImage ? (
           <Image
             src={product.primaryImage}
@@ -113,7 +113,7 @@ function SortableItem({ product, index }: SortableItemProps) {
             className="object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-neutral-300 dark:text-white/20">
+          <div className="flex h-full w-full items-center justify-center text-white/20">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
               <path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 1.5a6.5 6.5 0 110 13 6.5 6.5 0 010-13zm0 3a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm-3 6.5c0-1.657 1.343-3 3-3s3 1.343 3 3H7z" />
             </svg>
@@ -122,7 +122,7 @@ function SortableItem({ product, index }: SortableItemProps) {
       </div>
 
       {/* Product name */}
-      <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900 dark:text-white">
+      <span className="min-w-0 flex-1 truncate text-sm font-medium text-white">
         {product.name}
       </span>
     </div>
@@ -174,37 +174,37 @@ export function CollectionDetailView({ collection }: CollectionDetailViewProps) 
     <div className="space-y-4" data-testid="collection-detail-view">
       {/* Header */}
       <div className="mb-2">
-        <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
+        <h2 className="text-lg font-semibold text-white">
           {collection.name}
         </h2>
         {collection.description && (
-          <p className="mt-1 text-sm text-neutral-500 dark:text-white/50">
+          <p className="mt-1 text-sm text-white/50">
             {collection.description}
           </p>
         )}
-        <p className="mt-1 text-xs text-neutral-400 dark:text-white/30">
+        <p className="mt-1 text-xs text-white/30">
           {collection.products.length} product{collection.products.length !== 1 ? 's' : ''} — drag to reorder
         </p>
       </div>
 
       {/* Saving indicator */}
       {isPending && (
-        <p className="text-xs text-indigo-500" data-testid="saving-indicator">
+        <p className="text-xs text-red-400" data-testid="saving-indicator">
           Saving order…
         </p>
       )}
 
       {/* Error */}
       {saveError && (
-        <p className="text-xs text-red-500" role="alert" data-testid="save-error">
+        <p className="text-xs text-red-400" role="alert" data-testid="save-error">
           {saveError}
         </p>
       )}
 
       {/* Empty state */}
       {optimisticProducts.length === 0 && (
-        <div className="rounded-lg border border-dashed border-neutral-300 py-12 text-center dark:border-white/10">
-          <p className="text-sm text-neutral-400 dark:text-white/40">No products in this collection yet.</p>
+        <div className="rounded-lg border border-dashed border-white/10 py-12 text-center">
+          <p className="text-sm text-white/40">No products in this collection yet.</p>
         </div>
       )}
 
