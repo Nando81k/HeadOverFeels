@@ -15,6 +15,7 @@ import {
   parseSort,
 } from '@/lib/orders/admin-order-query'
 import { computeOrderPricing } from '@/lib/checkout/server-pricing'
+import { getIO } from '@/lib/socket'
 
 // Validation schemas
 const AddressSchema = z.object({
@@ -352,6 +353,20 @@ export async function POST(request: NextRequest) {
         // Do not fail order creation when newsletter opt-in fails.
         console.error('Checkout newsletter opt-in failed:', newsletterError)
       }
+    }
+
+    // Best-effort broadcast for the admin v2 NewOrderToast. Errors are swallowed
+    // so a disconnected Socket.IO server can never block order creation.
+    try {
+      const io = getIO()
+      io.emit('order:new', {
+        id: result.id,
+        orderNumber: result.orderNumber,
+        total: Number(result.total),
+        customerEmail: result.customerEmail,
+      })
+    } catch {
+      // Socket.IO not initialised (e.g., during server-rendered build) — ignore.
     }
 
     return NextResponse.json({
