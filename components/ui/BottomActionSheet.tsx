@@ -9,6 +9,7 @@ export interface BottomActionSheetAction {
   icon?: React.ReactNode
   onClick: () => void
   variant?: 'default' | 'destructive'
+  disabled?: boolean
 }
 
 export interface BottomActionSheetProps {
@@ -52,8 +53,10 @@ export function BottomActionSheet({
                   key={i}
                   type="button"
                   onClick={a.onClick}
+                  disabled={a.disabled}
                   className={cn(
                     'flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold whitespace-nowrap',
+                    a.disabled && 'opacity-40 cursor-not-allowed',
                     a.variant === 'destructive'
                       ? 'bg-red-500/10 text-red-400 hover:bg-red-500/15'
                       : 'bg-white/[0.05] text-white hover:bg-white/[0.08]',
