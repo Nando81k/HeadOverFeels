@@ -195,6 +195,7 @@ model Customer {
   passwordResetToken       String?                   @unique
   passwordResetExpires     DateTime?
   termsAcceptedAt          DateTime?
+  anonymizedAt             DateTime?
   abandonedCarts           AbandonedCart[]
   accounts                 Account[]
   addresses                Address[]
@@ -226,6 +227,7 @@ model Customer {
   returnsDecided           Return[]                  @relation("ReturnDecidedBy")
   refundsCreated           RefundRecord[]            @relation("RefundCreatedBy")
 
+  @@index([anonymizedAt])
   @@map("customers")
 }
 
