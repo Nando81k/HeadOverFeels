@@ -10,6 +10,8 @@ export interface BottomActionSheetAction {
   onClick: () => void
   variant?: 'default' | 'destructive'
   disabled?: boolean
+  /** Native HTML title for tooltip (e.g. on disabled actions). */
+  title?: string
 }
 
 export interface BottomActionSheetProps {
@@ -54,6 +56,7 @@ export function BottomActionSheet({
                   type="button"
                   onClick={a.onClick}
                   disabled={a.disabled}
+                  title={a.title}
                   className={cn(
                     'flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold whitespace-nowrap',
                     a.disabled && 'opacity-40 cursor-not-allowed',
