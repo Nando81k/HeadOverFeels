@@ -954,6 +954,7 @@ model SupportTicket {
   resolvedAt      DateTime?
   resolvedBy      String?
   resolution      String?
+  firstRespondedAt DateTime?
   aiAssisted      Boolean             @default(false)
   aiSummary       String?
   createdAt       DateTime            @default(now())
@@ -968,6 +969,7 @@ model SupportTicket {
   @@index([orderId])
   @@index([status])
   @@index([type])
+  @@index([firstRespondedAt])
   @@index([createdAt])
   @@map("support_tickets")
 }
@@ -1049,6 +1051,21 @@ model AdminAvailability {
   admin       AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
   @@map("admin_availability")
+}
+
+model CannedResponse {
+  id          String   @id @default(cuid())
+  title       String
+  body        String
+  category    String?
+  isActive    Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([category])
+  @@map("canned_responses")
 }
 
 model AiConversation {
