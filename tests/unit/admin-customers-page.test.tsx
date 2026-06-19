@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import CustomersPage from '@/app/admin/customers/page'
+import { AdminCustomersV1Page as CustomersPage } from '@/components/admin/_v1/AdminCustomersV1Page'
 
 const { fetchMock, toastMock } = vi.hoisted(() => ({
   fetchMock: vi.fn(),
