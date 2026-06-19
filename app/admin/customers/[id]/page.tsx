@@ -1,42 +1,34 @@
-/**
- * Customer Detail Page
- * 
- * Comprehensive view of a single customer with:
- * - Profile information with modern dark theme
- * - Customer spending and points activity charts
- * - Complete purchase history with expandable details
- * - Care Points tracking with tier progression
- * - Admin gift points functionality
- * - Internal notes management
- */
+import { AdminCustomersV1DetailPage } from '@/components/admin/_v1/AdminCustomersV1DetailPage'
+import { AdminCustomerDetailV2 } from '@/components/admin/dashboard/AdminCustomerDetailV2'
+import { getSession } from '@/lib/auth/session'
+import { prisma } from '@/lib/prisma'
 
-import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
-import { CustomerDetailClient } from '@/components/admin/customer-detail';
-
-// Force dynamic rendering (no prerendering during build)
-export const dynamic = 'force-dynamic';
+export const revalidate = 60
 
 interface PageProps {
-  params: Promise<{
-    id: string;
-  }>;
+  params: Promise<{ id: string }>
 }
 
-export default async function CustomerDetailPage({ params }: PageProps) {
-  const { id } = await params;
+export default async function AdminCustomerDetailPage({ params }: PageProps) {
+  const { id } = await params
 
-  // Verify customer exists (quick check)
-  const customer = await prisma.customer.findUnique({
-    where: { id },
-    select: { id: true },
-  });
-
-  if (!customer) {
-    notFound();
+  if (process.env.NEXT_PUBLIC_ADMIN_V2_ENABLED !== 'true') {
+    return <AdminCustomersV1DetailPage customerId={id} />
   }
 
-  // Render the client component with just the ID
-  // All data fetching is done client-side for interactivity
-  return <CustomerDetailClient customerId={id} />;
+  let isSuperAdmin = false
+  try {
+    const session = await getSession()
+    if (session?.userId) {
+      const customer = await prisma.customer.findUnique({
+        where: { id: session.userId },
+        select: { adminRole: true },
+      })
+      isSuperAdmin = customer?.adminRole === 'SUPER_ADMIN'
+    }
+  } catch {
+    isSuperAdmin = false
+  }
+
+  return <AdminCustomerDetailV2 customerId={id} isSuperAdmin={isSuperAdmin} />
 }
