@@ -35,6 +35,7 @@ describe('AdminLayout dispatcher', () => {
     const { AdminLayout } = await import('@/components/admin/AdminLayout')
     render(<AdminLayout title="T">x</AdminLayout>)
     // V2 has "Products & Drops" label in the sidebar
-    expect(screen.getByText('Products & Drops')).toBeInTheDocument()
+    // V2 renders the sidebar for desktop and mobile, so the label can appear more than once
+    expect(screen.getAllByText('Products & Drops').length).toBeGreaterThan(0)
   })
 })

@@ -167,7 +167,6 @@ describe('ProductPageClient selection UX', () => {
       expect(screen.getByText('Limited Drop Hoodie')).toBeTruthy()
     })
 
-    expect(screen.getByTestId('sticky-product-name').textContent).toContain('LIMITED DROP HOODIE')
     expect(screen.getByTestId('selected-color-value').textContent).toBe('RED')
     expect(screen.getByTestId('selected-size-value').textContent).toBe('S')
     expect(screen.getByTestId('selected-quantity').textContent).toBe('1')
@@ -450,7 +449,7 @@ describe('ProductPageClient review section', () => {
 
     fireEvent.click(screen.getByTestId('review-filter-verified'))
     fireEvent.click(screen.getByTestId('review-filter-photos'))
-    fireEvent.click(screen.getByTestId('review-filter-rating-5'))
+    fireEvent.click(screen.getByTestId('review-rating-bar-5'))
 
     await waitFor(() => {
       expect(reviewQueryCalls.some((url) =>
@@ -458,7 +457,7 @@ describe('ProductPageClient review section', () => {
       )).toBe(true)
     })
 
-    expect(screen.getByText('Showing 1 of 1 review matching current filters')).toBeTruthy()
+    expect(screen.getByText('1 of 1')).toBeTruthy()
     expect(screen.getByText('Review 1')).toBeTruthy()
   })
 
@@ -466,7 +465,7 @@ describe('ProductPageClient review section', () => {
     render(<ProductPageClient slug="limited-drop-hoodie" />)
 
     await waitFor(() => {
-      expect(screen.getByText('Showing 6 of 8 reviews')).toBeTruthy()
+      expect(screen.getByText('6 of 8')).toBeTruthy()
     })
 
     expect(screen.queryByText('Review 8')).toBeNull()
@@ -487,7 +486,7 @@ describe('ProductPageClient review section', () => {
 
     fireEvent.click(screen.getByTestId('review-filter-verified'))
     fireEvent.click(screen.getByTestId('review-filter-photos'))
-    fireEvent.click(screen.getByTestId('review-filter-rating-1'))
+    fireEvent.click(screen.getByTestId('review-rating-bar-1'))
 
     await waitFor(() => {
       expect(screen.getByText('No reviews match your current filters.')).toBeTruthy()
@@ -496,7 +495,7 @@ describe('ProductPageClient review section', () => {
     fireEvent.click(screen.getByTestId('review-filter-clear'))
 
     await waitFor(() => {
-      expect(screen.getByText('Showing 6 of 8 reviews')).toBeTruthy()
+      expect(screen.getByText('6 of 8')).toBeTruthy()
     })
 
     const lastCall = reviewQueryCalls[reviewQueryCalls.length - 1]

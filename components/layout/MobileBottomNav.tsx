@@ -91,7 +91,7 @@ export function MobileBottomNav({ onSearchClick }: MobileBottomNavProps) {
           <span className="relative">
             <Bag size={22} weight={isCart ? 'fill' : 'regular'} />
             {cartCount > 0 && (
-              <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-black px-1 text-[9px] font-bold leading-none text-white">
+              <span data-testid="mobile-nav-cart-count" className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-black px-1 text-[9px] font-bold leading-none text-white">
                 {cartCount > 99 ? '99+' : cartCount}
               </span>
             )}

@@ -6,15 +6,29 @@ import type { ProductRow, ProductDetailForInspector } from '@/lib/admin/products
 
 // ─── Module mocks ─────────────────────────────────────────────────────────────
 
-// Mock loadProductDetail so tests do not need a real DB.
-const mockLoadProductDetail = vi.fn<(id: string) => Promise<ProductDetailForInspector | null>>()
-vi.mock('@/lib/admin/products', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/admin/products')>()
-  return {
-    ...actual,
-    loadProductDetail: (...args: [string]) => mockLoadProductDetail(...args),
-  }
-})
+// Mock the products server actions. ProductsListView fetches inspector data via
+// the `getProductDetailForInspector` server action (which calls requireAdmin() →
+// cookies() and needs a request scope), so the whole module is replaced here.
+// The remaining exports are inert pass-throughs so sibling imports still resolve.
+const mockGetProductDetailForInspector =
+  vi.fn<(id: string) => Promise<ProductDetailForInspector | null>>()
+vi.mock('@/app/admin/products/actions', () => ({
+  getProductDetailForInspector: (...args: [string]) => mockGetProductDetailForInspector(...args),
+  saveProductQuickEdit: vi.fn(),
+  bulkArchive: vi.fn(),
+  bulkDelete: vi.fn(),
+  bulkDuplicate: vi.fn(),
+  bulkChangeCategory: vi.fn(),
+  bulkPriceUpdate: vi.fn(),
+  bulkAddTag: vi.fn(),
+  bulkSetFeatured: vi.fn(),
+  approveReview: vi.fn(),
+  rejectReview: vi.fn(),
+  replyToReview: vi.fn(),
+  reorderCollectionProducts: vi.fn(),
+  addProductsToCollection: vi.fn(),
+  removeProductFromCollection: vi.fn(),
+}))
 
 // Mock ProductBulkActionsSheet (framer-motion causes issues in jsdom)
 vi.mock('@/components/admin/products/ProductBulkActionsSheet', () => ({
@@ -121,7 +135,7 @@ function renderView(
 
 describe('ProductsListView', () => {
   beforeEach(() => {
-    mockLoadProductDetail.mockResolvedValue(productDetail)
+    mockGetProductDetailForInspector.mockResolvedValue(productDetail)
   })
 
   // ── Desktop table ──────────────────────────────────────────────────────────
@@ -248,11 +262,11 @@ describe('ProductsListView', () => {
       )
     })
 
-    it('calls loadProductDetail with the correct id', async () => {
+    it('calls getProductDetailForInspector with the correct id', async () => {
       renderView()
       fireEvent.click(screen.getByLabelText('Actions for Air Jordan 1 Retro High'))
       await waitFor(() => {
-        expect(mockLoadProductDetail).toHaveBeenCalledWith('p1')
+        expect(mockGetProductDetailForInspector).toHaveBeenCalledWith('p1')
       })
     })
 
@@ -273,12 +287,12 @@ describe('ProductsListView', () => {
       expect(screen.queryByTestId('product-inspector')).not.toBeInTheDocument()
     })
 
-    it('does not open inspector when loadProductDetail returns null', async () => {
-      mockLoadProductDetail.mockResolvedValueOnce(null)
+    it('does not open inspector when getProductDetailForInspector returns null', async () => {
+      mockGetProductDetailForInspector.mockResolvedValueOnce(null)
       renderView()
       fireEvent.click(screen.getByLabelText('Actions for Air Jordan 1 Retro High'))
       await waitFor(() => {
-        expect(mockLoadProductDetail).toHaveBeenCalledWith('p1')
+        expect(mockGetProductDetailForInspector).toHaveBeenCalledWith('p1')
       })
       expect(screen.queryByTestId('product-inspector')).not.toBeInTheDocument()
     })
