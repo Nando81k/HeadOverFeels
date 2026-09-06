@@ -73,13 +73,17 @@ export async function enqueueEmail(
 /**
  * Drain up to `limit` pending queue rows.
  *
- * Concurrency note: each row is updated atomically before the send attempt
- * (soft lease via nextRetryAt advancement). This prevents a second concurrent
- * cron run from claiming the same row in the time window between selection and
- * update. Because Vercel Cron only triggers a single invocation every 5 min
- * and processEmailQueue finishes well within that window, this pattern is safe
- * for Wave 3A. A database-level advisory lock or SELECT … FOR UPDATE SKIP LOCKED
- * would be required if concurrent runners were expected.
+ * Runners: the daily `/api/cron/run-all` sweep, the manually-triggered
+ * `/api/cron/process-email-queue` route, and an inline best-effort drain
+ * kicked off (via `after()`) by producers such as the Stripe webhook right
+ * after they enqueue. Several runners can therefore overlap.
+ *
+ * Concurrency: each candidate row is CLAIMED with a conditional `updateMany`
+ * that only succeeds while the row is still PENDING with an elapsed
+ * `nextRetryAt`; the claim pushes `nextRetryAt` forward as a 5-minute soft
+ * lease. A concurrent runner that raced for the same row sees `count === 0`
+ * and skips it, so no row is sent twice. Rows whose runner crashed mid-send
+ * become eligible again once the lease expires.
  */
 export async function processEmailQueue(
   limit = 50
@@ -100,12 +104,20 @@ export async function processEmailQueue(
   let failed = 0
 
   for (const row of rows) {
-    // Soft lease: push nextRetryAt forward so a concurrent runner skips this row
+    // Atomic claim + soft lease: only the runner whose conditional update
+    // matches gets to send; everyone else skips the row.
     const leaseExpiry = new Date(Date.now() + 5 * 60 * 1000)
-    await prisma.emailQueue.update({
-      where: { id: row.id },
+    const claim = await prisma.emailQueue.updateMany({
+      where: {
+        id: row.id,
+        status: EmailQueueStatus.PENDING,
+        nextRetryAt: { lte: now },
+      },
       data: { nextRetryAt: leaseExpiry },
     })
+    if (claim.count === 0) {
+      continue
+    }
 
     const sender = SENDER_MAP[row.type]
 

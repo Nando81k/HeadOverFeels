@@ -6,7 +6,12 @@ import { processEmailQueue } from '@/lib/email/queue'
  * POST /api/cron/process-email-queue
  *
  * Drains the EmailQueue table, retrying any PENDING rows whose nextRetryAt
- * has elapsed. Scheduled every 5 minutes via vercel.json.
+ * has elapsed.
+ *
+ * Not scheduled in vercel.json: the Vercel Hobby plan allows two daily crons,
+ * so the scheduled sweep lives in /api/cron/run-all and first delivery
+ * attempts happen inline from producers via `after()`. This route remains for
+ * manual/ops triggers (sign with `generateCronSignature`).
  *
  * Security: HMAC-SHA256 signature verification (same pattern as other crons).
  * Include headers:

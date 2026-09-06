@@ -61,6 +61,11 @@ export async function backfillReturnsFromTickets(
       skips.push({ ticketId: t.id, reason: 'no orderId on ticket' })
       continue
     }
+    if (!t.customerId) {
+      skips.push({ ticketId: t.id, reason: 'no customerId on ticket' })
+      continue
+    }
+    const customerId = t.customerId
 
     try {
       await prisma.$transaction(async (tx) => {
@@ -93,10 +98,10 @@ export async function backfillReturnsFromTickets(
           data: {
             rmaNumber,
             orderId: t.orderId!,
-            customerId: t.customerId,
+            customerId,
             status: deriveStatus(t.returnApproved, t.status),
             reason: t.refundReason ?? 'Backfilled from support ticket',
-            returnLabel: t.returnLabel,
+            returnLabel: t.returnLabel ?? undefined,
             windowExpiresAt,
             requestedAt: t.createdAt,
             supportTicketId: t.id,

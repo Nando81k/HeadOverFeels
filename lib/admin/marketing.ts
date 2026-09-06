@@ -16,7 +16,7 @@
 //   - subscriberDeltaPct: (thisWeekSubs - lastWeekSubs) / lastWeekSubs * 100, zero-divide safe.
 
 import { prisma } from '@/lib/prisma'
-import type { Prisma } from '@prisma/client'
+import type { NewsletterDeliveryStatus, Prisma } from '@prisma/client'
 
 // ============================================================
 // Tab types
@@ -253,7 +253,7 @@ export interface CampaignRow {
 export interface CampaignDeliveryRow {
   id: string
   email: string
-  status: string
+  status: NewsletterDeliveryStatus
   isTest: boolean
   sentAt: Date | null
   providerMessageId: string | null

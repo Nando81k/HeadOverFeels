@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { headers } from 'next/headers'
 import { stripe } from '@/lib/stripe/config'
 import { prisma } from '@/lib/prisma'
-import { enqueueEmail } from '@/lib/email/queue'
+import { enqueueEmail, processEmailQueue } from '@/lib/email/queue'
 import { notifyOrderStatus } from '@/lib/notifications/service'
 import { updateCustomerStatsOnOrderCompletion } from '@/lib/crm/service'
 import { awardReferralPoints } from '@/lib/loyalty/service'
@@ -103,9 +103,11 @@ export async function POST(request: NextRequest) {
             }
 
             // Enqueue order confirmation email for durable delivery with retry.
-            // The webhook no longer awaits a Resend HTTP call — a Resend outage
-            // will not drop the receipt; the cron at /api/cron/process-email-queue
-            // drains the queue every 5 min with exponential backoff (max 5 attempts).
+            // The webhook does not await a Resend HTTP call — a Resend outage
+            // will not drop the receipt. Delivery is attempted right after this
+            // response is sent (see `after()` below); anything that fails there
+            // is retried with exponential backoff by the daily
+            // /api/cron/run-all sweep (max 5 attempts).
             try {
               await enqueueEmail({
                 type: 'order-confirmation',
@@ -136,9 +138,23 @@ export async function POST(request: NextRequest) {
                 },
               })
               console.log(`Order confirmation email queued for order ${orderId}`)
+
+              // Best-effort inline drain once the 200 has gone back to Stripe,
+              // so the receipt is not held until the daily sweep. Vercel Hobby
+              // only allows daily crons, hence no frequent cron for this.
+              after(async () => {
+                try {
+                  const result = await processEmailQueue(5)
+                  console.log(
+                    `[email-queue inline] processed=${result.processed} sent=${result.sent} failed=${result.failed}`
+                  )
+                } catch (drainError) {
+                  console.error('[email-queue inline] drain failed:', drainError)
+                }
+              })
             } catch (emailError) {
               // Log error but don't fail the webhook — the row may still have
-              // been written; the cron will pick it up on the next run.
+              // been written; the daily sweep will pick it up.
               console.error(`Failed to enqueue order confirmation email for order ${orderId}:`, emailError)
             }
 

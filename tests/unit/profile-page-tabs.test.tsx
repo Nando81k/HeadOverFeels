@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ReactNode } from 'react'
 import ProfilePage from '@/app/profile/page'
@@ -7,15 +7,11 @@ const {
   pushMock,
   refreshUserMock,
   signoutMock,
-  getDailyMentalHealthQuoteMock,
-  getMsUntilNextLocalMidnightMock,
   mockUser,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
   refreshUserMock: vi.fn(async () => undefined),
   signoutMock: vi.fn(async () => undefined),
-  getDailyMentalHealthQuoteMock: vi.fn(),
-  getMsUntilNextLocalMidnightMock: vi.fn(),
   mockUser: {
     id: 'user-1',
     name: 'Test User',
@@ -38,6 +34,15 @@ const {
     },
   },
 }))
+
+// Mirrors lib/loyalty/tier-progress TIER_HIERARCHY; the Overview loyalty card only renders
+// once /api/loyalty/tiers has returned an array of tier definitions.
+const MOCK_TIERS = [
+  { slug: 'newcomer', name: 'Newcomer', minAnnualPoints: 0, pointMultiplier: 1, primaryColor: '#0A0A0A', secondaryColor: '#404040' },
+  { slug: 'friend', name: 'Friend', minAnnualPoints: 1000, pointMultiplier: 1.25, primaryColor: '#2563EB', secondaryColor: '#3730A3' },
+  { slug: 'bestie', name: 'Bestie', minAnnualPoints: 3000, pointMultiplier: 1.5, primaryColor: '#DB2777', secondaryColor: '#9D174D' },
+  { slug: 'soulmate', name: 'Soulmate', minAnnualPoints: 7500, pointMultiplier: 2, primaryColor: '#7C3AED', secondaryColor: '#4C1D95' },
+]
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: pushMock }),
@@ -76,29 +81,31 @@ vi.mock('@/lib/auth/context', () => ({
   }),
 }))
 
-vi.mock('@/lib/profile/daily-mental-health-quote', () => ({
-  getDailyMentalHealthQuote: getDailyMentalHealthQuoteMock,
-  getMsUntilNextLocalMidnight: getMsUntilNextLocalMidnightMock,
-}))
+// The section nav renders twice (mobile chips + desktop sidebar); both stay in sync,
+// so query against the first instance.
+const getSectionButton = (name: string) =>
+  within(screen.getAllByRole('navigation', { name: 'Profile sections' })[0]).getByRole('button', { name })
 
-describe('ProfilePage tabs', () => {
+describe('ProfilePage sections', () => {
   beforeEach(() => {
     pushMock.mockReset()
     refreshUserMock.mockReset()
     refreshUserMock.mockResolvedValue(undefined)
     signoutMock.mockReset()
-    getDailyMentalHealthQuoteMock.mockReset()
-    getMsUntilNextLocalMidnightMock.mockReset()
-    getDailyMentalHealthQuoteMock.mockReturnValue({
-      text: 'Progress is still progress, even when it feels slow.',
-      author: 'Head Over Feels',
-    })
-    getMsUntilNextLocalMidnightMock.mockReturnValue(24 * 60 * 60 * 1000)
     localStorage.clear()
     window.history.pushState({}, '', '/profile')
+    // jsdom does not implement scrollIntoView; section changes scroll to the content anchor.
+    Element.prototype.scrollIntoView = vi.fn()
 
     global.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
+
+      if (url.includes('/api/loyalty/tiers')) {
+        return {
+          ok: true,
+          json: async () => MOCK_TIERS,
+        } as Response
+      }
 
       if (url.includes('/api/orders')) {
         return {
@@ -121,83 +128,58 @@ describe('ProfilePage tabs', () => {
     }) as unknown as typeof fetch
   })
 
-  it('defaults to Profile tab and keeps Rewards panel lazily unmounted', async () => {
+  it('defaults to the Overview section and keeps the Rewards hub lazily unmounted', async () => {
     render(<ProfilePage />)
 
     await waitFor(() => {
-      expect(screen.getByRole('tab', { name: 'Profile' })).toBeTruthy()
+      expect(getSectionButton('Overview').getAttribute('aria-current')).toBe('page')
     })
 
-    expect(screen.getByRole('tab', { name: 'Profile' }).getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByRole('tab', { name: 'Rewards' }).getAttribute('aria-selected')).toBe('false')
+    expect(getSectionButton('Loyalty').getAttribute('aria-current')).toBeNull()
     expect(screen.queryByTestId('rewards-hub')).toBeNull()
-    expect(screen.getByText('"Progress is still progress, even when it feels slow."')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /redeem rewards/i })).toBeTruthy()
   })
 
-  it('opens Rewards tab from hash and keeps rewards mounted after switching back', async () => {
-    window.history.pushState({}, '', '/profile#rewards')
+  it('opens the Loyalty section from the hash and unmounts the Rewards hub after switching back', async () => {
+    window.history.pushState({}, '', '/profile#loyalty')
 
     render(<ProfilePage />)
 
     await waitFor(() => {
-      expect(screen.getByRole('tab', { name: 'Rewards' }).getAttribute('aria-selected')).toBe('true')
+      expect(getSectionButton('Loyalty').getAttribute('aria-current')).toBe('page')
       expect(screen.getByTestId('rewards-hub')).toBeTruthy()
     })
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Profile' }))
+    fireEvent.click(getSectionButton('Overview'))
 
-    expect(window.location.hash).toBe('#profile')
+    expect(window.location.hash).toBe('#overview')
+    expect(getSectionButton('Overview').getAttribute('aria-current')).toBe('page')
     // AnimatePresence unmounts after the exit animation — wait for unmount
     await waitFor(() => {
-      expect(document.getElementById('rewards-panel')).toBeNull()
       expect(screen.queryByTestId('rewards-hub')).toBeNull()
     })
   })
 
-  it('updates hash on tab click and switches via Redeem Rewards CTA', async () => {
+  it('updates the hash on section click and switches via the Redeem Rewards CTA', async () => {
     render(<ProfilePage />)
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Redeem Rewards' })).toBeTruthy()
-    })
+    const redeemCta = await screen.findByRole('button', { name: /redeem rewards/i })
+    fireEvent.click(redeemCta)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Redeem Rewards' }))
-
-    expect(window.location.hash).toBe('#rewards')
-    expect(screen.getByRole('tab', { name: 'Rewards' }).getAttribute('aria-selected')).toBe('true')
+    expect(window.location.hash).toBe('#loyalty')
+    expect(getSectionButton('Loyalty').getAttribute('aria-current')).toBe('page')
 
     await waitFor(() => {
       expect(screen.getByTestId('rewards-hub')).toBeTruthy()
     })
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Profile' }))
+    fireEvent.click(getSectionButton('Overview'))
 
-    expect(window.location.hash).toBe('#profile')
-    expect(screen.getByRole('tab', { name: 'Profile' }).getAttribute('aria-selected')).toBe('true')
+    expect(window.location.hash).toBe('#overview')
+    expect(getSectionButton('Overview').getAttribute('aria-current')).toBe('page')
   })
 
-  it('supports keyboard tab navigation with arrow keys and Home/End', async () => {
-    render(<ProfilePage />)
-
-    const profileTab = await screen.findByRole('tab', { name: 'Profile' })
-    profileTab.focus()
-
-    fireEvent.keyDown(profileTab, { key: 'ArrowRight' })
-
-    expect(screen.getByRole('tab', { name: 'Rewards' }).getAttribute('aria-selected')).toBe('true')
-    expect(window.location.hash).toBe('#rewards')
-
-    const rewardsTab = screen.getByRole('tab', { name: 'Rewards' })
-    rewardsTab.focus()
-
-    fireEvent.keyDown(rewardsTab, { key: 'Home' })
-    expect(screen.getByRole('tab', { name: 'Profile' }).getAttribute('aria-selected')).toBe('true')
-
-    fireEvent.keyDown(profileTab, { key: 'End' })
-    expect(screen.getByRole('tab', { name: 'Rewards' }).getAttribute('aria-selected')).toBe('true')
-  })
-
-  it('does not show max tier messaging when user tier is Friend even if lifetime points are high', async () => {
+  it('shows Bestie as the next tier for a Friend even if lifetime points are high', async () => {
     const originalLifetimePoints = mockUser.lifetimePoints
     const originalAnnualPoints = mockUser.annualPointsEarned
     const originalTier = { ...mockUser.loyaltyTier }
@@ -213,8 +195,14 @@ describe('ProfilePage tabs', () => {
     try {
       render(<ProfilePage />)
 
+      // Progress is driven by annual points (1,450 of Bestie's 3,000), not lifetime points.
       await waitFor(() => {
-        expect(screen.getByText('Next: Bestie')).toBeTruthy()
+        expect(
+          screen.getByText((_, element) =>
+            element?.tagName === 'SPAN' &&
+            (element.textContent ?? '').replace(/\s+/g, ' ').trim() === '1,550 pts to Bestie'
+          )
+        ).toBeTruthy()
       })
 
       expect(screen.queryByText(/Maximum tier achieved/i)).toBeNull()
@@ -222,32 +210,6 @@ describe('ProfilePage tabs', () => {
       mockUser.lifetimePoints = originalLifetimePoints
       mockUser.annualPointsEarned = originalAnnualPoints
       mockUser.loyaltyTier = originalTier
-    }
-  })
-
-  it('updates the daily quote after the midnight refresh timer fires', async () => {
-    vi.useFakeTimers()
-    const quoteQueue = [
-      { text: 'Breathe. You are doing better than you think.', author: 'Head Over Feels' },
-      { text: 'Breathe. You are doing better than you think.', author: 'Head Over Feels' },
-      { text: 'A new day is another chance to care for yourself.', author: 'Head Over Feels' },
-    ]
-
-    getDailyMentalHealthQuoteMock.mockImplementation(() => quoteQueue.shift())
-    getMsUntilNextLocalMidnightMock.mockReturnValue(10)
-
-    try {
-      render(<ProfilePage />)
-
-      expect(screen.getByText('"Breathe. You are doing better than you think."')).toBeTruthy()
-
-      await act(async () => {
-        vi.advanceTimersByTime(11)
-      })
-
-      expect(screen.getByText('"A new day is another chance to care for yourself."')).toBeTruthy()
-    } finally {
-      vi.useRealTimers()
     }
   })
 })

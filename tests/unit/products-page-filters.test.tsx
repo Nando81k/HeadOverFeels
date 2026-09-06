@@ -1,13 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import ProductsPage from '@/app/products/page'
+import { ProductsClientView } from '@/components/products/ProductsClientView'
+import type { Product } from '@/lib/api/products'
 
 const {
-  getAllMock,
   replaceMock,
   navState,
 } = vi.hoisted(() => ({
-  getAllMock: vi.fn(),
   replaceMock: vi.fn(),
   navState: {
     search: '',
@@ -51,13 +50,7 @@ vi.mock('@/components/products/ProductCard', () => ({
   ProductCardSkeleton: () => <div data-testid="product-card-skeleton" />,
 }))
 
-vi.mock('@/lib/api/products', () => ({
-  productApi: {
-    getAll: getAllMock,
-  },
-}))
-
-function createProductsFixture() {
+function createProductsFixture(): Product[] {
   return [
     {
       id: 'prod-hoodie',
@@ -160,27 +153,31 @@ function getLastReplacePath(): string {
 }
 
 describe('Products page filter modernization', () => {
+  let products: Product[]
+
+  // Filter state is derived entirely from the URL search params, so the router
+  // mock mirrors Next's behavior by updating the mocked search params. Tests
+  // call `syncUrlState()` (a rerender) after an interaction to pick them up.
+  const renderPage = () => {
+    const utils = render(<ProductsClientView initialProducts={products} />)
+    const syncUrlState = () => utils.rerender(<ProductsClientView initialProducts={products} />)
+    return { ...utils, syncUrlState }
+  }
+
   beforeEach(() => {
     navState.search = ''
     replaceMock.mockReset()
-
-    getAllMock.mockResolvedValue({
-      data: {
-        data: createProductsFixture(),
-        pagination: {
-          page: 1,
-          limit: 100,
-          total: 3,
-          pages: 1,
-        },
-      },
+    replaceMock.mockImplementation((url: string) => {
+      const queryIndex = url.indexOf('?')
+      navState.search = queryIndex === -1 ? '' : url.slice(queryIndex + 1)
     })
+    products = createProductsFixture()
   })
 
   it('shows active chips and supports chip removal with URL sync', async () => {
     navState.search = 'category=hoodies&sizes=S&colors=navy&inStock=true'
 
-    render(<ProductsPage />)
+    renderPage()
 
     await waitFor(() => {
       expect(screen.getByTestId('products-active-chips')).toBeTruthy()
@@ -203,7 +200,7 @@ describe('Products page filter modernization', () => {
   })
 
   it('updates URL and visible products instantly when filters are selected', async () => {
-    render(<ProductsPage />)
+    const { syncUrlState } = renderPage()
 
     await waitFor(() => {
       expect(screen.getAllByTestId('product-card')).toHaveLength(3)
@@ -217,6 +214,11 @@ describe('Products page filter modernization', () => {
     fireEvent.change(searchInput, { target: { value: 'nav' } })
 
     await waitFor(() => {
+      expect(getLastReplacePath()).toContain('search=nav')
+    })
+    syncUrlState()
+
+    await waitFor(() => {
       expect(within(panel).getByTestId('products-filter-autocomplete-list')).toBeTruthy()
     })
 
@@ -228,6 +230,10 @@ describe('Products page filter modernization', () => {
 
     await waitFor(() => {
       expect(getLastReplacePath()).toContain('search=Navy+Hoodie')
+    })
+    syncUrlState()
+
+    await waitFor(() => {
       expect(screen.getAllByTestId('product-card')).toHaveLength(1)
       expect(screen.getByText('Navy Hoodie')).toBeTruthy()
     })
@@ -236,6 +242,10 @@ describe('Products page filter modernization', () => {
 
     await waitFor(() => {
       expect(getLastReplacePath()).toContain('colors=navy')
+    })
+    syncUrlState()
+
+    await waitFor(() => {
       expect(screen.getAllByTestId('product-card')).toHaveLength(1)
       expect(screen.getByText('Navy Hoodie')).toBeTruthy()
     })
@@ -244,6 +254,7 @@ describe('Products page filter modernization', () => {
     await waitFor(() => {
       expect(getLastReplacePath()).toContain('sizes=S')
     })
+    syncUrlState()
 
     fireEvent.click(within(panel).getByRole('button', { name: 'Under $50' }))
     await waitFor(() => {
@@ -254,7 +265,7 @@ describe('Products page filter modernization', () => {
 
   it('clears all filters and resets URL + product list', async () => {
     navState.search = 'colors=cream&inStock=true'
-    const { rerender } = render(<ProductsPage />)
+    const { rerender } = renderPage()
 
     await waitFor(() => {
       expect(screen.getByTestId('clear-all-filters')).toBeTruthy()
@@ -268,7 +279,7 @@ describe('Products page filter modernization', () => {
     })
 
     navState.search = ''
-    rerender(<ProductsPage />)
+    rerender(<ProductsClientView initialProducts={products} />)
 
     await waitFor(() => {
       expect(screen.getAllByTestId('product-card')).toHaveLength(3)
@@ -277,7 +288,7 @@ describe('Products page filter modernization', () => {
 
   it('rehydrates UI state from URL changes on rerender', async () => {
     navState.search = 'colors=cream'
-    const { rerender } = render(<ProductsPage />)
+    const { rerender } = renderPage()
 
     await waitFor(() => {
       expect(screen.getAllByTestId('product-card')).toHaveLength(1)
@@ -285,14 +296,14 @@ describe('Products page filter modernization', () => {
     })
 
     navState.search = ''
-    rerender(<ProductsPage />)
+    rerender(<ProductsClientView initialProducts={products} />)
 
     await waitFor(() => {
       expect(screen.getAllByTestId('product-card')).toHaveLength(3)
     })
 
     navState.search = 'colors=navy'
-    rerender(<ProductsPage />)
+    rerender(<ProductsClientView initialProducts={products} />)
 
     await waitFor(() => {
       expect(screen.getAllByTestId('product-card')).toHaveLength(1)
@@ -301,7 +312,7 @@ describe('Products page filter modernization', () => {
   })
 
   it('keeps drawer behavior consistent across duplicated desktop/mobile filter panels', async () => {
-    render(<ProductsPage />)
+    const { syncUrlState } = renderPage()
 
     await waitFor(() => {
       expect(screen.getAllByTestId('product-card')).toHaveLength(3)
@@ -317,6 +328,10 @@ describe('Products page filter modernization', () => {
 
     await waitFor(() => {
       expect(getLastReplacePath()).toContain('colors=cream')
+    })
+    syncUrlState()
+
+    await waitFor(() => {
       expect(screen.getAllByTestId('product-card')).toHaveLength(1)
       expect(screen.getByText('Cream Tee')).toBeTruthy()
     })
