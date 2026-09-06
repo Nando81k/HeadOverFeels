@@ -5,6 +5,7 @@ import {
   SHOPIFY_API_VERSION,
   getShopifyAdminEnv,
   getShopifyEnv,
+  hasShopifyEnv,
   resetShopifyEnvCache,
 } from '@/lib/shopify/env'
 
@@ -148,5 +149,54 @@ describe('getShopifyAdminEnv', () => {
 
     resetShopifyEnvCache()
     expect(getShopifyAdminEnv().accessToken).toBe('rotated-token')
+  })
+})
+
+describe('hasShopifyEnv', () => {
+  it('is false when no Shopify variables are set, and never throws', () => {
+    expect(() => hasShopifyEnv()).not.toThrow()
+    expect(hasShopifyEnv()).toBe(false)
+    // the strict reader still throws for the same env
+    expect(() => getShopifyEnv()).toThrow()
+  })
+
+  it('is false when only one of the two required variables is set', () => {
+    process.env.SHOPIFY_STORE_DOMAIN = 'tgqucm-qg.myshopify.com'
+    expect(hasShopifyEnv()).toBe(false)
+
+    delete process.env.SHOPIFY_STORE_DOMAIN
+    process.env.SHOPIFY_STOREFRONT_PRIVATE_TOKEN = 'private-token'
+    expect(hasShopifyEnv()).toBe(false)
+  })
+
+  it('treats blank and whitespace-only values as missing', () => {
+    process.env.SHOPIFY_STORE_DOMAIN = 'tgqucm-qg.myshopify.com'
+    process.env.SHOPIFY_STOREFRONT_PRIVATE_TOKEN = '   '
+    expect(hasShopifyEnv()).toBe(false)
+
+    process.env.SHOPIFY_STORE_DOMAIN = ''
+    process.env.SHOPIFY_STOREFRONT_PRIVATE_TOKEN = 'private-token'
+    expect(hasShopifyEnv()).toBe(false)
+  })
+
+  it('is true when the store domain and the private token are both set', () => {
+    process.env.SHOPIFY_STORE_DOMAIN = 'tgqucm-qg.myshopify.com'
+    process.env.SHOPIFY_STOREFRONT_PRIVATE_TOKEN = 'private-token'
+
+    expect(hasShopifyEnv()).toBe(true)
+    // the public token is irrelevant to the guard
+    expect(process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_PUBLIC_TOKEN).toBeUndefined()
+  })
+
+  it('reads process.env directly rather than the cached env', () => {
+    process.env.SHOPIFY_STORE_DOMAIN = 'tgqucm-qg.myshopify.com'
+    process.env.SHOPIFY_STOREFRONT_PRIVATE_TOKEN = 'private-token'
+    process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_PUBLIC_TOKEN = 'public-token'
+    getShopifyEnv() // populates the cache
+
+    delete process.env.SHOPIFY_STOREFRONT_PRIVATE_TOKEN
+
+    // no resetShopifyEnvCache() on purpose
+    expect(hasShopifyEnv()).toBe(false)
   })
 })

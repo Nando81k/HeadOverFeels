@@ -5,6 +5,7 @@ vi.mock('server-only', () => ({}))
 vi.mock('@/lib/shopify/client', () => ({ storefrontFetch: vi.fn() }))
 
 import { storefrontFetch } from '@/lib/shopify/client'
+import type { ProductFilter } from '@/lib/shopify/filters'
 import {
   COLLECTION_PRODUCTS_QUERY,
   getCollectionProducts,
@@ -59,6 +60,8 @@ describe('normalizeCollectionPage', () => {
         width: 2400,
         height: 1200,
       },
+      description: null,
+      featured: false,
     })
   })
 
@@ -146,15 +149,22 @@ describe('getCollectionProducts', () => {
     expect(page?.products).toHaveLength(4)
   })
 
-  it('parses FilterValue.input JSON strings into ProductFilter objects', async () => {
+  it('passes typed ProductFilter objects, the cursor and the sort through', async () => {
     mocked().mockResolvedValue({ collection: rawCollection })
+
+    const filters: ProductFilter[] = [
+      { available: true },
+      { variantOption: { name: 'color', value: 'Black' } },
+      { price: { min: 24, max: 128 } },
+      { productMetafield: { namespace: 'custom', key: 'featured', value: 'true' } },
+    ]
 
     await getCollectionProducts({
       handle: 'hoodies',
       first: 12,
       after: 'cursor-1',
       sort: 'price-desc',
-      filters: ['{"available":true}', '{"variantOption":{"name":"color","value":"Black"}}'],
+      filters,
     })
 
     expect(mocked().mock.calls[0][1]).toMatchObject({
@@ -162,7 +172,7 @@ describe('getCollectionProducts', () => {
         handle: 'hoodies',
         first: 12,
         after: 'cursor-1',
-        filters: [{ available: true }, { variantOption: { name: 'color', value: 'Black' } }],
+        filters,
         sortKey: 'PRICE',
         reverse: true,
       },
@@ -170,14 +180,12 @@ describe('getCollectionProducts', () => {
     })
   })
 
-  it('ignores filter strings that are not valid JSON objects', async () => {
+  it('sends null rather than an empty filter list', async () => {
     mocked().mockResolvedValue({ collection: rawCollection })
 
-    await getCollectionProducts({ handle: 'all', filters: ['not json', '"a string"', '{"available":false}'] })
+    await getCollectionProducts({ handle: 'all', filters: [] })
 
-    expect(mocked().mock.calls[0][1]).toMatchObject({
-      variables: { filters: [{ available: false }] },
-    })
+    expect(mocked().mock.calls[0][1]).toMatchObject({ variables: { filters: null } })
   })
 
   it('returns null when the collection does not exist', async () => {
@@ -194,11 +202,38 @@ describe('COLLECTIONS_QUERY / getCollections', () => {
     expect(COLLECTIONS_QUERY).not.toContain('MoneyFields')
   })
 
+  it('selects the description and the featured metafield', () => {
+    expect(COLLECTIONS_QUERY).toContain('description')
+    expect(COLLECTIONS_QUERY).toContain('featured: metafield(namespace: "custom", key: "featured") { value }')
+  })
+
   it('normalizes collection nodes', () => {
     const summaries = normalizeCollections(rawCollections)
     expect(summaries.map((c) => c.handle)).toEqual(['all', 'best-sellers', 'drops', 'hoodies', 'tees'])
     expect(summaries[1].image).toBeNull()
     expect(summaries[0].image?.url).toContain('collection-all.jpg')
+  })
+
+  it('sets featured from the custom.featured metafield value', () => {
+    const summaries = normalizeCollections(rawCollections)
+    expect(
+      Object.fromEntries(summaries.map((c) => [c.handle, c.featured]))
+    ).toEqual({ all: false, 'best-sellers': false, drops: true, hoodies: true, tees: true })
+  })
+
+  it('maps description, treating a missing or blank one as null', () => {
+    const summaries = normalizeCollections(rawCollections)
+    expect(summaries[0].description).toBe('Everything currently in the Head Over Feels line.')
+    expect(summaries[1].description).toBeNull()
+
+    const sparse = normalizeCollections([
+      { id: 'gid://shopify/Collection/1', handle: 'blank', title: 'Blank', description: '   ', image: null, featured: null },
+      { id: 'gid://shopify/Collection/2', handle: 'absent', title: 'Absent', image: null },
+    ])
+    expect(sparse.map((c) => [c.description, c.featured])).toEqual([
+      [null, false],
+      [null, false],
+    ])
   })
 
   it('fetches 50 collections by default with the collections cache tag', async () => {

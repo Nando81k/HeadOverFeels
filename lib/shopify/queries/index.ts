@@ -13,12 +13,17 @@ export {
   COLLECTION_PRODUCTS_QUERY,
   getCollectionProducts,
   normalizeCollectionPage,
+  normalizeFilters,
+  toFilterType,
+  toFilterValue,
   toSortArgs,
 } from './collection'
 export type {
   CollectionSort,
   GetCollectionProductsArgs,
   RawCollectionPage,
+  RawFilter,
+  RawFilterValue,
   SortArgs,
 } from './collection'
 
@@ -37,11 +42,28 @@ export type { MenuDomains, RawMenuItem, RawPolicies, RawShopLayout } from './sho
 
 export {
   getPredictiveSearch,
+  getSearchResults,
   MIN_SEARCH_LENGTH,
   normalizePredictiveSearch,
+  normalizeSearchPage,
   PREDICTIVE_SEARCH_QUERY,
+  SEARCH_QUERY,
+  toSearchSortArgs,
 } from './search'
-export type { RawPredictiveSearch } from './search'
+export type {
+  GetSearchResultsArgs,
+  RawPredictiveSearch,
+  RawSearchPage,
+  SearchSort,
+  SearchSortArgs,
+} from './search'
+
+export {
+  getSitemapEntries,
+  SITEMAP_COLLECTIONS_QUERY,
+  SITEMAP_PRODUCTS_QUERY,
+  SITEMAP_REVALIDATE,
+} from './sitemap'
 
 export { getRecommendations, normalizeRecommendations, RECOMMENDATIONS_QUERY } from './recommendations'
 export type { RawRecommendations } from './recommendations'

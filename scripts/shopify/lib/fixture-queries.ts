@@ -26,7 +26,11 @@ import { COLLECTION_PRODUCTS_QUERY } from '../../../lib/shopify/queries/collecti
 import { COLLECTIONS_QUERY } from '../../../lib/shopify/queries/collections'
 import { PRODUCT_BY_HANDLE_QUERY } from '../../../lib/shopify/queries/product'
 import { RECOMMENDATIONS_QUERY } from '../../../lib/shopify/queries/recommendations'
-import { PREDICTIVE_SEARCH_QUERY } from '../../../lib/shopify/queries/search'
+import { PREDICTIVE_SEARCH_QUERY, SEARCH_QUERY } from '../../../lib/shopify/queries/search'
+import {
+  SITEMAP_COLLECTIONS_QUERY,
+  SITEMAP_PRODUCTS_QUERY,
+} from '../../../lib/shopify/queries/sitemap'
 
 /** Real handles from the migrated store, passed to every variables factory. */
 export interface FixtureQueryContext {
@@ -136,5 +140,22 @@ export const FIXTURE_QUERIES: Record<string, FixtureQuery> = {
   recommendations: {
     query: RECOMMENDATIONS_QUERY,
     variables: (ctx) => ({ handle: ctx.productHandle }),
+  },
+  // Phase 2, Task 2
+  'search-results': {
+    query: SEARCH_QUERY,
+    variables: {
+      q: 'hoodie',
+      first: 12,
+      after: null,
+      filters: null,
+      sortKey: 'RELEVANCE',
+      reverse: false,
+    },
+  },
+  'sitemap-products': { query: SITEMAP_PRODUCTS_QUERY, variables: { first: 250, after: null } },
+  'sitemap-collections': {
+    query: SITEMAP_COLLECTIONS_QUERY,
+    variables: { first: 250, after: null },
   },
 }

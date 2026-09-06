@@ -4,9 +4,9 @@
 
 Phase 1 Task 0 (the human step that adds the Headless sales channel and issues the
 Storefront access tokens) has not happened on the trial store yet, so
-`scripts/shopify/record-fixtures.ts` cannot be run. To unblock Tasks 5–7 the seven
-fixtures here were written by hand to match — field for field — what Storefront API
-**2026-07** returns for the queries validated in
+`scripts/shopify/record-fixtures.ts` cannot be run. To unblock Phase 1 Tasks 5–7 and
+Phase 2 Task 2 the fixtures here were written by hand to match — field for field —
+what Storefront API **2026-07** returns for the queries validated in
 `docs/superpowers/plans/2026-09-06-storefront-rebuild-phase1-foundation.md`
 ("Shared contracts"), including:
 
@@ -26,6 +26,10 @@ The catalog data mirrors the Head Over Feels catalog seeded by Task 4: `core-hoo
 `drop-01-heavyweight-crew`, `signature-tee`, `box-logo-tee`; collections `all`,
 `hoodies`, `tees`, `drops`, `best-sellers`; shop "Head Over Feels" on
 `https://tgqucm-qg.myshopify.com` with the `main-menu` and the four policies.
+The Phase 2 additions reuse exactly those handles and prices: `search-results.json`
+repeats three of the `collection-products.json` nodes, and `collections.json` gained the
+`description` field and the `custom.featured` metafield alias (`drops`, `hoodies` and
+`tees` are featured).
 
 ## Re-record these once the tokens exist
 
@@ -50,3 +54,6 @@ recording.
 | `policies.json` | `POLICIES_QUERY` | all four policies must be published |
 | `predictive-search.json` | `PREDICTIVE_SEARCH_QUERY` | query `"hoodie"` |
 | `recommendations.json` | `RECOMMENDATIONS_QUERY` | handle `core-hoodie` (Shopify needs order history before this returns anything) |
+| `search-results.json` | `SEARCH_QUERY` | query `"hoodie"`, `first: 12`, no filters — `productFilters` needs availability, price, the Size/Color options and product type populated |
+| `sitemap-products.json` | `SITEMAP_PRODUCTS_QUERY` | `first: 250`, `after: null` — one page (`hasNextPage: false`); handle + `updatedAt` only |
+| `sitemap-collections.json` | `SITEMAP_COLLECTIONS_QUERY` | `first: 250`, `after: null` — one page (`hasNextPage: false`); handle + `updatedAt` only |

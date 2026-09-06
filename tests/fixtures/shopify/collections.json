@@ -5,50 +5,70 @@
         "id": "gid://shopify/Collection/612345678901",
         "handle": "all",
         "title": "All Products",
+        "description": "Everything currently in the Head Over Feels line.",
         "image": {
           "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/collection-all.jpg?v=1757462400",
           "altText": "Head Over Feels, all products",
           "width": 2400,
           "height": 1200
+        },
+        "featured": {
+          "value": "false"
         }
       },
       {
         "id": "gid://shopify/Collection/612345678902",
         "handle": "best-sellers",
         "title": "Best Sellers",
-        "image": null
+        "description": null,
+        "image": null,
+        "featured": {
+          "value": "false"
+        }
       },
       {
         "id": "gid://shopify/Collection/612345678903",
         "handle": "drops",
         "title": "Drops",
+        "description": "Limited runs. When they are gone, they are gone.",
         "image": {
           "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/collection-drops.jpg?v=1757462403",
           "altText": "Drops",
           "width": 2400,
           "height": 1200
+        },
+        "featured": {
+          "value": "true"
         }
       },
       {
         "id": "gid://shopify/Collection/612345678904",
         "handle": "hoodies",
         "title": "Hoodies",
+        "description": "Heavyweight fleece cut for everyday wear.",
         "image": {
           "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/collection-hoodies.jpg?v=1757462401",
           "altText": "Hoodies",
           "width": 2400,
           "height": 1200
+        },
+        "featured": {
+          "value": "true"
         }
       },
       {
         "id": "gid://shopify/Collection/612345678905",
         "handle": "tees",
         "title": "Tees",
+        "description": "Soft-hand cotton tees in the core palette.",
         "image": {
           "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/collection-tees.jpg?v=1757462402",
           "altText": "Tees",
           "width": 2400,
           "height": 1200
+        },
+        "featured": {
+          "value": "true"
         }
       }
     ]

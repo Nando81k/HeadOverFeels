@@ -1,4 +1,5 @@
 import { storefrontFetch } from '../client'
+import type { ProductFilter } from '../filters'
 import type { CollectionPage, Filter, FilterValue } from '../types'
 import {
   CATALOG_REVALIDATE,
@@ -71,12 +72,23 @@ export function toSortArgs(sort: CollectionSort = 'best-selling'): SortArgs {
 
 const FILTER_TYPES = new Set<Filter['type']>(['LIST', 'PRICE_RANGE', 'BOOLEAN'])
 
-function toFilterType(type: string): Filter['type'] {
+/** Shopify may add filter types; anything unknown degrades to a plain LIST. */
+export function toFilterType(type: string): Filter['type'] {
   return FILTER_TYPES.has(type as Filter['type']) ? (type as Filter['type']) : 'LIST'
 }
 
-function toFilterValue(raw: RawFilterValue): FilterValue {
+export function toFilterValue(raw: RawFilterValue): FilterValue {
   return { id: raw.id, label: raw.label, count: raw.count, input: raw.input }
+}
+
+/** Shared by the collection page and search (`products.filters` / `search.productFilters`). */
+export function normalizeFilters(raw: RawFilter[] | null | undefined): Filter[] {
+  return (raw ?? []).map((filter) => ({
+    id: filter.id,
+    label: filter.label,
+    type: toFilterType(filter.type),
+    values: filter.values.map(toFilterValue),
+  }))
 }
 
 export function normalizeCollectionPage(raw: RawCollectionPage): CollectionPage {
@@ -91,38 +103,12 @@ export function normalizeCollectionPage(raw: RawCollectionPage): CollectionPage 
       featured: false,
     },
     products: raw.products.nodes.map(toProductCard),
-    filters: (raw.products.filters ?? []).map((filter) => ({
-      id: filter.id,
-      label: filter.label,
-      type: toFilterType(filter.type),
-      values: filter.values.map(toFilterValue),
-    })),
+    filters: normalizeFilters(raw.products.filters),
     pageInfo: {
       hasNextPage: raw.products.pageInfo.hasNextPage,
       endCursor: raw.products.pageInfo.endCursor ?? null,
     },
   }
-}
-
-/**
- * `FilterValue.input` is a JSON string produced by Shopify and round-tripped
- * through the URL, so it is parsed defensively: anything that is not a JSON
- * object is dropped rather than sent to the API (which would 4xx the request).
- */
-function parseProductFilters(filters: string[] | undefined): Record<string, unknown>[] | null {
-  if (!filters || filters.length === 0) return null
-  const parsed: Record<string, unknown>[] = []
-  for (const filter of filters) {
-    try {
-      const value: unknown = JSON.parse(filter)
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
-        parsed.push(value as Record<string, unknown>)
-      }
-    } catch {
-      // Ignore malformed filter input.
-    }
-  }
-  return parsed.length > 0 ? parsed : null
 }
 
 // ---------------------------------------------------------------- fetcher
@@ -131,7 +117,8 @@ export type GetCollectionProductsArgs = {
   handle: string
   first?: number
   after?: string | null
-  filters?: string[]
+  /** Already-parsed `ProductFilter` objects (see `lib/shopify/filters.ts`). */
+  filters?: ProductFilter[]
   sort?: CollectionSort
 }
 
@@ -148,7 +135,7 @@ export async function getCollectionProducts({
       handle,
       first,
       after: after ?? null,
-      filters: parseProductFilters(filters),
+      filters: filters && filters.length > 0 ? filters : null,
       sortKey,
       reverse,
     },
