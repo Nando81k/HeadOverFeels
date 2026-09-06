@@ -7,7 +7,7 @@ import type { ProductRow, ProductDetailForInspector } from '@/lib/admin/products
 // ─── Module mocks ─────────────────────────────────────────────────────────────
 
 // Mock loadProductDetail so tests do not need a real DB.
-const mockLoadProductDetail = vi.fn<[string], Promise<ProductDetailForInspector | null>>()
+const mockLoadProductDetail = vi.fn<(id: string) => Promise<ProductDetailForInspector | null>>()
 vi.mock('@/lib/admin/products', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/admin/products')>()
   return {

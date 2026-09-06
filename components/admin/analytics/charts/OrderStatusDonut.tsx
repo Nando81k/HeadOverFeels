@@ -2,7 +2,7 @@
 
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
-export interface StatusDonutSlice {
+export type StatusDonutSlice = {
   status: string
   count: number
 }
