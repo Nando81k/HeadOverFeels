@@ -80,7 +80,7 @@ Total: **16 tasks** (one human) across **8 waves**. All tasks in a wave create d
 - `components/storefront/ui/Drawer.tsx`, `Dialog.tsx`, `Accordion.tsx`, `AnnouncementBar.tsx`, `Marquee.tsx` (T12)
 - `components/storefront/product/ProductCard.tsx`, `ProductGrid.tsx`, `SwatchDots.tsx` (T13)
 - `components/storefront/layout/Header.tsx`, `HeaderNav.tsx`, `MobileMenu.tsx`, `Footer.tsx`, `StorefrontShell.tsx` (T14)
-- `app/(storefront)/_preview/page.tsx` — temporary kitchen-sink route for QA, deleted in Phase 2 (T14)
+- `app/(storefront)/storefront-preview/page.tsx` — temporary kitchen-sink route for QA, deleted in Phase 2 (T14). *Renamed from `_preview` during execution: Next.js treats `_`-prefixed folders as private and never routes them.*
 - `app/(storefront)/layout.tsx` (T14)
 - `tests/e2e/playwright.config.ts`, `tests/e2e/storefront-shell.spec.ts` (T15)
 - `tests/unit/shopify/*.test.ts`, `tests/unit/storefront/*.test.tsx` (per task)
@@ -429,8 +429,8 @@ Metafield definitions (Task 3), all namespace `custom`, owner type in brackets:
   - `MobileMenu` renders inside `Drawer`, lists items with nested `Accordion` for children.
   - `Footer` (props: `policies`, `menu`) renders four columns, policies as links to `/policies/<handle>`, current year, newsletter form posting to `/api/newsletter` (existing endpoint, unchanged).
   - `StorefrontShell` is an async server component: calls `getShopLayout()` and renders `Header`, `children` in `<main id="main-content">`, `Footer`; wraps in `<div data-surface="storefront">`.
-- [ ] **Step 2:** Implement. `app/(storefront)/layout.tsx` renders `StorefrontShell`. Because `app/(storefront)` has no `page.tsx` yet, the only route it owns is `_preview` — a kitchen-sink page that renders every primitive, a `ProductGrid` from `getCollectionProducts({ handle: 'all', first: 8 })`, and a `Marquee`. Guard it: `notFound()` unless `process.env.NODE_ENV !== 'production' || process.env.STOREFRONT_PREVIEW === '1'`.
-- [ ] **Step 3:** Manual QA at `/_preview` on desktop and 390px; screenshot into the PR (Playwright `page.screenshot`, headless Chromium).
+- [ ] **Step 2:** Implement. `app/(storefront)/layout.tsx` renders `StorefrontShell`. Because `app/(storefront)` has no `page.tsx` yet, the only route it owns is `storefront-preview` (`/storefront-preview`; the plan's `_preview` is unroutable because `_` folders are private in the App Router) — a kitchen-sink page that renders every primitive, a `ProductGrid` from `getCollectionProducts({ handle: 'all', first: 8 })`, and a `Marquee`. Guard it: `notFound()` unless `process.env.NODE_ENV !== 'production' || process.env.STOREFRONT_PREVIEW === '1'`.
+- [ ] **Step 3:** Manual QA at `/storefront-preview` on desktop and 390px; screenshot into the PR (Playwright `page.screenshot`, headless Chromium).
 - [ ] **Step 4:** green, admin subset green, commit `feat(storefront-v2): header/footer shell + preview route`.
 
 ## Task 15: Playwright smoke + CI job + verification report
@@ -438,7 +438,7 @@ Metafield definitions (Task 3), all namespace `custom`, owner type in brackets:
 **Files:** `tests/e2e/playwright.config.ts`, `tests/e2e/storefront-shell.spec.ts`, `package.json` (`"test:e2e": "playwright test -c tests/e2e/playwright.config.ts"`), `.github/workflows/ci.yml`, `docs/superpowers/plans/2026-09-06-storefront-rebuild-phase1-qa.md`
 
 - [ ] **Step 1:** Config: `webServer: { command: 'npm run dev', port: 3000, reuseExistingServer: true, env: { STOREFRONT_PREVIEW: '1' } }`, project chromium with `executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH ?? '/opt/pw-browsers/chromium'` when that path exists.
-- [ ] **Step 2:** Spec: `/_preview` loads with no console errors, header nav has ≥3 links from the Shopify menu, product grid shows ≥1 card with an image from `cdn.shopify.com`, mobile viewport opens the drawer and focus lands inside it, footer has 4 policy links.
+- [ ] **Step 2:** Spec: `/storefront-preview` loads with no console errors, header nav has ≥3 links from the Shopify menu, product grid shows ≥1 card with an image from `cdn.shopify.com`, mobile viewport opens the drawer and focus lands inside it, footer has 4 policy links.
 - [ ] **Step 3:** CI: add job `e2e` (needs `validate`), `continue-on-error: true`, secrets `SHOPIFY_STORE_DOMAIN`, `SHOPIFY_STOREFRONT_PRIVATE_TOKEN`, `NEXT_PUBLIC_SHOPIFY_STOREFRONT_PUBLIC_TOKEN`, skip the job when secrets are absent (`if: ${{ secrets.SHOPIFY_STOREFRONT_PRIVATE_TOKEN != '' }}` via an env indirection step). Add repo secrets — human step, noted in the QA doc.
 - [ ] **Step 4:** Verification (opus): run `npm run test:run`, `npx tsc --noEmit`, `npx eslint components/storefront lib/shopify lib/storefront`, `npm run build`, `npm run test:e2e`. Write the QA report in the Phase 1–8 format (results tables, pre-existing failures called out, human-verification checklist for `/admin` unchanged and `/_preview` on a real phone).
 - [ ] **Step 5:** Open the wave PR into `storefront-v2`; after merge, open a **draft** PR `storefront-v2 → main` titled "Storefront V2 (Shopify) — integration" that stays open through Phase 6 and carries the Vercel preview URL.
