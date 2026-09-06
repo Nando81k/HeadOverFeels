@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { awardBirthdayPoints } from '@/lib/loyalty/service'
 import { sendBirthdayBonusEmail, sendPointsExpiringEmail } from '@/lib/email/loyalty'
 import { getTrackingInfo } from '@/lib/shipping/tracking'
+import { processEmailQueue } from '@/lib/email/queue'
 
 /**
  * POST /api/cron/run-all
@@ -16,8 +17,10 @@ import { getTrackingInfo } from '@/lib/shipping/tracking'
  * - Expire points (only at hour 1 UTC)
  * - Sync tracking (every run)
  * - Track abandoned carts (every run)
+ * - Process email queue (every run) — retry sweep for the durable EmailQueue;
+ *   first delivery attempts happen inline from producers via `after()`.
  * 
- * Schedule: Runs hourly via Vercel Cron
+ * Schedule: Runs daily via Vercel Cron (Hobby plan: max 2 crons, daily only)
  * Security: Bearer token authentication via CRON_SECRET
  */
 
@@ -473,6 +476,28 @@ async function runTrackAbandonedCarts(): Promise<TaskResult> {
 }
 
 // ============================================
+// TASK 5: Process Email Queue (every run)
+// ============================================
+async function runProcessEmailQueue(): Promise<TaskResult> {
+  try {
+    const result = await processEmailQueue(200)
+    return {
+      task: 'process-email-queue',
+      success: true,
+      message: `Processed ${result.processed} queued emails`,
+      details: { ...result },
+    }
+  } catch (error) {
+    return {
+      task: 'process-email-queue',
+      success: false,
+      message: 'Failed to process email queue',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+// ============================================
 // MAIN HANDLER
 // ============================================
 export async function POST(_request: NextRequest) {
@@ -492,6 +517,7 @@ export async function POST(_request: NextRequest) {
   results.push(await runExpirePoints(currentHour))
   results.push(await runSyncTracking())
   results.push(await runTrackAbandonedCarts())
+  results.push(await runProcessEmailQueue())
 
   const duration = Date.now() - startTime
   const allSuccess = results.every((r) => r.success)
@@ -518,7 +544,7 @@ export async function GET(_request: NextRequest) {
   return NextResponse.json({
     status: 'ok',
     message: 'Unified cron endpoint is healthy. Use POST to execute tasks.',
-    tasks: ['birthday-points', 'expire-points', 'sync-tracking', 'track-abandoned-carts'],
-    schedule: 'Hourly - daily tasks gated by UTC hour',
+    tasks: ['birthday-points', 'expire-points', 'sync-tracking', 'track-abandoned-carts', 'process-email-queue'],
+    schedule: 'Daily at 00:00 UTC - hour-gated tasks run on that hour',
   })
 }
