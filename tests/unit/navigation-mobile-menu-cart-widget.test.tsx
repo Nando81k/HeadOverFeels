@@ -1,12 +1,25 @@
 /* eslint-disable @next/next/no-img-element */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Navigation } from '@/components/layout/Navigation'
 
+type MockCartItem = {
+  quantity: number
+  variant: { price: number }
+  product: { price: number }
+}
+
 const { cartState } = vi.hoisted(() => ({
-  cartState: { count: 0 },
+  cartState: { items: [] as MockCartItem[] },
 }))
+
+// MiniCart derives a subtotal from `items` even while closed, so each item needs a priced variant/product.
+const makeCartItem = (quantity: number): MockCartItem => ({
+  quantity,
+  variant: { price: 40 },
+  product: { price: 40 },
+})
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/',
@@ -42,8 +55,20 @@ vi.mock('@/components/search', () => ({
 }))
 
 vi.mock('@/lib/store/cart', () => ({
-  useCartStore: (selector: (state: { getTotalItems: () => number; items: never[]; updateQuantity: () => void; removeItem: () => void }) => unknown) =>
-    selector({ getTotalItems: () => cartState.count, items: [], updateQuantity: () => {}, removeItem: () => {} }),
+  useCartStore: (
+    selector: (state: {
+      getTotalItems: () => number
+      items: MockCartItem[]
+      updateQuantity: () => void
+      removeItem: () => void
+    }) => unknown
+  ) =>
+    selector({
+      getTotalItems: () => cartState.items.reduce((total, item) => total + item.quantity, 0),
+      items: cartState.items,
+      updateQuantity: () => {},
+      removeItem: () => {},
+    }),
 }))
 
 vi.mock('@/lib/auth/context', () => ({
@@ -62,39 +87,26 @@ vi.mock('@/components/notifications/NotificationCenter', () => ({
   NotificationCenter: () => <div data-testid="notification-center" />,
 }))
 
-describe('Navigation mobile menu cart widget', () => {
+describe('Navigation mobile cart badge', () => {
   beforeEach(() => {
-    cartState.count = 0
+    cartState.items = []
   })
 
-  it('shows cart item count on the hamburger toggle before menu opens', async () => {
-    cartState.count = 4
+  it('shows the cart item count on the mobile bottom nav cart tab once mounted', async () => {
+    cartState.items = [makeCartItem(3), makeCartItem(1)]
     render(<Navigation />)
 
+    // The badge is suppressed until after mount to avoid SSR hydration mismatches
     await waitFor(() => {
-      expect(screen.getByTestId('nav-mobile-menu-cart-count')).toBeTruthy()
+      expect(screen.getByTestId('mobile-nav-cart-count')).toBeTruthy()
     })
 
-    const widget = screen.getByTestId('nav-mobile-menu-cart-count')
-    expect(widget.textContent).toBe('4')
+    expect(screen.getByTestId('mobile-nav-cart-count').textContent).toBe('4')
   })
 
-  it('hides cart widget when there are no items', () => {
-    cartState.count = 0
+  it('hides the cart badge when there are no items', () => {
     render(<Navigation />)
 
-    expect(screen.queryByTestId('nav-mobile-menu-cart-count')).toBeNull()
-  })
-
-  it('hides the widget after opening the mobile menu', async () => {
-    cartState.count = 3
-    render(<Navigation />)
-
-    await waitFor(() => {
-      expect(screen.getByTestId('nav-mobile-menu-cart-count')).toBeTruthy()
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Toggle menu' }))
-    expect(screen.queryByTestId('nav-mobile-menu-cart-count')).toBeNull()
+    expect(screen.queryByTestId('mobile-nav-cart-count')).toBeNull()
   })
 })

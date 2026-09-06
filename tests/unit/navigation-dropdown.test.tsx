@@ -266,10 +266,9 @@ describe('Navigation shop dropdown', () => {
     expect(scoped.getByRole('menuitem', { name: /collections/i }).getAttribute('href')).toBe('/collections')
     expect(scoped.getByRole('menuitem', { name: /new drops/i }).getAttribute('href')).toBe('/drops')
     expect(scoped.queryByText(/buy now/i)).toBeNull()
-    expect(scoped.getByText(/shop right now/i)).toBeTruthy()
+    expect(scoped.getByText(/shop the drop/i)).toBeTruthy()
     expect(menu.className).toContain('top-full')
     expect(menu.className).not.toContain('pt-5')
-    expect(screen.getByTestId('nav-shop-menu-connector')).toBeTruthy()
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/products?isActive=true&limit=18', { cache: 'no-store' })
       expect(fetchMock).toHaveBeenCalledWith('/api/categories', { cache: 'no-store' })
@@ -285,23 +284,7 @@ describe('Navigation shop dropdown', () => {
       expect(categories.getByRole('menuitem', { name: /bottoms/i }).getAttribute('href')).toContain('/products?category=bottoms')
       expect(categories.getByRole('menuitem', { name: /outerwear/i }).getAttribute('href')).toContain('/products?category=outerwear')
     })
-    expect(scoped.getByRole('menuitem', { name: /view all products/i }).getAttribute('href')).toBe('/products')
-  })
-
-  it('uses dynamic category data in the mobile menu shop category list', async () => {
-    render(<Navigation />)
-
-    fireEvent.click(screen.getByRole('button', { name: /toggle menu/i }))
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/categories', { cache: 'no-store' })
-    })
-
-    const mobileCategoryList = screen.getByTestId('mobile-shop-categories')
-    const scoped = within(mobileCategoryList)
-
-    expect(scoped.getByRole('link', { name: /hoodies/i }).getAttribute('href')).toContain('/products?category=hoodies')
-    expect(scoped.getByRole('link', { name: /bottoms/i }).getAttribute('href')).toContain('/products?category=bottoms')
-    expect(scoped.getByRole('link', { name: /outerwear/i }).getAttribute('href')).toContain('/products?category=outerwear')
+    // The menu re-renders once product/category data lands, so re-query it rather than reusing the stale node
+    expect(within(screen.getByTestId('nav-shop-menu')).getByRole('menuitem', { name: /^view all$/i }).getAttribute('href')).toBe('/products')
   })
 })

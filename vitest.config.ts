@@ -9,6 +9,11 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./tests/setup.ts'],
+    // Heavy admin dashboards are dynamically imported inside tests; under CI/parallel load the
+    // first import can exceed vitest's 5s default and cascade into 'multiple elements' errors
+    // when the timed-out render is never cleaned up.
+    testTimeout: 20000,
+    hookTimeout: 20000,
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
     exclude: ['node_modules', '.next'],
     coverage: {

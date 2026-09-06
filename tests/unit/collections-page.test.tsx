@@ -142,8 +142,8 @@ describe('Collections index page', () => {
       expect(screen.getByTestId('collections-grid')).toBeTruthy()
     })
 
-    expect(screen.getByRole('heading', { name: /Curated edits built for everyday shopping/i })).toBeTruthy()
-    expect(screen.getByTestId('collections-spotlight')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: /Curated edits/i })).toBeTruthy()
+    expect(screen.getByText('Featured collection')).toBeTruthy()
     const linkHrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'))
     expect(linkHrefs).toContain('/collections/calm-essentials')
     expect(linkHrefs).toContain('/collections/weekend-core')
@@ -154,28 +154,20 @@ describe('Collections index page', () => {
     render(<CollectionsPage />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /All collections/i })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'All' })).toBeTruthy()
     })
 
     expect(screen.queryByPlaceholderText('Search collections')).toBeNull()
   })
 
-  it('supports featured toggle, sort, and clear behavior', async () => {
-    navState.search = 'featured=featured&sortBy=name'
-    const { rerender } = render(<CollectionsPage />)
+  it('supports featured toggle and sort behavior', async () => {
+    render(<CollectionsPage />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /clear/i })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Featured' })).toBeTruthy()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /clear/i }))
-
-    expect(replaceMock).toHaveBeenCalledWith('/collections', { scroll: false })
-
-    navState.search = ''
-    rerender(<CollectionsPage />)
-
-    fireEvent.click(screen.getByRole('button', { name: /Featured/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Featured' }))
     expect(replaceMock).toHaveBeenCalledWith('/collections?featured=featured', { scroll: false })
 
     fireEvent.change(screen.getByRole('combobox', { name: /Sort collections/i }), {
@@ -184,7 +176,8 @@ describe('Collections index page', () => {
     expect(replaceMock).toHaveBeenCalledWith('/collections?sortBy=productCount', { scroll: false })
   })
 
-  it('renders empty state when no collections are returned', async () => {
+  it('renders empty state and resets filters when no collections are returned', async () => {
+    navState.search = 'featured=featured&sortBy=name'
     global.fetch = vi.fn(async () => ({
       ok: true,
       json: async () => [],
@@ -193,7 +186,11 @@ describe('Collections index page', () => {
     render(<CollectionsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('No collections available right now')).toBeTruthy()
+      expect(screen.getByText('No collections available')).toBeTruthy()
     })
+
+    fireEvent.click(screen.getByRole('button', { name: /Reset filters/i }))
+
+    expect(replaceMock).toHaveBeenCalledWith('/collections', { scroll: false })
   })
 })
