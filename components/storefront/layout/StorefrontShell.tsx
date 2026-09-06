@@ -17,9 +17,9 @@ export const FALLBACK_LAYOUT: ShopLayoutData = {
   menu: [
     { id: 'fallback-shop', title: 'Shop', url: '/collections/all', items: [] },
     { id: 'fallback-collections', title: 'Collections', url: '/collections', items: [] },
-    { id: 'fallback-drops', title: 'Drops', url: '/collections/drops', items: [] },
+    { id: 'fallback-drops', title: 'Drops', url: '/drops', items: [] },
     { id: 'fallback-loyalty', title: 'Loyalty', url: '/loyalty', items: [] },
-    { id: 'fallback-about', title: 'About', url: '/pages/about', items: [] },
+    { id: 'fallback-about', title: 'About', url: '/about', items: [] },
   ],
   policies: [],
 }

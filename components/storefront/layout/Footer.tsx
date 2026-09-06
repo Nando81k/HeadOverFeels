@@ -1,9 +1,7 @@
 import * as React from 'react'
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
-import { Button } from '@/components/storefront/ui/Button'
 import { Container } from '@/components/storefront/ui/Container'
-import { Input } from '@/components/storefront/ui/Input'
+import { NewsletterForm } from '@/components/storefront/newsletter/NewsletterForm'
 import type { MenuItem } from '@/lib/shopify/types'
 import { cn } from '@/lib/storefront/cn'
 
@@ -73,7 +71,8 @@ export interface FooterProps {
  * Site footer (spec §5.3): four columns over a policy row.
  *
  * Server-safe on purpose — it holds no state, so the whole subtree stays out of
- * the client bundle apart from the `Input` and `Button` primitives.
+ * the client bundle apart from the `NewsletterForm` island, which owns the
+ * server action and its result messages.
  */
 export function Footer({ menu, policies, shopName = 'Head Over Feels' }: FooterProps) {
   const currentYear = new Date().getFullYear()
@@ -96,27 +95,7 @@ export function Footer({ menu, policies, shopName = 'Head Over Feels' }: FooterP
           <p className="mt-4 text-sm text-bone/70">
             Drop announcements and restocks. No noise.
           </p>
-          <form
-            action="/api/newsletter"
-            method="post"
-            aria-labelledby="footer-newsletter"
-            className="mt-4 flex items-end gap-2"
-          >
-            <Input
-              label="Email"
-              hideLabel
-              type="email"
-              name="email"
-              required
-              autoComplete="email"
-              placeholder="you@example.com"
-              wrapperClassName="flex-1"
-            />
-            <Button type="submit" variant="signal">
-              Join
-              <ArrowRight aria-hidden="true" className="size-4" />
-            </Button>
-          </form>
+          <NewsletterForm className="mt-4" />
         </div>
       </Container>
 

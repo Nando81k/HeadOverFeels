@@ -8,6 +8,7 @@ import { Container } from '@/components/storefront/ui/Container'
 import { IconButton } from '@/components/storefront/ui/IconButton'
 import { HeaderNav } from '@/components/storefront/layout/HeaderNav'
 import { MobileMenu } from '@/components/storefront/layout/MobileMenu'
+import { SearchDialog } from '@/components/storefront/search/SearchDialog'
 import type { MenuItem } from '@/lib/shopify/types'
 import { cn } from '@/lib/storefront/cn'
 
@@ -37,6 +38,7 @@ export interface HeaderProps {
 export function Header({ menu, cartCount, transparent = false, announcement }: HeaderProps) {
   const [scrolled, setScrolled] = React.useState(false)
   const [menuOpen, setMenuOpen] = React.useState(false)
+  const [searchOpen, setSearchOpen] = React.useState(false)
 
   React.useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > SCROLL_THRESHOLD)
@@ -98,7 +100,12 @@ export function Header({ menu, cartCount, transparent = false, announcement }: H
           <HeaderNav items={menu} className="hidden justify-center md:flex" />
 
           <div className="flex items-center justify-end gap-0.5">
-            <IconButton label="Search">
+            <IconButton
+              label="Search"
+              aria-haspopup="dialog"
+              aria-expanded={searchOpen}
+              onClick={() => setSearchOpen(true)}
+            >
               <Search aria-hidden="true" className="size-5" />
             </IconButton>
 
@@ -130,6 +137,7 @@ export function Header({ menu, cartCount, transparent = false, announcement }: H
       </header>
 
       <MobileMenu open={menuOpen} onOpenChange={setMenuOpen} items={menu} />
+      <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
     </>
   )
 }

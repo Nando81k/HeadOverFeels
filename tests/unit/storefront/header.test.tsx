@@ -7,6 +7,15 @@ import userEvent from '@testing-library/user-event'
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/shopify/client', () => ({ storefrontFetch: vi.fn() }))
 
+// The header's search dialog uses the app router and the predictive-search
+// server action; neither exists in jsdom.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn(), back: vi.fn() }),
+}))
+vi.mock('@/app/(storefront)/_actions/catalog', () => ({
+  predictiveSearchAction: vi.fn(async () => ({ products: [], collections: [] })),
+}))
+
 import { Header } from '@/components/storefront/layout/Header'
 import { HeaderNav } from '@/components/storefront/layout/HeaderNav'
 import { MobileMenu } from '@/components/storefront/layout/MobileMenu'
@@ -120,6 +129,21 @@ describe('Header', () => {
     setScrollY(10)
     fireEvent.scroll(window)
     await waitFor(() => expect(header).not.toHaveAttribute('data-scrolled'))
+  })
+
+  it('opens the search dialog from the search button', async () => {
+    const user = userEvent.setup()
+    render(<Header menu={MENU} cartCount={0} />)
+
+    const trigger = banner().getByRole('button', { name: 'Search' })
+    expect(trigger).toHaveAttribute('aria-haspopup', 'dialog')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(trigger)
+
+    const dialog = screen.getByRole('dialog', { name: 'Search' })
+    expect(within(dialog).getByLabelText('Search products')).toBeInTheDocument()
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('opens the mobile drawer from the menu button', async () => {

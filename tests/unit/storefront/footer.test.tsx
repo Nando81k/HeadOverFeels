@@ -5,6 +5,19 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/shopify/client', () => ({ storefrontFetch: vi.fn() }))
+// `StorefrontShell` renders the header, whose search dialog needs the app
+// router and the predictive-search action.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn(), back: vi.fn() }),
+}))
+vi.mock('@/app/(storefront)/_actions/catalog', () => ({
+  predictiveSearchAction: vi.fn(async () => ({ products: [], collections: [] })),
+}))
+// The footer's newsletter island defaults to the server action, which reaches
+// Prisma; the form itself is covered by newsletter-form.test.tsx.
+vi.mock('@/app/(storefront)/_actions/newsletter', () => ({
+  subscribeNewsletterAction: vi.fn(async () => ({ status: 'idle', message: '' })),
+}))
 vi.mock('@/lib/shopify/queries/shop', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/shopify/queries/shop')>()
   return { ...actual, getShopLayout: vi.fn() }
@@ -75,18 +88,20 @@ describe('Footer', () => {
     expect(company.getByRole('link', { name: 'Drops' })).toHaveAttribute('href', '/collections/drops')
   })
 
-  it('renders the newsletter form posting to /api/newsletter', () => {
+  it('renders the newsletter island instead of a raw API post', () => {
     const { container } = render(<Footer menu={MENU} policies={POLICIES} />)
     const form = container.querySelector('form')
 
-    expect(form).toHaveAttribute('action', '/api/newsletter')
-    expect(form).toHaveAttribute('method', 'post')
+    expect(form).not.toBeNull()
+    expect(form).not.toHaveAttribute('action', '/api/newsletter')
 
     const email = screen.getByLabelText('Email')
     expect(email).toHaveAttribute('type', 'email')
     expect(email).toHaveAttribute('name', 'email')
     expect(email).toBeRequired()
     expect(screen.getByRole('button', { name: 'Join' })).toHaveAttribute('type', 'submit')
+    // The honeypot travels with the island.
+    expect(container.querySelector('input[name="company"]')).not.toBeNull()
   })
 
   it('links every policy to /policies/<handle>', () => {
@@ -175,9 +190,9 @@ describe('StorefrontShell', () => {
     expect(FALLBACK_LAYOUT.menu.map((item) => [item.title, item.url])).toEqual([
       ['Shop', '/collections/all'],
       ['Collections', '/collections'],
-      ['Drops', '/collections/drops'],
+      ['Drops', '/drops'],
       ['Loyalty', '/loyalty'],
-      ['About', '/pages/about'],
+      ['About', '/about'],
     ])
     expect(FALLBACK_LAYOUT.policies).toEqual([])
     expect(FALLBACK_LAYOUT.name).toBe('Head Over Feels')
