@@ -2,6 +2,15 @@ import { AdminLayout } from '@/components/admin/AdminLayout'
 import { prisma } from '@/lib/prisma'
 import { saveGoals } from './actions'
 
+// Inline Server Action wrapper: the form is rendered inside AdminLayout (a Client
+// Component boundary), so the action prop must be a real Server Action, not a
+// plain async arrow. saveGoals returns a result object, which form actions
+// cannot, hence the void wrapper.
+async function saveGoalsAction(formData: FormData): Promise<void> {
+  'use server'
+  await saveGoals(formData)
+}
+
 export default async function GoalsSettingsPage() {
   const goals = await prisma.salesGoals.findUnique({ where: { id: 'default' } })
   const daily = goals?.dailyTarget ?? ''
@@ -10,7 +19,7 @@ export default async function GoalsSettingsPage() {
   return (
     <AdminLayout title="Sales Goals" subtitle="Targets that drive the dashboard goals widget">
       <div className="max-w-md">
-        <form action={async (fd: FormData) => { await saveGoals(fd) }} className="space-y-4">
+        <form action={saveGoalsAction} className="space-y-4">
           <div>
             <label htmlFor="dailyRevenueGoal" className="block text-[11px] font-semibold text-white/70 mb-1.5">
               Daily revenue goal
