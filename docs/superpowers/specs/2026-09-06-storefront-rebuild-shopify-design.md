@@ -1,6 +1,6 @@
 # Storefront Rebuild on Shopify — Design Spec
 
-**Status:** Draft for review (brainstorm output, 2026-09-06). Decisions below are recommendations; the ones marked **OPEN** need a call from Nando before the matching phase starts. Phase 1 can begin on the recommendations as written.
+**Status:** Draft for review (brainstorm output, 2026-09-06). **Design direction A (§5) approved by Nando on 2026-09-06** against the visual mock (home desktop/mobile, collection, product; alternates B "warm heritage" and C "signal loud" declined). Remaining decisions below are recommendations; the ones marked **OPEN** need a call before the matching phase starts. Phase 1 can begin on the recommendations as written.
 
 **Scope:** Rebuild the customer-facing site from scratch on Shopify (Storefront API + Customer Account API + Shopify Checkout) and replace the entire storefront design system. The admin V2 rebuild (`docs/superpowers/specs/2026-05-30-admin-rebuild-*.md`) is out of scope and must keep working throughout.
 
@@ -34,7 +34,7 @@ The storefront styling has also drifted: three fonts (Inter, Allura, Harlow), ha
 | 14 | Transactional email | Shopify sends order confirmation, shipping, and abandoned-checkout emails. Resend stays for loyalty, drop alerts, newsletter, and support. Custom order-email templates and the email queue for orders are removed. | Keep all email custom (double emails; rejected). |
 | 15 | Wishlist | Anonymous: `localStorage`. Signed in: Prisma `WishlistItem` keyed by Shopify customer GID + variant GID. | Shopify wishlist app. |
 | 16 | Admin surface | **Shopify admin becomes the operations tool** for products, inventory, orders, fulfillment, customers, discounts, gift cards, analytics. `/admin` keeps only brand extras (loyalty, drops config, support, marketing popups, newsletter, Reggie). Retiring the duplicated admin pages is a separate spec after cutover. | Keep syncing Shopify → Prisma to feed the existing admin (double source of truth; rejected). |
-| 17 | Design system | **Full replacement**, see §5. One look (no dark mode on the storefront). Tokens live in `styles/storefront/tokens.css`; admin V2 tokens move to `styles/admin/tokens.css`; `app/globals.css` imports both. | Incremental token migration (the current plan in `globals.css` comments; too slow). |
+| 17 | Design system | **Full replacement**, see §5 — **approved 2026-09-06 (direction A)**. One look (no dark mode on the storefront). Tokens live in `styles/storefront/tokens.css`; admin V2 tokens move to `styles/admin/tokens.css`; `app/globals.css` imports both. | Incremental token migration (the current plan in `globals.css` comments; too slow). Alternates B (mauve/cream, serif, rounded) and C (red ground, Anton, 3px rules) were mocked and declined. |
 | 18 | Testing | Vitest + RTL for components and `lib/shopify` (mocked fetch fixtures recorded from the real store). Playwright smoke: home → PLP → PDP → add to cart → `checkoutUrl` reachable. | — |
 | 19 | Catalog migration | One-shot script `scripts/shopify/migrate-catalog.ts` (Prisma → `productSet`), idempotent by SKU, run against the trial store now and again before cutover. | Manual entry in Shopify admin (error-prone; catalog has variant images and colour hexes). |
 | 20 | Legacy orders & customers | Customers are created in Shopify by email (`customerCreate`) before cutover so loyalty balances can be linked. Historical orders stay in Prisma and are shown read-only under Account → "Earlier orders". | Import history via Admin API `orderCreate` (possible; **OPEN 20a**, adds Shopify order volume without payments). |
@@ -217,6 +217,8 @@ Removed routes (redirects in `next.config.ts`): `/checkout` → `/cart`; `/signi
 | Phase | Deliverable | Plan doc |
 |---|---|---|
 | **1 Foundation** | Store prerequisites checklist, metafield definitions, catalog migration script + first run, `lib/shopify` client + queries + fixtures, tokens + primitives, header/footer shell, integration branch + preview | `plans/2026-09-06-storefront-rebuild-phase1-foundation.md` |
+
+Prerequisite landed separately: production deploys have been failing on Vercel since 2026-05-30 (Hobby cron limit); fix PR `claude/fix-vercel-cron-hobby`. Phase 1's Vercel preview for `storefront-v2` depends on it.
 | 2 Catalog | Home, collections, PLP with filters, PDP, search, policies pages | next |
 | 3 Cart & checkout | Cart cookie + actions + drawer + `/cart`, discount codes, Shop Pay, free-shipping bar, checkout handoff QA (needs plan upgrade) | |
 | 4 Accounts & loyalty | Customer Account API login, account pages, webhooks, loyalty on `orders/paid`, redemption → discount codes, wishlist, customer pre-creation script | |
@@ -263,4 +265,4 @@ Idempotency: products matched by handle, variants by SKU; re-running updates in 
 - **10a** Are drops important enough to justify a deployed Shopify Functions app for hard cart validation, or is server-side gating on our add-to-cart action enough for v1?
 - **20a** Import historical orders into Shopify, or show them read-only from Prisma (recommended)?
 - **21** Keep the avatar system in the storefront nav, or park it?
-- **Design** Approve the direction in §5 (ink/bone/signal, Archivo + Inter, sharp radii) before Phase 1 wave 3 builds primitives. A quick visual mock can be produced on request before any code is written.
+- ~~**Design** Approve the direction in §5.~~ Approved 2026-09-06 (direction A of the visual mock). Phase 1 wave 3 can build primitives to §5 as written.
