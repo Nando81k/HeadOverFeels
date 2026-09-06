@@ -23,7 +23,7 @@
 7. **Admin tests must stay green in every wave.** Run `npx vitest run tests/unit/admin-*.test.ts* tests/unit/fulfillment-*.test.ts*` before opening a PR that touches `app/globals.css` or `app/layout.tsx`. The 7 files listed in `plans/2026-05-30-admin-rebuild-phase1-qa.md` are known-red before this phase; do not fix or delete them.
 8. **Vitest 4 generics:** one-arg `vi.fn<T>()`. `global.fetch` is already a `vi.fn()` from `tests/setup.ts`; reset it with `vi.mocked(fetch).mockReset()` in `beforeEach`.
 9. **Environment for scripts:** scripts read `.env.shopify` (git-ignored, see Task 1) via `dotenv`. Never print tokens. `--dry-run` is the default; `--apply` is required to mutate.
-10. **Branching:** integration branch `storefront-v2` off `main`. Task branches `sf1/task-N-<short-name>` → PR into `storefront-v2`. Never into `main` in this phase.
+10. **Branching:** the designated session branch `claude/site-rebuild-shopify-c6zuz3` (PR #228) is the Phase 1 integration branch (the session may not push elsewhere); waves are committed to it directly. Nothing merges to `main` in this phase.
 11. **Trial store reminder:** the store cannot accept payments until upgraded. Nothing in Phase 1 needs payments.
 
 ---
@@ -156,7 +156,7 @@ export async function storefrontFetch<T>(query: string, opts?: StorefrontFetchOp
 
 Cache tags convention: `shop`, `menu`, `collections`, `collection:<handle>`, `product:<handle>`, `search` (no-store), `cart` (no-store). Default `revalidate` 300s for catalog, `false` for cart/search.
 
-Storefront queries (validated against Storefront API 2026-07 on 2026-09-06):
+Storefront queries (validated against Storefront API 2026-07 on 2026-09-06; re-validated during execution — the PDP `images(first: 12)` had to be aliased `gallery`):
 
 ```graphql
 # lib/shopify/queries/fragments.ts
@@ -179,7 +179,7 @@ query ProductByHandle($handle: String!) {
     ...ProductCardFields
     descriptionHtml vendor productType
     seo { title description }
-    images(first: 12) { nodes { ...ImageFields } }
+    gallery: images(first: 12) { nodes { ...ImageFields } }   # aliased: conflicts with ProductCardFields.images(first: 2)
     options { id name optionValues { id name swatch { color } } }
     variants(first: 100) { nodes {
       id title sku availableForSale quantityAvailable
@@ -262,7 +262,7 @@ Metafield definitions (Task 3), all namespace `custom`, owner type in brackets:
 - [ ] Shopify admin → Sales channels → add **Headless** → Add storefront → rename "Head Over Feels web". Copy **public** and **private** Storefront access tokens. Under Manage API access → Storefront API → enable: unauthenticated read product listings, product inventory, product tags, product pickup locations, collection listings, customer tags, content (menus/policies), checkouts/carts read+write, selling plans.
 - [ ] Settings → Apps and sales channels → Develop apps → create app "HOF Ops" with Admin API scopes: `read_products write_products read_publications write_publications read_inventory write_inventory read_locations read_discounts write_discounts read_customers write_customers read_orders read_metaobject_definitions write_metaobject_definitions read_online_store_navigation write_online_store_navigation`. Install and copy the Admin access token.
 - [ ] Settings → Locations: confirm the primary location. Settings → Shipping: one general profile (rates can be placeholders). Settings → Taxes: US automatic.
-- [ ] Online Store → Navigation: create menu **Main menu** (handle `main-menu`) with items Shop (`/collections/all`), Collections (`/collections`), Drops (`/collections/drops`), Loyalty (`/loyalty`), About (`/pages/about`). Placeholder collection links are fine; Task 4 creates the real ones.
+- [x] Online Store → Navigation: create menu **Main menu** (handle `main-menu`) with items Shop (`/collections/all`), Collections (`/collections`), Drops (`/collections/drops`), Loyalty (`/loyalty`), About (`/pages/about`). Placeholder collection links are fine; Task 4 creates the real ones. *Done 2026-09-06 via Admin API `menuUpdate` on `gid://shopify/Menu/269016891617`.*
 - [ ] Settings → Policies: paste current Privacy and Terms; add Refund and Shipping.
 - [ ] Rename store from "My Store" to "Head Over Feels" (Settings → General).
 - [ ] Put the tokens in a local `.env.shopify` per `.env.shopify.example` (Task 1). Never commit it.
@@ -306,7 +306,7 @@ Metafield definitions (Task 3), all namespace `custom`, owner type in brackets:
 
 - [ ] **Step 1: Failing test:** `METAFIELD_DEFINITIONS` has the 7 rows from Shared contracts, every one with `access: { storefront: 'PUBLIC_READ' }`, `ownerType` in `PRODUCT | PRODUCTVARIANT | COLLECTION`, and `namespace: 'custom'`. `toDefinitionInput(row)` yields a valid `MetafieldDefinitionInput` shape (`name`, `namespace`, `key`, `type`, `ownerType`, `access`, `pin: true`).
 - [ ] **Step 2:** Implement. Script: for each definition run `metafieldDefinitionCreate`; treat `userErrors.code === 'TAKEN'` as already-exists (idempotent); print a table. `--dry-run` prints only.
-- [ ] **Step 3:** Run for real: `npx tsx scripts/shopify/setup-metafields.ts --apply` (needs `.env.shopify`). Paste the output table in the PR.
+- [x] **Step 3:** Run for real: `npx tsx scripts/shopify/setup-metafields.ts --apply` (needs `.env.shopify`). Paste the output table in the PR. *Done 2026-09-06 through the Shopify Admin API (no `.env.shopify` yet): all 7 definitions created with `access.storefront = PUBLIC_READ` — `custom.materials` (245658976481), `care_guide` (245659009249), `drop_start` (245659042017), `drop_end` (245659074785), `max_per_order` (245659107553) on PRODUCT; `featured` (245659697377) on COLLECTION; `color_hex` (245659730145) on PRODUCTVARIANT. Re-running the script is a no-op (`TAKEN`).*
 - [ ] **Step 4:** green, commit `feat(storefront-v2): metafield definitions script`.
 
 ## Task 4: Catalog migration + fixture recorder
@@ -370,7 +370,7 @@ Metafield definitions (Task 3), all namespace `custom`, owner type in brackets:
 
 - [ ] **Step 1: Failing test** (reads files with `fs`): `styles/storefront/tokens.css` defines every token named in spec §5.1; `app/globals.css` contains exactly `@import "tailwindcss";` plus imports of the three style files and nothing else; `styles/admin/tokens.css` still defines `--color-surface-base`, `--color-border-subtle`, `--shadow-glow-primary`, `--color-primary`, `--color-background`, `--color-muted-foreground` (the admin V2 and legacy semantic tokens — moved verbatim, not renamed); no file under `components/storefront` contains a hex literal (empty dir passes).
 - [ ] **Step 2:** Move the existing `@theme { ... }` block and the `:root` legacy variables from `globals.css` into `styles/admin/tokens.css` verbatim (they also keep the legacy storefront working until Phase 6). Move the body/scrollbar/animation utilities into `styles/admin/tokens.css` too under a `/* legacy */` comment — Phase 6 deletes them.
-- [ ] **Step 3:** Write `styles/storefront/tokens.css` from spec §5.1 in a second `@theme` block (Tailwind v4 merges multiple `@theme` blocks; storefront token names do not collide with admin ones — verify by grepping both files for duplicate `--color-*` names and rename on the storefront side if any collide).
+- [ ] **Step 3:** Write `styles/storefront/tokens.css` from spec §5.1 in a second `@theme` block (Tailwind v4 merges multiple `@theme` blocks). **Collisions resolved during execution** (renamed on the storefront side, so admin utilities and Tailwind defaults are untouched): `--radius-sm` → `--radius-sharp` (`rounded-sharp`), `--duration-fast|base|slow` → `--duration-sf-fast|sf-base|sf-slow`, `--ease-out|spring` → `--ease-sf-out|sf-spring`; `--radius-none` dropped (Tailwind default already 0). Every later task uses these names.
 - [ ] **Step 4:** `styles/storefront/base.css`: `@layer base` rules scoped to `[data-surface="storefront"]`: background bone, ink text, `font-body`, focus ring with `--color-signal`, `::selection`, `prefers-reduced-motion` kill-switch, tabular-nums utility `.num`. Scoping by attribute keeps admin pages unaffected.
 - [ ] **Step 5:** `lib/storefront/fonts.ts`: `Archivo` (`variable: '--font-archivo'`, `axes: ['wdth']`, weight `500 900`) and `Inter` (`--font-inter`). `app/layout.tsx`: add both variables to `<html className>` alongside the existing Allura/Harlow (legacy pages still use them until Phase 6).
 - [ ] **Step 6:** Boot `npm run dev` and load `/admin` and `/` — both must render unchanged. Run the admin test subset from note 7.
@@ -386,7 +386,7 @@ Metafield definitions (Task 3), all namespace `custom`, owner type in brackets:
   - `IconButton` requires `label` → sets `aria-label`; hit target class `min-h-11 min-w-11`.
   - `Badge` variant `soldout` text "Sold out" uppercase.
   - `Price` renders `<span class="num">` with formatted amount, and a `<s>` for compare-at with `aria-label="Original price"` only when higher.
-- [ ] **Step 2:** Implement with cva; `Button` variants `ink|signal|outline|ghost|link`, sizes `sm|md|lg`; radius `rounded-sm` everywhere; focus `focus-visible:outline-2 focus-visible:outline-signal focus-visible:outline-offset-2`.
+- [ ] **Step 2:** Implement with cva; `Button` variants `ink|signal|outline|ghost|link`, sizes `sm|md|lg`; radius `rounded-sharp` everywhere; focus `focus-visible:outline-2 focus-visible:outline-signal focus-visible:outline-offset-2`.
 - [ ] **Step 3:** ESLint: add a config object with `files: ['components/storefront/**', 'app/(storefront)/**', 'lib/storefront/**']` and `no-restricted-syntax` selector `Literal[value=/#[0-9a-fA-F]{3,8}\b/]` message "Use a token from styles/storefront/tokens.css". Verify `npx eslint components/storefront` passes and a deliberate `bg-[#fff]` fails.
 - [ ] **Step 4:** green, commit.
 

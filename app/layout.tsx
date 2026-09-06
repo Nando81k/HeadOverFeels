@@ -3,6 +3,7 @@ import { Allura } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
+import { storefrontFontVariables } from "@/lib/storefront/fonts";
 
 // Load Allura font for logo - self-hosted through Next.js for consistent production rendering
 const allura = Allura({
@@ -32,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${allura.variable} ${harlow.variable}`}>
+    <html lang="en" className={`${allura.variable} ${harlow.variable} ${storefrontFontVariables}`}>
       <body className="antialiased">
         <a
           href="#main-content"

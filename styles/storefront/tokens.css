@@ -1,0 +1,60 @@
+/*
+ * Storefront design tokens — spec §5.1 of
+ * docs/superpowers/specs/2026-09-06-storefront-rebuild-shopify-design.md
+ *
+ * This is the ONLY storefront file allowed to contain hex colour literals.
+ * Tailwind v4 merges multiple @theme blocks, so these live alongside the
+ * legacy/admin block in styles/admin/tokens.css.
+ *
+ * RENAMES (deliberate deviations from the spec's names, to avoid collisions
+ * with the admin @theme block and with Tailwind v4's own default theme —
+ * a collision would silently change admin utilities):
+ *   --radius-sm      → --radius-sharp     (admin/legacy `rounded-sm` must not move)
+ *   --duration-fast  → --duration-sf-fast   (admin defines --duration-fast/base/slow)
+ *   --duration-base  → --duration-sf-base
+ *   --duration-slow  → --duration-sf-slow
+ *   --ease-out       → --ease-sf-out       (Tailwind's default theme defines --ease-out)
+ *   --ease-spring    → --ease-sf-spring    (kept in the same namespace as --ease-sf-out)
+ * --radius-none is omitted: Tailwind already generates `rounded-none`.
+ */
+@theme {
+  /* Colour — the only hex values allowed in the storefront */
+  --color-ink: #0A0A0A;            /* text, primary buttons, header on scroll */
+  --color-ink-soft: #3D3D3D;       /* secondary text */
+  --color-ink-mute: #6F6F6F;       /* captions, placeholders */
+  --color-bone: #F7F5F2;           /* page background */
+  --color-paper: #FFFFFF;          /* cards, drawers */
+  --color-line: rgb(10 10 10 / 0.12);
+  --color-line-strong: rgb(10 10 10 / 0.32);
+  --color-signal: #FF3131;         /* brand red: sale, drops, focus, one CTA per view */
+  --color-signal-ink: #FFFFFF;
+  --color-rose: #CDA09B;           /* heritage mauve, demoted to tints/eyebrows */
+  --color-rose-tint: rgb(205 160 155 / 0.18);
+  --color-ok: #1E7F4F;
+  --color-warn: #B26B00;
+  --color-danger: #B3261E;
+
+  /* Type */
+  --font-display: var(--font-archivo), "Archivo", "Arial Narrow", sans-serif;  /* 800–900, uppercase, tight */
+  --font-body: var(--font-inter), "Inter", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;                       /* prices, SKUs, timers */
+  --text-display-xl: clamp(3rem, 8vw, 7.5rem);
+  --text-display-lg: clamp(2.25rem, 5vw, 4.5rem);
+  --text-display-md: clamp(1.75rem, 3vw, 2.75rem);
+  --tracking-display: -0.03em;
+  --tracking-eyebrow: 0.14em;
+
+  /* Space & shape */
+  --spacing-gutter: clamp(1rem, 3vw, 2.5rem);
+  --spacing-section: clamp(3.5rem, 8vw, 8rem);
+  --container-shop: 90rem;         /* 1440px */
+  --radius-sharp: 2px;             /* buttons, inputs, cards — sharp (spec: --radius-sm) */
+  --radius-pill: 999px;            /* chips only */
+
+  /* Motion */
+  --duration-sf-fast: 120ms;
+  --duration-sf-base: 200ms;
+  --duration-sf-slow: 360ms;
+  --ease-sf-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-sf-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
+}
