@@ -31,6 +31,8 @@ export function normalizePredictiveSearch(raw: RawPredictiveSearch): SearchSugge
     handle: collection.handle,
     title: collection.title,
     image: null,
+    description: null,
+    featured: false,
   }))
   return { products: (result.products ?? []).map(toProductCard), collections }
 }

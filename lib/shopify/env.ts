@@ -111,6 +111,16 @@ export function getShopifyAdminEnv(): ShopifyAdminEnv {
   return adminCache
 }
 
+/**
+ * True when the Storefront API can be called (store domain + private token are
+ * non-blank). Never throws; pages use it to render a "catalog unavailable" state
+ * instead of failing when the Headless tokens have not been provisioned yet.
+ */
+export function hasShopifyEnv(): boolean {
+  const raw = readRaw(['SHOPIFY_STORE_DOMAIN', 'SHOPIFY_STOREFRONT_PRIVATE_TOKEN'])
+  return Boolean(raw.SHOPIFY_STORE_DOMAIN && raw.SHOPIFY_STOREFRONT_PRIVATE_TOKEN)
+}
+
 /** Test hook: forget the cached env so later `process.env` changes are picked up. */
 export function resetShopifyEnvCache(): void {
   storefrontCache = null

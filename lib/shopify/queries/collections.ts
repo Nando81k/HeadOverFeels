@@ -4,7 +4,7 @@ import { CATALOG_REVALIDATE, IMAGE_FIELDS, toImage, type RawImage } from './frag
 
 export const COLLECTIONS_QUERY = `query Collections($first: Int!) {
   collections(first: $first, sortKey: TITLE) {
-    nodes { id handle title image { ...ImageFields } }
+    nodes { id handle title description image { ...ImageFields } featured: metafield(namespace: "custom", key: "featured") { value } }
   }
 }
 
@@ -14,7 +14,9 @@ export type RawCollectionSummary = {
   id: string
   handle: string
   title: string
+  description?: string | null
   image: RawImage | null
+  featured?: { value: string | null } | null
 }
 
 type CollectionsResponse = { collections: { nodes: RawCollectionSummary[] } | null }
@@ -25,6 +27,8 @@ export function normalizeCollections(nodes: RawCollectionSummary[]): CollectionS
     handle: node.handle,
     title: node.title,
     image: toImage(node.image),
+    description: node.description?.trim() ? node.description : null,
+    featured: node.featured?.value === 'true',
   }))
 }
 

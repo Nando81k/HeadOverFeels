@@ -87,6 +87,8 @@ export function normalizeCollectionPage(raw: RawCollectionPage): CollectionPage 
       title: raw.title,
       descriptionHtml: raw.descriptionHtml,
       image: toImage(raw.image),
+      description: null,
+      featured: false,
     },
     products: raw.products.nodes.map(toProductCard),
     filters: (raw.products.filters ?? []).map((filter) => ({
