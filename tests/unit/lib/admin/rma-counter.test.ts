@@ -10,7 +10,7 @@ vi.mock('@/lib/prisma', () => {
   }
   // Serialize transactions so SELECT FOR UPDATE behaviour is correctly simulated:
   // concurrent callers queue up and each waits for the previous to commit.
-  let queue = Promise.resolve()
+  let queue: Promise<unknown> = Promise.resolve()
   return {
     prisma: {
       $transaction: vi.fn((fn: (t: typeof tx) => unknown) => {

@@ -21,6 +21,10 @@ import { revalidatePath } from 'next/cache'
 import type { OrderStatus, ReturnItemCondition, RefundType } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin, requireAdminRole } from '@/lib/auth/admin'
+import type {
+  OrderDetailFull as LibOrderDetailFull,
+  ReturnWithItems as LibReturnWithItems,
+} from '@/lib/admin/fulfillment'
 import { purchaseOutboundLabel, createReturnLabel } from '@/lib/shipping/easypost'
 import { processStripeRefund } from '@/lib/stripe/refunds'
 import { getNextRmaNumber } from '@/lib/admin/rma-counter'
@@ -630,7 +634,7 @@ export async function createRefund(
 
 export async function getOrderDetailForInspector(
   orderId: string,
-): Promise<OrderDetailFull | null> {
+): Promise<LibOrderDetailFull | null> {
   await requireAdmin()
   const o = await prisma.order.findUnique({
     where: { id: orderId },
@@ -713,7 +717,7 @@ export async function getOrderDetailForInspector(
 
 export async function getReturnDetailForInspector(
   returnId: string,
-): Promise<ReturnWithItems | null> {
+): Promise<LibReturnWithItems | null> {
   await requireAdmin()
   const r = await prisma.return.findUnique({
     where: { id: returnId },

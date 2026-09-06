@@ -2,7 +2,7 @@
 
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
-export interface CategoryBreakdownSlice {
+export type CategoryBreakdownSlice = {
   categoryId: string
   categoryName: string
   color: string

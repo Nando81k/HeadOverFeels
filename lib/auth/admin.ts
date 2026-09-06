@@ -1,5 +1,9 @@
 import { NextRequest } from 'next/server'
+import { AdminRole } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+
+// Re-exported so API routes can gate on roles without importing Prisma directly.
+export { AdminRole }
 
 /**
  * Verify that the current request is from an authenticated admin user
@@ -29,6 +33,41 @@ export async function verifyAdmin(request: NextRequest): Promise<string | null> 
     return customer.id
   } catch (error) {
     console.error('Admin verification error:', error)
+    return null
+  }
+}
+
+/**
+ * Verify that the request is from an admin holding `role`.
+ * Same cookie-based path as `verifyAdmin` (API routes). SUPER_ADMIN satisfies
+ * every role check, mirroring the RBAC helpers introduced in #41.
+ *
+ * @returns The admin user's ID, or null if unauthenticated / wrong role
+ */
+export async function verifyAdminRole(request: NextRequest, role: AdminRole): Promise<string | null> {
+  const sessionId = request.cookies.get('auth_session')?.value
+
+  if (!sessionId) {
+    return null
+  }
+
+  try {
+    const customer = await prisma.customer.findUnique({
+      where: { id: sessionId },
+      select: { id: true, isAdmin: true, adminRole: true },
+    })
+
+    if (!customer || !customer.isAdmin) {
+      return null
+    }
+
+    if (customer.adminRole !== role && customer.adminRole !== AdminRole.SUPER_ADMIN) {
+      return null
+    }
+
+    return customer.id
+  } catch (error) {
+    console.error('Admin role verification error:', error)
     return null
   }
 }
