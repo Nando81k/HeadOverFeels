@@ -12,6 +12,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test -c tests/e2e/playwright.config.ts",
     "postinstall": "prisma generate",
     "db:push:dev": "npx prisma db push",
     "db:seed:dev": "npx tsx scripts/seed-dev-data.ts",
