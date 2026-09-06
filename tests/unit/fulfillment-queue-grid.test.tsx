@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { FulfillmentQueueGrid } from '@/components/admin/fulfillment/FulfillmentQueueGrid'
 import type { FulfillmentQueueRowViewModel } from '@/lib/fulfillment/console'
@@ -80,10 +80,14 @@ describe('FulfillmentQueueGrid', () => {
     )
 
     expect(screen.getByText('Fulfillment Queue')).toBeTruthy()
-    expect(screen.getByText('Ready to Ship')).toBeTruthy()
-    expect(screen.getByText('Buy Label')).toBeTruthy()
 
-    fireEvent.click(screen.getByText('#1001'))
+    // The grid renders both a mobile card list and a desktop table (CSS decides
+    // which is visible), so scope row assertions to the table.
+    const table = within(screen.getByRole('table'))
+    expect(table.getByText('Ready to Ship')).toBeTruthy()
+    expect(table.getByText('Buy Label')).toBeTruthy()
+
+    fireEvent.click(table.getByText('#1001'))
     expect(onSelectRow).toHaveBeenCalledTimes(1)
     expect(onSelectRow).toHaveBeenCalledWith(baseRow)
   })
@@ -140,7 +144,7 @@ describe('FulfillmentQueueGrid', () => {
       />
     )
 
-    expect(screen.getByText('#1011')).toBeTruthy()
+    expect(within(screen.getByRole('table')).getByText('#1011')).toBeTruthy()
     expect(container.querySelector('.overflow-auto')).toBeTruthy()
   })
 })

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import type React from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FulfillmentCaseDrawer } from '@/components/admin/fulfillment/FulfillmentCaseDrawer'
 import type { FulfillmentDrawerTab } from '@/lib/fulfillment/console'
 
@@ -176,6 +176,10 @@ function buildProps(overrides: Partial<React.ComponentProps<typeof FulfillmentCa
 }
 
 describe('FulfillmentCaseDrawer', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('renders and allows tab switching', () => {
     const { props, onChangeTab } = buildProps()
 
@@ -204,15 +208,16 @@ describe('FulfillmentCaseDrawer', () => {
     expect(onChangeTab).not.toHaveBeenCalledWith('ticket')
   })
 
-  it('shows full-detail and legacy handoff links in summary tab', () => {
+  it('shows handoff links in summary tab', () => {
     const { props } = buildProps()
 
     render(<FulfillmentCaseDrawer {...props} />)
 
-    expect(screen.getByRole('link', { name: 'Open Full Details' }).getAttribute('href')).toContain(
-      '/admin/fulfillment/details'
+    expect(screen.getByRole('link', { name: 'Open Customer' }).getAttribute('href')).toBe(
+      '/admin/customers/customer-1'
     )
-    expect(screen.getByText('More Actions')).toBeTruthy()
+    // No ticket is selected in the base fixture, so the ticket handoff link is omitted.
+    expect(screen.queryByRole('link', { name: 'Open Ticket' })).toBeNull()
   })
 
   it('calls close callback from drawer close button', () => {
@@ -224,9 +229,16 @@ describe('FulfillmentCaseDrawer', () => {
   })
 
   it('runs guided fulfillment step action buttons', () => {
+    // The timeline exposes a single CTA at a time: only the first step that is
+    // not yet done renders an action button. Drive each step in its own render.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ hasTracking: false }) }))
+    )
+
     const onPurchaseSingleLabel = vi.fn()
     const onMarkShipped = vi.fn()
-    const { props } = buildProps({
+    const guidedOverrides: Partial<React.ComponentProps<typeof FulfillmentCaseDrawer>> = {
       activeTab: 'fulfillment',
       activeQueueRow: {
         ageHours: 4,
@@ -246,14 +258,32 @@ describe('FulfillmentCaseDrawer', () => {
       },
       onPurchaseSingleLabel,
       onMarkShipped,
-    })
+    }
 
-    render(<FulfillmentCaseDrawer {...props} />)
+    // No tracking yet: "Buy Label" is the active step.
+    const { props: buyLabelProps } = buildProps(guidedOverrides)
+    const { unmount } = render(<FulfillmentCaseDrawer {...buyLabelProps} />)
 
+    expect(screen.queryByTestId('guided-step-action-mark_shipped')).toBeNull()
     fireEvent.click(screen.getByTestId('guided-step-action-buy_label'))
-    fireEvent.click(screen.getByTestId('guided-step-action-mark_shipped'))
-
     expect(onPurchaseSingleLabel).toHaveBeenCalledTimes(1)
+    expect(onMarkShipped).not.toHaveBeenCalled()
+    unmount()
+
+    // Tracking present: label is bought, so "Mark Shipped" becomes the active step.
+    const { props: baseProps } = buildProps(guidedOverrides)
+    const { props: markShippedProps } = buildProps({
+      ...guidedOverrides,
+      context: {
+        ...baseProps.context!,
+        order: { ...baseProps.context!.order!, trackingNumber: '1Z999AA10123456784' },
+      },
+    })
+    render(<FulfillmentCaseDrawer {...markShippedProps} />)
+
+    expect(screen.queryByTestId('guided-step-action-buy_label')).toBeNull()
+    fireEvent.click(screen.getByTestId('guided-step-action-mark_shipped'))
     expect(onMarkShipped).toHaveBeenCalledTimes(1)
+    expect(onPurchaseSingleLabel).toHaveBeenCalledTimes(1)
   })
 })
