@@ -1,0 +1,99 @@
+{
+  "shop": {
+    "name": "Head Over Feels",
+    "description": "Heavyweight basics and limited drops, made in small runs.",
+    "primaryDomain": {
+      "url": "https://tgqucm-qg.myshopify.com"
+    },
+    "privacyPolicy": {
+      "handle": "privacy-policy",
+      "title": "Privacy Policy"
+    },
+    "termsOfService": {
+      "handle": "terms-of-service",
+      "title": "Terms of Service"
+    },
+    "refundPolicy": {
+      "handle": "refund-policy",
+      "title": "Refund Policy"
+    },
+    "shippingPolicy": {
+      "handle": "shipping-policy",
+      "title": "Shipping Policy"
+    }
+  },
+  "menu": {
+    "items": [
+      {
+        "id": "gid://shopify/MenuItem/501234567801",
+        "title": "Shop",
+        "url": "https://tgqucm-qg.myshopify.com/collections/all",
+        "type": "COLLECTION",
+        "resourceId": "gid://shopify/Collection/612345678901",
+        "items": []
+      },
+      {
+        "id": "gid://shopify/MenuItem/501234567802",
+        "title": "Collections",
+        "url": "https://tgqucm-qg.myshopify.com/collections",
+        "type": "CATALOG",
+        "resourceId": null,
+        "items": [
+          {
+            "id": "gid://shopify/MenuItem/501234567806",
+            "title": "Hoodies",
+            "url": "https://tgqucm-qg.myshopify.com/collections/hoodies",
+            "type": "COLLECTION",
+            "resourceId": "gid://shopify/Collection/612345678904"
+          },
+          {
+            "id": "gid://shopify/MenuItem/501234567807",
+            "title": "Tees",
+            "url": "https://tgqucm-qg.myshopify.com/collections/tees",
+            "type": "COLLECTION",
+            "resourceId": "gid://shopify/Collection/612345678905"
+          },
+          {
+            "id": "gid://shopify/MenuItem/501234567808",
+            "title": "Best Sellers",
+            "url": "https://tgqucm-qg.myshopify.com/collections/best-sellers",
+            "type": "COLLECTION",
+            "resourceId": "gid://shopify/Collection/612345678902"
+          }
+        ]
+      },
+      {
+        "id": "gid://shopify/MenuItem/501234567803",
+        "title": "Drops",
+        "url": "https://tgqucm-qg.myshopify.com/collections/drops",
+        "type": "COLLECTION",
+        "resourceId": "gid://shopify/Collection/612345678903",
+        "items": []
+      },
+      {
+        "id": "gid://shopify/MenuItem/501234567804",
+        "title": "Loyalty",
+        "url": "https://tgqucm-qg.myshopify.com/loyalty",
+        "type": "HTTP",
+        "resourceId": null,
+        "items": []
+      },
+      {
+        "id": "gid://shopify/MenuItem/501234567805",
+        "title": "About",
+        "url": "https://tgqucm-qg.myshopify.com/pages/about",
+        "type": "PAGE",
+        "resourceId": "gid://shopify/Page/1012345678901",
+        "items": [
+          {
+            "id": "gid://shopify/MenuItem/501234567809",
+            "title": "Journal",
+            "url": "https://journal.headoverfeels.com",
+            "type": "HTTP",
+            "resourceId": null
+          }
+        ]
+      }
+    ]
+  }
+}

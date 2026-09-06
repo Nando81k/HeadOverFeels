@@ -1,0 +1,56 @@
+{
+  "collections": {
+    "nodes": [
+      {
+        "id": "gid://shopify/Collection/612345678901",
+        "handle": "all",
+        "title": "All Products",
+        "image": {
+          "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/collection-all.jpg?v=1757462400",
+          "altText": "Head Over Feels, all products",
+          "width": 2400,
+          "height": 1200
+        }
+      },
+      {
+        "id": "gid://shopify/Collection/612345678902",
+        "handle": "best-sellers",
+        "title": "Best Sellers",
+        "image": null
+      },
+      {
+        "id": "gid://shopify/Collection/612345678903",
+        "handle": "drops",
+        "title": "Drops",
+        "image": {
+          "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/collection-drops.jpg?v=1757462403",
+          "altText": "Drops",
+          "width": 2400,
+          "height": 1200
+        }
+      },
+      {
+        "id": "gid://shopify/Collection/612345678904",
+        "handle": "hoodies",
+        "title": "Hoodies",
+        "image": {
+          "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/collection-hoodies.jpg?v=1757462401",
+          "altText": "Hoodies",
+          "width": 2400,
+          "height": 1200
+        }
+      },
+      {
+        "id": "gid://shopify/Collection/612345678905",
+        "handle": "tees",
+        "title": "Tees",
+        "image": {
+          "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/collection-tees.jpg?v=1757462402",
+          "altText": "Tees",
+          "width": 2400,
+          "height": 1200
+        }
+      }
+    ]
+  }
+}

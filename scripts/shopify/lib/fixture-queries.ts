@@ -15,6 +15,19 @@
  * response `data`. Documents target Storefront API 2026-07.
  */
 
+// The query modules below sit next to `lib/shopify/client.ts`, which imports the
+// `server-only` marker package. Run the recorder with the react-server resolution
+// condition so that package resolves to its empty build:
+//
+//   npx tsx --conditions=react-server scripts/shopify/record-fixtures.ts --apply
+//
+// Without it Node throws "This module cannot be imported from a Client Component module".
+import { COLLECTION_PRODUCTS_QUERY } from '../../../lib/shopify/queries/collection'
+import { COLLECTIONS_QUERY } from '../../../lib/shopify/queries/collections'
+import { PRODUCT_BY_HANDLE_QUERY } from '../../../lib/shopify/queries/product'
+import { RECOMMENDATIONS_QUERY } from '../../../lib/shopify/queries/recommendations'
+import { PREDICTIVE_SEARCH_QUERY } from '../../../lib/shopify/queries/search'
+
 /** Real handles from the migrated store, passed to every variables factory. */
 export interface FixtureQueryContext {
   productHandle: string
@@ -100,4 +113,28 @@ const POLICIES_QUERY = /* GraphQL */ `
 export const FIXTURE_QUERIES: Record<string, FixtureQuery> = {
   'shop-layout': { query: SHOP_LAYOUT_QUERY },
   policies: { query: POLICIES_QUERY },
+  // Task 5
+  'product-by-handle': {
+    query: PRODUCT_BY_HANDLE_QUERY,
+    variables: (ctx) => ({ handle: ctx.productHandle }),
+  },
+  // Task 6 — `filters` keeps the recorded filter values non-empty.
+  'collection-products': {
+    query: COLLECTION_PRODUCTS_QUERY,
+    variables: (ctx) => ({
+      handle: ctx.collectionHandle,
+      first: 12,
+      after: null,
+      filters: [{ available: true }],
+      sortKey: 'BEST_SELLING',
+      reverse: false,
+    }),
+  },
+  collections: { query: COLLECTIONS_QUERY, variables: { first: 50 } },
+  // Task 7
+  'predictive-search': { query: PREDICTIVE_SEARCH_QUERY, variables: { q: 'hoodie' } },
+  recommendations: {
+    query: RECOMMENDATIONS_QUERY,
+    variables: (ctx) => ({ handle: ctx.productHandle }),
+  },
 }
