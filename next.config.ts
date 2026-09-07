@@ -26,6 +26,10 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'cdn.headoverfeels.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'cdn.shopify.com',
+      },
     ],
   },
   async redirects() {
@@ -43,6 +47,24 @@ const nextConfig: NextConfig = {
       {
         source: '/admin/fulfillment/details',
         destination: '/admin/fulfillment',
+        permanent: true,
+      },
+      // Storefront rebuild (Phase 2): the legacy standalone policy pages and
+      // the `/products` index were replaced by Shopify-backed routes.
+      {
+        source: '/privacy',
+        destination: '/policies/privacy-policy',
+        permanent: true,
+      },
+      {
+        source: '/terms',
+        destination: '/policies/terms-of-service',
+        permanent: true,
+      },
+      // Exactly `/products` — `/products/:handle` is a real PDP route.
+      {
+        source: '/products',
+        destination: '/collections/all',
         permanent: true,
       },
     ]

@@ -1,155 +1,100 @@
 /**
- * Dynamic Sitemap Generator
- * 
- * Generates XML sitemap for all public pages, products, collections, and drops
+ * Dynamic sitemap.
+ *
+ * Handles come from the Shopify Storefront API (`getSitemapEntries()`), not
+ * from Prisma — the catalog lives in Shopify as of the Phase 2 rebuild. The
+ * static routes are always emitted, so an unconfigured or failing store still
+ * produces a valid sitemap rather than a 500.
+ *
  * @see https://nextjs.org/docs/app/api-reference/file-conventions/metadata/sitemap
  */
 
-import { MetadataRoute } from 'next'
-import { prisma } from '@/lib/prisma'
+import type { MetadataRoute } from 'next'
+import { hasShopifyEnv } from '@/lib/shopify/env'
+import { getSitemapEntries } from '@/lib/shopify/queries/sitemap'
 
-// Force dynamic rendering (sitemap needs DB access)
+// Shopify handles change without a deploy, so the sitemap is never prerendered.
 export const dynamic = 'force-dynamic'
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://headoverfeels.com'
+/**
+ * Read per call, not once at import: this route is `force-dynamic`, so the
+ * deployed env is what matters, and tests can vary it.
+ */
+function baseUrl(): string {
+  return (process.env.NEXT_PUBLIC_BASE_URL ?? 'https://headoverfeels.com').replace(/\/+$/, '')
+}
+
+/** Shopify's own handles for the four legal pages (`/policies/[handle]`). */
+const POLICY_HANDLES = [
+  'privacy-policy',
+  'terms-of-service',
+  'refund-policy',
+  'shipping-policy',
+] as const
+
+/**
+ * Collections that must not get their own entry: `frontpage` is Shopify's
+ * hidden default, and `all` is already listed as a static route.
+ */
+const SKIPPED_COLLECTIONS = new Set(['frontpage', 'all'])
+
+function url(path: string): string {
+  return `${baseUrl()}${path}`
+}
+
+function staticRoutes(now: Date): MetadataRoute.Sitemap {
+  return [
+    { url: url('/'), lastModified: now, changeFrequency: 'daily', priority: 1.0 },
+    { url: url('/collections'), lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
+    { url: url('/collections/all'), lastModified: now, changeFrequency: 'daily', priority: 0.9 },
+    { url: url('/drops'), lastModified: now, changeFrequency: 'daily', priority: 0.8 },
+    { url: url('/about'), lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
+    { url: url('/contact'), lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
+    { url: url('/loyalty'), lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
+    ...POLICY_HANDLES.map((handle) => ({
+      url: url(`/policies/${handle}`),
+      lastModified: now,
+      changeFrequency: 'yearly' as const,
+      priority: 0.3,
+    })),
+  ]
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // Static pages
-  const staticPages: MetadataRoute.Sitemap = [
-    {
-      url: BASE_URL,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 1.0,
-    },
-    {
-      url: `${BASE_URL}/products`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 0.9,
-    },
-    {
-      url: `${BASE_URL}/collections`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    },
-    {
-      url: `${BASE_URL}/about`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
-    },
-    {
-      url: `${BASE_URL}/contact`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
-    },
-    {
-      url: `${BASE_URL}/loyalty`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.6,
-    },
-  ]
-
-  // Get all active products
-  const products = await prisma.product.findMany({
-    where: {
-      isActive: true,
-    },
-    select: {
-      slug: true,
-      updatedAt: true,
-    },
-    orderBy: {
-      updatedAt: 'desc',
-    },
-  })
-
-  const productPages: MetadataRoute.Sitemap = products.map((product) => ({
-    url: `${BASE_URL}/products/${product.slug}`,
-    lastModified: product.updatedAt,
-    changeFrequency: 'weekly' as const,
-    priority: 0.8,
-  }))
-
-  // Get all active collections
-  const collections = await prisma.collection.findMany({
-    where: {
-      isActive: true,
-    },
-    select: {
-      slug: true,
-      updatedAt: true,
-    },
-    orderBy: {
-      updatedAt: 'desc',
-    },
-  })
-
-  const collectionPages: MetadataRoute.Sitemap = collections.map((collection) => ({
-    url: `${BASE_URL}/collections/${collection.slug}`,
-    lastModified: collection.updatedAt,
-    changeFrequency: 'weekly' as const,
-    priority: 0.7,
-  }))
-
-  // Get limited edition drops (products with isLimitedEdition)
   const now = new Date()
-  const drops = await prisma.product.findMany({
-    where: {
-      isActive: true,
-      isLimitedEdition: true,
-      OR: [
-        { dropEndDate: { gte: now } }, // Active or upcoming
-        { 
-          dropEndDate: { lt: now },
-          releaseDate: { gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) } // Past 30 days
-        },
-      ],
-    },
-    select: {
-      slug: true,
-      updatedAt: true,
-      releaseDate: true,
-    },
-    orderBy: {
-      releaseDate: 'desc',
-    },
-  })
+  const statics = staticRoutes(now)
 
-  const dropPages: MetadataRoute.Sitemap = drops.map((drop) => ({
-    url: `${BASE_URL}/drops/${drop.slug}`,
-    lastModified: drop.updatedAt,
-    changeFrequency: 'daily' as const,
-    priority: 0.9, // Drops are high priority
-  }))
+  // No Storefront tokens (preview envs, a fresh clone) → the static shape is
+  // still correct and worth serving.
+  if (!hasShopifyEnv()) return statics
 
-  // Get active categories
-  const categories = await prisma.category.findMany({
-    where: {
-      isActive: true,
-    },
-    select: {
-      slug: true,
-      updatedAt: true,
-    },
-  })
+  try {
+    const { products, collections } = await getSitemapEntries()
 
-  const categoryPages: MetadataRoute.Sitemap = categories.map((category) => ({
-    url: `${BASE_URL}/products?category=${category.slug}`,
-    lastModified: category.updatedAt,
-    changeFrequency: 'weekly' as const,
-    priority: 0.6,
-  }))
+    const productRoutes: MetadataRoute.Sitemap = products.map((entry) => ({
+      url: url(`/products/${entry.handle}`),
+      lastModified: new Date(entry.updatedAt),
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    }))
 
-  return [
-    ...staticPages,
-    ...productPages,
-    ...collectionPages,
-    ...dropPages,
-    ...categoryPages,
-  ]
+    const collectionRoutes: MetadataRoute.Sitemap = collections
+      .filter((entry) => !SKIPPED_COLLECTIONS.has(entry.handle))
+      .map((entry) => ({
+        url: url(`/collections/${entry.handle}`),
+        lastModified: new Date(entry.updatedAt),
+        changeFrequency: 'weekly',
+        priority: 0.8,
+      }))
+
+    return [...statics, ...productRoutes, ...collectionRoutes]
+  } catch (error) {
+    // A sitemap is not worth a 500: log and serve what we know.
+    console.warn(
+      `[sitemap] Shopify entries unavailable, serving static routes only: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    )
+    return statics
+  }
 }

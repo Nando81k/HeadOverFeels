@@ -50,3 +50,64 @@ jobs:
 
       - name: Unit tests
         run: npm run test:run
+
+  e2e:
+    name: Storefront E2E (non-blocking)
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true   # Storefront smoke suite is advisory in Phase 1; it never blocks a merge
+
+    steps:
+      # Secrets are not available to `if:` at the job level for the whole job body,
+      # so the gate is an env-indirection step every later step checks.
+      - name: Check Shopify secrets
+        id: check
+        run: echo "has_secret=${{ secrets.SHOPIFY_STOREFRONT_PRIVATE_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: steps.check.outputs.has_secret == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        if: steps.check.outputs.has_secret == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.check.outputs.has_secret == 'true'
+        run: npm ci
+
+      - name: Generate Prisma client
+        if: steps.check.outputs.has_secret == 'true'
+        run: npx prisma generate
+        env:
+          # Prisma generate doesn't need a real DB, but a placeholder URL avoids warnings
+          DATABASE_URL: 'postgresql://placeholder:placeholder@localhost:5432/placeholder'
+
+      - name: Install Playwright Chromium
+        if: steps.check.outputs.has_secret == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Storefront smoke tests
+        if: steps.check.outputs.has_secret == 'true'
+        run: npm run test:e2e
+        env:
+          SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN }}
+          SHOPIFY_STOREFRONT_PRIVATE_TOKEN: ${{ secrets.SHOPIFY_STOREFRONT_PRIVATE_TOKEN }}
+          NEXT_PUBLIC_SHOPIFY_STOREFRONT_PUBLIC_TOKEN: ${{ secrets.NEXT_PUBLIC_SHOPIFY_STOREFRONT_PUBLIC_TOKEN }}
+          DATABASE_URL: 'postgresql://placeholder:placeholder@localhost:5432/placeholder'
+          CI: 'true'
+
+      - name: Upload Playwright report
+        if: always() && steps.check.outputs.has_secret == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore
