@@ -41,12 +41,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const sp = await searchParams
   const { q, sort, after, filters, active } = parseSearchParams(sp)
 
-  if (!hasShopifyEnv()) {
-    return <CatalogUnavailable />
-  }
-
   // No query yet: prompt rather than fetch. A plain GET form keeps this working
   // without JavaScript and reuses the same `?q=` contract as the header dialog.
+  // It renders even when the store is unconfigured — submitting then shows the
+  // catalog notice below.
   if (!q) {
     return (
       <Section>
@@ -69,6 +67,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         </div>
       </Section>
     )
+  }
+
+  if (!hasShopifyEnv()) {
+    return <CatalogUnavailable />
   }
 
   const page = await getSearchResults({ q, first: PAGE_SIZE, after, filters, sort })

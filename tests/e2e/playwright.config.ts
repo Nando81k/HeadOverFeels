@@ -54,6 +54,13 @@ const webServer: PlaywrightTestConfig['webServer'] = externalBaseURL
       url: `${DEFAULT_BASE_URL}/`,
       reuseExistingServer: !isCI,
       timeout: 180_000,
+      env: {
+        // The legacy root `Providers` still mount next-auth's SessionProvider,
+        // which 500s on `/api/auth/session` without a secret. A placeholder keeps
+        // the smoke run's console clean until Phase 6 removes NextAuth.
+        AUTH_SECRET: process.env.AUTH_SECRET ?? 'e2e-placeholder-secret',
+        NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ?? 'e2e-placeholder-secret',
+      },
     }
 
 export default defineConfig({

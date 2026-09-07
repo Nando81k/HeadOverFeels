@@ -11,8 +11,21 @@ import { expect, test, type Page } from '@playwright/test'
  * accept the grid's own empty state rather than failing the whole run.
  */
 
-/** Dev-only console noise that must not fail the smoke run. */
-const IGNORED_CONSOLE_ERRORS = /React DevTools|Fast Refresh|hydrat/i
+/**
+ * Console noise that must not fail the smoke run: dev-only React messages, and
+ * the 401 from the legacy `AuthProvider`'s `/api/auth/me` probe that the root
+ * `Providers` still fire on every page for signed-out visitors (Phase 6 removes it).
+ */
+const IGNORED_CONSOLE_ERRORS =
+  /React DevTools|Fast Refresh|hydrat|status of 401 \(Unauthorized\)/i
+
+/**
+ * Legacy endpoints the root `Providers` still call on every page (`AuthProvider`
+ * → `/api/auth/*`, `PopupManager` → `/api/popups/*`). They need the database and
+ * NextAuth, neither of which the storefront depends on; failed loads from them
+ * are not storefront regressions. Phase 6 removes both providers.
+ */
+const IGNORED_RESOURCE_URLS = /\/api\/(auth|popups)\//
 
 /** `[data-catalog="unconfigured"]` — every route may legitimately render this. */
 const UNCONFIGURED = '[data-catalog="unconfigured"]'
@@ -46,6 +59,7 @@ function watchConsole(page: Page): string[] {
     if (message.type() !== 'error') return
     const text = message.text()
     if (IGNORED_CONSOLE_ERRORS.test(text)) return
+    if (IGNORED_RESOURCE_URLS.test(message.location().url ?? '')) return
     errors.push(text)
   })
   page.on('pageerror', (error) => errors.push(String(error)))
@@ -118,7 +132,9 @@ test.describe('storefront catalog routes', () => {
     const response = await page.goto('/search')
     expect(response?.status()).toBe(200)
 
-    const form = page.getByRole('search').first()
+    // The header's SearchDialog also carries role="search" (hidden until opened),
+    // so scope to the page body.
+    const form = page.locator('main form[role="search"]')
     await expect(form).toBeVisible()
     await expect(form.locator('input[name="q"]')).toBeVisible()
   })
