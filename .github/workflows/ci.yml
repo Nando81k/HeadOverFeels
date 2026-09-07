@@ -98,7 +98,6 @@ jobs:
           SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN }}
           SHOPIFY_STOREFRONT_PRIVATE_TOKEN: ${{ secrets.SHOPIFY_STOREFRONT_PRIVATE_TOKEN }}
           NEXT_PUBLIC_SHOPIFY_STOREFRONT_PUBLIC_TOKEN: ${{ secrets.NEXT_PUBLIC_SHOPIFY_STOREFRONT_PUBLIC_TOKEN }}
-          STOREFRONT_PREVIEW: '1'
           DATABASE_URL: 'postgresql://placeholder:placeholder@localhost:5432/placeholder'
           CI: 'true'
 

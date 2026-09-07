@@ -3,15 +3,14 @@ import path from 'node:path'
 import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/test'
 
 /**
- * Storefront V2 end-to-end smoke suite (Phase 1, Task 15).
+ * Storefront end-to-end smoke suite (Phase 2, Task 8).
  *
  * Run with `npm run test:e2e`. By default Playwright boots `npm run dev` itself
- * and drives `/storefront-preview`; set `PLAYWRIGHT_BASE_URL` to point at an
- * already-running server (or a Vercel preview) and the web server is skipped.
+ * and drives the real storefront routes; set `PLAYWRIGHT_BASE_URL` to point at
+ * an already-running server (or a Vercel preview) and the web server is skipped.
  */
 
 const DEFAULT_BASE_URL = 'http://localhost:3000'
-const PREVIEW_PATH = '/storefront-preview'
 
 const externalBaseURL = process.env.PLAYWRIGHT_BASE_URL
 const baseURL = externalBaseURL ?? DEFAULT_BASE_URL
@@ -52,10 +51,9 @@ const webServer: PlaywrightTestConfig['webServer'] = externalBaseURL
   ? undefined
   : {
       command: 'npm run dev',
-      url: `${DEFAULT_BASE_URL}${PREVIEW_PATH}`,
+      url: `${DEFAULT_BASE_URL}/`,
       reuseExistingServer: !isCI,
       timeout: 180_000,
-      env: { STOREFRONT_PREVIEW: '1' },
     }
 
 export default defineConfig({
