@@ -1,7 +1,7 @@
 import * as React from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { addCartLineForm } from '@/app/(storefront)/_actions/cart'
 import { hasShopifyEnv } from '@/lib/shopify/env'
 import { getProduct } from '@/lib/shopify/queries/product'
@@ -39,6 +39,9 @@ const BUY_BOX_ID = 'buy-box'
 async function addCartLineFormAction(formData: FormData) {
   'use server'
   await addCartLineForm(null, formData)
+  // No-JS fallback: without the provider there is no drawer to open, so the
+  // cart page is the confirmation (it also surfaces a failed add as an empty cart).
+  redirect('/cart')
 }
 
 type SearchParams = Record<string, string | string[] | undefined>
