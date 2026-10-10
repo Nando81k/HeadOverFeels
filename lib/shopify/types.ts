@@ -57,3 +57,29 @@ export type SearchPage = {
 }
 export type SitemapEntry = { handle: string; updatedAt: string }
 export type SitemapEntries = { products: SitemapEntry[]; collections: SitemapEntry[] }
+
+// Phase 3 additions — copied verbatim from
+// docs/superpowers/plans/2026-09-06-storefront-rebuild-phase3-cart.md ("Shared contracts").
+export type CartLine = {
+  id: string; quantity: number
+  merchandise: {
+    id: string; title: string; sku: string | null; availableForSale: boolean; quantityAvailable: number | null
+    price: Money; compareAtPrice: Money | null
+    selectedOptions: { name: string; value: string }[]
+    image: ShopImage | null
+    product: { id: string; handle: string; title: string; tags: string[]; featuredImage: ShopImage | null; maxPerOrder: number | null }
+  }
+  cost: { total: Money; perUnit: Money; compareAtPerUnit: Money | null }
+  discount: Money | null                         // sum of line discountAllocations, null when none
+  attributes: { key: string; value: string }[]
+}
+export type Cart = {
+  id: string; checkoutUrl: string; totalQuantity: number; note: string | null
+  lines: CartLine[]
+  discountCodes: { code: string; applicable: boolean }[]
+  cost: { subtotal: Money; total: Money; discount: Money | null }   // discount = sum of cart-level discountAllocations
+  buyer: { email: string | null; customerId: string | null }
+}
+export type CartActionResult =
+  | { ok: true; cart: Cart; warning?: string }
+  | { ok: false; error: string; code?: string; cart?: Cart }

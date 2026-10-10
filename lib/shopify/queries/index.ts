@@ -69,6 +69,40 @@ export { getRecommendations, normalizeRecommendations, RECOMMENDATIONS_QUERY } f
 export type { RawRecommendations } from './recommendations'
 
 export {
+  addCartLines,
+  CART_BUYER_IDENTITY_UPDATE_MUTATION,
+  CART_BY_ID_QUERY,
+  CART_CREATE_MUTATION,
+  CART_DISCOUNT_CODES_UPDATE_MUTATION,
+  CART_FIELDS,
+  CART_LINES_ADD_MUTATION,
+  CART_LINES_REMOVE_MUTATION,
+  CART_LINES_UPDATE_MUTATION,
+  CART_NOTE_UPDATE_MUTATION,
+  createCart,
+  getCartById,
+  normalizeCart,
+  removeCartLines,
+  updateCartBuyerIdentity,
+  updateCartDiscountCodes,
+  updateCartLines,
+  updateCartNote,
+} from './cart'
+export type {
+  CartBuyerIdentityInput,
+  CartUserError,
+  CartWarning,
+  CreateCartInput,
+  OnCartWarnings,
+  RawCart,
+  RawCartBuyerIdentity,
+  RawCartDiscountAllocation,
+  RawCartLine,
+  RawCartMerchandise,
+  RawCartMetafield,
+} from './cart'
+
+export {
   CATALOG_REVALIDATE,
   IMAGE_FIELDS,
   MONEY_FIELDS,

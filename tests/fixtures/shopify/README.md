@@ -57,3 +57,28 @@ recording.
 | `search-results.json` | `SEARCH_QUERY` | query `"hoodie"`, `first: 12`, no filters — `productFilters` needs availability, price, the Size/Color options and product type populated |
 | `sitemap-products.json` | `SITEMAP_PRODUCTS_QUERY` | `first: 250`, `after: null` — one page (`hasNextPage: false`); handle + `updatedAt` only |
 | `sitemap-collections.json` | `SITEMAP_COLLECTIONS_QUERY` | `first: 250`, `after: null` — one page (`hasNextPage: false`); handle + `updatedAt` only |
+
+## Mutation-produced fixtures (not recordable)
+
+`cart.json` (Phase 3, Task 1) is **hand-authored and stays that way**: a cart only exists
+after a `cartCreate` mutation, so there is nothing for the read-only recorder to query and
+`FIXTURE_QUERIES` has no `cart` entry (the recorder skips it; see the note in
+`scripts/shopify/lib/fixture-queries.ts`). The file holds the `data` of a `CartById`
+response (`{ "cart": { ... } }`, the `CartFields` selection from
+`lib/shopify/queries/cart.ts`):
+
+- two lines — Core Hoodie Taupe / M (qty 1, `88.0`, variant id taken from
+  `product-by-handle.json`, product `maxPerOrder` metafield `{ "value": "2" }`) and
+  Signature Tee Black / L (qty 1, `24.0` with compare-at `34.0`, `quantityAvailable: 1`
+  so the not-enough-stock path has data, `maxPerOrder: null`; the tee variant id is
+  invented because no other fixture lists tee variants),
+- `discountCodes: [{ "code": "GOLD15", "applicable": true }]` with a single cart-level
+  `discountAllocations` entry of `16.8` (15% of the `112.0` subtotal) and empty line-level
+  allocations; `totalAmount` / `checkoutChargeAmount` `95.2`,
+- `note: ""` (normalised to `null`), `buyerIdentity.email: null`, no customer,
+- `gid://shopify/Cart/<token>?key=<key>` / `gid://shopify/CartLine/<uuid>?cart=<token>` ids
+  and a `https://tgqucm-qg.myshopify.com/cart/c/<token>?key=<key>` `checkoutUrl`.
+
+To refresh it against the live API, create a cart by hand (GraphiQL or a scratch script
+running `CART_CREATE_MUTATION` with the two variant ids and `discountCodes: ["GOLD15"]`)
+and paste the `cart` object from the response.

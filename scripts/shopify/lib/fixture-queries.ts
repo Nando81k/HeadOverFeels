@@ -158,4 +158,8 @@ export const FIXTURE_QUERIES: Record<string, FixtureQuery> = {
     query: SITEMAP_COLLECTIONS_QUERY,
     variables: { first: 250, after: null },
   },
+  // Phase 3, Task 1 — `cart` (tests/fixtures/shopify/cart.json) is intentionally NOT
+  // registered here. A cart only exists after a `cartCreate` mutation, so the read-only
+  // recorder cannot produce it; the fixture is hand-authored (see the fixtures README,
+  // "Mutation-produced fixtures") against `CART_BY_ID_QUERY` in lib/shopify/queries/cart.ts.
 }
