@@ -276,8 +276,8 @@ UI contract (from the mockup): drawer `Drawer side="right" title="Cart"` with th
 
 ## Task 9: Verification + QA report (orchestrator)
 
-- [ ] `npm run test:run`, `npx tsc --noEmit`, `npx eslint` storefront paths, `npm run test:e2e`, `npx next build` stages, admin subset. Re-run the demo mock (now the repo mock) for drawer/cart screenshots.
-- [ ] `phase3-qa.md`: results, deviations, human checklist (Task 3 doc, Bogus order through the preview, Shop Pay visible, abandoned-checkout email arrives from Shopify).
+- [x] `npm run test:run`, `npx tsc --noEmit`, `npx eslint` storefront paths, `npm run test:e2e`, `npx next build` stages, admin subset. Re-run the demo mock (now the repo mock) for drawer/cart screenshots.
+- [x] `phase3-qa.md`: results, deviations, human checklist (Task 3 doc, Bogus order through the preview, Shop Pay visible, abandoned-checkout email arrives from Shopify).
 
 ---
 
