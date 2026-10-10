@@ -24,6 +24,7 @@ const { env, actions, cartCtx, providerProps } = vi.hoisted(() => ({
       warning: string | null
       error: string | null
       setNote: ReturnType<typeof vi.fn>
+      seed: ReturnType<typeof vi.fn>
     },
   },
   providerProps: { current: null as null | { initialCart?: Cart | null; available?: boolean } },
@@ -122,11 +123,13 @@ const emptyCart: Cart = { ...fixtureCart, lines: [], totalQuantity: 0 }
 
 function provide(cart: Cart | null, extra: Partial<{ warning: string; error: string }> = {}) {
   const setNote = vi.fn<(note: string) => Promise<CartActionResult>>()
+  const seed = vi.fn<(cart: Cart | null) => void>()
   cartCtx.current = {
     cart,
     warning: extra.warning ?? null,
     error: extra.error ?? null,
     setNote,
+    seed,
   }
   return setNote
 }
@@ -164,14 +167,15 @@ describe('app/(storefront)/cart/page', () => {
     expect(container.querySelector('[data-cart-provider]')).toBeNull()
   })
 
-  it('seeds the provider with the cookie cart', async () => {
+  it('seeds the layout provider with the cookie cart (no nested provider)', async () => {
     actions.getCartAction.mockResolvedValue(fixtureCart)
     provide(fixtureCart)
 
-    await renderRoute()
+    const { container } = await renderRoute()
 
     expect(actions.getCartAction).toHaveBeenCalledTimes(1)
-    expect(providerProps.current?.initialCart).toBe(fixtureCart)
+    expect(container.querySelector('[data-cart-provider]')).toBeNull()
+    expect(cartCtx.current?.seed).toHaveBeenCalledWith(fixtureCart)
     expect(screen.getByRole('heading', { level: 1, name: 'Your cart' })).toBeInTheDocument()
   })
 
@@ -181,7 +185,7 @@ describe('app/(storefront)/cart/page', () => {
 
     const { container } = await renderRoute()
 
-    expect(providerProps.current).toEqual({ initialCart: null, available: undefined })
+    expect(cartCtx.current?.seed).toHaveBeenCalledWith(null)
     expect(container.querySelector('[data-empty-cart]')).not.toBeNull()
     expect(container.querySelector('[data-cart-lines]')).toBeNull()
     expect(screen.queryByRole('link', { name: 'Checkout' })).toBeNull()

@@ -15,6 +15,7 @@ import { useCart } from '@/components/storefront/cart/useCart'
 import { Section } from '@/components/storefront/ui/Section'
 import { Display } from '@/components/storefront/ui/Typography'
 import { cn } from '@/lib/storefront/cn'
+import type { Cart } from '@/lib/shopify/types'
 
 /** Text badges, not brand marks: no logos to license, no hex to sneak in. */
 const PAYMENT_METHODS = ['VISA', 'MC', 'AMEX', 'APPLE', 'GPAY', 'PAYPAL'] as const
@@ -37,8 +38,28 @@ const COLUMN_HEAD_CLASS = 'text-[11px] font-semibold uppercase tracking-eyebrow 
  * `useCart()` — the route seeds the provider with the cookie's cart, so this
  * renders the same lines the drawer shows, with room for notes and policies.
  */
-export function CartPage() {
-  const { cart, warning, error } = useCart()
+export interface CartPageProps {
+  /**
+   * The cookie's cart as read by the route during render. Seeds the layout's
+   * provider on mount so the header badge and the drawer stay in sync with
+   * edits made here (no nested provider). `undefined` = render whatever the
+   * provider has.
+   */
+  initialCart?: Cart | null
+}
+
+export function CartPage({ initialCart }: CartPageProps = {}) {
+  const ctx = useCart()
+  const { warning, error, seed } = ctx
+  const seeded = React.useRef(false)
+  React.useEffect(() => {
+    if (initialCart === undefined || seeded.current) return
+    seeded.current = true
+    seed(initialCart)
+  }, [initialCart, seed])
+  // On a fresh page load the provider is still `loading` until the seed effect
+  // runs; show the server-rendered cart meanwhile so nothing flashes empty.
+  const cart = ctx.status === 'loading' && initialCart !== undefined ? initialCart : ctx.cart
   const empty = !cart || cart.lines.length === 0
 
   return (

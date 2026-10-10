@@ -169,6 +169,25 @@ describe('CartProvider: loading', () => {
     expect(actions.getCart).not.toHaveBeenCalled()
   })
 
+  it('seed() replaces the cart, marks the provider ready and skips a pending mount fetch', async () => {
+    const pending = deferred<Cart | null>()
+    const actions = fakeActions({ getCart: vi.fn(() => pending.promise) })
+    render(
+      <CartProvider actions={actions}>
+        <Probe />
+      </CartProvider>
+    )
+    expect(text('status')).toBe('loading')
+    act(() => ctx.seed(CART))
+    expect(text('status')).toBe('ready')
+    expect(text('count')).toBe('2')
+    // The late mount fetch must not clobber the seeded cart with an older empty one.
+    await act(async () => {
+      pending.resolve(null)
+    })
+    expect(text('count')).toBe('2')
+  })
+
   it('defaults to the real Server Actions when no fakes are injected', async () => {
     render(
       <CartProvider>

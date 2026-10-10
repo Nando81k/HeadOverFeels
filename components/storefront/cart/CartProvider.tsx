@@ -55,6 +55,12 @@ export type CartContextValue = {
   error: string | null
   warning: string | null
   clearMessages(): void
+  /**
+   * Replace the server cart with one a page already fetched (the `/cart` route
+   * reads the cookie during render). Marks the provider ready and skips a mount
+   * fetch that has not started yet; a mutation that already landed wins.
+   */
+  seed(cart: Cart | null): void
   /** Opens the drawer on success unless `opts.open === false`. */
   addLine(
     input: { variantId: string; quantity?: number },
@@ -234,6 +240,15 @@ export function CartProvider({
   )
 
   const openDrawer = React.useCallback(() => setOpen(true), [])
+  const seed = React.useCallback((next: Cart | null) => {
+    fetchStarted.current = true
+    if (!mutated.current) {
+      setServerCart(next)
+      // Newer than any in-flight mount fetch: that result must not land on top.
+      mutated.current = true
+    }
+    setStatus((prev) => (prev === 'unavailable' ? prev : 'ready'))
+  }, [])
   const closeDrawer = React.useCallback(() => setOpen(false), [])
   const clearMessages = React.useCallback(() => {
     setError(null)
@@ -297,6 +312,7 @@ export function CartProvider({
       error,
       warning,
       clearMessages,
+      seed,
       addLine,
       updateLine,
       removeLine,
@@ -306,6 +322,7 @@ export function CartProvider({
     }),
     [
       cart,
+      seed,
       status,
       open,
       openDrawer,

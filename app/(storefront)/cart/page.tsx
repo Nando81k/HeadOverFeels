@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { getCartAction } from '@/app/(storefront)/_actions/cart'
 import { CatalogUnavailable } from '@/components/storefront/CatalogUnavailable'
 import { CartPage } from '@/components/storefront/cart/CartPage'
-import { CartProvider } from '@/components/storefront/cart/CartProvider'
 import { hasShopifyEnv } from '@/lib/shopify/env'
 
 /**
@@ -29,11 +28,7 @@ export default async function CartRoute() {
 
   const cart = await getCartAction()
 
-  // A nested provider is fine: it seeds this page with the cookie's cart (no
-  // mount fetch) while the layout's provider keeps serving the header.
-  return (
-    <CartProvider initialCart={cart}>
-      <CartPage />
-    </CartProvider>
-  )
+  // The layout already mounts the CartProvider; the page seeds it with the
+  // cookie's cart so the header badge and the drawer reflect edits made here.
+  return <CartPage initialCart={cart} />
 }
