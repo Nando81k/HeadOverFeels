@@ -39,6 +39,21 @@ describe('next.config redirects', () => {
     expect(rules.some((rule) => rule.source.startsWith('/products/'))).toBe(false)
   })
 
+  it('sends the legacy checkout and confirmation pages to /cart and /orders', async () => {
+    const rules = await getRedirects()
+
+    expect(find(rules, '/checkout')).toMatchObject({
+      destination: '/cart',
+      permanent: true,
+    })
+    expect(find(rules, '/order/confirmation')).toMatchObject({
+      destination: '/orders',
+      permanent: true,
+    })
+    // `/cart` is the new Shopify cart page; it must never redirect.
+    expect(find(rules, '/cart')).toBeUndefined()
+  })
+
   it('keeps the admin order redirects', async () => {
     const rules = await getRedirects()
 

@@ -67,6 +67,19 @@ const nextConfig: NextConfig = {
         destination: '/collections/all',
         permanent: true,
       },
+      // Storefront rebuild (Phase 3): checkout happens on Shopify and the
+      // custom checkout/confirmation pages are gone. Order history lives at
+      // `/orders`.
+      {
+        source: '/checkout',
+        destination: '/cart',
+        permanent: true,
+      },
+      {
+        source: '/order/confirmation',
+        destination: '/orders',
+        permanent: true,
+      },
     ]
   },
 };

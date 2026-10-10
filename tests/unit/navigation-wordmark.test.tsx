@@ -37,11 +37,6 @@ vi.mock('@/components/search', () => ({
   SearchModal: ({ isOpen }: { isOpen: boolean }) => (isOpen ? <div data-testid="search-modal" /> : null),
 }))
 
-vi.mock('@/lib/store/cart', () => ({
-  useCartStore: (selector: (state: { getTotalItems: () => number; items: never[]; updateQuantity: () => void; removeItem: () => void }) => unknown) =>
-    selector({ getTotalItems: () => 0, items: [], updateQuantity: () => {}, removeItem: () => {} }),
-}))
-
 vi.mock('@/lib/auth/context', () => ({
   useAuth: () => ({
     user: null,

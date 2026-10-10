@@ -6,8 +6,6 @@ import WishlistPage from '@/app/wishlist/page'
 const {
   syncWithServerMock,
   removeFromWishlistMock,
-  addItemMock,
-  getItemCountMock,
   pushMock,
   toastMock,
   fetchMock,
@@ -15,8 +13,6 @@ const {
 } = vi.hoisted(() => ({
   syncWithServerMock: vi.fn(),
   removeFromWishlistMock: vi.fn(),
-  addItemMock: vi.fn(),
-  getItemCountMock: vi.fn(),
   pushMock: vi.fn(),
   toastMock: {
     success: vi.fn(),
@@ -25,7 +21,7 @@ const {
   },
   fetchMock: vi.fn(),
   wishlistPayloadRef: {
-    current: [] as any[],
+    current: [] as unknown[],
   },
 }))
 
@@ -57,13 +53,6 @@ vi.mock('@/lib/store/wishlist', () => ({
   useWishlistStore: () => ({
     syncWithServer: syncWithServerMock,
     removeFromWishlist: removeFromWishlistMock,
-  }),
-}))
-
-vi.mock('@/lib/store/cart', () => ({
-  useCartStore: () => ({
-    addItem: addItemMock,
-    getItemCount: getItemCountMock,
   }),
 }))
 
@@ -99,8 +88,6 @@ describe('WishlistPage modernization behaviors', () => {
   beforeEach(() => {
     syncWithServerMock.mockReset()
     removeFromWishlistMock.mockReset()
-    addItemMock.mockReset()
-    getItemCountMock.mockReset()
     pushMock.mockReset()
     toastMock.success.mockReset()
     toastMock.error.mockReset()
@@ -108,7 +95,6 @@ describe('WishlistPage modernization behaviors', () => {
     fetchMock.mockReset()
 
     syncWithServerMock.mockResolvedValue(undefined)
-    getItemCountMock.mockReturnValue(0)
     wishlistPayloadRef.current = [createWishlistItem('1')]
 
     vi.stubGlobal('fetch', fetchMock)
@@ -157,30 +143,43 @@ describe('WishlistPage modernization behaviors', () => {
     })
   })
 
-  it('adds a saved-variant wishlist item to cart via quick add', async () => {
+  it('quick add opens the product page instead of a local cart', async () => {
     render(<WishlistPage />)
 
     await screen.findByText('Product 1')
     fireEvent.click(screen.getByRole('button', { name: 'Add to Cart' }))
 
-    await waitFor(() => {
-      expect(addItemMock).toHaveBeenCalledTimes(1)
-    })
+    expect(pushMock).toHaveBeenCalledTimes(1)
+    expect(pushMock).toHaveBeenCalledWith('/products/product-1')
+    // No product-detail lookups: variant resolution now happens on the PDP.
+    expect(fetchMock.mock.calls.some(([url]) => String(url).startsWith('/api/products/'))).toBe(false)
   })
 
-  it('bulk add only adds resolvable available items', async () => {
-    wishlistPayloadRef.current = [createWishlistItem('1', true), createWishlistItem('2', false)]
+  it('bulk action opens the first available item', async () => {
+    const unavailable = createWishlistItem('1', true)
+    unavailable.productVariant!.inventory = 0
+    wishlistPayloadRef.current = [unavailable, createWishlistItem('2', false)]
 
     render(<WishlistPage />)
     await screen.findByText('Product 1')
     await screen.findByText('Product 2')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add All Available' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Shop Available' }))
 
-    await waitFor(() => {
-      expect(addItemMock).toHaveBeenCalledTimes(1)
-      expect(toastMock.success).toHaveBeenCalled()
-    })
+    expect(pushMock).toHaveBeenCalledWith('/products/product-2')
+    expect(toastMock.success).not.toHaveBeenCalled()
+  })
+
+  it('disables the bulk action when nothing is available', async () => {
+    const unavailable = createWishlistItem('1', true)
+    unavailable.productVariant!.inventory = 0
+    wishlistPayloadRef.current = [unavailable]
+
+    render(<WishlistPage />)
+    await screen.findByText('Product 1')
+
+    expect(screen.getByRole('button', { name: 'Shop Available' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Add to Cart' })).toBeDisabled()
   })
 
   it('renders modern empty state when wishlist has no items', async () => {

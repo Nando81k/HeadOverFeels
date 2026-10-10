@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { House, Storefront, MagnifyingGlass, Heart, Bag } from '@phosphor-icons/react'
-import { useCartStore } from '@/lib/store/cart'
 import { useWishlistStore } from '@/lib/store/wishlist'
 
 interface MobileBottomNavProps {
@@ -19,11 +18,10 @@ export function MobileBottomNav({ onSearchClick }: MobileBottomNavProps) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
 
-  const cartItems = useCartStore(s => s.items ?? [])
   const wishlistItems = useWishlistStore(s => s.items ?? [])
   // Suppress badge counts until mount — Zustand `persist` rehydrates from
   // localStorage on the client which would otherwise mismatch SSR (always 0).
-  const cartCount = mounted ? cartItems.reduce((n, i) => n + i.quantity, 0) : 0
+  // The cart tab carries no count: the Shopify cart (Phase 3) lives at /cart.
   const wishlistCount = mounted ? wishlistItems.length : 0
 
   if (mounted && pathname?.startsWith('/checkout')) return null
@@ -88,14 +86,7 @@ export function MobileBottomNav({ onSearchClick }: MobileBottomNavProps) {
           className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 min-h-14 transition-colors ${isCart ? 'text-black' : 'text-black/35 hover:text-black/70'}`}
           aria-current={isCart ? 'page' : undefined}
         >
-          <span className="relative">
-            <Bag size={22} weight={isCart ? 'fill' : 'regular'} />
-            {cartCount > 0 && (
-              <span data-testid="mobile-nav-cart-count" className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-black px-1 text-[9px] font-bold leading-none text-white">
-                {cartCount > 99 ? '99+' : cartCount}
-              </span>
-            )}
-          </span>
+          <Bag size={22} weight={isCart ? 'fill' : 'regular'} />
           <span className="text-[10px] font-semibold tracking-wide">Cart</span>
         </Link>
       </div>

@@ -1,32 +1,24 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ArrowRight,
-  Check,
   Heart,
-  Plus,
   ShoppingCart,
   Trash,
   WarningCircle,
 } from '@phosphor-icons/react'
 import { Navigation } from '@/components/layout/Navigation'
 import { useWishlistStore } from '@/lib/store/wishlist'
-import { useCartStore } from '@/lib/store/cart'
 import { toast } from '@/lib/toast'
 import { CommerceEmptyState } from '@/components/commerce/CommerceEmptyState'
 import { SmartDiscoveryRail } from '@/components/commerce/SmartDiscoveryRail'
 import { fetchSmartDiscoveryProducts } from '@/lib/commerce/smart-discovery'
-import type { Product, ProductVariant } from '@/lib/api/products'
+import type { Product } from '@/lib/api/products'
 import { getPrimaryImageWithFallback } from '@/lib/commerce/product-placeholders'
-import {
-  resolveWishlistQuickAdd,
-  type WishlistAddToCartResolutionOutcome,
-  type WishlistQuickAddItem,
-} from '@/lib/wishlist/wishlist-quick-add'
 
 interface WishlistItem {
   id: string
@@ -62,34 +54,15 @@ function formatCurrency(value: number): string {
   }).format(value)
 }
 
-function getVariantCap(product: Product, variant: ProductVariant): number {
-  const inventoryCap = Math.max(0, Math.floor(variant.inventory || 0))
-  const productMax =
-    typeof product.maxQuantity === 'number' && product.maxQuantity > 0
-      ? Math.floor(product.maxQuantity)
-      : null
-
-  if (productMax === null) {
-    return inventoryCap
-  }
-
-  return Math.min(inventoryCap, productMax)
-}
-
 export default function WishlistPage() {
   const router = useRouter()
   const { syncWithServer, removeFromWishlist: removeFromStore } = useWishlistStore()
-  const { addItem, getItemCount } = useCartStore()
 
   const [isLoading, setIsLoading] = useState(true)
   const [items, setItems] = useState<WishlistItem[]>([])
   const [removingId, setRemovingId] = useState<string | null>(null)
-  const [addingId, setAddingId] = useState<string | null>(null)
-  const [bulkAdding, setBulkAdding] = useState(false)
   const [suggestions, setSuggestions] = useState<Product[]>([])
   const [suggestionsLoading, setSuggestionsLoading] = useState(true)
-
-  const productDetailCache = useRef(new Map<string, Product>())
 
   const fetchWishlist = useCallback(async () => {
     try {
@@ -138,25 +111,6 @@ export default function WishlistPage() {
     }
   }, [items])
 
-  const getProductDetail = useCallback(async (productId: string): Promise<Product | null> => {
-    const cached = productDetailCache.current.get(productId)
-    if (cached) {
-      return cached
-    }
-
-    try {
-      const response = await fetch(`/api/products/${productId}`)
-      if (!response.ok) {
-        return null
-      }
-      const product = (await response.json()) as Product
-      productDetailCache.current.set(productId, product)
-      return product
-    } catch {
-      return null
-    }
-  }, [])
-
   const removeItem = useCallback(
     async (item: WishlistItem) => {
       setRemovingId(item.id)
@@ -176,126 +130,15 @@ export default function WishlistPage() {
     [removeFromStore]
   )
 
-  const resolveItem = useCallback(
-    async (item: WishlistItem) => {
-      const quickAddItem: WishlistQuickAddItem = {
-        product: item.product,
-        productVariant: item.productVariant || null,
-      }
-
-      let detail: Product | undefined
-      if (!item.productVariant) {
-        detail = (await getProductDetail(item.productId)) || undefined
-      }
-
-      return resolveWishlistQuickAdd(quickAddItem, detail)
+  // The Shopify cart (Phase 3) is filled from the product page, so "add" here
+  // means "go choose a size": quick add opens the item's PDP and the bulk
+  // action starts with the first item that is still available.
+  const openProduct = useCallback(
+    (item: WishlistItem) => {
+      router.push(`/products/${item.product.slug}`)
     },
-    [getProductDetail]
+    [router]
   )
-
-  const commitAdd = useCallback(
-    (product: Product, variant: ProductVariant): WishlistAddToCartResolutionOutcome => {
-      const cap = getVariantCap(product, variant)
-      if (cap <= 0) {
-        return 'outOfStock'
-      }
-
-      const currentCount = getItemCount(product.id, variant.id)
-      if (currentCount >= cap) {
-        return 'skipped'
-      }
-
-      addItem(product, variant, 1)
-      return 'added'
-    },
-    [addItem, getItemCount]
-  )
-
-  const quickAddItemToCart = useCallback(
-    async (item: WishlistItem) => {
-      setAddingId(item.id)
-      try {
-        const resolution = await resolveItem(item)
-        if (resolution.outcome === 'requiresSelection') {
-          router.push(`/products/${item.product.slug}`)
-          return
-        }
-
-        if (resolution.outcome === 'outOfStock' || !resolution.variant) {
-          toast.error('This item is currently unavailable')
-          return
-        }
-
-        const commitResult = commitAdd(resolution.product, resolution.variant)
-        if (commitResult === 'added') {
-          toast.success('Added to cart', item.product.name)
-          return
-        }
-
-        if (commitResult === 'skipped') {
-          toast.info('Already at max quantity', item.product.name)
-          return
-        }
-
-        toast.error('This item is currently unavailable')
-      } finally {
-        setAddingId(null)
-      }
-    },
-    [commitAdd, resolveItem, router]
-  )
-
-  const addAllAvailable = useCallback(async () => {
-    setBulkAdding(true)
-
-    let added = 0
-    let outOfStock = 0
-    let requiresSelection = 0
-    let skipped = 0
-
-    try {
-      for (const item of items) {
-        const resolution = await resolveItem(item)
-
-        if (resolution.outcome === 'requiresSelection') {
-          requiresSelection += 1
-          continue
-        }
-
-        if (resolution.outcome === 'outOfStock' || !resolution.variant) {
-          outOfStock += 1
-          continue
-        }
-
-        const commitResult = commitAdd(resolution.product, resolution.variant)
-        if (commitResult === 'added') {
-          added += 1
-        } else if (commitResult === 'skipped') {
-          skipped += 1
-        } else {
-          outOfStock += 1
-        }
-      }
-
-      if (added > 0) {
-        toast.success(
-          `Added ${added} ${added === 1 ? 'item' : 'items'} to cart`,
-          [skipped ? `${skipped} skipped (at cap)` : null, outOfStock ? `${outOfStock} unavailable` : null, requiresSelection ? `${requiresSelection} need option selection` : null]
-            .filter(Boolean)
-            .join(' • ') || undefined
-        )
-      } else {
-        toast.info(
-          'No items were added',
-          [outOfStock ? `${outOfStock} unavailable` : null, requiresSelection ? `${requiresSelection} require options` : null, skipped ? `${skipped} at quantity cap` : null]
-            .filter(Boolean)
-            .join(' • ') || 'Try selecting options from product pages.'
-        )
-      }
-    } finally {
-      setBulkAdding(false)
-    }
-  }, [commitAdd, items, resolveItem])
 
   const activeItems = useMemo(
     () =>
@@ -304,6 +147,8 @@ export default function WishlistPage() {
       ),
     [items]
   )
+
+  const firstAvailable = activeItems[0] ?? null
 
   if (isLoading) {
     return (
@@ -362,12 +207,14 @@ export default function WishlistPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={addAllAvailable}
-                disabled={bulkAdding || activeItems.length === 0}
+                onClick={() => {
+                  if (firstAvailable) openProduct(firstAvailable)
+                }}
+                disabled={!firstAvailable}
                 className="inline-flex h-10 items-center gap-2 rounded-full border border-black/15 bg-white px-4 text-xs font-semibold uppercase tracking-[0.12em] text-black/75 transition-colors hover:border-black/35 hover:text-black disabled:cursor-not-allowed disabled:opacity-45"
               >
-                {bulkAdding ? <Check size={13} weight="bold" /> : <Plus size={13} weight="bold" />}
-                {bulkAdding ? 'Adding...' : 'Add All Available'}
+                <ShoppingCart size={13} weight="bold" />
+                Shop Available
               </button>
 
               <Link
@@ -451,12 +298,12 @@ export default function WishlistPage() {
 
                       <button
                         type="button"
-                        onClick={() => quickAddItemToCart(item)}
-                        disabled={addingId === item.id || isUnavailable}
+                        onClick={() => openProduct(item)}
+                        disabled={isUnavailable}
                         className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-black/15 bg-white px-3 text-xs font-semibold uppercase tracking-[0.12em] text-black/80 transition-colors hover:border-black/35 hover:text-black disabled:cursor-not-allowed disabled:opacity-45"
                       >
                         <ShoppingCart size={13} weight="bold" />
-                        {addingId === item.id ? 'Adding...' : 'Add to Cart'}
+                        Add to Cart
                       </button>
                     </div>
                   </div>
