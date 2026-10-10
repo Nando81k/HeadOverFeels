@@ -8,9 +8,36 @@ export function shopPayHref(checkoutUrl: string): string {
   return `${checkoutUrl}${checkoutUrl.includes('?') ? '&' : '?'}payment=shop_pay`
 }
 
-/** Checkout is blocked for an empty cart or while any line is sold out. */
+/**
+ * Only follow a checkout URL that looks like Shopify's: https, and either a
+ * Shopify host or the checkout path on the merchant's own domain. Anything
+ * else (a malformed value, another scheme) is treated as no checkout link.
+ */
+export function isSafeCheckoutUrl(value: string): boolean {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return false
+  }
+  if (url.protocol !== 'https:') return false
+  const host = url.hostname.toLowerCase()
+  const shopifyHost =
+    host === 'shopify.com' || host.endsWith('.shopify.com') || host.endsWith('.myshopify.com')
+  const checkoutPath = /^\/(checkouts|cart\/c)\//.test(url.pathname)
+  return shopifyHost || checkoutPath
+}
+
+/**
+ * Checkout is blocked for an empty cart, while any line is sold out, or when
+ * the cart carries no usable checkout URL.
+ */
 export function isCheckoutBlocked(cart: Cart): boolean {
-  return cart.lines.length === 0 || cart.lines.some((line) => !line.merchandise.availableForSale)
+  return (
+    cart.lines.length === 0 ||
+    cart.lines.some((line) => !line.merchandise.availableForSale) ||
+    !isSafeCheckoutUrl(cart.checkoutUrl)
+  )
 }
 
 export interface CheckoutButtonsProps {
