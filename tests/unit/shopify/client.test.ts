@@ -99,7 +99,9 @@ describe('storefrontFetch', () => {
 
     await storefrontFetch(QUERY, { tags: ['search'], revalidate: false })
 
-    expect(lastInit().next).toEqual({ tags: ['search'], revalidate: false })
+    // Next warns when `cache: 'no-store'` and `revalidate: false` are both set,
+    // so only the cache option is sent; tags are kept for revalidateTag.
+    expect(lastInit().next).toEqual({ tags: ['search'] })
     expect(lastInit().cache).toBe('no-store')
   })
 

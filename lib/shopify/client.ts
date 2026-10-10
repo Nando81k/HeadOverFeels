@@ -57,9 +57,13 @@ export async function storefrontFetch<T>(
   }
   if (opts.buyerIp) headers['Shopify-Storefront-Buyer-IP'] = opts.buyerIp
 
+  // `revalidate: false` is expressed as `cache: 'no-store'` alone: Next warns
+  // when both are given, and `no-store` already opts the request out of the
+  // data cache. Tags still ride along so `revalidateTag` keeps working.
+  const noStore = opts.revalidate === false
   const next: NextFetchOptions = {}
   if (opts.tags !== undefined) next.tags = opts.tags
-  if (opts.revalidate !== undefined) next.revalidate = opts.revalidate
+  if (opts.revalidate !== undefined && !noStore) next.revalidate = opts.revalidate
 
   const init: StorefrontRequestInit = {
     method: 'POST',
@@ -69,7 +73,7 @@ export async function storefrontFetch<T>(
     ),
   }
   if (Object.keys(next).length > 0) init.next = next
-  if (opts.revalidate === false) init.cache = 'no-store'
+  if (noStore) init.cache = 'no-store'
 
   let response = await fetch(url, init)
 
