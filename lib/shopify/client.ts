@@ -11,6 +11,13 @@ import { ShopifyError, type ShopifyGraphQLError } from './errors'
  * global fetch, and the SDK's wrapper owns its own retry/abort handling. The URL and
  * header names below match what `createStorefrontApiClient().getApiUrl()/getHeaders()`
  * produce for API version 2026-07.
+ *
+ * Test-only scheme switch: when `SHOPIFY_STOREFRONT_INSECURE_LOCAL=1` AND the
+ * store domain is `localhost…` or `127.0.0.1…`, the URL is built with `http://`
+ * so the Playwright suite can talk to the plain-HTTP Storefront mock
+ * (`tests/e2e/mock/storefront-mock.mjs`). Both conditions are required, so a
+ * real `*.myshopify.com` domain is always called over HTTPS. Never set this
+ * variable in production.
  */
 export type StorefrontFetchOptions = {
   variables?: Record<string, unknown>
@@ -44,12 +51,19 @@ function retryAfterMs(response: Response): number {
   return safe * 1000
 }
 
+/** `http` only for the e2e mock (see the header note); `https` everywhere else. */
+function storefrontScheme(storeDomain: string): 'http' | 'https' {
+  const insecureLocal = process.env.SHOPIFY_STOREFRONT_INSECURE_LOCAL === '1'
+  const isLocal = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(storeDomain)
+  return insecureLocal && isLocal ? 'http' : 'https'
+}
+
 export async function storefrontFetch<T>(
   query: string,
   opts: StorefrontFetchOptions = {}
 ): Promise<T> {
   const { storeDomain, apiVersion, privateToken } = getShopifyEnv()
-  const url = `https://${storeDomain}/api/${apiVersion}/graphql.json`
+  const url = `${storefrontScheme(storeDomain)}://${storeDomain}/api/${apiVersion}/graphql.json`
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

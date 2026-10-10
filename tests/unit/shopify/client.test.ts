@@ -48,6 +48,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllEnvs()
   delete process.env.SHOPIFY_STORE_DOMAIN
   delete process.env.SHOPIFY_STOREFRONT_PRIVATE_TOKEN
   delete process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_PUBLIC_TOKEN
@@ -186,5 +187,52 @@ describe('storefrontFetch', () => {
     expect(error).toBeInstanceOf(ShopifyError)
     expect(error.status).toBe(429)
     expect(mockFetch()).toHaveBeenCalledTimes(2)
+  })
+
+  describe('SHOPIFY_STOREFRONT_INSECURE_LOCAL (e2e mock only)', () => {
+    async function requestedUrl(): Promise<string> {
+      mockFetch().mockResolvedValueOnce(jsonResponse({ data: { ok: true } }))
+      await storefrontFetch(QUERY)
+      return String(mockFetch().mock.calls[0][0])
+    }
+
+    it('uses http for a 127.0.0.1 domain when the switch is on', async () => {
+      vi.stubEnv('SHOPIFY_STORE_DOMAIN', '127.0.0.1:4443')
+      vi.stubEnv('SHOPIFY_STOREFRONT_INSECURE_LOCAL', '1')
+      resetShopifyEnvCache()
+
+      expect(await requestedUrl()).toBe('http://127.0.0.1:4443/api/2026-07/graphql.json')
+    })
+
+    it('uses http for a localhost domain when the switch is on', async () => {
+      vi.stubEnv('SHOPIFY_STORE_DOMAIN', 'localhost:4443')
+      vi.stubEnv('SHOPIFY_STOREFRONT_INSECURE_LOCAL', '1')
+      resetShopifyEnvCache()
+
+      expect(await requestedUrl()).toBe('http://localhost:4443/api/2026-07/graphql.json')
+    })
+
+    it('keeps https for a local domain when the switch is off', async () => {
+      vi.stubEnv('SHOPIFY_STORE_DOMAIN', '127.0.0.1:4443')
+      vi.stubEnv('SHOPIFY_STOREFRONT_INSECURE_LOCAL', '')
+      resetShopifyEnvCache()
+
+      expect(await requestedUrl()).toBe('https://127.0.0.1:4443/api/2026-07/graphql.json')
+    })
+
+    it('keeps https for a real store domain even when the switch is on', async () => {
+      vi.stubEnv('SHOPIFY_STOREFRONT_INSECURE_LOCAL', '1')
+      resetShopifyEnvCache()
+
+      expect(await requestedUrl()).toBe(API_URL)
+    })
+
+    it('keeps https for a look-alike domain that only starts with localhost', async () => {
+      vi.stubEnv('SHOPIFY_STORE_DOMAIN', 'localhost.evil.example')
+      vi.stubEnv('SHOPIFY_STOREFRONT_INSECURE_LOCAL', '1')
+      resetShopifyEnvCache()
+
+      expect(await requestedUrl()).toBe('https://localhost.evil.example/api/2026-07/graphql.json')
+    })
   })
 })

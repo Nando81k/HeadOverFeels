@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { watchConsole } from './support/console'
 
 /**
  * Catalog smoke suite (Phase 2, Task 8) — replaces the Phase 1
@@ -10,22 +11,6 @@ import { expect, test, type Page } from '@playwright/test'
  * notice. The trial store may still hold zero products, so grid routes also
  * accept the grid's own empty state rather than failing the whole run.
  */
-
-/**
- * Console noise that must not fail the smoke run: dev-only React messages, and
- * the 401 from the legacy `AuthProvider`'s `/api/auth/me` probe that the root
- * `Providers` still fire on every page for signed-out visitors (Phase 6 removes it).
- */
-const IGNORED_CONSOLE_ERRORS =
-  /React DevTools|Fast Refresh|hydrat|status of 401 \(Unauthorized\)/i
-
-/**
- * Legacy endpoints the root `Providers` still call on every page (`AuthProvider`
- * → `/api/auth/*`, `PopupManager` → `/api/popups/*`). They need the database and
- * NextAuth, neither of which the storefront depends on; failed loads from them
- * are not storefront regressions. Phase 6 removes both providers.
- */
-const IGNORED_RESOURCE_URLS = /\/api\/(auth|popups)\//
 
 /** `[data-catalog="unconfigured"]` — every route may legitimately render this. */
 const UNCONFIGURED = '[data-catalog="unconfigured"]'
@@ -51,20 +36,6 @@ const ROUTES: Route[] = [
   { path: '/search?q=hoodie', evidence: [UNCONFIGURED, PRODUCT_CARD, EMPTY_STATE] },
   { path: '/policies/privacy-policy', evidence: [UNCONFIGURED, 'main .prose-sf'] },
 ]
-
-/** Collects console errors for the current test, minus the known dev noise. */
-function watchConsole(page: Page): string[] {
-  const errors: string[] = []
-  page.on('console', (message) => {
-    if (message.type() !== 'error') return
-    const text = message.text()
-    if (IGNORED_CONSOLE_ERRORS.test(text)) return
-    if (IGNORED_RESOURCE_URLS.test(message.location().url ?? '')) return
-    errors.push(text)
-  })
-  page.on('pageerror', (error) => errors.push(String(error)))
-  return errors
-}
 
 /** Landmarks + evidence + console, asserted the same way for every route. */
 async function expectHealthyPage(page: Page, route: Route, errors: string[]) {
@@ -104,28 +75,18 @@ test.describe('storefront catalog routes', () => {
 
     await page.goto('/collections/all')
 
-    const cards = page.locator(PRODUCT_CARD)
-    let handle = (await cards.count())
-      ? await cards.first().getAttribute('data-product-handle')
-      : null
-
-    if (!handle) {
-      // Fall back to any product link on the page before giving up.
-      const link = page.locator('main a[href^="/products/"]').first()
-      if (await link.count()) {
-        const href = (await link.getAttribute('href')) ?? ''
-        handle = href.split('/products/')[1]?.split(/[?#]/)[0] ?? null
-      }
-    }
-
-    // Soft by design: the trial store may not have products migrated yet.
-    test.skip(!handle, 'no products in the catalog yet')
+    // The Storefront mock serves the fixture catalog, so the first card is known.
+    const card = page.locator(PRODUCT_CARD).first()
+    await expect(card).toBeAttached()
+    const handle = await card.getAttribute('data-product-handle')
+    expect(handle).toBe('core-hoodie')
 
     const path = `/products/${handle}`
     const response = await page.goto(path)
     expect(response?.status(), `GET ${path} should return 200`).toBe(200)
 
-    await expectHealthyPage(page, { path, evidence: [UNCONFIGURED, 'main h1'] }, errors)
+    await expect(page.locator('main h1')).toHaveText('Core Hoodie')
+    await expectHealthyPage(page, { path, evidence: ['main h1'] }, errors)
   })
 
   test('/search without a query renders the search form', async ({ page }) => {
