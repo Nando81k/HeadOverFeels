@@ -2,6 +2,7 @@ import * as React from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { addCartLineForm } from '@/app/(storefront)/_actions/cart'
 import { hasShopifyEnv } from '@/lib/shopify/env'
 import { getProduct } from '@/lib/shopify/queries/product'
 import { getRecommendations } from '@/lib/shopify/queries/recommendations'
@@ -27,8 +28,18 @@ export const revalidate = 300
 /** Meta descriptions are cut at the length Google renders. */
 const DESCRIPTION_LENGTH = 160
 
-/** Id of the buy-box form; the sticky mobile bar jumps to it. */
+/** Id of the buy-box form; the sticky mobile bar submits it. */
 const BUY_BOX_ID = 'buy-box'
+
+/**
+ * No-JS fallback for the buy box: a plain form post adds the line through the
+ * same action the cart provider uses. With JS the provider intercepts the
+ * submit (`AddToCartPanel`), so this only runs before hydration or without JS.
+ */
+async function addCartLineFormAction(formData: FormData) {
+  'use server'
+  await addCartLineForm(null, formData)
+}
 
 type SearchParams = Record<string, string | string[] | undefined>
 
@@ -195,6 +206,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               product={product}
               selected={selected}
               complete={complete}
+              action={addCartLineFormAction}
               id={BUY_BOX_ID}
             />
 
@@ -210,7 +222,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         price={price}
         compareAt={selected?.compareAtPrice ?? null}
         soldOut={Boolean(selected && !selected.availableForSale)}
-        disabled
+        disabled={!complete || !selected}
         targetId={BUY_BOX_ID}
       />
 

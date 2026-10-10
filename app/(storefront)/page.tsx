@@ -9,6 +9,7 @@ import { ProductRail } from '@/components/storefront/home/ProductRail'
 import { Marquee } from '@/components/storefront/ui/Marquee'
 import { hasShopifyEnv } from '@/lib/shopify/env'
 import { getHomeData } from '@/lib/storefront/home-data'
+import { FREE_SHIPPING_COPY } from '@/lib/storefront/shipping'
 
 /** Catalog freshness for the home page (Phase 2 plan, route map row `/`). */
 export const revalidate = 300
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
 }
 
 /** Promo ticker copy. Exported so the tests and e2e assert on one source. */
-export const HOME_MARQUEE_DEFAULT = 'Free US shipping over $75 · Earn Care Points on every order'
+export const HOME_MARQUEE_DEFAULT = `${FREE_SHIPPING_COPY} · Earn Care Points on every order`
 export const HOME_MARQUEE_DROP = 'Drop live — shop now'
 
 /**

@@ -1,7 +1,7 @@
 // tests/unit/storefront/pdp.test.tsx
 import * as React from 'react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 // `lib/shopify/client` imports `server-only`, which throws outside a React
@@ -58,6 +58,31 @@ vi.mock('@/lib/shopify/queries/recommendations', async (importOriginal) => ({
   getRecommendations: vi.fn(async () => []),
 }))
 
+/**
+ * The cart context (T4). Each test sets `cartState.current` to a
+ * `CartContextValue`-shaped fake, or `null` for "no provider".
+ */
+const cartState = vi.hoisted(() => ({
+  current: null as import('@/components/storefront/cart/CartProvider').CartContextValue | null,
+}))
+
+vi.mock('@/components/storefront/cart/useCart', () => ({
+  useCartOptional: () => cartState.current,
+  useCart: () => {
+    if (!cartState.current) throw new Error('useCart must be used inside <CartProvider>')
+    return cartState.current
+  },
+}))
+
+/** The page imports the Server Action for its no-JS form post. */
+vi.mock('@/app/(storefront)/_actions/cart', () => ({
+  addCartLineForm: vi.fn(async () => ({ ok: false, error: 'Cart unavailable' })),
+}))
+
+import { addCartLineForm } from '@/app/(storefront)/_actions/cart'
+import type { CartContextValue } from '@/components/storefront/cart/CartProvider'
+import { normalizeCart, type RawCart } from '@/lib/shopify/queries/cart'
+import { FREE_SHIPPING_COPY } from '@/lib/storefront/shipping'
 import { hasShopifyEnv } from '@/lib/shopify/env'
 import { toProductCard, type RawProductCard } from '@/lib/shopify/queries/fragments'
 import { getProduct, normalizeProduct, type RawProductDetail } from '@/lib/shopify/queries/product'
@@ -73,6 +98,7 @@ import ProductPage, { generateMetadata } from '@/app/(storefront)/products/[hand
 import DropPage, { generateMetadata as dropMetadata } from '@/app/(storefront)/drops/[handle]/page'
 import collectionFixture from '@/tests/fixtures/shopify/collection-products.json'
 import productFixture from '@/tests/fixtures/shopify/product-by-handle.json'
+import cartFixture from '@/tests/fixtures/shopify/cart.json'
 
 /** jsdom implements none of the `<dialog>` methods the overlay primitives use. */
 beforeAll(() => {
@@ -111,14 +137,52 @@ const cards: ProductCardData[] = (
 
 const PATHNAME = '/products/core-hoodie'
 
+const liveCart = normalizeCart(cartFixture.cart as unknown as RawCart)
+const submitForm = vi.mocked(addCartLineForm)
+
+/** A `CartContextValue` with every method stubbed; `addLine` succeeds. */
+function fakeCart(overrides: Partial<CartContextValue> = {}): CartContextValue {
+  return {
+    cart: liveCart,
+    status: 'ready',
+    count: liveCart.totalQuantity,
+    open: false,
+    openDrawer: vi.fn(),
+    closeDrawer: vi.fn(),
+    pending: false,
+    pendingLineId: null,
+    error: null,
+    warning: null,
+    clearMessages: vi.fn(),
+    addLine: vi.fn(async () => ({ ok: true as const, cart: liveCart })),
+    updateLine: vi.fn(async () => ({ ok: true as const, cart: liveCart })),
+    removeLine: vi.fn(async () => ({ ok: true as const, cart: liveCart })),
+    applyCode: vi.fn(async () => ({ ok: true as const, cart: liveCart })),
+    removeCode: vi.fn(async () => ({ ok: true as const, cart: liveCart })),
+    setNote: vi.fn(async () => ({ ok: true as const, cart: liveCart })),
+    ...overrides,
+  } as CartContextValue
+}
+
+/** A promise the test resolves by hand, to observe the pending state. */
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
+  cartState.current = null
   hasEnv.mockReturnValue(true)
   fetchProduct.mockResolvedValue(product)
   fetchRecommendations.mockResolvedValue([])
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   cleanup()
   document.body.className = ''
   document.body.style.overflow = ''
@@ -268,6 +332,10 @@ describe('VariantSelector', () => {
 // ---------------------------------------------------------- AddToCartPanel
 
 describe('AddToCartPanel', () => {
+  const buyBox = (container: HTMLElement) =>
+    container.querySelector<HTMLFormElement>('form#buy-box') as HTMLFormElement
+  const addButton = () => screen.getByRole('button', { name: /add to cart|adding|added/i })
+
   it('shows the selected variant price and its compare-at', () => {
     render(<AddToCartPanel product={product} selected={blackM} complete />)
 
@@ -275,25 +343,13 @@ describe('AddToCartPanel', () => {
     expect(screen.getByText('$110.00')).toBeInTheDocument()
   })
 
-  it('is disabled and flagged for Phase 3 without an action', () => {
-    const { container } = render(<AddToCartPanel product={product} selected={blackM} complete />)
-
-    const button = screen.getByRole('button', { name: /add to cart/i })
-    expect(button).toBeDisabled()
-    expect(button).toHaveAttribute('data-phase', '3')
-    expect(container.querySelector('form#buy-box')).toBeInTheDocument()
-  })
-
-  it('submits the selected variant and quantity once an action is wired', async () => {
+  it('keeps the variant and quantity hidden inputs for the no-JS post', async () => {
     const user = userEvent.setup()
-    const action = vi.fn()
+    cartState.current = fakeCart()
     const { container } = render(
-      <AddToCartPanel product={product} selected={blackM} complete action={action} />
+      <AddToCartPanel product={product} selected={blackM} complete action={vi.fn()} />
     )
 
-    const button = screen.getByRole('button', { name: /add to cart/i })
-    expect(button).toBeEnabled()
-    expect(button).not.toHaveAttribute('data-phase')
     const field = (name: string) =>
       container.querySelector<HTMLInputElement>(`input[name="${name}"]`)?.value
     expect(field('variantId')).toBe(blackM.id)
@@ -303,27 +359,170 @@ describe('AddToCartPanel', () => {
     expect(field('quantity')).toBe('2')
   })
 
+  it('adds through the cart provider and prevents the native form post', async () => {
+    const user = userEvent.setup()
+    const cart = fakeCart()
+    cartState.current = cart
+    const action = vi.fn()
+    render(<AddToCartPanel product={product} selected={blackM} complete action={action} />)
+
+    const button = addButton()
+    expect(button).toBeEnabled()
+    expect(button).not.toHaveAttribute('data-phase')
+
+    await user.click(screen.getByRole('button', { name: /increase quantity/i }))
+    await user.click(button)
+
+    expect(cart.addLine).toHaveBeenCalledTimes(1)
+    expect(cart.addLine).toHaveBeenCalledWith({ variantId: blackM.id, quantity: 2 })
+    await screen.findByRole('button', { name: /added/i })
+    expect(action).not.toHaveBeenCalled()
+  })
+
+  it('is disabled and flagged unconfigured when the cart is unavailable', () => {
+    cartState.current = fakeCart({ status: 'unavailable' })
+    render(<AddToCartPanel product={product} selected={blackM} complete action={vi.fn()} />)
+
+    const button = addButton()
+    expect(button).toBeDisabled()
+    expect(button).toHaveAttribute('data-phase', 'unconfigured')
+  })
+
+  it('is disabled and flagged unconfigured with neither a provider nor an action', () => {
+    const { container } = render(<AddToCartPanel product={product} selected={blackM} complete />)
+
+    const button = addButton()
+    expect(button).toBeDisabled()
+    expect(button).toHaveAttribute('data-phase', 'unconfigured')
+    expect(buyBox(container)).toBeInTheDocument()
+  })
+
+  it('posts the form to the action when there is no provider', async () => {
+    const action = vi.fn()
+    const { container } = render(
+      <AddToCartPanel product={product} selected={blackM} complete action={action} />
+    )
+
+    expect(addButton()).toBeEnabled()
+    expect(addButton()).not.toHaveAttribute('data-phase')
+    fireEvent.submit(buyBox(container))
+
+    await waitFor(() => expect(action).toHaveBeenCalledTimes(1))
+    const formData = action.mock.calls[0]?.[0] as FormData
+    expect(formData.get('variantId')).toBe(blackM.id)
+    expect(formData.get('quantity')).toBe('1')
+  })
+
+  it('shows "Adding…" with aria-busy while the add is in flight', async () => {
+    const pending = deferred<Awaited<ReturnType<CartContextValue['addLine']>>>()
+    const cart = fakeCart({ addLine: vi.fn(() => pending.promise) })
+    cartState.current = cart
+    const { container } = render(<AddToCartPanel product={product} selected={blackM} complete />)
+
+    fireEvent.submit(buyBox(container))
+
+    const button = screen.getByRole('button', { name: /adding…/i })
+    expect(button).toHaveAttribute('aria-busy', 'true')
+    expect(button).toBeDisabled()
+
+    // A second submit while adding is ignored.
+    fireEvent.submit(buyBox(container))
+    expect(cart.addLine).toHaveBeenCalledTimes(1)
+
+    await act(async () => pending.resolve({ ok: true, cart: liveCart }))
+    expect(screen.getByRole('button', { name: /added/i })).not.toHaveAttribute('aria-busy')
+  })
+
+  it('reads "Added ✓" for two seconds after a successful add', async () => {
+    vi.useFakeTimers()
+    cartState.current = fakeCart()
+    const { container } = render(<AddToCartPanel product={product} selected={blackM} complete />)
+
+    await act(async () => {
+      fireEvent.submit(buyBox(container))
+    })
+    expect(addButton()).toHaveTextContent('Added ✓')
+
+    act(() => vi.advanceTimersByTime(1999))
+    expect(addButton()).toHaveTextContent('Added ✓')
+
+    act(() => vi.advanceTimersByTime(1))
+    expect(addButton()).toHaveTextContent('Add to cart')
+  })
+
+  it('clears the "Added" timer on unmount', async () => {
+    vi.useFakeTimers()
+    cartState.current = fakeCart()
+    const { container, unmount } = render(
+      <AddToCartPanel product={product} selected={blackM} complete />
+    )
+
+    await act(async () => {
+      fireEvent.submit(buyBox(container))
+    })
+    expect(vi.getTimerCount()).toBeGreaterThan(0)
+
+    unmount()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('renders the add error as an alert and dismisses it on the next submit', async () => {
+    const cart = fakeCart({
+      addLine: vi.fn(async () => ({ ok: false as const, error: 'Only 2 left in stock.' })),
+    })
+    cartState.current = cart
+    const { container } = render(<AddToCartPanel product={product} selected={blackM} complete />)
+
+    await act(async () => {
+      fireEvent.submit(buyBox(container))
+    })
+    expect(screen.getByRole('alert')).toHaveTextContent('Only 2 left in stock.')
+    expect(addButton()).toHaveTextContent('Add to cart')
+
+    const next = deferred<Awaited<ReturnType<CartContextValue['addLine']>>>()
+    vi.mocked(cart.addLine).mockImplementationOnce(() => next.promise)
+    fireEvent.submit(buyBox(container))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+    await act(async () => next.resolve({ ok: true, cart: liveCart }))
+  })
+
   it('renders a disabled sold-out button for an unavailable variant', () => {
-    render(<AddToCartPanel product={product} selected={blackS} complete action={vi.fn()} />)
+    const cart = fakeCart()
+    cartState.current = cart
+    const { container } = render(
+      <AddToCartPanel product={product} selected={blackS} complete action={vi.fn()} />
+    )
 
     const button = screen.getByRole('button', { name: /sold out/i })
     expect(button).toBeDisabled()
+    expect(button).not.toHaveAttribute('data-phase')
     expect(screen.queryByRole('button', { name: /add to cart/i })).not.toBeInTheDocument()
+
+    fireEvent.submit(buyBox(container))
+    expect(cart.addLine).not.toHaveBeenCalled()
   })
 
   it('is disabled while the option selection is incomplete', () => {
-    render(<AddToCartPanel product={product} selected={null} complete={false} action={vi.fn()} />)
+    const cart = fakeCart()
+    cartState.current = cart
+    const { container } = render(
+      <AddToCartPanel product={product} selected={null} complete={false} action={vi.fn()} />
+    )
 
     const button = screen.getByRole('button', { name: /add to cart/i })
     expect(button).toBeDisabled()
-    expect(button).toHaveAttribute('data-phase', '3')
+    expect(button).not.toHaveAttribute('data-phase')
+
+    fireEvent.submit(buyBox(container))
+    expect(cart.addLine).not.toHaveBeenCalled()
   })
 
   it('shows the shipping and Care Points helper line', () => {
     const { container } = render(<AddToCartPanel product={product} selected={blackM} complete />)
 
     expect(container.querySelector('[data-buy-helper]')?.textContent).toBe(
-      'Free US shipping over $75 · Earn 88 Care Points'
+      `${FREE_SHIPPING_COPY} · Earn 88 Care Points`
     )
   })
 
@@ -357,6 +556,7 @@ describe('DetailsAccordion', () => {
     expect(screen.getByText(/shipping & returns/i)).toBeInTheDocument()
     expect(container.querySelector('a[href="/policies/shipping-policy"]')).toBeInTheDocument()
     expect(container.querySelector('a[href="/policies/refund-policy"]')).toBeInTheDocument()
+    expect(container.textContent).toContain(FREE_SHIPPING_COPY)
   })
 
   it('omits the rows whose metafields are missing', () => {
@@ -394,6 +594,11 @@ describe('RecommendationsRail', () => {
 // ------------------------------------------------------------ StickyBuyBar
 
 describe('StickyBuyBar', () => {
+  const stickyButton = (container: HTMLElement) => {
+    const bar = container.querySelector<HTMLElement>('[data-sticky-buy-bar]') as HTMLElement
+    return within(bar).getByRole('button')
+  }
+
   it('defaults to visible and is hidden from the desktop layout', () => {
     const { container } = render(
       <StickyBuyBar title={product.title} price={blackM.price} targetId="buy-box" />
@@ -404,20 +609,114 @@ describe('StickyBuyBar', () => {
     expect(bar?.className).toContain('md:hidden')
   })
 
-  it('sends focus to the buy box button', async () => {
+  it('submits the buy-box form with requestSubmit', async () => {
     const user = userEvent.setup()
-    render(
+    const cart = fakeCart()
+    cartState.current = cart
+    const { container } = render(
       <>
         <AddToCartPanel product={product} selected={blackM} complete action={vi.fn()} />
         <StickyBuyBar title={product.title} price={blackM.price} targetId="buy-box" />
       </>
     )
 
-    const [, sticky] = screen.getAllByRole('button', { name: /add to cart/i })
-    await user.click(sticky)
+    const form = container.querySelector<HTMLFormElement>('form#buy-box') as HTMLFormElement
+    const requestSubmit = vi.spyOn(form, 'requestSubmit')
 
-    const [panelButton] = screen.getAllByRole('button', { name: /add to cart/i })
-    expect(panelButton).toHaveFocus()
+    await user.click(stickyButton(container))
+
+    expect(requestSubmit).toHaveBeenCalledTimes(1)
+    expect(cart.addLine).toHaveBeenCalledWith({ variantId: blackM.id, quantity: 1 })
+  })
+
+  it('falls back to focusing the buy box when the target is not a form', async () => {
+    const user = userEvent.setup()
+    const { container } = render(
+      <>
+        <div id="buy-box">
+          <button type="submit">Buy box button</button>
+        </div>
+        <StickyBuyBar title={product.title} price={blackM.price} targetId="buy-box" />
+      </>
+    )
+
+    await user.click(stickyButton(container))
+
+    expect(screen.getByRole('button', { name: 'Buy box button' })).toHaveFocus()
+  })
+
+  it('mirrors the pending, added and unavailable props', () => {
+    const { container, rerender } = render(
+      <StickyBuyBar title={product.title} price={blackM.price} targetId="buy-box" pending />
+    )
+    expect(stickyButton(container)).toHaveTextContent('Adding…')
+    expect(stickyButton(container)).toHaveAttribute('aria-busy', 'true')
+
+    rerender(<StickyBuyBar title={product.title} price={blackM.price} targetId="buy-box" added />)
+    expect(stickyButton(container)).toHaveTextContent('Added ✓')
+
+    rerender(
+      <StickyBuyBar title={product.title} price={blackM.price} targetId="buy-box" unavailable />
+    )
+    expect(stickyButton(container)).toBeDisabled()
+    expect(stickyButton(container)).toHaveAttribute('data-phase', 'unconfigured')
+  })
+
+  it('is unconfigured when the cart provider is unavailable', () => {
+    cartState.current = fakeCart({ status: 'unavailable' })
+    const { container } = render(
+      <StickyBuyBar title={product.title} price={blackM.price} targetId="buy-box" />
+    )
+
+    expect(stickyButton(container)).toBeDisabled()
+    expect(stickyButton(container)).toHaveAttribute('data-phase', 'unconfigured')
+  })
+
+  it('mirrors the cart pending state and shows "Added ✓" for 2s after its own submit', async () => {
+    vi.useFakeTimers()
+    cartState.current = fakeCart()
+    // A fresh element per render: an identical element would bail out.
+    const ui = () => (
+      <>
+        <form id="buy-box" onSubmit={(event) => event.preventDefault()} />
+        <StickyBuyBar title={product.title} price={blackM.price} targetId="buy-box" />
+      </>
+    )
+    const { container, rerender } = render(ui())
+
+    fireEvent.click(stickyButton(container))
+
+    cartState.current = fakeCart({ pending: true })
+    rerender(ui())
+    expect(stickyButton(container)).toHaveTextContent('Adding…')
+    expect(stickyButton(container)).toHaveAttribute('aria-busy', 'true')
+
+    cartState.current = fakeCart({ pending: false })
+    rerender(ui())
+    expect(stickyButton(container)).toHaveTextContent('Added ✓')
+
+    act(() => vi.advanceTimersByTime(2000))
+    expect(stickyButton(container)).toHaveTextContent('Add to cart')
+  })
+
+  it('does not show "Added" when the add fails', () => {
+    cartState.current = fakeCart()
+    // A fresh element per render: an identical element would bail out.
+    const ui = () => (
+      <>
+        <form id="buy-box" onSubmit={(event) => event.preventDefault()} />
+        <StickyBuyBar title={product.title} price={blackM.price} targetId="buy-box" />
+      </>
+    )
+    const { container, rerender } = render(ui())
+
+    fireEvent.click(stickyButton(container))
+    cartState.current = fakeCart({ pending: true })
+    rerender(ui())
+    cartState.current = fakeCart({ pending: false, error: 'Something went wrong.' })
+    rerender(ui())
+
+    expect(stickyButton(container)).toHaveTextContent('Add to cart')
   })
 
   it('shows the sold-out state', () => {
@@ -472,6 +771,33 @@ describe('app/(storefront)/products/[handle]', () => {
       variant('L / Bone').id
     )
     expect(screen.getByText('Size — L')).toBeInTheDocument()
+  })
+
+  it('posts the buy box to addCartLineForm without a cart provider (no-JS path)', async () => {
+    const { container } = render(await call('core-hoodie', { Size: 'M', Color: 'Black' }))
+
+    const form = container.querySelector<HTMLFormElement>('form#buy-box')
+    expect(form).toBeInTheDocument()
+    fireEvent.submit(form as HTMLFormElement)
+
+    await waitFor(() => expect(submitForm).toHaveBeenCalledTimes(1))
+    const [prev, formData] = submitForm.mock.calls[0] as unknown as [unknown, FormData]
+    expect(prev).toBeNull()
+    expect(formData.get('variantId')).toBe(blackM.id)
+    expect(formData.get('quantity')).toBe('1')
+  })
+
+  it('enables the sticky bar for a buyable variant and disables it when sold out', async () => {
+    const { container } = render(await call('core-hoodie', { Size: 'M', Color: 'Black' }))
+    const bar = container.querySelector<HTMLElement>('[data-sticky-buy-bar]') as HTMLElement
+    expect(within(bar).getByRole('button', { name: /add to cart/i })).toBeEnabled()
+
+    cleanup()
+    const soldOut = render(await call('core-hoodie', { Size: 'S', Color: 'Black' }))
+    const soldOutBar = soldOut.container.querySelector<HTMLElement>(
+      '[data-sticky-buy-bar]'
+    ) as HTMLElement
+    expect(within(soldOutBar).getByRole('button', { name: /sold out/i })).toBeDisabled()
   })
 
   it('keeps the page up when recommendations fail, and renders them when they load', async () => {

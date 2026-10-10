@@ -2,6 +2,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { richTextToHtml } from '@/lib/shopify/rich-text'
 import type { ProductDetail } from '@/lib/shopify/types'
+import { FREE_SHIPPING_COPY } from '@/lib/storefront/shipping'
 import { Accordion, AccordionItem } from '@/components/storefront/ui/Accordion'
 import { Prose } from '@/components/storefront/ui/Typography'
 
@@ -41,8 +42,7 @@ export function DetailsAccordion({ product }: DetailsAccordionProps) {
       <AccordionItem title="Shipping & returns">
         <Prose>
           <p>
-            Orders ship from the US within 1–2 business days. Free standard shipping over $75;
-            tracking follows by email as soon as the label prints.
+            {`Orders ship from the US within 1–2 business days. ${FREE_SHIPPING_COPY}; tracking follows by email as soon as the label prints.`}
           </p>
           <p>
             Unworn pieces can go back within 30 days. See{' '}
