@@ -18,11 +18,23 @@ vi.mock('@/app/(storefront)/_actions/catalog', () => ({
 vi.mock('@/app/(storefront)/_actions/newsletter', () => ({
   subscribeNewsletterAction: vi.fn(async () => ({ status: 'idle', message: '' })),
 }))
+// The header reads the cart through `useCartOptional()`; the provider test
+// below injects fakes, so the real Server Actions are never reached.
+vi.mock('@/app/(storefront)/_actions/cart', () => ({
+  getCartAction: vi.fn(async () => null),
+  addCartLine: vi.fn(),
+  updateCartLine: vi.fn(),
+  removeCartLine: vi.fn(),
+  applyDiscountCode: vi.fn(),
+  removeDiscountCode: vi.fn(),
+  updateCartNoteAction: vi.fn(),
+}))
 vi.mock('@/lib/shopify/queries/shop', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/shopify/queries/shop')>()
   return { ...actual, getShopLayout: vi.fn() }
 })
 
+import { CartProvider } from '@/components/storefront/cart/CartProvider'
 import { Footer } from '@/components/storefront/layout/Footer'
 import {
   FALLBACK_LAYOUT,
@@ -32,6 +44,8 @@ import { getShopLayout, normalizeMenu, type RawMenuItem } from '@/lib/shopify/qu
 import { ShopifyError } from '@/lib/shopify/errors'
 import type { ShopLayoutData } from '@/lib/shopify/types'
 import shopLayoutFixture from '@/tests/fixtures/shopify/shop-layout.json'
+import { normalizeCart, type RawCart } from '@/lib/shopify/queries/cart'
+import cartFixture from '@/tests/fixtures/shopify/cart.json'
 
 const MENU = normalizeMenu(shopLayoutFixture.menu.items as unknown as RawMenuItem[], {
   storeDomain: 'tgqucm-qg.myshopify.com',
@@ -213,5 +227,19 @@ describe('StorefrontShell', () => {
       within(screen.getByRole('banner')).getByRole('button', { name: 'Cart, 3 items' })
     ).toBeInTheDocument()
     expect(screen.getByText('Free US shipping over $75')).toBeInTheDocument()
+  })
+
+  it('treats cartCount as the SSR fallback once a CartProvider has the live cart', async () => {
+    mocked().mockResolvedValue(LAYOUT)
+    const cart = normalizeCart(cartFixture.cart as unknown as RawCart)
+    render(
+      <CartProvider initialCart={cart} actions={{ getCart: vi.fn(async () => null) }}>
+        {await StorefrontShell({ children: <p>hi</p>, cartCount: 3 })}
+      </CartProvider>
+    )
+
+    expect(
+      within(screen.getByRole('banner')).getByRole('button', { name: 'Cart, 2 items' })
+    ).toBeInTheDocument()
   })
 })

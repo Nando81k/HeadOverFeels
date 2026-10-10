@@ -33,6 +33,9 @@
   --color-ok: #1E7F4F;
   --color-warn: #B26B00;
   --color-danger: #B3261E;
+  /* Shop Pay's brand purple (Shopify brand guidelines). Third-party brand colour,
+     used only by the Shop Pay checkout button (`bg-shoppay`); never a storefront accent. */
+  --color-shoppay: #5A31F4;
 
   /* Type */
   --font-display: var(--font-archivo), "Archivo", "Arial Narrow", sans-serif;  /* 800–900, uppercase, tight */

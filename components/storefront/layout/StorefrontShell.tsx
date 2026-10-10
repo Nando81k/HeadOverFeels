@@ -46,7 +46,10 @@ async function loadLayout(): Promise<{ layout: ShopLayoutData; source: LayoutSou
 
 export interface StorefrontShellProps {
   children: React.ReactNode
-  /** Cart line-item count for the header badge. Wired to the real cart in Phase 3. */
+  /**
+   * SSR fallback for the header's cart count, shown until the surrounding
+   * `CartProvider` (see `app/(storefront)/layout.tsx`) has loaded the cart.
+   */
   cartCount?: number
   /** Let the header sit transparently over a hero until the page scrolls. */
   transparentHeader?: boolean

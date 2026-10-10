@@ -6,6 +6,9 @@ import { Menu, Search, ShoppingBag, User } from 'lucide-react'
 import { AnnouncementBar } from '@/components/storefront/ui/AnnouncementBar'
 import { Container } from '@/components/storefront/ui/Container'
 import { IconButton } from '@/components/storefront/ui/IconButton'
+import { CartBadge, useCartCount } from '@/components/storefront/cart/CartBadge'
+import { CartDrawer } from '@/components/storefront/cart/CartDrawer'
+import { useCartOptional } from '@/components/storefront/cart/useCart'
 import { HeaderNav } from '@/components/storefront/layout/HeaderNav'
 import { MobileMenu } from '@/components/storefront/layout/MobileMenu'
 import { SearchDialog } from '@/components/storefront/search/SearchDialog'
@@ -18,7 +21,10 @@ const SCROLL_THRESHOLD = 24
 export interface HeaderProps {
   /** Top-level Shopify menu (`getShopLayout().menu`). */
   menu: MenuItem[]
-  /** Line-item count for the cart badge and its accessible name. */
+  /**
+   * SSR fallback for the cart count. The live count from `CartProvider` wins
+   * once it has loaded; this is shown while loading and outside a provider.
+   */
   cartCount: number
   /** Sit transparently over a hero until the page scrolls past 24px. */
   transparent?: boolean
@@ -39,6 +45,8 @@ export function Header({ menu, cartCount, transparent = false, announcement }: H
   const [scrolled, setScrolled] = React.useState(false)
   const [menuOpen, setMenuOpen] = React.useState(false)
   const [searchOpen, setSearchOpen] = React.useState(false)
+  const cart = useCartOptional()
+  const count = useCartCount(cartCount)
 
   React.useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > SCROLL_THRESHOLD)
@@ -116,21 +124,14 @@ export function Header({ menu, cartCount, transparent = false, announcement }: H
             </IconButton>
 
             <IconButton
-              label={`Cart, ${cartCount} ${cartCount === 1 ? 'item' : 'items'}`}
+              label={`Cart, ${count} ${count === 1 ? 'item' : 'items'}`}
               className="relative"
+              aria-haspopup="dialog"
+              aria-expanded={cart?.open ?? false}
+              onClick={cart?.openDrawer}
             >
               <ShoppingBag aria-hidden="true" className="size-5" />
-              {cartCount > 0 ? (
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    'num absolute top-1.5 right-1 min-w-4 rounded-pill px-1',
-                    'bg-signal text-[10px] leading-4 font-semibold text-signal-ink'
-                  )}
-                >
-                  {cartCount}
-                </span>
-              ) : null}
+              <CartBadge fallbackCount={cartCount} />
             </IconButton>
           </div>
         </Container>
@@ -138,6 +139,7 @@ export function Header({ menu, cartCount, transparent = false, announcement }: H
 
       <MobileMenu open={menuOpen} onOpenChange={setMenuOpen} items={menu} />
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
+      <CartDrawer />
     </>
   )
 }

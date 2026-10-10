@@ -15,12 +15,47 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/app/(storefront)/_actions/catalog', () => ({
   predictiveSearchAction: vi.fn(async () => ({ products: [], collections: [] })),
 }))
+// The header reads the cart through `useCartOptional()`; providers in these
+// tests get fake actions, so the real Server Actions must never be reached.
+vi.mock('@/app/(storefront)/_actions/cart', () => ({
+  getCartAction: vi.fn(async () => null),
+  addCartLine: vi.fn(),
+  updateCartLine: vi.fn(),
+  removeCartLine: vi.fn(),
+  applyDiscountCode: vi.fn(),
+  removeDiscountCode: vi.fn(),
+  updateCartNoteAction: vi.fn(),
+}))
+// The cart drawer (Task 5) may render product images.
+vi.mock('next/image', async () => {
+  const react = await import('react')
+  const nextOnly = new Set(['fill', 'priority', 'quality', 'loader', 'placeholder', 'blurDataURL', 'unoptimized', 'sizes'])
+  return {
+    default: (props: Record<string, unknown>) => {
+      const attrs: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(props)) {
+        if (!nextOnly.has(key)) attrs[key] = value
+      }
+      return react.createElement('img', attrs)
+    },
+  }
+})
 
+import {
+  CartProvider,
+  useCart,
+  type CartActions,
+} from '@/components/storefront/cart/CartProvider'
 import { Header } from '@/components/storefront/layout/Header'
 import { HeaderNav } from '@/components/storefront/layout/HeaderNav'
 import { MobileMenu } from '@/components/storefront/layout/MobileMenu'
 import { normalizeMenu, type RawMenuItem } from '@/lib/shopify/queries/shop'
 import shopLayoutFixture from '@/tests/fixtures/shopify/shop-layout.json'
+import { normalizeCart, type RawCart } from '@/lib/shopify/queries/cart'
+import type { Cart } from '@/lib/shopify/types'
+import cartFixture from '@/tests/fixtures/shopify/cart.json'
+
+const CART: Cart = normalizeCart(cartFixture.cart as unknown as RawCart)
 
 /**
  * jsdom implements none of `HTMLDialogElement.showModal/close`, and `MobileMenu`
@@ -155,6 +190,64 @@ describe('Header', () => {
 
     const dialog = within(screen.getByRole('dialog'))
     expect(dialog.getByRole('link', { name: 'Shop' })).toHaveAttribute('href', '/collections/all')
+  })
+})
+
+describe('Header cart button', () => {
+  const noFetch: Partial<CartActions> = { getCart: vi.fn(async () => null) }
+
+  /** Stands in for the drawer's close control without depending on Task 5's markup. */
+  function CloseCart() {
+    const { closeDrawer } = useCart()
+    return (
+      <button type="button" onClick={closeDrawer}>
+        close cart
+      </button>
+    )
+  }
+
+  it('opens the cart drawer and labels itself from the live count', async () => {
+    const user = userEvent.setup()
+    render(
+      <CartProvider initialCart={CART} actions={noFetch}>
+        <Header menu={MENU} cartCount={0} />
+        <CloseCart />
+      </CartProvider>
+    )
+
+    // Live count (2) wins over the SSR fallback (0).
+    const trigger = banner().getByRole('button', { name: 'Cart, 2 items' })
+    expect(trigger).toHaveAttribute('aria-haspopup', 'dialog')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(trigger.querySelector('[data-cart-badge]')).toHaveTextContent('2')
+
+    await user.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+
+    await user.click(screen.getByRole('button', { name: 'close cart', hidden: true }))
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('shows the SSR fallback count while the provider is loading', () => {
+    const getCart = () => new Promise<Cart | null>(() => {})
+    render(
+      <CartProvider actions={{ getCart }}>
+        <Header menu={MENU} cartCount={4} />
+      </CartProvider>
+    )
+    expect(banner().getByRole('button', { name: 'Cart, 4 items' })).toHaveTextContent('4')
+  })
+
+  it('renders outside a provider with the fallback count and a harmless click', async () => {
+    const user = userEvent.setup()
+    render(<Header menu={MENU} cartCount={3} />)
+
+    const trigger = banner().getByRole('button', { name: 'Cart, 3 items' })
+    expect(trigger).toHaveAttribute('aria-haspopup', 'dialog')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
 })
 

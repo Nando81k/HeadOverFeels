@@ -21,6 +21,7 @@ const STOREFRONT_TOKENS = [
   '--color-ok',
   '--color-warn',
   '--color-danger',
+  '--color-shoppay', // Phase 3: Shop Pay button only
   // Type
   '--font-display',
   '--font-body',
