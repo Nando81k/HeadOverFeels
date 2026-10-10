@@ -37,10 +37,14 @@ vi.mock('next/image', async () => {
   }
 })
 
+// `redirect` is a plain spy (the real one throws NEXT_REDIRECT, which React
+// would report as an uncaught form-action error here); the no-JS test asserts it.
+const redirect = vi.fn()
 vi.mock('next/navigation', () => ({
   notFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND')
   }),
+  redirect: (...args: unknown[]) => redirect(...args),
 }))
 
 vi.mock('@/lib/shopify/env', async (importOriginal) => ({
@@ -785,6 +789,8 @@ describe('app/(storefront)/products/[handle]', () => {
     expect(prev).toBeNull()
     expect(formData.get('variantId')).toBe(blackM.id)
     expect(formData.get('quantity')).toBe('1')
+    // Without JS the cart page is the confirmation.
+    await waitFor(() => expect(redirect).toHaveBeenCalledWith('/cart'))
   })
 
   it('enables the sticky bar for a buyable variant and disables it when sold out', async () => {
