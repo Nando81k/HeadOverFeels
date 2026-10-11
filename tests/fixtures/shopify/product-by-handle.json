@@ -1,0 +1,539 @@
+{
+  "product": {
+    "id": "gid://shopify/Product/8123456789012",
+    "handle": "core-hoodie",
+    "title": "Core Hoodie",
+    "availableForSale": true,
+    "tags": [
+      "hoodies",
+      "new-arrival"
+    ],
+    "featuredImage": {
+      "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-black-front.jpg?v=1757116800",
+      "altText": "Core Hoodie in Black, front",
+      "width": 1600,
+      "height": 2000
+    },
+    "images": {
+      "nodes": [
+        {
+          "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-black-front.jpg?v=1757116800",
+          "altText": "Core Hoodie in Black, front",
+          "width": 1600,
+          "height": 2000
+        },
+        {
+          "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-black-back.jpg?v=1757116801",
+          "altText": "Core Hoodie in Black, back",
+          "width": 1600,
+          "height": 2000
+        }
+      ]
+    },
+    "priceRange": {
+      "minVariantPrice": {
+        "amount": "88.0",
+        "currencyCode": "USD"
+      }
+    },
+    "compareAtPriceRange": {
+      "minVariantPrice": {
+        "amount": "0.0",
+        "currencyCode": "USD"
+      }
+    },
+    "options": [
+      {
+        "id": "gid://shopify/ProductOption/10123456789012",
+        "name": "Size",
+        "optionValues": [
+          {
+            "id": "gid://shopify/ProductOptionValue/20123456789010",
+            "name": "S",
+            "swatch": null
+          },
+          {
+            "id": "gid://shopify/ProductOptionValue/20123456789011",
+            "name": "M",
+            "swatch": null
+          },
+          {
+            "id": "gid://shopify/ProductOptionValue/20123456789012",
+            "name": "L",
+            "swatch": null
+          },
+          {
+            "id": "gid://shopify/ProductOptionValue/20123456789013",
+            "name": "XL",
+            "swatch": null
+          }
+        ]
+      },
+      {
+        "id": "gid://shopify/ProductOption/10123456789013",
+        "name": "Color",
+        "optionValues": [
+          {
+            "id": "gid://shopify/ProductOptionValue/20123456789020",
+            "name": "Black",
+            "swatch": {
+              "color": "#1a1a1a"
+            }
+          },
+          {
+            "id": "gid://shopify/ProductOptionValue/20123456789021",
+            "name": "Taupe",
+            "swatch": {
+              "color": "#8c7b6b"
+            }
+          },
+          {
+            "id": "gid://shopify/ProductOptionValue/20123456789022",
+            "name": "Bone",
+            "swatch": null
+          }
+        ]
+      }
+    ],
+    "descriptionHtml": "<p>Our everyday hoodie in 400gsm brushed-back fleece. Boxy body, dropped shoulder, ribbed cuffs that keep their shape.</p>",
+    "vendor": "Head Over Feels",
+    "productType": "Hoodies",
+    "seo": {
+      "title": "Core Hoodie — Head Over Feels",
+      "description": "Heavyweight 400gsm fleece hoodie in Black, Taupe and Bone."
+    },
+    "gallery": {
+      "nodes": [
+        {
+          "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-black-front.jpg?v=1757116800",
+          "altText": "Core Hoodie in Black, front",
+          "width": 1600,
+          "height": 2000
+        },
+        {
+          "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-black-back.jpg?v=1757116801",
+          "altText": "Core Hoodie in Black, back",
+          "width": 1600,
+          "height": 2000
+        },
+        {
+          "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-taupe-front.jpg?v=1757116802",
+          "altText": "Core Hoodie in Taupe, front",
+          "width": 1600,
+          "height": 2000
+        },
+        {
+          "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-bone-front.jpg?v=1757116803",
+          "altText": "Core Hoodie in Bone, front",
+          "width": 1600,
+          "height": 2000
+        },
+        {
+          "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-detail-cuff.jpg?v=1757116804",
+          "altText": null,
+          "width": 1600,
+          "height": 1600
+        }
+      ]
+    },
+    "variants": {
+      "nodes": [
+        {
+          "id": "gid://shopify/ProductVariant/45123456789001",
+          "title": "S / Black",
+          "sku": "HOF-CH-BLK-S",
+          "availableForSale": false,
+          "quantityAvailable": 0,
+          "price": {
+            "amount": "88.0",
+            "currencyCode": "USD"
+          },
+          "compareAtPrice": {
+            "amount": "110.0",
+            "currencyCode": "USD"
+          },
+          "selectedOptions": [
+            {
+              "name": "Size",
+              "value": "S"
+            },
+            {
+              "name": "Color",
+              "value": "Black"
+            }
+          ],
+          "image": {
+            "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-black-front.jpg?v=1757116800",
+            "altText": "Core Hoodie in Black, front",
+            "width": 1600,
+            "height": 2000
+          },
+          "colorHex": {
+            "value": "#1a1a1a"
+          }
+        },
+        {
+          "id": "gid://shopify/ProductVariant/45123456789002",
+          "title": "S / Taupe",
+          "sku": "HOF-CH-TPE-S",
+          "availableForSale": true,
+          "quantityAvailable": 4,
+          "price": {
+            "amount": "88.0",
+            "currencyCode": "USD"
+          },
+          "compareAtPrice": null,
+          "selectedOptions": [
+            {
+              "name": "Size",
+              "value": "S"
+            },
+            {
+              "name": "Color",
+              "value": "Taupe"
+            }
+          ],
+          "image": {
+            "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-taupe-front.jpg?v=1757116802",
+            "altText": "Core Hoodie in Taupe, front",
+            "width": 1600,
+            "height": 2000
+          },
+          "colorHex": {
+            "value": "#8c7b6b"
+          }
+        },
+        {
+          "id": "gid://shopify/ProductVariant/45123456789003",
+          "title": "S / Bone",
+          "sku": "HOF-CH-BNE-S",
+          "availableForSale": true,
+          "quantityAvailable": 4,
+          "price": {
+            "amount": "88.0",
+            "currencyCode": "USD"
+          },
+          "compareAtPrice": null,
+          "selectedOptions": [
+            {
+              "name": "Size",
+              "value": "S"
+            },
+            {
+              "name": "Color",
+              "value": "Bone"
+            }
+          ],
+          "image": {
+            "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-bone-front.jpg?v=1757116803",
+            "altText": "Core Hoodie in Bone, front",
+            "width": 1600,
+            "height": 2000
+          },
+          "colorHex": {
+            "value": "#e8e2d9"
+          }
+        },
+        {
+          "id": "gid://shopify/ProductVariant/45123456789004",
+          "title": "M / Black",
+          "sku": "HOF-CH-BLK-M",
+          "availableForSale": true,
+          "quantityAvailable": 12,
+          "price": {
+            "amount": "88.0",
+            "currencyCode": "USD"
+          },
+          "compareAtPrice": {
+            "amount": "110.0",
+            "currencyCode": "USD"
+          },
+          "selectedOptions": [
+            {
+              "name": "Size",
+              "value": "M"
+            },
+            {
+              "name": "Color",
+              "value": "Black"
+            }
+          ],
+          "image": {
+            "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-black-front.jpg?v=1757116800",
+            "altText": "Core Hoodie in Black, front",
+            "width": 1600,
+            "height": 2000
+          },
+          "colorHex": {
+            "value": "#1a1a1a"
+          }
+        },
+        {
+          "id": "gid://shopify/ProductVariant/45123456789005",
+          "title": "M / Taupe",
+          "sku": "HOF-CH-TPE-M",
+          "availableForSale": true,
+          "quantityAvailable": 12,
+          "price": {
+            "amount": "88.0",
+            "currencyCode": "USD"
+          },
+          "compareAtPrice": null,
+          "selectedOptions": [
+            {
+              "name": "Size",
+              "value": "M"
+            },
+            {
+              "name": "Color",
+              "value": "Taupe"
+            }
+          ],
+          "image": {
+            "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-taupe-front.jpg?v=1757116802",
+            "altText": "Core Hoodie in Taupe, front",
+            "width": 1600,
+            "height": 2000
+          },
+          "colorHex": {
+            "value": "#8c7b6b"
+          }
+        },
+        {
+          "id": "gid://shopify/ProductVariant/45123456789006",
+          "title": "M / Bone",
+          "sku": "HOF-CH-BNE-M",
+          "availableForSale": true,
+          "quantityAvailable": 12,
+          "price": {
+            "amount": "88.0",
+            "currencyCode": "USD"
+          },
+          "compareAtPrice": null,
+          "selectedOptions": [
+            {
+              "name": "Size",
+              "value": "M"
+            },
+            {
+              "name": "Color",
+              "value": "Bone"
+            }
+          ],
+          "image": {
+            "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-bone-front.jpg?v=1757116803",
+            "altText": "Core Hoodie in Bone, front",
+            "width": 1600,
+            "height": 2000
+          },
+          "colorHex": {
+            "value": "#e8e2d9"
+          }
+        },
+        {
+          "id": "gid://shopify/ProductVariant/45123456789007",
+          "title": "L / Black",
+          "sku": "HOF-CH-BLK-L",
+          "availableForSale": true,
+          "quantityAvailable": 9,
+          "price": {
+            "amount": "88.0",
+            "currencyCode": "USD"
+          },
+          "compareAtPrice": {
+            "amount": "110.0",
+            "currencyCode": "USD"
+          },
+          "selectedOptions": [
+            {
+              "name": "Size",
+              "value": "L"
+            },
+            {
+              "name": "Color",
+              "value": "Black"
+            }
+          ],
+          "image": {
+            "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-black-front.jpg?v=1757116800",
+            "altText": "Core Hoodie in Black, front",
+            "width": 1600,
+            "height": 2000
+          },
+          "colorHex": {
+            "value": "#1a1a1a"
+          }
+        },
+        {
+          "id": "gid://shopify/ProductVariant/45123456789008",
+          "title": "L / Taupe",
+          "sku": "HOF-CH-TPE-L",
+          "availableForSale": true,
+          "quantityAvailable": 9,
+          "price": {
+            "amount": "88.0",
+            "currencyCode": "USD"
+          },
+          "compareAtPrice": null,
+          "selectedOptions": [
+            {
+              "name": "Size",
+              "value": "L"
+            },
+            {
+              "name": "Color",
+              "value": "Taupe"
+            }
+          ],
+          "image": {
+            "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-taupe-front.jpg?v=1757116802",
+            "altText": "Core Hoodie in Taupe, front",
+            "width": 1600,
+            "height": 2000
+          },
+          "colorHex": {
+            "value": "#8c7b6b"
+          }
+        },
+        {
+          "id": "gid://shopify/ProductVariant/45123456789009",
+          "title": "L / Bone",
+          "sku": "HOF-CH-BNE-L",
+          "availableForSale": true,
+          "quantityAvailable": 9,
+          "price": {
+            "amount": "88.0",
+            "currencyCode": "USD"
+          },
+          "compareAtPrice": null,
+          "selectedOptions": [
+            {
+              "name": "Size",
+              "value": "L"
+            },
+            {
+              "name": "Color",
+              "value": "Bone"
+            }
+          ],
+          "image": {
+            "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-bone-front.jpg?v=1757116803",
+            "altText": "Core Hoodie in Bone, front",
+            "width": 1600,
+            "height": 2000
+          },
+          "colorHex": {
+            "value": "#e8e2d9"
+          }
+        },
+        {
+          "id": "gid://shopify/ProductVariant/45123456789010",
+          "title": "XL / Black",
+          "sku": "HOF-CH-BLK-XL",
+          "availableForSale": true,
+          "quantityAvailable": 6,
+          "price": {
+            "amount": "88.0",
+            "currencyCode": "USD"
+          },
+          "compareAtPrice": {
+            "amount": "110.0",
+            "currencyCode": "USD"
+          },
+          "selectedOptions": [
+            {
+              "name": "Size",
+              "value": "XL"
+            },
+            {
+              "name": "Color",
+              "value": "Black"
+            }
+          ],
+          "image": {
+            "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-black-front.jpg?v=1757116800",
+            "altText": "Core Hoodie in Black, front",
+            "width": 1600,
+            "height": 2000
+          },
+          "colorHex": {
+            "value": "#1a1a1a"
+          }
+        },
+        {
+          "id": "gid://shopify/ProductVariant/45123456789011",
+          "title": "XL / Taupe",
+          "sku": "HOF-CH-TPE-XL",
+          "availableForSale": true,
+          "quantityAvailable": 6,
+          "price": {
+            "amount": "88.0",
+            "currencyCode": "USD"
+          },
+          "compareAtPrice": null,
+          "selectedOptions": [
+            {
+              "name": "Size",
+              "value": "XL"
+            },
+            {
+              "name": "Color",
+              "value": "Taupe"
+            }
+          ],
+          "image": {
+            "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-taupe-front.jpg?v=1757116802",
+            "altText": "Core Hoodie in Taupe, front",
+            "width": 1600,
+            "height": 2000
+          },
+          "colorHex": {
+            "value": "#8c7b6b"
+          }
+        },
+        {
+          "id": "gid://shopify/ProductVariant/45123456789012",
+          "title": "XL / Bone",
+          "sku": "HOF-CH-BNE-XL",
+          "availableForSale": true,
+          "quantityAvailable": 6,
+          "price": {
+            "amount": "88.0",
+            "currencyCode": "USD"
+          },
+          "compareAtPrice": null,
+          "selectedOptions": [
+            {
+              "name": "Size",
+              "value": "XL"
+            },
+            {
+              "name": "Color",
+              "value": "Bone"
+            }
+          ],
+          "image": {
+            "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-bone-front.jpg?v=1757116803",
+            "altText": "Core Hoodie in Bone, front",
+            "width": 1600,
+            "height": 2000
+          },
+          "colorHex": {
+            "value": "#e8e2d9"
+          }
+        }
+      ]
+    },
+    "materials": {
+      "value": "{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"400gsm brushed-back cotton fleece. 80% organic cotton, 20% recycled polyester.\"}]}]}",
+      "type": "rich_text_field"
+    },
+    "careGuide": {
+      "value": "{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Machine wash cold inside out. Tumble dry low. Do not bleach. Iron on reverse.\"}]}]}",
+      "type": "rich_text_field"
+    },
+    "dropStart": null,
+    "dropEnd": null,
+    "maxPerOrder": null
+  }
+}

@@ -54,3 +54,12 @@ next-env.d.ts
 # Playwright / manual test screenshots and cache
 /.playwright-mcp/
 /*.png
+
+# Shopify (storefront-v2)
+.env.shopify
+!.env.shopify.example
+scripts/shopify/out/
+
+# Playwright e2e output
+playwright-report/
+test-results/

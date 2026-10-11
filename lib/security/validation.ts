@@ -147,13 +147,6 @@ export const cartItemSchema = z.object({
   quantity: z.number().int().positive().max(100),
 })
 
-export const cartReservationSchema = z.object({
-  productId: z.string().uuid(),
-  variantId: z.string().uuid(),
-  quantity: z.number().int().positive().max(100),
-  expiresAt: z.string().datetime(),
-})
-
 // ==================== DROP NOTIFICATION SCHEMAS ====================
 
 export const dropNotificationSchema = z.object({

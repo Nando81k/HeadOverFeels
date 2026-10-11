@@ -1,0 +1,126 @@
+/**
+ * Public surface of the Storefront query layer.
+ *
+ * Server components import from here: `import { getProduct } from '@/lib/shopify/queries'`.
+ * Everything returned is a plain, already-normalised domain object from
+ * `lib/shopify/types.ts` — no `edges`/`nodes` ever reach a component.
+ */
+
+export { getProduct, normalizeProduct, PRODUCT_BY_HANDLE_QUERY } from './product'
+export type { RawProductDetail, RawProductVariant, RawProductDetailOption } from './product'
+
+export {
+  COLLECTION_PRODUCTS_QUERY,
+  getCollectionProducts,
+  normalizeCollectionPage,
+  normalizeFilters,
+  toFilterType,
+  toFilterValue,
+  toSortArgs,
+} from './collection'
+export type {
+  CollectionSort,
+  GetCollectionProductsArgs,
+  RawCollectionPage,
+  RawFilter,
+  RawFilterValue,
+  SortArgs,
+} from './collection'
+
+export { COLLECTIONS_QUERY, getCollections, normalizeCollections } from './collections'
+export type { RawCollectionSummary } from './collections'
+
+export {
+  getPolicy,
+  getShopLayout,
+  normalizeMenu,
+  normalizeShopLayout,
+  POLICIES_QUERY,
+  SHOP_LAYOUT_QUERY,
+} from './shop'
+export type { MenuDomains, RawMenuItem, RawPolicies, RawShopLayout } from './shop'
+
+export {
+  getPredictiveSearch,
+  getSearchResults,
+  MIN_SEARCH_LENGTH,
+  normalizePredictiveSearch,
+  normalizeSearchPage,
+  PREDICTIVE_SEARCH_QUERY,
+  SEARCH_QUERY,
+  toSearchSortArgs,
+} from './search'
+export type {
+  GetSearchResultsArgs,
+  RawPredictiveSearch,
+  RawSearchPage,
+  SearchSort,
+  SearchSortArgs,
+} from './search'
+
+export {
+  getSitemapEntries,
+  SITEMAP_COLLECTIONS_QUERY,
+  SITEMAP_PRODUCTS_QUERY,
+  SITEMAP_REVALIDATE,
+} from './sitemap'
+
+export { getRecommendations, normalizeRecommendations, RECOMMENDATIONS_QUERY } from './recommendations'
+export type { RawRecommendations } from './recommendations'
+
+export {
+  addCartLines,
+  CART_BUYER_IDENTITY_UPDATE_MUTATION,
+  CART_BY_ID_QUERY,
+  CART_CREATE_MUTATION,
+  CART_DISCOUNT_CODES_UPDATE_MUTATION,
+  CART_FIELDS,
+  CART_LINES_ADD_MUTATION,
+  CART_LINES_REMOVE_MUTATION,
+  CART_LINES_UPDATE_MUTATION,
+  CART_NOTE_UPDATE_MUTATION,
+  createCart,
+  getCartById,
+  normalizeCart,
+  removeCartLines,
+  updateCartBuyerIdentity,
+  updateCartDiscountCodes,
+  updateCartLines,
+  updateCartNote,
+} from './cart'
+export type {
+  CartBuyerIdentityInput,
+  CartUserError,
+  CartWarning,
+  CreateCartInput,
+  OnCartWarnings,
+  RawCart,
+  RawCartBuyerIdentity,
+  RawCartDiscountAllocation,
+  RawCartLine,
+  RawCartMerchandise,
+  RawCartMetafield,
+} from './cart'
+
+export {
+  CATALOG_REVALIDATE,
+  IMAGE_FIELDS,
+  MONEY_FIELDS,
+  PRODUCT_CARD_FIELDS,
+  toImage,
+  toMoney,
+  toProductCard,
+} from './fragments'
+export type { RawImage, RawMoney, RawOption, RawOptionValue, RawProductCard } from './fragments'
+
+export {
+  getVariantsByIds,
+  isRawVariantNode,
+  normalizeVariantNodes,
+  toProductCardVariant,
+  VARIANTS_BY_ID_QUERY,
+  VARIANTS_CHUNK_SIZE,
+  VARIANTS_REVALIDATE,
+  VARIANTS_TAG,
+} from './variants'
+export type { ProductCardVariant, RawVariantNode, RawVariantProduct, RawVariantsResponse } from './variants'

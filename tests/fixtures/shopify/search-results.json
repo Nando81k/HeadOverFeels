@@ -1,0 +1,376 @@
+{
+  "search": {
+    "totalCount": 3,
+    "productFilters": [
+      {
+        "id": "filter.v.availability",
+        "label": "Availability",
+        "type": "LIST",
+        "values": [
+          {
+            "id": "filter.v.availability.1",
+            "label": "In stock",
+            "count": 3,
+            "input": "{\"available\":true}"
+          },
+          {
+            "id": "filter.v.availability.0",
+            "label": "Out of stock",
+            "count": 0,
+            "input": "{\"available\":false}"
+          }
+        ]
+      },
+      {
+        "id": "filter.v.price",
+        "label": "Price",
+        "type": "PRICE_RANGE",
+        "values": [
+          {
+            "id": "filter.v.price",
+            "label": "Price",
+            "count": 3,
+            "input": "{\"price\":{\"min\":24.0,\"max\":128.0}}"
+          }
+        ]
+      },
+      {
+        "id": "filter.v.option.size",
+        "label": "Size",
+        "type": "LIST",
+        "values": [
+          {
+            "id": "filter.v.option.size.s",
+            "label": "S",
+            "count": 3,
+            "input": "{\"variantOption\":{\"name\":\"size\",\"value\":\"S\"}}"
+          },
+          {
+            "id": "filter.v.option.size.m",
+            "label": "M",
+            "count": 3,
+            "input": "{\"variantOption\":{\"name\":\"size\",\"value\":\"M\"}}"
+          },
+          {
+            "id": "filter.v.option.size.l",
+            "label": "L",
+            "count": 3,
+            "input": "{\"variantOption\":{\"name\":\"size\",\"value\":\"L\"}}"
+          },
+          {
+            "id": "filter.v.option.size.xl",
+            "label": "XL",
+            "count": 2,
+            "input": "{\"variantOption\":{\"name\":\"size\",\"value\":\"XL\"}}"
+          }
+        ]
+      },
+      {
+        "id": "filter.v.option.color",
+        "label": "Color",
+        "type": "LIST",
+        "values": [
+          {
+            "id": "filter.v.option.color.black",
+            "label": "Black",
+            "count": 2,
+            "input": "{\"variantOption\":{\"name\":\"color\",\"value\":\"Black\"}}"
+          },
+          {
+            "id": "filter.v.option.color.bone",
+            "label": "Bone",
+            "count": 3,
+            "input": "{\"variantOption\":{\"name\":\"color\",\"value\":\"Bone\"}}"
+          },
+          {
+            "id": "filter.v.option.color.taupe",
+            "label": "Taupe",
+            "count": 1,
+            "input": "{\"variantOption\":{\"name\":\"color\",\"value\":\"Taupe\"}}"
+          }
+        ]
+      },
+      {
+        "id": "filter.p.product_type",
+        "label": "Product type",
+        "type": "LIST",
+        "values": [
+          {
+            "id": "filter.p.product_type.hoodies",
+            "label": "Hoodies",
+            "count": 1,
+            "input": "{\"productType\":\"Hoodies\"}"
+          },
+          {
+            "id": "filter.p.product_type.sweatshirts",
+            "label": "Sweatshirts",
+            "count": 1,
+            "input": "{\"productType\":\"Sweatshirts\"}"
+          },
+          {
+            "id": "filter.p.product_type.t-shirts",
+            "label": "T-Shirts",
+            "count": 1,
+            "input": "{\"productType\":\"T-Shirts\"}"
+          }
+        ]
+      }
+    ],
+    "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": "eyJsYXN0X2lkIjo4MTIzNDU2Nzg5MDE0LCJsYXN0X3ZhbHVlIjoiMyJ9"
+    },
+    "nodes": [
+      {
+        "id": "gid://shopify/Product/8123456789012",
+        "handle": "core-hoodie",
+        "title": "Core Hoodie",
+        "availableForSale": true,
+        "tags": [
+          "hoodies",
+          "new-arrival"
+        ],
+        "featuredImage": {
+          "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-black-front.jpg?v=1757116800",
+          "altText": "Core Hoodie in Black, front",
+          "width": 1600,
+          "height": 2000
+        },
+        "images": {
+          "nodes": [
+            {
+              "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-black-front.jpg?v=1757116800",
+              "altText": "Core Hoodie in Black, front",
+              "width": 1600,
+              "height": 2000
+            },
+            {
+              "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-black-back.jpg?v=1757116801",
+              "altText": "Core Hoodie in Black, back",
+              "width": 1600,
+              "height": 2000
+            }
+          ]
+        },
+        "priceRange": {
+          "minVariantPrice": {
+            "amount": "88.0",
+            "currencyCode": "USD"
+          }
+        },
+        "compareAtPriceRange": {
+          "minVariantPrice": {
+            "amount": "0.0",
+            "currencyCode": "USD"
+          }
+        },
+        "options": [
+          {
+            "name": "Size",
+            "optionValues": [
+              {
+                "name": "S",
+                "swatch": null
+              },
+              {
+                "name": "M",
+                "swatch": null
+              },
+              {
+                "name": "L",
+                "swatch": null
+              },
+              {
+                "name": "XL",
+                "swatch": null
+              }
+            ]
+          },
+          {
+            "name": "Color",
+            "optionValues": [
+              {
+                "name": "Black",
+                "swatch": {
+                  "color": "#1a1a1a"
+                }
+              },
+              {
+                "name": "Taupe",
+                "swatch": {
+                  "color": "#8c7b6b"
+                }
+              },
+              {
+                "name": "Bone",
+                "swatch": null
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "gid://shopify/Product/8123456789013",
+        "handle": "drop-01-heavyweight-crew",
+        "title": "Drop 01 Heavyweight Crew",
+        "availableForSale": true,
+        "tags": [
+          "drop",
+          "new-arrival",
+          "sweatshirts"
+        ],
+        "featuredImage": {
+          "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/drop-01-heavyweight-crew-front.jpg?v=1757203200",
+          "altText": "Drop 01 Heavyweight Crew, front",
+          "width": 1600,
+          "height": 2000
+        },
+        "images": {
+          "nodes": [
+            {
+              "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/drop-01-heavyweight-crew-front.jpg?v=1757203200",
+              "altText": "Drop 01 Heavyweight Crew, front",
+              "width": 1600,
+              "height": 2000
+            },
+            {
+              "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/drop-01-heavyweight-crew-back.jpg?v=1757203201",
+              "altText": "Drop 01 Heavyweight Crew, back",
+              "width": 1600,
+              "height": 2000
+            }
+          ]
+        },
+        "priceRange": {
+          "minVariantPrice": {
+            "amount": "128.0",
+            "currencyCode": "USD"
+          }
+        },
+        "compareAtPriceRange": {
+          "minVariantPrice": {
+            "amount": "0.0",
+            "currencyCode": "USD"
+          }
+        },
+        "options": [
+          {
+            "name": "Size",
+            "optionValues": [
+              {
+                "name": "S",
+                "swatch": null
+              },
+              {
+                "name": "M",
+                "swatch": null
+              },
+              {
+                "name": "L",
+                "swatch": null
+              },
+              {
+                "name": "XL",
+                "swatch": null
+              }
+            ]
+          },
+          {
+            "name": "Color",
+            "optionValues": [
+              {
+                "name": "Bone",
+                "swatch": {
+                  "color": "#e8e2d9"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "gid://shopify/Product/8123456789014",
+        "handle": "signature-tee",
+        "title": "Signature Tee",
+        "availableForSale": true,
+        "tags": [
+          "tees"
+        ],
+        "featuredImage": {
+          "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/signature-tee-black-front.jpg?v=1757289600",
+          "altText": "Signature Tee in Black, front",
+          "width": 1600,
+          "height": 2000
+        },
+        "images": {
+          "nodes": [
+            {
+              "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/signature-tee-black-front.jpg?v=1757289600",
+              "altText": "Signature Tee in Black, front",
+              "width": 1600,
+              "height": 2000
+            },
+            {
+              "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/signature-tee-black-back.jpg?v=1757289601",
+              "altText": "Signature Tee in Black, back",
+              "width": 1600,
+              "height": 2000
+            }
+          ]
+        },
+        "priceRange": {
+          "minVariantPrice": {
+            "amount": "24.0",
+            "currencyCode": "USD"
+          }
+        },
+        "compareAtPriceRange": {
+          "minVariantPrice": {
+            "amount": "34.0",
+            "currencyCode": "USD"
+          }
+        },
+        "options": [
+          {
+            "name": "Size",
+            "optionValues": [
+              {
+                "name": "S",
+                "swatch": null
+              },
+              {
+                "name": "M",
+                "swatch": null
+              },
+              {
+                "name": "L",
+                "swatch": null
+              },
+              {
+                "name": "XL",
+                "swatch": null
+              }
+            ]
+          },
+          {
+            "name": "Color",
+            "optionValues": [
+              {
+                "name": "Black",
+                "swatch": {
+                  "color": "#1a1a1a"
+                }
+              },
+              {
+                "name": "Bone",
+                "swatch": {
+                  "color": "#e8e2d9"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

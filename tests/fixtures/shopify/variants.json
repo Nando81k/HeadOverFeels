@@ -1,0 +1,121 @@
+{
+  "nodes": [
+    {
+      "id": "gid://shopify/ProductVariant/45123456789005",
+      "title": "M / Taupe",
+      "availableForSale": true,
+      "quantityAvailable": 12,
+      "price": { "amount": "88.0", "currencyCode": "USD" },
+      "compareAtPrice": null,
+      "selectedOptions": [
+        { "name": "Size", "value": "M" },
+        { "name": "Color", "value": "Taupe" }
+      ],
+      "image": {
+        "url": "https://cdn.shopify.com/s/files/1/0001/0001/0001/files/core-hoodie-taupe-front.jpg",
+        "altText": "Core Hoodie in Taupe, front",
+        "width": 1600,
+        "height": 2000
+      },
+      "product": {
+        "id": "gid://shopify/Product/8123456789001",
+        "handle": "core-hoodie",
+        "title": "Core Hoodie",
+        "tags": ["hoodies", "new-arrival"],
+        "availableForSale": true,
+        "featuredImage": {
+          "url": "https://cdn.shopify.com/s/files/1/0001/0001/0001/files/core-hoodie-black-front.jpg",
+          "altText": "Core Hoodie in Black, front",
+          "width": 1600,
+          "height": 2000
+        }
+      }
+    },
+    {
+      "id": "gid://shopify/ProductVariant/45123456789205",
+      "title": "L / Bone",
+      "availableForSale": true,
+      "quantityAvailable": 3,
+      "price": { "amount": "64.0", "currencyCode": "USD" },
+      "compareAtPrice": { "amount": "84.0", "currencyCode": "USD" },
+      "selectedOptions": [
+        { "name": "Size", "value": "L" },
+        { "name": "Color", "value": "Bone" }
+      ],
+      "image": {
+        "url": "https://cdn.shopify.com/s/files/1/0001/0001/0001/files/boxy-crew-bone-front.jpg",
+        "altText": "Boxy Crew in Bone, front",
+        "width": 1600,
+        "height": 2000
+      },
+      "product": {
+        "id": "gid://shopify/Product/8123456789002",
+        "handle": "boxy-crew",
+        "title": "Boxy Crew",
+        "tags": ["crews"],
+        "availableForSale": true,
+        "featuredImage": {
+          "url": "https://cdn.shopify.com/s/files/1/0001/0001/0001/files/boxy-crew-bone-front.jpg",
+          "altText": "Boxy Crew in Bone, front",
+          "width": 1600,
+          "height": 2000
+        }
+      }
+    },
+    {
+      "id": "gid://shopify/ProductVariant/45123456789301",
+      "title": "M / Black",
+      "availableForSale": true,
+      "quantityAvailable": null,
+      "price": { "amount": "38.0", "currencyCode": "USD" },
+      "compareAtPrice": null,
+      "selectedOptions": [
+        { "name": "Size", "value": "M" },
+        { "name": "Color", "value": "Black" }
+      ],
+      "image": {
+        "url": "https://cdn.shopify.com/s/files/1/0001/0001/0001/files/mind-over-matter-tee-black-front.jpg",
+        "altText": null,
+        "width": 1600,
+        "height": 2000
+      },
+      "product": {
+        "id": "gid://shopify/Product/8123456789003",
+        "handle": "mind-over-matter-tee",
+        "title": "Mind Over Matter Tee",
+        "tags": ["tees", "drop"],
+        "availableForSale": true,
+        "featuredImage": {
+          "url": "https://cdn.shopify.com/s/files/1/0001/0001/0001/files/mind-over-matter-tee-black-front.jpg",
+          "altText": "Mind Over Matter Tee in Black, front",
+          "width": 1600,
+          "height": 2000
+        }
+      }
+    },
+    {
+      "id": "gid://shopify/ProductVariant/45123456789401",
+      "title": "One Size",
+      "availableForSale": false,
+      "quantityAvailable": 0,
+      "price": { "amount": "32.0", "currencyCode": "USD" },
+      "compareAtPrice": null,
+      "selectedOptions": [{ "name": "Size", "value": "One Size" }],
+      "image": null,
+      "product": {
+        "id": "gid://shopify/Product/8123456789004",
+        "handle": "hof-cap",
+        "title": "HOF Cap",
+        "tags": ["accessories"],
+        "availableForSale": false,
+        "featuredImage": {
+          "url": "https://cdn.shopify.com/s/files/1/0001/0001/0001/files/hof-cap-front.jpg",
+          "altText": "HOF Cap, front",
+          "width": 1600,
+          "height": 2000
+        }
+      }
+    },
+    null
+  ]
+}
