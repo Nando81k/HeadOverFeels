@@ -11,6 +11,12 @@ vi.mock('@/lib/shopify/client', () => ({ storefrontFetch: vi.fn() }))
 // server action; neither exists in jsdom.
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn(), back: vi.fn() }),
+  usePathname: () => '/collections/all',
+}))
+// The header's account control reads `useCustomerOptional()`; providers in
+// these tests get a fake `getSummary`, so the real action must never run.
+vi.mock('@/app/(storefront)/_actions/account', () => ({
+  getCustomerSummaryAction: vi.fn(async () => ({ status: 'signed-out', customer: null, loyalty: null })),
 }))
 vi.mock('@/app/(storefront)/_actions/catalog', () => ({
   predictiveSearchAction: vi.fn(async () => ({ products: [], collections: [] })),
@@ -46,6 +52,11 @@ import {
   useCart,
   type CartActions,
 } from '@/components/storefront/cart/CartProvider'
+import {
+  CustomerProvider,
+  type CustomerActions,
+} from '@/components/storefront/account/CustomerProvider'
+import type { CustomerSummaryState } from '@/app/(storefront)/_actions/account'
 import { Header } from '@/components/storefront/layout/Header'
 import { HeaderNav } from '@/components/storefront/layout/HeaderNav'
 import { MobileMenu } from '@/components/storefront/layout/MobileMenu'
@@ -54,8 +65,21 @@ import shopLayoutFixture from '@/tests/fixtures/shopify/shop-layout.json'
 import { normalizeCart, type RawCart } from '@/lib/shopify/queries/cart'
 import type { Cart } from '@/lib/shopify/types'
 import cartFixture from '@/tests/fixtures/shopify/cart.json'
+import { normalizeCustomerSummary, type RawCustomerSummary } from '@/lib/shopify/customer/queries'
+import customerFixture from '@/tests/fixtures/shopify/customer/customer.json'
 
 const CART: Cart = normalizeCart(cartFixture.cart as unknown as RawCart)
+const CUSTOMER = normalizeCustomerSummary(customerFixture as unknown as RawCustomerSummary)
+
+function summary(status: CustomerSummaryState['status']): CustomerSummaryState {
+  return status === 'ready'
+    ? { status, customer: CUSTOMER, loyalty: { points: 1240, tierName: 'Gold', nextTierName: null, pointsToNext: null, multiplier: 1.5 } }
+    : { status, customer: null, loyalty: null }
+}
+
+function customerActions(status: CustomerSummaryState['status']): Partial<CustomerActions> {
+  return { getSummary: vi.fn(async () => summary(status)) }
+}
 
 /**
  * jsdom implements none of `HTMLDialogElement.showModal/close`, and `MobileMenu`
@@ -251,6 +275,154 @@ describe('Header cart button', () => {
   })
 })
 
+describe('Header account control', () => {
+  it('links to the login route while the customer summary is loading', () => {
+    const getSummary = () => new Promise<CustomerSummaryState>(() => {})
+    render(
+      <CustomerProvider actions={{ getSummary }}>
+        <Header menu={MENU} cartCount={0} />
+      </CustomerProvider>
+    )
+    expect(banner().getByRole('link', { name: 'Account' })).toHaveAttribute('href', '/account/login')
+  })
+
+  it.each(['signed-out', 'unavailable'] as const)('links to the login route when %s', async (status) => {
+    render(
+      <CustomerProvider actions={customerActions(status)}>
+        <Header menu={MENU} cartCount={0} />
+      </CustomerProvider>
+    )
+    await waitFor(() =>
+      expect(banner().getByRole('link', { name: 'Account' })).toHaveAttribute('href', '/account/login')
+    )
+    expect(banner().queryByRole('button', { name: /account menu/i })).toBeNull()
+  })
+
+  it('sends an expired session through the refresh route with the current path', async () => {
+    render(
+      <CustomerProvider actions={customerActions('expired')}>
+        <Header menu={MENU} cartCount={0} />
+      </CustomerProvider>
+    )
+    await waitFor(() =>
+      expect(banner().getByRole('link', { name: 'Account' })).toHaveAttribute(
+        'href',
+        '/account/refresh?return_to=%2Fcollections%2Fall'
+      )
+    )
+  })
+
+  it('shows the initials chip and name once signed in, with a menu', async () => {
+    const user = userEvent.setup()
+    render(
+      <CustomerProvider actions={customerActions('ready')}>
+        <Header menu={MENU} cartCount={0} />
+      </CustomerProvider>
+    )
+    const trigger = await banner().findByRole('button', { name: 'Account menu, Nando Alvarez' })
+    expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(trigger.querySelector('[data-initials]')).toHaveTextContent('NA')
+    expect(trigger).toHaveTextContent('Nando')
+    expect(banner().queryByRole('link', { name: 'Account' })).toBeNull()
+
+    await user.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    const menu = within(banner().getByRole('menu'))
+    expect(menu.getByRole('menuitem', { name: 'Overview' })).toHaveAttribute('href', '/account')
+    expect(menu.getByRole('menuitem', { name: 'Orders' })).toHaveAttribute('href', '/account/orders')
+    expect(menu.getByRole('menuitem', { name: 'Care Points' })).toHaveAttribute('href', '/loyalty')
+    expect(menu.getByRole('menuitem', { name: 'Wishlist' })).toHaveAttribute('href', '/wishlist')
+
+    const signOut = menu.getByRole('menuitem', { name: 'Sign out' })
+    expect(signOut).toHaveAttribute('type', 'submit')
+    const form = signOut.closest('form')
+    expect(form).toHaveAttribute('method', 'post')
+    expect(form).toHaveAttribute('action', '/account/logout')
+  })
+
+  it('moves focus with the arrow keys and closes on Escape', async () => {
+    const user = userEvent.setup()
+    render(
+      <CustomerProvider actions={customerActions('ready')}>
+        <Header menu={MENU} cartCount={0} />
+      </CustomerProvider>
+    )
+    const trigger = await banner().findByRole('button', { name: 'Account menu, Nando Alvarez' })
+    trigger.focus()
+    await user.keyboard('{Enter}')
+
+    const menu = within(banner().getByRole('menu'))
+    await waitFor(() => expect(menu.getByRole('menuitem', { name: 'Overview' })).toHaveFocus())
+    await user.keyboard('{ArrowDown}')
+    expect(menu.getByRole('menuitem', { name: 'Orders' })).toHaveFocus()
+    await user.keyboard('{End}')
+    expect(menu.getByRole('menuitem', { name: 'Sign out' })).toHaveFocus()
+    await user.keyboard('{ArrowDown}')
+    expect(menu.getByRole('menuitem', { name: 'Overview' })).toHaveFocus()
+
+    await user.keyboard('{Escape}')
+    expect(banner().queryByRole('menu')).toBeNull()
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(trigger).toHaveFocus()
+  })
+
+  it('closes the menu on an outside click', async () => {
+    const user = userEvent.setup()
+    render(
+      <CustomerProvider actions={customerActions('ready')}>
+        <Header menu={MENU} cartCount={0} />
+        <p>outside</p>
+      </CustomerProvider>
+    )
+    const trigger = await banner().findByRole('button', { name: 'Account menu, Nando Alvarez' })
+    await user.click(trigger)
+    expect(banner().getByRole('menu')).toBeInTheDocument()
+
+    await user.click(screen.getByText('outside'))
+    expect(banner().queryByRole('menu')).toBeNull()
+  })
+
+  it('gives the mobile drawer the signed-in rows', async () => {
+    const user = userEvent.setup()
+    render(
+      <CustomerProvider actions={customerActions('ready')}>
+        <Header menu={MENU} cartCount={0} />
+      </CustomerProvider>
+    )
+    await banner().findByRole('button', { name: 'Account menu, Nando Alvarez' })
+    await user.click(banner().getByRole('button', { name: 'Open menu' }))
+
+    const dialog = within(screen.getByRole('dialog'))
+    const account = within(dialog.getByRole('navigation', { name: 'Account' }))
+    expect(account.getByText('Nando Alvarez')).toBeInTheDocument()
+    expect(account.getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '/account')
+    expect(account.getByRole('link', { name: 'Orders' })).toHaveAttribute('href', '/account/orders')
+    expect(account.getByRole('link', { name: 'Care Points' })).toHaveAttribute('href', '/loyalty')
+    expect(account.getByRole('link', { name: 'Wishlist' })).toHaveAttribute('href', '/wishlist')
+    expect(account.getByRole('button', { name: 'Sign out' }).closest('form')).toHaveAttribute(
+      'action',
+      '/account/logout'
+    )
+  })
+
+  it('points the mobile drawer footer at the login route when signed out', async () => {
+    const user = userEvent.setup()
+    render(
+      <CustomerProvider actions={customerActions('signed-out')}>
+        <Header menu={MENU} cartCount={0} />
+      </CustomerProvider>
+    )
+    await waitFor(() =>
+      expect(banner().getByRole('link', { name: 'Account' })).toHaveAttribute('href', '/account/login')
+    )
+    await user.click(banner().getByRole('button', { name: 'Open menu' }))
+    const dialog = within(screen.getByRole('dialog'))
+    expect(dialog.getByRole('link', { name: 'Account' })).toHaveAttribute('href', '/account/login')
+    expect(dialog.queryByRole('navigation', { name: 'Account' })).toBeNull()
+  })
+})
+
 describe('HeaderNav', () => {
   it('flags the Drops item with a signal dot', () => {
     render(<HeaderNav items={MENU} />)
@@ -347,6 +519,21 @@ describe('MobileMenu', () => {
 
     expect(dialog.getByRole('link', { name: 'Account' })).toHaveAttribute('href', '/account')
     expect(dialog.getByRole('link', { name: 'Search' })).toHaveAttribute('href', '/search')
+  })
+
+  it('renders the account rows and a sign-out form when given a customer', () => {
+    render(
+      <MobileMenu
+        open
+        onOpenChange={noop}
+        items={MENU}
+        customer={{ name: 'Nando Alvarez', initials: 'NA' }}
+      />
+    )
+    const nav = within(screen.getByRole('navigation', { name: 'Account' }))
+    expect(nav.getByText('NA')).toBeInTheDocument()
+    expect(nav.getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '/account')
+    expect(nav.getByRole('button', { name: 'Sign out' })).toHaveAttribute('type', 'submit')
   })
 
   it('honours a custom account href and closes when a link is followed', async () => {

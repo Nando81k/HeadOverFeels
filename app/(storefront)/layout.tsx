@@ -1,7 +1,10 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
+import { CustomerProvider } from '@/components/storefront/account/CustomerProvider'
 import { CartProvider } from '@/components/storefront/cart/CartProvider'
 import { StorefrontShell } from '@/components/storefront/layout/StorefrontShell'
+import { WishlistProvider } from '@/components/storefront/wishlist/WishlistProvider'
+import { hasCustomerAccountEnv } from '@/lib/shopify/customer/env'
 import { hasShopifyEnv } from '@/lib/shopify/env'
 import { FREE_SHIPPING_COPY } from '@/lib/storefront/shipping'
 
@@ -29,11 +32,19 @@ export const metadata: Metadata = {
  * `CartProvider` loads the cart on the client after mount, so this layout never
  * reads the cart cookie and catalog pages stay ISR-cacheable. Without Shopify
  * env it stays `unavailable` and never calls the cart actions.
+ * `CustomerProvider` does the same for the customer summary (header chip,
+ * wishlist, Care Points preview); without Customer Account env it stays
+ * `unavailable` and never calls the account actions. `WishlistProvider` keeps a
+ * guest list in localStorage and merges it into the account after sign-in.
  */
 export default function StorefrontLayout({ children }: { children: ReactNode }) {
   return (
     <CartProvider available={hasShopifyEnv()}>
-      <StorefrontShell announcement={FREE_SHIPPING_COPY}>{children}</StorefrontShell>
+      <CustomerProvider available={hasCustomerAccountEnv()}>
+        <WishlistProvider>
+          <StorefrontShell announcement={FREE_SHIPPING_COPY}>{children}</StorefrontShell>
+        </WishlistProvider>
+      </CustomerProvider>
     </CartProvider>
   )
 }

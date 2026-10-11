@@ -94,10 +94,10 @@ describe('Footer', () => {
       '/policies/shipping-policy'
     )
     expect(help.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '/pages/faq')
-    expect(help.getByRole('link', { name: 'Contact' })).toHaveAttribute('href', '/pages/contact')
+    expect(help.getByRole('link', { name: 'Contact' })).toHaveAttribute('href', '/contact')
     expect(help.getByRole('link', { name: 'Track order' })).toHaveAttribute('href', '/account/orders')
 
-    expect(company.getByRole('link', { name: 'About' })).toHaveAttribute('href', '/pages/about')
+    expect(company.getByRole('link', { name: 'About' })).toHaveAttribute('href', '/about')
     expect(company.getByRole('link', { name: 'Loyalty' })).toHaveAttribute('href', '/loyalty')
     expect(company.getByRole('link', { name: 'Drops' })).toHaveAttribute('href', '/collections/drops')
   })

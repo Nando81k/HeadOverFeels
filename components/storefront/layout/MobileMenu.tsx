@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { Search, User } from 'lucide-react'
+import { ACCOUNT_MENU_ITEMS, SignOutForm } from '@/components/storefront/account/AccountNav'
 import { Accordion, AccordionItem } from '@/components/storefront/ui/Accordion'
 import { Drawer } from '@/components/storefront/ui/Drawer'
 import type { MenuItem } from '@/lib/shopify/types'
@@ -30,7 +31,17 @@ export interface MobileMenuProps {
   items: MenuItem[]
   /** Where the footer "Account" link points. Defaults to `/account`. */
   accountHref?: string
+  /**
+   * The signed-in customer, if any. Adds an "Account" block above the shop
+   * nav with the same rows as the header menu and a sign-out form.
+   */
+  customer?: { name: string; initials: string } | null
 }
+
+const ACCOUNT_ROW_CLASS = [
+  'flex min-h-11 items-center text-base text-ink-soft',
+  'transition-colors duration-sf-fast ease-sf-out hover:text-signal',
+].join(' ')
 
 /**
  * Full-height navigation drawer for small screens (spec §5.3).
@@ -39,7 +50,13 @@ export interface MobileMenuProps {
  * `name`), leaves stay plain links. Every link closes the drawer so the route
  * change is not hidden behind the overlay.
  */
-export function MobileMenu({ open, onOpenChange, items, accountHref = '/account' }: MobileMenuProps) {
+export function MobileMenu({
+  open,
+  onOpenChange,
+  items,
+  accountHref = '/account',
+  customer = null,
+}: MobileMenuProps) {
   const close = () => onOpenChange(false)
 
   return (
@@ -61,6 +78,35 @@ export function MobileMenu({ open, onOpenChange, items, accountHref = '/account'
         </div>
       }
     >
+      {customer ? (
+        <nav aria-label="Account" className="mb-4 border-b border-line pb-4">
+          <div className="flex items-center gap-3 py-2">
+            <span
+              aria-hidden="true"
+              className={cn(
+                'inline-flex size-9 shrink-0 items-center justify-center rounded-pill bg-ink',
+                'text-xs font-semibold uppercase tracking-eyebrow text-bone'
+              )}
+            >
+              {customer.initials}
+            </span>
+            <span className="text-sm font-semibold text-ink">{customer.name}</span>
+          </div>
+          <ul className="flex flex-col">
+            {ACCOUNT_MENU_ITEMS.map((item) => (
+              <li key={item.href}>
+                <Link href={item.href} onClick={close} className={ACCOUNT_ROW_CLASS}>
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+            <li>
+              <SignOutForm buttonClassName={cn(ACCOUNT_ROW_CLASS, 'w-full cursor-pointer bg-transparent')} />
+            </li>
+          </ul>
+        </nav>
+      ) : null}
+
       <nav aria-label="Mobile">
         <Accordion name="mobile-menu" className="border-y-0">
           {items.map((item) =>

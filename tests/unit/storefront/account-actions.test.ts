@@ -227,7 +227,7 @@ describe('getCustomerSummaryAction', () => {
     expect(result).toEqual({
       status: 'ready',
       customer: summary,
-      loyalty: { points: 1250, tierName: 'Friend', nextTierName: 'Bestie', pointsToNext: 1750 },
+      loyalty: { points: 1250, tierName: 'Friend', nextTierName: 'Bestie', pointsToNext: 1750, multiplier: 1 },
     })
     expect(getCustomerSummary).toHaveBeenCalledWith('atkn')
     expect(resolveCustomer).toHaveBeenCalledWith({

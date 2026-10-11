@@ -69,7 +69,7 @@ const nextConfig: NextConfig = {
       },
       // Storefront rebuild (Phase 3): checkout happens on Shopify and the
       // custom checkout/confirmation pages are gone. Order history lives at
-      // `/orders`.
+      // `/account/orders` (Phase 4).
       {
         source: '/checkout',
         destination: '/cart',
@@ -77,7 +77,76 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/order/confirmation',
-        destination: '/orders',
+        destination: '/account/orders',
+        permanent: true,
+      },
+      // Storefront rebuild (Phase 4): the legacy customer auth, profile,
+      // orders and loyalty pages were removed; accounts live under
+      // `/account/*` (Shopify Customer Account API) and Care Points under
+      // `/loyalty`. `/signin` is the admin login and is NOT redirected.
+      {
+        source: '/forgot-password',
+        destination: '/account/login',
+        permanent: true,
+      },
+      {
+        source: '/reset-password',
+        destination: '/account/login',
+        permanent: true,
+      },
+      {
+        source: '/verify-email',
+        destination: '/account/login',
+        permanent: true,
+      },
+      {
+        source: '/profile',
+        destination: '/account',
+        permanent: true,
+      },
+      {
+        source: '/profile/:path*',
+        destination: '/account',
+        permanent: true,
+      },
+      {
+        source: '/orders',
+        destination: '/account/orders',
+        permanent: true,
+      },
+      {
+        source: '/orders/:id/track',
+        destination: '/account/orders/:id',
+        permanent: true,
+      },
+      {
+        source: '/order/track/:id',
+        destination: '/account/orders/:id',
+        permanent: true,
+      },
+      {
+        source: '/loyalty/rewards',
+        destination: '/loyalty#rewards',
+        permanent: true,
+      },
+      {
+        source: '/loyalty/tiers',
+        destination: '/loyalty#tiers',
+        permanent: true,
+      },
+      {
+        source: '/loyalty/points',
+        destination: '/loyalty#history',
+        permanent: true,
+      },
+      {
+        source: '/loyalty/history',
+        destination: '/loyalty#history',
+        permanent: true,
+      },
+      {
+        source: '/loyalty/referrals',
+        destination: '/loyalty#refer',
         permanent: true,
       },
     ]

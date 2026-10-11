@@ -9,6 +9,7 @@ import { useCartOptional } from '@/components/storefront/cart/useCart'
 import { Button } from '@/components/storefront/ui/Button'
 import { Price } from '@/components/storefront/ui/Price'
 import { QuantityStepper } from '@/components/storefront/ui/QuantityStepper'
+import { WishlistButton } from '@/components/storefront/wishlist/WishlistButton'
 
 /** Quantity ceiling when Shopify does not report stock for the variant. */
 const DEFAULT_MAX_QUANTITY = 10
@@ -179,13 +180,26 @@ export function AddToCartPanel({
       <form id={id} action={action} onSubmit={handleSubmit} className="flex flex-col gap-3">
         <input type="hidden" name="variantId" value={selected?.id ?? ''} />
         <input type="hidden" name="quantity" value={String(quantity)} />
-        <AddToCartButton
-          soldOut={soldOut}
-          disabled={!complete || !selected}
-          unconfigured={unconfigured && !soldOut}
-          pending={adding}
-          added={added}
-        />
+        <div className="flex items-stretch gap-2">
+          <AddToCartButton
+            soldOut={soldOut}
+            disabled={!complete || !selected}
+            unconfigured={unconfigured && !soldOut}
+            pending={adding}
+            added={added}
+            className="min-w-0 flex-1"
+          />
+          {/* The heart saves the selected variant; it renders nothing without
+              a WishlistProvider, so the buy box never depends on one. */}
+          {selected ? (
+            <WishlistButton
+              variantId={selected.id}
+              productHandle={product.handle}
+              variant="outline"
+              className="size-12"
+            />
+          ) : null}
+        </div>
         {error ? (
           <p role="alert" className="text-xs text-danger">
             {error}

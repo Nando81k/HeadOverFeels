@@ -51,6 +51,8 @@ export type CustomerLoyaltySlice = {
   tierName: string
   nextTierName: string | null
   pointsToNext: number | null
+  /** Tier points multiplier (1 when unknown); the cart's Care Points preview uses it. */
+  multiplier: number
 }
 
 export type CustomerSummaryState = {
@@ -171,6 +173,10 @@ async function loadLoyalty(session: CustomerSession): Promise<CustomerLoyaltySli
       tierName: stats.currentTier?.name ?? 'Member',
       nextTierName: stats.nextTier?.name ?? null,
       pointsToNext: stats.pointsToNextTier ?? null,
+      multiplier:
+        typeof stats.currentTier?.pointMultiplier === 'number' && stats.currentTier.pointMultiplier > 0
+          ? stats.currentTier.pointMultiplier
+          : 1,
     }
   } catch (error) {
     console.error(`[storefront] loyalty summary failed: ${errorMessage(error)}`)

@@ -11,12 +11,12 @@ type FooterLink = { href: string; label: string }
 const HELP_LINKS: FooterLink[] = [
   { href: '/policies/shipping-policy', label: 'Shipping & returns' },
   { href: '/pages/faq', label: 'FAQ' },
-  { href: '/pages/contact', label: 'Contact' },
+  { href: '/contact', label: 'Contact' },
   { href: '/account/orders', label: 'Track order' },
 ]
 
 const COMPANY_LINKS: FooterLink[] = [
-  { href: '/pages/about', label: 'About' },
+  { href: '/about', label: 'About' },
   { href: '/loyalty', label: 'Loyalty' },
   { href: '/collections/drops', label: 'Drops' },
 ]
