@@ -83,3 +83,16 @@ export type Cart = {
 export type CartActionResult =
   | { ok: true; cart: Cart; warning?: string }
   | { ok: false; error: string; code?: string; cart?: Cart }
+
+// Phase 4 additions — copied verbatim from
+// docs/superpowers/plans/2026-09-06-storefront-rebuild-phase4-accounts.md ("Shared contracts").
+export type CustomerSummary = { id: string; email: string; firstName: string | null; lastName: string | null; displayName: string; phone: string | null; defaultAddress: CustomerAddress | null }
+export type CustomerAddress = { id: string; firstName: string | null; lastName: string | null; company: string | null; address1: string | null; address2: string | null; city: string | null; zoneCode: string | null; territoryCode: string | null; zip: string | null; phone: string | null; formatted: string[]; isDefault: boolean }
+export type CustomerAddressInput = Omit<CustomerAddress, 'id' | 'formatted' | 'isDefault'> & { defaultAddress?: boolean }
+export type CustomerOrderCard = { id: string; name: string; number: number; processedAt: string; financialStatus: string | null; fulfillmentStatus: 'UNFULFILLED' | 'IN_PROGRESS' | 'FULFILLED' | 'CANCELLED' | 'UNKNOWN'; total: Money; lineItems: { id: string; title: string; quantity: number; image: ShopImage | null }[]; statusPageUrl: string | null }
+export type CustomerOrder = CustomerOrderCard & { subtotal: Money | null; shipping: Money | null; tax: Money | null; cancelledAt: string | null; shippingAddress: string[] | null; discounts: { amount: Money | null; percentage: number | null }[]; lines: { id: string; title: string; variantTitle: string | null; quantity: number; image: ShopImage | null; unitPrice: Money | null; total: Money | null }[]; fulfillments: { id: string; status: string; createdAt: string; tracking: { number: string | null; company: string | null; url: string | null }[] }[] }
+export type CustomerOrdersPage = { orders: CustomerOrderCard[]; hasNextPage: boolean; endCursor: string | null }
+export type AccountActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string; code?: string }
+export type LoyaltyActionResult<T = undefined> = AccountActionResult<T>
+export type WishlistActionResult = { ok: true; entries: WishlistEntry[] } | { ok: false; error: string }
+export type WishlistEntry = { variantId: string; productHandle: string; addedAt: string }

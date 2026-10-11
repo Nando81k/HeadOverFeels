@@ -121,6 +121,16 @@ export function hasShopifyEnv(): boolean {
   return Boolean(raw.SHOPIFY_STORE_DOMAIN && raw.SHOPIFY_STOREFRONT_PRIVATE_TOKEN)
 }
 
+/**
+ * True when the Admin API can be called (store domain + Admin access token are
+ * non-blank). Never throws; reward redemption uses it to return
+ * `{ ok: false, error: 'Rewards unavailable' }` instead of minting a code.
+ */
+export function hasShopifyAdminEnv(): boolean {
+  const raw = readRaw(ADMIN_KEYS)
+  return Boolean(raw.SHOPIFY_STORE_DOMAIN && raw.SHOPIFY_ADMIN_ACCESS_TOKEN)
+}
+
 /** Test hook: forget the cached env so later `process.env` changes are picked up. */
 export function resetShopifyEnvCache(): void {
   storefrontCache = null

@@ -112,3 +112,15 @@ export {
   toProductCard,
 } from './fragments'
 export type { RawImage, RawMoney, RawOption, RawOptionValue, RawProductCard } from './fragments'
+
+export {
+  getVariantsByIds,
+  isRawVariantNode,
+  normalizeVariantNodes,
+  toProductCardVariant,
+  VARIANTS_BY_ID_QUERY,
+  VARIANTS_CHUNK_SIZE,
+  VARIANTS_REVALIDATE,
+  VARIANTS_TAG,
+} from './variants'
+export type { ProductCardVariant, RawVariantNode, RawVariantProduct, RawVariantsResponse } from './variants'

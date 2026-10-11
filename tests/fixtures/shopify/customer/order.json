@@ -1,0 +1,53 @@
+{
+  "order": {
+    "id": "gid://shopify/Order/6123456789",
+    "name": "#1012",
+    "number": 1012,
+    "processedAt": "2026-10-06T15:42:10Z",
+    "financialStatus": "PAID",
+    "cancelledAt": null,
+    "statusPageUrl": "https://tgqucm-qg.myshopify.com/85215183073/orders/8d3f0b1c2e4a5f6b7c8d9e0f1a2b3c4d/authenticate?key=0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+    "totalPrice": { "amount": "162.88", "currencyCode": "USD" },
+    "subtotal": { "amount": "149.6", "currencyCode": "USD" },
+    "totalShipping": { "amount": "0.0", "currencyCode": "USD" },
+    "totalTax": { "amount": "13.28", "currencyCode": "USD" },
+    "shippingAddress": {
+      "formatted": ["Nando Alvarez", "221 Bowery", "Apt 4B", "New York NY 10012", "United States"]
+    },
+    "lineItems": {
+      "nodes": [
+        {
+          "id": "gid://shopify/LineItem/15123456789",
+          "title": "Core Hoodie",
+          "quantity": 2,
+          "variantTitle": "Taupe / M",
+          "image": {
+            "url": "https://cdn.shopify.com/s/files/1/0852/1518/3073/files/core-hoodie-taupe-front.jpg?v=1757188800",
+            "altText": "Core Hoodie in Taupe, front"
+          },
+          "price": { "amount": "88.0", "currencyCode": "USD" },
+          "totalPrice": { "amount": "176.0", "currencyCode": "USD" }
+        }
+      ]
+    },
+    "fulfillments": {
+      "nodes": [
+        {
+          "id": "gid://shopify/Fulfillment/5123456789",
+          "status": "SUCCESS",
+          "createdAt": "2026-10-07T18:20:00Z",
+          "trackingInformation": [
+            {
+              "number": "1Z999AA10123456784",
+              "company": "UPS",
+              "url": "https://www.ups.com/track?loc=en_US&tracknum=1Z999AA10123456784"
+            }
+          ]
+        }
+      ]
+    },
+    "discountApplications": {
+      "nodes": [{ "value": { "percentage": 15.0 } }]
+    }
+  }
+}

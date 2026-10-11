@@ -299,6 +299,32 @@ export async function applyDiscountCode(input: { code: string }): Promise<CartAc
   })
 }
 
+/**
+ * Apply a freshly minted Care Points code on top of the cart's current codes
+ * (loyalty action helper). Returns the updated cart, or null when the store is
+ * unconfigured, there is no cart, or Shopify rejects the update. Never throws:
+ * the redemption already succeeded, so a cart hiccup must not look like a failure.
+ */
+export async function applyRedeemedCode(code: string): Promise<Cart | null> {
+  if (!hasShopifyEnv()) return null
+  const parsed = codeInputSchema.safeParse({ code })
+  if (!parsed.success) return null
+  const cartId = await readCartId()
+  if (!cartId) return null
+
+  try {
+    const current = await getCartById(cartId)
+    if (!current) return null
+    const kept = current.discountCodes
+      .filter((entry) => !sameCode(entry.code, parsed.data.code))
+      .map((entry) => entry.code)
+    return await updateCartDiscountCodes(cartId, [...kept, parsed.data.code])
+  } catch (error) {
+    console.error(`[storefront] applyRedeemedCode failed: ${errorMessage(error)}`)
+    return null
+  }
+}
+
 export async function removeDiscountCode(input: { code: string }): Promise<CartActionResult> {
   if (!hasShopifyEnv()) return UNAVAILABLE
   const parsed = codeInputSchema.safeParse(input ?? {})
