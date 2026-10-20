@@ -1,5 +1,6 @@
 import * as React from 'react'
 import type { ProductCardData } from '@/lib/shopify/types'
+import { Reveal } from '@/components/storefront/motion/Reveal'
 import { ProductCard } from '@/components/storefront/product/ProductCard'
 import { Section } from '@/components/storefront/ui/Section'
 import { Display } from '@/components/storefront/ui/Typography'
@@ -29,12 +30,16 @@ export function RecommendationsRail({
 
   return (
     <Section aria-label={title}>
-      <Display as="h2" size="md">
-        {title}
-      </Display>
+      <Reveal>
+        <Display as="h2" size="md">
+          {title}
+        </Display>
+      </Reveal>
       <div className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {products.slice(0, MAX_PRODUCTS).map((product) => (
-          <ProductCard key={product.id} product={product} sizes={RAIL_SIZES} />
+        {products.slice(0, MAX_PRODUCTS).map((product, index) => (
+          <Reveal key={product.id} delay={index * 70}>
+            <ProductCard product={product} sizes={RAIL_SIZES} />
+          </Reveal>
         ))}
       </div>
     </Section>

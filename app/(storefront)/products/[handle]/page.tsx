@@ -181,9 +181,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
       <Section>
         <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-16">
-          <Gallery images={product.images} title={product.title} initialIndex={galleryIndex} />
+          <div className="sf-fade">
+            <Gallery images={product.images} title={product.title} initialIndex={galleryIndex} />
+          </div>
 
-          <div className="flex flex-col gap-6 lg:sticky lg:top-24">
+          <div className="sf-stagger flex flex-col gap-6 lg:sticky lg:top-24">
             <div className="flex flex-col gap-3">
               <Eyebrow>{`${product.productType || 'Shop'} · ${product.vendor}`}</Eyebrow>
               <Display as="h1" size="lg">

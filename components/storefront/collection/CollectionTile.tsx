@@ -3,6 +3,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import type { CollectionSummary } from '@/lib/shopify/types'
 import { cn } from '@/lib/storefront/cn'
+import { ProductPlaceholder } from '@/components/storefront/ui/ProductPlaceholder'
 
 export interface CollectionTileProps {
   collection: CollectionSummary
@@ -33,7 +34,7 @@ export function CollectionTile({ collection, priority = false, className }: Coll
         href={`/collections/${handle}`}
         className="flex flex-col gap-3 rounded-sharp focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-signal focus-visible:outline-offset-2"
       >
-        <div className="relative aspect-[4/5] w-full overflow-hidden rounded-sharp bg-rose-tint">
+        <div className="relative aspect-[4/5] w-full overflow-hidden rounded-sharp bg-rose-tint transition-transform duration-sf-slow ease-sf-out motion-safe:group-hover:-translate-y-1">
           {image ? (
             <Image
               src={image.url}
@@ -41,11 +42,13 @@ export function CollectionTile({ collection, priority = false, className }: Coll
               fill
               sizes={COLLECTION_TILE_SIZES}
               priority={priority}
-              className="object-cover transition-transform duration-sf-slow ease-sf-out group-hover:scale-105"
+              className="object-cover transition-transform duration-[900ms] ease-sf-out group-hover:scale-105"
             />
-          ) : null}
+          ) : (
+            <ProductPlaceholder seed={handle} tone="rose" />
+          )}
         </div>
-        <h3 className="font-display text-lg font-black uppercase tracking-display text-ink [font-stretch:80%]">
+        <h3 className="font-display text-lg font-black uppercase tracking-display text-ink transition-colors duration-sf-fast ease-sf-out group-hover:text-signal [font-stretch:80%]">
           {title}
         </h3>
       </Link>

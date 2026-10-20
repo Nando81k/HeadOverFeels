@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Reveal } from '@/components/storefront/motion/Reveal'
 import { ProductCard } from '@/components/storefront/product/ProductCard'
 import { Button } from '@/components/storefront/ui/Button'
 import { Container } from '@/components/storefront/ui/Container'
@@ -46,6 +47,7 @@ export function ProductRail({
 
   return (
     <Section tone="bone" bleed aria-labelledby={headingId} className={className}>
+      <Reveal as="div">
       <Container className="flex items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
           {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
@@ -57,12 +59,18 @@ export function ProductRail({
           <Link href={href}>{hrefLabel}</Link>
         </Button>
       </Container>
+      </Reveal>
 
       <ul className="mt-8 flex snap-x snap-mandatory gap-3 overflow-x-auto px-gutter [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {products.map((product) => (
-          <li key={product.id} className="w-[70vw] shrink-0 snap-start sm:w-[40vw] lg:w-[23%]">
+        {products.map((product, index) => (
+          <Reveal
+            as="li"
+            key={product.id}
+            delay={Math.min(index, 4) * 70}
+            className="w-[70vw] shrink-0 snap-start sm:w-[40vw] lg:w-[23%]"
+          >
             <ProductCard product={product} sizes={RAIL_CARD_SIZES} />
-          </li>
+          </Reveal>
         ))}
       </ul>
     </Section>
