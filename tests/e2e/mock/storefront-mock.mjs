@@ -15,6 +15,10 @@
  *   costs from the fixture prices, and accept `GOLD15` (15% off the subtotal)
  *   as the only applicable discount code.
  * - GET /s/files/**.(jpg|png|webp) -> a PNG from `public/assets` picked by keyword.
+ * - /customer/** -> the Customer Account API mock (`customer-account-mock.mjs`):
+ *   OIDC discovery, authorize / token / logout, and the customer GraphQL
+ *   endpoint. The dev server finds it through
+ *   `SHOPIFY_CUSTOMER_ACCOUNT_ISSUER=http://127.0.0.1:4443/customer`.
  * - GET /health -> 200 (Playwright's readiness probe).
  *
  * Test-only; no dependencies; exports nothing.
@@ -24,12 +28,15 @@ import http from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { createCustomerAccountMock } from './customer-account-mock.mjs'
+
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const FIXTURES = path.join(REPO, 'tests/fixtures/shopify')
 const ASSETS = path.join(REPO, 'public/assets')
 const portArg = process.argv.indexOf('--port')
 const PORT = Number(portArg > -1 ? process.argv[portArg + 1] : process.env.MOCK_PORT || 4443)
 const CHECKOUT_ORIGIN = 'https://tgqucm-qg.myshopify.com'
+const CUSTOMER_MOUNT = '/customer'
 
 // ------------------------------------------------------------------ fixtures
 
@@ -47,6 +54,7 @@ const fx = {
   recommendations: load('recommendations'),
   sitemapProducts: load('sitemap-products'),
   sitemapCollections: load('sitemap-collections'),
+  variants: load('variants'),
 }
 
 const collectionNodes = fx.collections.collections.nodes
@@ -193,6 +201,43 @@ for (const card of productCards) {
     product: productRef(card, isDrop ? { value: '2' } : null),
   })
 }
+
+/**
+ * `VariantsById` (wishlist cards): the `ProductCardVariant` raw shape for every
+ * known id, in request order; unknown ids are dropped. Variants come from the
+ * merchandise map (PDP + synthesized card variants) with `variants.json` as a
+ * fallback so the fixture ids the unit tests use resolve here too.
+ */
+const variantNodesById = new Map(fx.variants.nodes.filter(Boolean).map((node) => [node.id, node]))
+
+function variantCard(id) {
+  const m = merchandise.get(id)
+  if (m) {
+    return {
+      id: m.id,
+      title: m.title,
+      availableForSale: m.availableForSale,
+      quantityAvailable: m.quantityAvailable,
+      price: m.price,
+      compareAtPrice: m.compareAtPrice,
+      selectedOptions: m.selectedOptions,
+      image: m.image,
+      product: {
+        id: m.product.id,
+        handle: m.product.handle,
+        title: m.product.title,
+        tags: m.product.tags,
+        availableForSale: m.availableForSale || m.quantityAvailable > 0,
+        featuredImage: m.product.featuredImage,
+      },
+    }
+  }
+  return variantNodesById.get(id) ?? null
+}
+
+catalog.VariantsById = (vars) => ({
+  nodes: (Array.isArray(vars?.ids) ? vars.ids : []).map((id) => variantCard(id)),
+})
 
 // ------------------------------------------------------------------ carts
 
@@ -364,6 +409,7 @@ function describe(vars) {
   if (Array.isArray(lines)) parts.push(`lines=${lines.map((l) => `${String(l.merchandiseId ?? l.id).split('/').pop()}x${l.quantity}`).join(',')}`)
   if (Array.isArray(vars.lineIds)) parts.push(`remove=${vars.lineIds.length}`)
   if (Array.isArray(vars.discountCodes)) parts.push(`codes=${vars.discountCodes.join(',') || '-'}`)
+  if (Array.isArray(vars.ids)) parts.push(`ids=${vars.ids.map((id) => String(id).split('/').pop()).join(',')}`)
   return parts.join(' ')
 }
 
@@ -401,10 +447,21 @@ function sendJson(res, status, body) {
   res.end(json)
 }
 
+const customerAccount = createCustomerAccountMock({
+  issuer: `http://127.0.0.1:${PORT}${CUSTOMER_MOUNT}`,
+  fixturesDir: path.join(FIXTURES, 'customer'),
+  log: (line) => log(`CUSTOMER ${line}`),
+})
+
 async function handler(req, res) {
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`)
 
   if (req.method === 'GET' && url.pathname === '/health') return sendJson(res, 200, { ok: true })
+
+  if (url.pathname.startsWith(`${CUSTOMER_MOUNT}/`)) {
+    const handled = await customerAccount.handle(req, res, url.pathname.slice(CUSTOMER_MOUNT.length), url)
+    if (handled) return
+  }
 
   if (req.method === 'POST' && /^\/api\/[^/]+\/graphql\.json$/.test(url.pathname)) {
     let body

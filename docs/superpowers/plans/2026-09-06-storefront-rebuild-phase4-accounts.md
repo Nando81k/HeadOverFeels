@@ -316,14 +316,14 @@ Admin (validated): `discountCodeBasicCreate(basicCodeDiscount: DiscountCodeBasic
 
 ## Task 9: Mock-backed e2e
 
-- [ ] `customer-account-mock.mjs` mounted inside `storefront-mock.mjs` under `/customer`: `/.well-known/openid-configuration`, `/.well-known/customer-account-api`, `GET /oauth/authorize` (302 straight back to `redirect_uri?code=mock-<n>&state=`), `POST /oauth/token` (code or refresh → `{ access_token, refresh_token, id_token, expires_in: 7200 }`), `GET /oauth/logout` (302 to `post_logout_redirect_uri`), `POST /graphql` keyed on operation name → the T1 fixtures (addresses mutate in memory). Playwright env adds `SHOPIFY_CUSTOMER_ACCOUNT_CLIENT_ID=mock`, `SHOPIFY_CUSTOMER_ACCOUNT_SHOP_ID=85215183073`, `SHOPIFY_CUSTOMER_ACCOUNT_ISSUER=http://127.0.0.1:4443/customer`, `NEXT_PUBLIC_BASE_URL=http://localhost:3000`, `CUSTOMER_SESSION_SECRET=e2e-secret`.
-- [ ] `storefront-account.spec.ts`: header icon → `/account/login` → back signed in with initials; overview shows the fixture name; orders list + detail with tracking; add an address (mutation hits the mock) and see it; wishlist guest add → sign in → merged; `/loyalty` signed-out gate copy; sign out clears the chip; `/account/orders` signed-out renders the gate with `return_to`; console clean per the allow-list. (Loyalty balances need Prisma → unit tests only; note it in the spec header.)
-- [ ] Both projects green on two consecutive full runs.
+- [x] `customer-account-mock.mjs` mounted inside `storefront-mock.mjs` under `/customer`: `/.well-known/openid-configuration`, `/.well-known/customer-account-api`, `GET /oauth/authorize` (302 straight back to `redirect_uri?code=mock-<n>&state=`), `POST /oauth/token` (code or refresh → `{ access_token, refresh_token, id_token, expires_in: 7200 }`), `GET /oauth/logout` (302 to `post_logout_redirect_uri`), `POST /graphql` keyed on operation name → the T1 fixtures (addresses mutate in memory). Playwright env adds `SHOPIFY_CUSTOMER_ACCOUNT_CLIENT_ID=mock`, `SHOPIFY_CUSTOMER_ACCOUNT_SHOP_ID=85215183073`, `SHOPIFY_CUSTOMER_ACCOUNT_ISSUER=http://127.0.0.1:4443/customer`, `NEXT_PUBLIC_BASE_URL=http://localhost:3000`, `CUSTOMER_SESSION_SECRET=e2e-secret`.
+- [x] `storefront-account.spec.ts`: header icon → `/account/login` → back signed in with initials; overview shows the fixture name; orders list + detail with tracking; add an address (mutation hits the mock) and see it; wishlist guest add → sign in → merged; `/loyalty` signed-out gate copy; sign out clears the chip; `/account/orders` signed-out renders the gate with `return_to`; console clean per the allow-list. (Loyalty balances need Prisma → unit tests only; note it in the spec header.)
+- [x] Both projects green on two consecutive full runs.
 
 ## Task 10: Verification + QA report (orchestrator)
 
-- [ ] `npm run test:run`, `npx tsc --noEmit`, `npx eslint` storefront paths, `npm run test:e2e`, `npx next build` stages, admin subset, `npx prisma validate`. Screenshots of the account overview, order detail, loyalty hub and wishlist from the mock (demo script).
-- [ ] `phase4-qa.md`: results, deviations, human checklist (client id/secret, callback URLs, webhook secret, scopes, precreate + register runs, Bogus order → points, redeem → code at checkout). Update PR #228 title/body to Phases 1–4.
+- [x] `npm run test:run`, `npx tsc --noEmit`, `npx eslint` storefront paths, `npm run test:e2e`, `npx next build` stages, admin subset, `npx prisma validate`. Screenshots of the account overview, order detail, loyalty hub and wishlist from the mock (demo script).
+- [x] `phase4-qa.md`: results, deviations, human checklist (client id/secret, callback URLs, webhook secret, scopes, precreate + register runs, Bogus order → points, redeem → code at checkout). Update PR #228 title/body to Phases 1–4. _(Wave 3 shipped 2026-10-20; W1/W2 tasks 1–8 shipped in `219a4b5` / `3e72241`.)_
 
 ---
 

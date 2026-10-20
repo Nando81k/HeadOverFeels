@@ -1,5 +1,4 @@
 import * as React from 'react'
-import Link from 'next/link'
 import { Button } from '@/components/storefront/ui/Button'
 import { Section } from '@/components/storefront/ui/Section'
 import { Display, Eyebrow } from '@/components/storefront/ui/Typography'
@@ -39,8 +38,11 @@ export function LoyaltySignedOutHero({ available, signedIn = false }: LoyaltySig
           <AccountsUnavailableNote className="text-bone/80" />
         ) : signedIn ? null : (
           <div className="flex flex-wrap gap-3">
+            {/* Plain anchors: `/account/login` is a route handler that 302s to
+                Shopify; a `next/link` soft navigation would hit CORS on the
+                redirect and log before falling back (see `SignInGate`). */}
             <Button asChild variant="signal" size="lg">
-              <Link href={LOYALTY_SIGN_IN_HREF}>Join free</Link>
+              <a href={LOYALTY_SIGN_IN_HREF}>Join free</a>
             </Button>
             <Button
               asChild
@@ -48,7 +50,7 @@ export function LoyaltySignedOutHero({ available, signedIn = false }: LoyaltySig
               size="lg"
               className="border-bone text-bone hover:bg-bone hover:text-ink"
             >
-              <Link href={LOYALTY_SIGN_IN_HREF}>Sign in</Link>
+              <a href={LOYALTY_SIGN_IN_HREF}>Sign in</a>
             </Button>
           </div>
         )}
@@ -98,7 +100,7 @@ export function LoyaltyGate({ what, available = true, signedIn = false, classNam
         <>
           <p className="text-sm text-ink-soft">Sign in to see {what}.</p>
           <Button asChild variant="outline" size="sm">
-            <Link href={LOYALTY_SIGN_IN_HREF}>Sign in</Link>
+            <a href={LOYALTY_SIGN_IN_HREF}>Sign in</a>
           </Button>
         </>
       )}

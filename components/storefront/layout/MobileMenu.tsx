@@ -67,10 +67,12 @@ export function MobileMenu({
       title="Menu"
       footer={
         <div className="flex items-center justify-between gap-4">
-          <Link href={accountHref} onClick={close} className={FOOTER_LINK_CLASS}>
+          {/* The login / refresh route handlers 302 to Shopify, so they get a
+              plain anchor rather than a soft navigation (see `SignInGate`). */}
+          <a href={accountHref} onClick={close} className={FOOTER_LINK_CLASS}>
             <User aria-hidden="true" className="size-4" />
             Account
-          </Link>
+          </a>
           <Link href="/search" onClick={close} className={FOOTER_LINK_CLASS}>
             <Search aria-hidden="true" className="size-4" />
             Search
