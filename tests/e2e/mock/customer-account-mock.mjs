@@ -61,6 +61,23 @@ function redirect(res, location) {
   res.end()
 }
 
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1'])
+
+/**
+ * Shopify only redirects to the callback / logout URLs registered on the
+ * Customer Account client. The mock stands in for that allow-list with "the
+ * storefront under test runs on this machine": anything else is refused.
+ */
+function localRedirectTarget(value) {
+  if (!value) return null
+  try {
+    const url = new URL(value)
+    return LOCAL_HOSTS.has(url.hostname) ? url : null
+  } catch {
+    return null
+  }
+}
+
 function operationName(body) {
   if (body?.operationName) return body.operationName
   const m = /(?:query|mutation)\s+([A-Za-z0-9_]+)/.exec(body?.query ?? '')
@@ -155,8 +172,10 @@ export function createCustomerAccountMock({ issuer, fixturesDir, log = () => {} 
     const q = url.searchParams
     const redirectUri = q.get('redirect_uri')
     const state = q.get('state') ?? ''
-    if (!redirectUri) return sendJson(res, 400, { error: 'invalid_request', error_description: 'redirect_uri missing' })
-    const back = new URL(redirectUri)
+    const back = localRedirectTarget(redirectUri)
+    if (!back) {
+      return sendJson(res, 400, { error: 'invalid_request', error_description: 'redirect_uri missing or not registered' })
+    }
     const fail = (error) => {
       back.searchParams.set('error', error)
       if (state) back.searchParams.set('state', state)
@@ -175,50 +194,61 @@ export function createCustomerAccountMock({ issuer, fixturesDir, log = () => {} 
     return redirect(res, back.toString())
   }
 
+  /** Each grant handler returns `{ status, body }`; `fail` builds the error shape. */
+  const fail = (status, error, description) => ({ status, body: { error, error_description: description } })
+
+  function authorizationCodeGrant(params) {
+    const code = params.get('code') ?? ''
+    const pending = pendingCodes.get(code)
+    if (!pending) return fail(400, 'invalid_grant', 'unknown or used code')
+    pendingCodes.delete(code)
+    if (params.get('redirect_uri') !== pending.redirectUri) return fail(400, 'invalid_grant', 'redirect_uri mismatch')
+    const verifier = params.get('code_verifier') ?? ''
+    const challenge = createHash('sha256').update(verifier).digest('base64url')
+    if (challenge !== pending.challenge) return fail(400, 'invalid_grant', 'PKCE verification failed')
+    log(`OAUTH token <- ${code}`)
+    return { status: 200, body: issueTokens(pending.nonce, newSession()) }
+  }
+
+  function refreshTokenGrant(params) {
+    const refreshToken = params.get('refresh_token') ?? ''
+    const session = refreshTokens.get(refreshToken)
+    if (!session) return fail(400, 'invalid_grant', 'unknown refresh token')
+    refreshTokens.delete(refreshToken)
+    log('OAUTH token <- refresh')
+    const next = issueTokens(null, session)
+    // Shopify's refresh answer carries no id_token.
+    delete next.id_token
+    return { status: 200, body: next }
+  }
+
+  const grants = { authorization_code: authorizationCodeGrant, refresh_token: refreshTokenGrant }
+
+  function tokenResponse(params, origin) {
+    if (params.get('client_id') !== CLIENT_ID) return fail(401, 'invalid_client', 'unknown client_id')
+    if (!origin) return fail(400, 'invalid_request', 'Origin header required for public clients')
+    const grant = params.get('grant_type')
+    const handler = grants[grant]
+    return handler ? handler(params) : fail(400, 'unsupported_grant_type', `grant_type ${grant}`)
+  }
+
   async function token(req, res) {
     const params = new URLSearchParams(await readBody(req))
-    const fail = (status, error, description) => {
-      log(`OAUTH token -> ${status} ${error}`)
-      return sendJson(res, status, { error, error_description: description })
-    }
-    if (params.get('client_id') !== CLIENT_ID) return fail(401, 'invalid_client', 'unknown client_id')
-    if (!req.headers.origin) return fail(400, 'invalid_request', 'Origin header required for public clients')
-
-    const grant = params.get('grant_type')
-    if (grant === 'authorization_code') {
-      const code = params.get('code') ?? ''
-      const pending = pendingCodes.get(code)
-      if (!pending) return fail(400, 'invalid_grant', 'unknown or used code')
-      pendingCodes.delete(code)
-      if (params.get('redirect_uri') !== pending.redirectUri) return fail(400, 'invalid_grant', 'redirect_uri mismatch')
-      const verifier = params.get('code_verifier') ?? ''
-      const challenge = createHash('sha256').update(verifier).digest('base64url')
-      if (challenge !== pending.challenge) return fail(400, 'invalid_grant', 'PKCE verification failed')
-      log(`OAUTH token <- ${code}`)
-      return sendJson(res, 200, issueTokens(pending.nonce, newSession()))
-    }
-    if (grant === 'refresh_token') {
-      const refreshToken = params.get('refresh_token') ?? ''
-      const session = refreshTokens.get(refreshToken)
-      if (!session) return fail(400, 'invalid_grant', 'unknown refresh token')
-      refreshTokens.delete(refreshToken)
-      log('OAUTH token <- refresh')
-      const next = issueTokens(null, session)
-      // Shopify's refresh answer carries no id_token.
-      delete next.id_token
-      return sendJson(res, 200, next)
-    }
-    return fail(400, 'unsupported_grant_type', `grant_type ${grant}`)
+    const { status, body } = tokenResponse(params, req.headers.origin)
+    if (status !== 200) log(`OAUTH token -> ${status} ${body.error}`)
+    return sendJson(res, status, body)
   }
 
   function logout(res, url) {
-    const target = url.searchParams.get('post_logout_redirect_uri')
+    const target = localRedirectTarget(url.searchParams.get('post_logout_redirect_uri'))
     const idToken = url.searchParams.get('id_token_hint')
     // Shopify's logout ends the hosted session; tokens already issued are not
     // revoked here (other workers may hold their own), they simply expire.
     log(`OAUTH logout${idToken ? '' : ' (no id_token_hint)'}`)
-    if (!target) return sendJson(res, 400, { error: 'invalid_request', error_description: 'post_logout_redirect_uri missing' })
-    return redirect(res, target)
+    if (!target) {
+      return sendJson(res, 400, { error: 'invalid_request', error_description: 'post_logout_redirect_uri missing or not registered' })
+    }
+    return redirect(res, target.toString())
   }
 
   // ---------------------------------------------------------------- graphql
@@ -240,22 +270,33 @@ export function createCustomerAccountMock({ issuer, fixturesDir, log = () => {} 
       a.territoryCode === 'US' ? 'United States' : a.territoryCode,
     ].filter((line) => typeof line === 'string' && line.length > 0)
 
+  const ADDRESS_FIELDS = [
+    'firstName',
+    'lastName',
+    'company',
+    'address1',
+    'address2',
+    'city',
+    'zoneCode',
+    'territoryCode',
+    'zip',
+    'phoneNumber',
+  ]
+
   function toAddress(input, id) {
-    return {
-      id,
-      firstName: input.firstName ?? null,
-      lastName: input.lastName ?? null,
-      company: input.company ?? null,
-      address1: input.address1 ?? null,
-      address2: input.address2 ?? null,
-      city: input.city ?? null,
-      province: input.zoneCode ?? null,
-      zoneCode: input.zoneCode ?? null,
-      territoryCode: input.territoryCode ?? null,
-      zip: input.zip ?? null,
-      phoneNumber: input.phoneNumber ?? null,
-      formatted: formatted(input),
+    const address = { id }
+    for (const field of ADDRESS_FIELDS) address[field] = input[field] ?? null
+    address.province = address.zoneCode
+    address.formatted = formatted(input)
+    return address
+  }
+
+  /** Copies the string name fields of a CustomerUpdate input onto the customer. */
+  function applyNames(customer, input) {
+    for (const field of ['firstName', 'lastName']) {
+      if (typeof input[field] === 'string') customer[field] = input[field]
     }
+    customer.displayName = [customer.firstName, customer.lastName].filter(Boolean).join(' ')
   }
 
   /** Every resolver gets `(vars, session)`; `session` is the sign-in's own state. */
@@ -273,19 +314,20 @@ export function createCustomerAccountMock({ issuer, fixturesDir, log = () => {} 
     CustomerUpdate: (vars, s) => {
       const { customer } = s
       const input = vars?.input ?? {}
-      const errors = []
-      if (typeof input.firstName === 'string' && input.firstName.trim().length === 0) {
-        errors.push(userError(['input', 'firstName'], 'First name can’t be blank.', 'BLANK'))
+      const blankFirstName = typeof input.firstName === 'string' && input.firstName.trim().length === 0
+      if (blankFirstName) {
+        return {
+          customerUpdate: {
+            customer: null,
+            userErrors: [userError(['input', 'firstName'], 'First name can’t be blank.', 'BLANK')],
+          },
+        }
       }
-      if (errors.length === 0) {
-        if (typeof input.firstName === 'string') customer.firstName = input.firstName
-        if (typeof input.lastName === 'string') customer.lastName = input.lastName
-        customer.displayName = [customer.firstName, customer.lastName].filter(Boolean).join(' ')
-      }
+      applyNames(customer, input)
       return {
         customerUpdate: {
-          customer: errors.length ? null : { id: customer.id, firstName: customer.firstName, lastName: customer.lastName },
-          userErrors: errors,
+          customer: { id: customer.id, firstName: customer.firstName, lastName: customer.lastName },
+          userErrors: [],
         },
       }
     },
@@ -354,10 +396,26 @@ export function createCustomerAccountMock({ issuer, fixturesDir, log = () => {} 
     },
   }
 
-  async function graphql(req, res) {
+  /** The sign-in behind a request's bearer token, or `undefined`. */
+  function sessionFor(req) {
     const auth = req.headers.authorization ?? ''
-    const bearer = auth.replace(/^Bearer\s+/i, '')
-    const session = accessTokens.get(bearer)
+    return accessTokens.get(auth.replace(/^Bearer\s+/i, ''))
+  }
+
+  /** `{ data }` or `{ errors }` for one parsed GraphQL request body. */
+  function resolve(body, session) {
+    const op = operationName(body)
+    const resolver = op ? resolvers[op] : undefined
+    if (!resolver) {
+      log(`GQL WARNING unknown operation "${op}"`)
+      return { errors: [{ message: `mock: unknown customer operation ${op}` }] }
+    }
+    log(`GQL ${op}`)
+    return { data: resolver(body.variables ?? {}, session) }
+  }
+
+  async function graphql(req, res) {
+    const session = sessionFor(req)
     if (!session) {
       log('GQL -> 401 (unknown access token)')
       return sendJson(res, 401, { errors: [{ message: 'Unauthorized', extensions: { code: 'UNAUTHENTICATED' } }] })
@@ -368,49 +426,30 @@ export function createCustomerAccountMock({ issuer, fixturesDir, log = () => {} 
     } catch {
       return sendJson(res, 400, { errors: [{ message: 'invalid JSON' }] })
     }
-    const op = operationName(body)
-    const resolver = op ? resolvers[op] : undefined
-    if (!resolver) {
-      log(`GQL WARNING unknown operation "${op}"`)
-      return sendJson(res, 200, { errors: [{ message: `mock: unknown customer operation ${op}` }] })
-    }
-    log(`GQL ${op}`)
-    return sendJson(res, 200, { data: resolver(body.variables ?? {}, session) })
+    return sendJson(res, 200, resolve(body, session))
   }
 
   // ---------------------------------------------------------------- router
 
-  async function handle(req, res, pathname, url) {
-    if (req.method === 'GET' && pathname === '/.well-known/openid-configuration') {
-      sendJson(res, 200, discoveryOidc())
-      return true
-    }
-    if (req.method === 'GET' && pathname === '/.well-known/customer-account-api') {
-      sendJson(res, 200, { graphql_api: `${issuer}/graphql` })
-      return true
-    }
-    if (req.method === 'GET' && pathname === '/oauth/authorize') {
-      authorize(res, url)
-      return true
-    }
-    if (req.method === 'POST' && pathname === '/oauth/token') {
-      await token(req, res)
-      return true
-    }
-    if (req.method === 'GET' && pathname === '/oauth/logout') {
-      logout(res, url)
-      return true
-    }
-    if (req.method === 'POST' && pathname === '/graphql') {
-      await graphql(req, res)
-      return true
-    }
-    if (req.method === 'POST' && pathname === '/__reset') {
+  /** `"METHOD /path"` -> handler `(req, res, url)`. */
+  const routes = {
+    'GET /.well-known/openid-configuration': (_req, res) => sendJson(res, 200, discoveryOidc()),
+    'GET /.well-known/customer-account-api': (_req, res) => sendJson(res, 200, { graphql_api: `${issuer}/graphql` }),
+    'GET /oauth/authorize': (_req, res, url) => authorize(res, url),
+    'POST /oauth/token': (req, res) => token(req, res),
+    'GET /oauth/logout': (_req, res, url) => logout(res, url),
+    'POST /graphql': (req, res) => graphql(req, res),
+    'POST /__reset': (_req, res) => {
       reset()
       sendJson(res, 200, { ok: true })
-      return true
-    }
-    return false
+    },
+  }
+
+  async function handle(req, res, pathname, url) {
+    const route = routes[`${req.method} ${pathname}`]
+    if (!route) return false
+    await route(req, res, url)
+    return true
   }
 
   return { handle, reset }

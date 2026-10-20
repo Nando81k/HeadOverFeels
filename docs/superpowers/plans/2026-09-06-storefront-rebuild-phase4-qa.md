@@ -44,10 +44,17 @@ The trial store still has no Customer Account client (human-owned, see the check
 6. **CI runs the e2e job with one worker** (`workers: isCI ? 1 : undefined`): with two, first-time compiles of different routes collide and a Fast Refresh drops the Phase 3 cart test's add-to-cart transition (3/3 cold runs). One worker passed cold. Cost: ~3 min instead of ~2.
 7. **GitHub removed as a NextAuth provider** (`lib/auth/auth.config.ts`, `docs/SOCIAL_LOGIN_SETUP.md`) on Nando's ask of 2026-10-20: a developer-platform login is out of place on a storefront. It was only registered when `GITHUB_CLIENT_ID/SECRET` were set (no button in the repo's own sign-in page; NextAuth's default pages listed it). Google stays for admin.
 
+## Codacy and the Vercel preview
+
+Codacy's first pass on the wave 3 PR reported **1 critical (security) · 5 medium (complexity)**, all new. The dashboard is not reachable from this environment, so the findings were reproduced locally: `lizard -C 8` on the changed files flagged exactly five functions in `customer-account-mock.mjs` (`token` 15, `toAddress` 23, `handle` 15, `CustomerUpdate` 9, `graphql` 9); they were split (grant handlers, a route table, a field list, `applyNames`, `sessionFor` / `resolve`) and lizard now reports none over 8. The security finding is inferred to be the open redirect in the mock's `/oauth/authorize` and `/oauth/logout` (they 302'd to whatever `redirect_uri` / `post_logout_redirect_uri` said); both now refuse any target that is not on `localhost` / `127.0.0.1`, standing in for the callback allow-list on a real Customer Account client. Semgrep could not run here (its rule registry is blocked), so that mapping is unverified until Codacy re-checks the push.
+
+The Vercel preview of every rebuild-branch commit fails at build with `STRIPE_SECRET_KEY is not defined in environment variables` (thrown by the unchanged `lib/stripe/config.ts` while collecting `/api/admin/fulfillment/tickets/[id]/decision`). The Preview environment on Vercel has no Stripe key (Production does, `main` deploys fine). Needs Nando: a Stripe test key in the Preview environment, or wait for Phase 6 to remove Stripe.
+
 ## Human checklist (needs Nando)
 
 From `2026-09-06-storefront-rebuild-phase4-shopify-checklist.md`, none of which can be done from this environment:
 
+- [ ] Vercel Preview environment: `STRIPE_SECRET_KEY` (test key) so wave PR previews build before Phase 6.
 - [ ] Headless → Customer Account API client: callback URL `<preview>/account/callback` (later the primary domain), JavaScript origin, logout URL; copy the client id and shop id (`85215183073`).
 - [ ] "HOF Ops" app scopes `read_discounts write_discounts read_customers write_customers`; re-copy the Admin token if it changed.
 - [ ] `SHOPIFY_WEBHOOK_SECRET` = the app's API secret key.
