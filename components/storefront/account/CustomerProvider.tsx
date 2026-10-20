@@ -132,27 +132,6 @@ export function useCustomerOptional(): CustomerContextValue | null {
 
 // ---------------------------------------------------------------- name helpers
 
-type Nameish = Pick<CustomerSummary, 'firstName' | 'lastName' | 'displayName' | 'email'>
-
-/** "Nando" — the first name, else the display name's first word, else the email's local part. */
-export function customerFirstName(customer: Nameish): string {
-  const first = customer.firstName?.trim()
-  if (first) return first
-  const display = customer.displayName?.trim().split(/\s+/)[0]
-  if (display) return display
-  return customer.email.split('@')[0] || 'there'
-}
-
-/** "NA" — up to two initials from the names, else the first letter of the email. */
-export function customerInitials(customer: Nameish): string {
-  const parts = [customer.firstName, customer.lastName]
-    .map((part) => part?.trim() ?? '')
-    .filter((part) => part.length > 0)
-  const source = parts.length > 0 ? parts : customer.displayName?.trim().split(/\s+/) ?? []
-  const letters = source
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join('')
-  if (letters) return letters
-  return (customer.email.charAt(0) || '?').toUpperCase()
-}
+// Server-safe helpers live in `./customer-name` (the `/account` overview calls
+// them while rendering on the server); re-exported here for client callers.
+export { customerFirstName, customerInitials } from './customer-name'

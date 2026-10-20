@@ -14,6 +14,14 @@ export function signInHref(returnTo: string): string {
   return `/account/login?return_to=${encodeURIComponent(returnTo)}`
 }
 
+/**
+ * Links into `/account/login` (and `/account/refresh`) are plain anchors, not
+ * `next/link`: those are route handlers that 302 to Shopify's hosted login. A
+ * soft navigation would fetch the RSC payload, follow the redirect
+ * cross-origin, hit CORS, log an error and only then fall back to a full
+ * navigation — a plain `<a>` goes straight there.
+ */
+
 export interface SignInGateProps {
   /** The page to come back to after sign-in (a same-origin path). */
   returnTo: string
@@ -55,7 +63,7 @@ export function SignInGate({
       <p className="text-sm text-ink-soft">{message}</p>
       <div className="flex flex-wrap items-center gap-3">
         <Button asChild>
-          <Link href={signInHref(returnTo)}>Sign in</Link>
+          <a href={signInHref(returnTo)}>Sign in</a>
         </Button>
         <Button asChild variant="link">
           <Link href="/collections/all">Keep shopping</Link>
