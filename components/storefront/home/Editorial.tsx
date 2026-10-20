@@ -1,4 +1,6 @@
 import Image from 'next/image'
+import { Reveal } from '@/components/storefront/motion/Reveal'
+import * as React from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/storefront/ui/Button'
 import { Section } from '@/components/storefront/ui/Section'
@@ -26,17 +28,22 @@ export function Editorial({ image = EDITORIAL_IMAGE, className }: EditorialProps
   return (
     <Section tone="paper" aria-labelledby="home-editorial" className={className}>
       <div className="grid items-center gap-gutter lg:grid-cols-2">
-        <div className="relative aspect-[4/5] w-full overflow-hidden rounded-sharp bg-line lg:aspect-[4/3]">
-          <Image
-            src={image.src}
-            alt={image.alt}
-            fill
-            sizes="(min-width:1024px) 50vw, 100vw"
-            className="object-cover"
-          />
-        </div>
+        <Reveal
+          variant="left"
+          className="relative aspect-[4/5] w-full overflow-hidden rounded-sharp bg-line lg:aspect-[4/3]"
+        >
+          <div className="sf-parallax absolute inset-0" style={{ '--sf-parallax': '-5%' } as React.CSSProperties}>
+            <Image
+              src={image.src}
+              alt={image.alt}
+              fill
+              sizes="(min-width:1024px) 50vw, 100vw"
+              className="object-cover"
+            />
+          </div>
+        </Reveal>
 
-        <div className="flex flex-col items-start gap-5">
+        <Reveal delay={120} className="flex flex-col items-start gap-5">
           <Eyebrow>About</Eyebrow>
           <Display as="h2" id="home-editorial" size="md">
             Made in small runs
@@ -54,7 +61,7 @@ export function Editorial({ image = EDITORIAL_IMAGE, className }: EditorialProps
           <Button asChild variant="link">
             <Link href="/about">Our story</Link>
           </Button>
-        </div>
+        </Reveal>
       </div>
     </Section>
   )

@@ -133,7 +133,8 @@ describe('ProductCard', () => {
     )
 
     expect(container.querySelectorAll('img')).toHaveLength(0)
-    const placeholder = container.querySelector('[aria-hidden="true"].bg-line')
+    // Branded silhouette art (`ProductPlaceholder`) rather than a flat block.
+    const placeholder = container.querySelector('svg[aria-hidden="true"][data-placeholder]')
     expect(placeholder).not.toBeNull()
   })
 

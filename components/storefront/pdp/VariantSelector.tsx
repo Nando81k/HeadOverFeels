@@ -105,9 +105,10 @@ export function VariantSelector({ product, selectedOptions, pathname }: VariantS
                       style={{ backgroundColor: color ?? undefined }}
                       className={cn(
                         'size-8 rounded-pill border border-line-strong',
+                        'transition-transform duration-sf-fast ease-sf-spring motion-safe:hover:scale-110 motion-safe:active:scale-95',
                         'focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-signal focus-visible:outline-offset-2',
                         color ? null : 'bg-line',
-                        active && 'outline-2 outline-solid outline-ink outline-offset-2',
+                        active && 'outline-2 outline-solid outline-ink outline-offset-2 motion-safe:scale-110',
                         availability === 'soldout' && 'opacity-60',
                         availability === 'unavailable' && 'opacity-40'
                       )}
@@ -121,7 +122,7 @@ export function VariantSelector({ product, selectedOptions, pathname }: VariantS
                     {...shared}
                     className={cn(
                       'inline-flex h-11 items-center rounded-sharp border px-4 text-sm',
-                      'transition-colors duration-sf-fast ease-sf-out',
+                      'transition-[color,background-color,border-color,transform] duration-sf-fast ease-sf-out motion-safe:active:scale-95',
                       'focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-signal focus-visible:outline-offset-2',
                       active
                         ? 'border-ink bg-ink text-bone'

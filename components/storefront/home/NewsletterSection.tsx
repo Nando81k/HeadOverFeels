@@ -1,3 +1,4 @@
+import { Reveal } from '@/components/storefront/motion/Reveal'
 import { NewsletterForm } from '@/components/storefront/newsletter/NewsletterForm'
 import { Section } from '@/components/storefront/ui/Section'
 import { Display, Eyebrow } from '@/components/storefront/ui/Typography'
@@ -16,7 +17,7 @@ export interface NewsletterSectionProps {
 export function NewsletterSection({ className }: NewsletterSectionProps) {
   return (
     <Section tone="bone" id="newsletter" aria-labelledby="home-newsletter" className={className}>
-      <div className="flex flex-col items-start gap-4">
+      <Reveal className="flex flex-col items-start gap-4">
         <Eyebrow>Newsletter</Eyebrow>
         <Display as="h2" id="home-newsletter" size="md">
           Get the drop first
@@ -25,7 +26,7 @@ export function NewsletterSection({ className }: NewsletterSectionProps) {
           Drop dates, restocks and Care Points news — nothing else. Unsubscribe any time.
         </p>
         <NewsletterForm className="w-full max-w-md" />
-      </div>
+      </Reveal>
     </Section>
   )
 }

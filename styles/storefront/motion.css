@@ -1,0 +1,202 @@
+/*
+ * Storefront motion — spec §5.1 ("Motion is quick and physical", no
+ * scroll-jacking) layered on the tokens in tokens.css.
+ *
+ * Three mechanisms, cheapest first:
+ *  1. Keyframe entrances (`sf-rise`, `sf-stagger`, page enter). Pure CSS; they
+ *     run without JS and the element is simply visible wherever animations do
+ *     not run, so nothing above the fold ever depends on hydration.
+ *  2. Scroll-driven animations (`sf-parallax`, `sf-scroll-progress`) behind
+ *     `@supports (animation-timeline: scroll())`. Zero JS, compositor-only;
+ *     browsers without support get the static layout.
+ *  3. Viewport reveals (`components/storefront/motion/Reveal.tsx`). An
+ *     IntersectionObserver flips `data-inview`; the hidden state is scoped to
+ *     `@media (scripting: enabled)` so no-JS readers see the content at once,
+ *     and a 2.5s safety keyframe forces it visible even if hydration stalls.
+ *
+ * Everything that moves is wrapped in `prefers-reduced-motion: no-preference`;
+ * base.css additionally clamps any stray animation to 0.01ms for reduce users.
+ * Only `transform` and `opacity` are animated.
+ */
+
+@keyframes sf-rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--sf-rise-y, 18px));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sf-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sf-settle {
+  from {
+    transform: scale(1.06);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes sf-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes sf-reveal-safety {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sf-parallax {
+  from {
+    transform: translateY(0) scale(1.08);
+  }
+  to {
+    transform: translateY(var(--sf-parallax, -8%)) scale(1.08);
+  }
+}
+
+@keyframes sf-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* ---------------------------------------------------------- entrances */
+
+  /* One element rising in. `--sf-i` is its slot in a sequence (0, 1, 2…). */
+  [data-surface='storefront'] .sf-rise {
+    animation: sf-rise var(--duration-sf-slow) var(--ease-sf-out) both;
+    animation-delay: calc(var(--sf-i, 0) * var(--sf-step, 70ms) + var(--sf-delay, 0ms));
+  }
+
+  /* Every direct child rises in turn — buy boxes, hero copy, page headers. */
+  [data-surface='storefront'] .sf-stagger > * {
+    animation: sf-rise var(--duration-sf-slow) var(--ease-sf-out) both;
+  }
+  [data-surface='storefront'] .sf-stagger > :nth-child(1) { animation-delay: calc(0 * var(--sf-step, 60ms)); }
+  [data-surface='storefront'] .sf-stagger > :nth-child(2) { animation-delay: calc(1 * var(--sf-step, 60ms)); }
+  [data-surface='storefront'] .sf-stagger > :nth-child(3) { animation-delay: calc(2 * var(--sf-step, 60ms)); }
+  [data-surface='storefront'] .sf-stagger > :nth-child(4) { animation-delay: calc(3 * var(--sf-step, 60ms)); }
+  [data-surface='storefront'] .sf-stagger > :nth-child(5) { animation-delay: calc(4 * var(--sf-step, 60ms)); }
+  [data-surface='storefront'] .sf-stagger > :nth-child(6) { animation-delay: calc(5 * var(--sf-step, 60ms)); }
+  [data-surface='storefront'] .sf-stagger > :nth-child(7) { animation-delay: calc(6 * var(--sf-step, 60ms)); }
+  [data-surface='storefront'] .sf-stagger > :nth-child(n + 8) { animation-delay: calc(7 * var(--sf-step, 60ms)); }
+
+  /* Media settling from a slight zoom — hero still, gallery main image. */
+  [data-surface='storefront'] .sf-settle {
+    animation: sf-settle 1200ms var(--ease-sf-out) both;
+  }
+
+  /* Cross-fade for swapped media (keyed gallery frames). */
+  [data-surface='storefront'] .sf-fade {
+    animation: sf-fade var(--duration-sf-base) var(--ease-sf-out) both;
+  }
+
+  /* One-shot confirmation pulse (added to cart, saved). */
+  [data-surface='storefront'] .sf-pop {
+    animation: sf-pop var(--duration-sf-slow) var(--ease-sf-spring) both;
+  }
+
+  /* Route change: the new page rises in under the sticky header. */
+  [data-surface='storefront'] .sf-page-enter {
+    --sf-rise-y: 10px;
+    animation: sf-rise var(--duration-sf-slow) var(--ease-sf-out) both;
+  }
+
+  /* ---------------------------------------------------------- reveals */
+
+  @media (scripting: enabled) {
+    [data-surface='storefront'] [data-reveal]:not([data-inview]) {
+      opacity: 0;
+      /* If hydration never comes, show the content anyway. */
+      animation: sf-reveal-safety 0s 2.5s forwards;
+    }
+    [data-surface='storefront'] [data-reveal='up']:not([data-inview]) {
+      transform: translateY(24px);
+    }
+    [data-surface='storefront'] [data-reveal='left']:not([data-inview]) {
+      transform: translateX(-24px);
+    }
+    [data-surface='storefront'] [data-reveal='right']:not([data-inview]) {
+      transform: translateX(24px);
+    }
+    [data-surface='storefront'] [data-reveal='zoom']:not([data-inview]) {
+      transform: scale(0.96);
+    }
+  }
+
+  [data-surface='storefront'] [data-reveal] {
+    transition-property: opacity, transform;
+    transition-duration: var(--sf-reveal-duration, 600ms);
+    transition-timing-function: var(--ease-sf-out);
+    transition-delay: var(--sf-delay, 0ms);
+    will-change: opacity, transform;
+  }
+  [data-surface='storefront'] [data-reveal][data-inview] {
+    will-change: auto;
+  }
+
+  /* ---------------------------------------------------------- scroll-driven */
+
+  @supports (animation-timeline: scroll()) {
+    /* A full-bleed still drifting up as the page scrolls past it. The 1.08
+       scale gives it room to move without exposing its edges. */
+    [data-surface='storefront'] .sf-parallax {
+      animation: sf-parallax linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 100%;
+    }
+
+    /* Hairline reading-progress bar along the bottom edge of the header. */
+    [data-surface='storefront'] .sf-scroll-progress {
+      transform-origin: left;
+      animation: sf-grow-x linear both;
+      animation-timeline: scroll(root);
+    }
+  }
+}
+
+@supports not (animation-timeline: scroll()) {
+  [data-surface='storefront'] .sf-scroll-progress {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------ hover */
+
+/* PDP hover zoom: the figure tracks the pointer with `--sf-zx/--sf-zy`, set
+   by Gallery.tsx. Desktop pointers only — touch gets the zoom dialog. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  [data-surface='storefront'] [data-gallery-zoom] img {
+    transform-origin: var(--sf-zx, 50%) var(--sf-zy, 50%);
+    transition: transform var(--duration-sf-slow) var(--ease-sf-out);
+  }
+  [data-surface='storefront'] [data-gallery-zoom]:hover img {
+    transform: scale(1.6);
+  }
+}

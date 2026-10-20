@@ -94,7 +94,7 @@ describe('storefront tokens', () => {
 })
 
 describe('app/globals.css', () => {
-  it('contains only the tailwind import plus the three style imports', () => {
+  it('contains only the tailwind import plus the four style imports', () => {
     const lines = read('app/globals.css')
       .split('\n')
       .map((l) => l.trim())
@@ -105,6 +105,7 @@ describe('app/globals.css', () => {
       '@import "../styles/admin/tokens.css";',
       '@import "../styles/storefront/tokens.css";',
       '@import "../styles/storefront/base.css";',
+      '@import "../styles/storefront/motion.css";',
     ])
   })
 
@@ -113,6 +114,7 @@ describe('app/globals.css', () => {
       'styles/admin/tokens.css',
       'styles/storefront/tokens.css',
       'styles/storefront/base.css',
+      'styles/storefront/motion.css',
     ]) {
       expect(fs.existsSync(path.join(root, rel))).toBe(true)
     }

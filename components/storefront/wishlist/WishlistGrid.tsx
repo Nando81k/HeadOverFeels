@@ -9,6 +9,7 @@ import { Badge } from '@/components/storefront/ui/Badge'
 import { Button } from '@/components/storefront/ui/Button'
 import { IconButton } from '@/components/storefront/ui/IconButton'
 import { Price } from '@/components/storefront/ui/Price'
+import { ProductPlaceholder } from '@/components/storefront/ui/ProductPlaceholder'
 import { Skeleton } from '@/components/storefront/ui/Skeleton'
 
 /** Same 4-up → 3-up → 2-up rhythm as the catalog grid. */
@@ -112,10 +113,10 @@ export function WishlistCard({
                 fill
                 sizes={WISHLIST_CARD_SIZES}
                 priority={priority}
-                className="object-cover"
+                className="object-cover transition-transform duration-[900ms] ease-sf-out motion-safe:group-hover:scale-[1.06]"
               />
             ) : (
-              <div aria-hidden="true" className="absolute inset-0 bg-line" />
+              <ProductPlaceholder seed={handle} />
             )}
           </div>
           <h3 className="mt-3 text-sm font-medium text-ink">{productTitle}</h3>

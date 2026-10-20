@@ -3,6 +3,7 @@ import { hasShopifyEnv } from '@/lib/shopify/env'
 import { getCollections } from '@/lib/shopify/queries'
 import { CatalogUnavailable } from '@/components/storefront/CatalogUnavailable'
 import { CollectionTile } from '@/components/storefront/collection'
+import { Reveal } from '@/components/storefront/motion/Reveal'
 import { Section } from '@/components/storefront/ui/Section'
 import { Display, Eyebrow } from '@/components/storefront/ui/Typography'
 
@@ -32,7 +33,7 @@ export default async function CollectionsIndexPage() {
   return (
     <>
       <Section>
-        <div className="flex max-w-3xl flex-col gap-4">
+        <div className="sf-stagger flex max-w-3xl flex-col gap-4">
           <Eyebrow>Shop</Eyebrow>
           <Display as="h1" size="lg">
             Collections
@@ -48,11 +49,9 @@ export default async function CollectionsIndexPage() {
           {collections.length > 0 ? (
             <div className="grid grid-cols-1 gap-x-4 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
               {collections.map((collection, index) => (
-                <CollectionTile
-                  key={collection.id}
-                  collection={collection}
-                  priority={index < PRIORITY_TILES}
-                />
+                <Reveal key={collection.id} delay={(index % 3) * 80}>
+                  <CollectionTile collection={collection} priority={index < PRIORITY_TILES} />
+                </Reveal>
               ))}
             </div>
           ) : (

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="800" height="1000">
+  <!-- Head Over Feels placeholder (crewneck). Tokens: bone #F7F5F2, paper #FFFFFF, ink #0A0A0A, signal #FF3131 -->
+  <defs>
+    <pattern id="hatch" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="14" stroke="#0A0A0A" stroke-opacity="0.07" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="400" height="500" fill="#FFFFFF"/>
+  <rect width="400" height="500" fill="url(#hatch)"/>
+  <g fill="none" stroke="#0A0A0A" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" stroke-opacity="0.85">
+    <path d="M150 170 L96 200 L86 322 L124 328 L130 412 L270 412 L276 328 L314 322 L304 200 L250 170 C236 192 164 192 150 170 Z"/>
+    <path d="M130 398 H270 M124 314 L130 316 M276 314 L270 316"/>
+    <path d="M164 170 C178 190 222 190 236 170"/>
+  </g>
+  <circle cx="312" cy="452" r="5" fill="#FF3131"/>
+  <text x="28" y="462" fill="#0A0A0A" font-family="Archivo, 'Arial Narrow', sans-serif" font-weight="900" font-size="28" letter-spacing="-0.03em">HOF</text>
+</svg>

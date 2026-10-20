@@ -1,6 +1,10 @@
 import type { Metadata } from 'next'
+import * as React from 'react'
 import Link from 'next/link'
+import { cn } from '@/lib/storefront/cn'
 import { ArrowRight, Heart, Leaf, ShieldCheck, Sparkles, Target, Users, Zap } from 'lucide-react'
+import { CountUp } from '@/components/storefront/motion/CountUp'
+import { Reveal } from '@/components/storefront/motion/Reveal'
 import { Button } from '@/components/storefront/ui/Button'
 import { Section } from '@/components/storefront/ui/Section'
 import { Display, Eyebrow } from '@/components/storefront/ui/Typography'
@@ -116,11 +120,15 @@ export default function AboutPage() {
   return (
     <>
       <Section tone="ink" aria-labelledby="about-hero">
-        <div className="flex flex-col gap-8">
+        <div className="sf-stagger flex flex-col gap-8">
           <Eyebrow className="text-bone/60">{hero.eyebrow}</Eyebrow>
           <Display as="h1" id="about-hero" size="xl">
             {hero.headline.map((line, index) => (
-              <span key={line} className={index === 0 ? undefined : 'block'}>
+              <span
+                key={line}
+                className={cn('sf-rise', index === 0 ? 'inline-block' : 'block')}
+                style={{ '--sf-i': index + 1, '--sf-rise-y': '0.4em' } as React.CSSProperties}
+              >
                 {line}
               </span>
             ))}
@@ -130,7 +138,7 @@ export default function AboutPage() {
       </Section>
 
       <Section size="narrow" aria-labelledby="about-story">
-        <div className="flex flex-col items-center gap-6 text-center">
+        <Reveal className="flex flex-col items-center gap-6 text-center">
           <Eyebrow>{story.eyebrow}</Eyebrow>
           <Display as="h2" id="about-story" size="lg">
             {story.heading}
@@ -140,7 +148,7 @@ export default function AboutPage() {
               <p key={paragraph}>{paragraph}</p>
             ))}
           </div>
-        </div>
+        </Reveal>
       </Section>
 
       <Section tone="ink" aria-labelledby="about-values">
@@ -151,29 +159,34 @@ export default function AboutPage() {
           </Display>
         </div>
         <ul className="mt-12 grid gap-gutter md:grid-cols-2 lg:grid-cols-4">
-          {values.items.map((value) => (
-            <li key={value.title} className={`${CARD_CLASS} border-bone/15 bg-bone/5`}>
+          {values.items.map((value, index) => (
+            <Reveal
+              as="li"
+              key={value.title}
+              delay={index * 80}
+              className={`${CARD_CLASS} border-bone/15 bg-bone/5 transition-[transform,background-color] duration-sf-slow ease-sf-out motion-safe:hover:-translate-y-1 hover:bg-bone/10`}
+            >
               <span className={`${ICON_TILE_CLASS} bg-bone text-ink`}>
                 <value.icon aria-hidden="true" className="size-6" />
               </span>
               <h3 className="text-lg font-semibold text-bone">{value.title}</h3>
               <p className="text-sm text-bone/70">{value.description}</p>
-            </li>
+            </Reveal>
           ))}
         </ul>
       </Section>
 
       <Section aria-label="Head Over Feels in numbers">
         <dl className="grid grid-cols-2 gap-gutter text-center md:grid-cols-4">
-          {stats.map((stat) => (
-            <div key={stat.label} className="flex flex-col gap-2">
+          {stats.map((stat, index) => (
+            <Reveal key={stat.label} delay={index * 80} className="flex flex-col gap-2">
               <dd className="font-display text-display-md font-black tracking-display">
-                {stat.value}
+                <CountUp value={stat.value} />
               </dd>
               <dt className="text-[11px] font-semibold uppercase tracking-eyebrow text-ink-mute">
                 {stat.label}
               </dt>
-            </div>
+            </Reveal>
           ))}
         </dl>
       </Section>
@@ -200,20 +213,25 @@ export default function AboutPage() {
           </Display>
         </div>
         <ul className="mt-12 grid gap-gutter md:grid-cols-3">
-          {difference.items.map((feature) => (
-            <li key={feature.title} className={`${CARD_CLASS} border-line bg-bone`}>
+          {difference.items.map((feature, index) => (
+            <Reveal
+              as="li"
+              key={feature.title}
+              delay={index * 80}
+              className={`${CARD_CLASS} border-line bg-bone transition-[transform,border-color] duration-sf-slow ease-sf-out motion-safe:hover:-translate-y-1 hover:border-ink`}
+            >
               <span className={`${ICON_TILE_CLASS} bg-ink text-bone`}>
                 <feature.icon aria-hidden="true" className="size-6" />
               </span>
               <h3 className="text-lg font-semibold">{feature.title}</h3>
               <p className="text-sm text-ink-soft">{feature.description}</p>
-            </li>
+            </Reveal>
           ))}
         </ul>
       </Section>
 
       <Section size="narrow" aria-labelledby="about-cta" className="border-t border-line">
-        <div className="flex flex-col items-center gap-6 text-center">
+        <Reveal className="flex flex-col items-center gap-6 text-center">
           <Eyebrow>{cta.eyebrow}</Eyebrow>
           <Display as="h2" id="about-cta" size="lg">
             {cta.heading}
@@ -230,7 +248,7 @@ export default function AboutPage() {
               <Link href={cta.contact.href}>{cta.contact.label}</Link>
             </Button>
           </div>
-        </div>
+        </Reveal>
       </Section>
     </>
   )

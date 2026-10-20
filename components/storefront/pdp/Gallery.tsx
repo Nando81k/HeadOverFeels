@@ -7,6 +7,7 @@ import type { ShopImage } from '@/lib/shopify/types'
 import { cn } from '@/lib/storefront/cn'
 import { Dialog } from '@/components/storefront/ui/Dialog'
 import { IconButton } from '@/components/storefront/ui/IconButton'
+import { ProductPlaceholder } from '@/components/storefront/ui/ProductPlaceholder'
 
 /** 4:5 media box, shared by the main figure, the thumbs and the zoom dialog. */
 const RATIO = 'aspect-[4/5]'
@@ -47,8 +48,10 @@ export function Gallery({ images, title, initialIndex = 0 }: GalleryProps) {
       <div
         data-gallery="empty"
         aria-hidden="true"
-        className={cn(RATIO, 'w-full rounded-sharp bg-line')}
-      />
+        className={cn(RATIO, 'sf-fade relative w-full overflow-hidden rounded-sharp bg-line')}
+      >
+        <ProductPlaceholder seed={title} />
+      </div>
     )
   }
 
@@ -57,6 +60,18 @@ export function Gallery({ images, title, initialIndex = 0 }: GalleryProps) {
 
   const step = (delta: number) => {
     setIndex((previous) => (previous + delta + images.length) % images.length)
+  }
+
+  // Desktop hover zoom: the pointer position becomes the transform origin
+  // (motion.css `[data-gallery-zoom]`), so the shopper pans the 1.6× frame by
+  // moving the mouse. Written to CSS variables, not state — no re-render per move.
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'mouse') return
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = ((event.clientX - rect.left) / rect.width) * 100
+    const y = ((event.clientY - rect.top) / rect.height) * 100
+    event.currentTarget.style.setProperty('--sf-zx', `${x.toFixed(1)}%`)
+    event.currentTarget.style.setProperty('--sf-zy', `${y.toFixed(1)}%`)
   }
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
@@ -89,9 +104,9 @@ export function Gallery({ images, title, initialIndex = 0 }: GalleryProps) {
               className={cn(
                 RATIO,
                 'relative w-18 shrink-0 overflow-hidden rounded-sharp bg-line',
-                'transition-opacity duration-sf-fast ease-sf-out',
+                'transition-[opacity,transform] duration-sf-base ease-sf-out motion-safe:hover:scale-[1.04]',
                 'focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-signal focus-visible:outline-offset-2',
-                active ? 'outline-2 outline-solid outline-ink' : 'opacity-70 hover:opacity-100'
+                active ? 'outline-2 outline-solid outline-ink' : 'opacity-60 hover:opacity-100'
               )}
             >
               <Image src={image.url} alt="" aria-hidden="true" fill sizes="72px" className="object-cover" />
@@ -110,15 +125,23 @@ export function Gallery({ images, title, initialIndex = 0 }: GalleryProps) {
           'focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-signal focus-visible:outline-offset-2'
         )}
       >
-        <div className={cn(RATIO, 'relative overflow-hidden rounded-sharp bg-line')}>
-          <Image
-            src={current.url}
-            alt={alt}
-            fill
-            priority={index === 0}
-            sizes="(min-width:1024px) 58vw, 100vw"
-            className="object-cover"
-          />
+        <div
+          data-gallery-zoom=""
+          onPointerMove={handlePointerMove}
+          className={cn(RATIO, 'relative overflow-hidden rounded-sharp bg-line md:cursor-zoom-in')}
+        >
+          {/* Keyed on the URL so a thumb click mounts a fresh frame that fades
+              in over the previous one (`sf-fade`), instead of swapping hard. */}
+          <div key={current.url} className="sf-fade absolute inset-0">
+            <Image
+              src={current.url}
+              alt={alt}
+              fill
+              priority={index === 0}
+              sizes="(min-width:1024px) 58vw, 100vw"
+              className="object-cover"
+            />
+          </div>
         </div>
 
         <IconButton
@@ -133,7 +156,7 @@ export function Gallery({ images, title, initialIndex = 0 }: GalleryProps) {
 
       <Dialog open={zoomed} onOpenChange={setZoomed} size="lg" title={alt}>
         {zoomed ? (
-          <div className={cn(RATIO, 'relative mx-auto w-full max-w-2xl')}>
+          <div className={cn(RATIO, 'sf-fade relative mx-auto w-full max-w-2xl')}>
             <Image
               src={current.url}
               alt={alt}

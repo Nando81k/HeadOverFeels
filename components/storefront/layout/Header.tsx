@@ -308,6 +308,16 @@ export function Header({ menu, cartCount, transparent = false, announcement }: H
             : 'border-line bg-bone/95 text-ink backdrop-blur'
         )}
       >
+        {/* Reading progress along the header's bottom edge (motion.css
+            `sf-scroll-progress`); hidden where scroll-driven animations are
+            unsupported and in the transparent-over-hero state. */}
+        <span
+          aria-hidden="true"
+          className={cn(
+            'sf-scroll-progress pointer-events-none absolute inset-x-0 bottom-[-1px] h-px bg-signal',
+            floating && 'opacity-0'
+          )}
+        />
         <Container className="grid h-full grid-cols-[auto_1fr_auto] items-center gap-4">
           <div className="flex items-center gap-1">
             <IconButton
