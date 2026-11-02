@@ -23,6 +23,9 @@ vi.mock('next/headers', () => ({ cookies: vi.fn(async () => jar) }))
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn(), revalidatePath: vi.fn() }))
 
 vi.mock('@/lib/shopify/env', () => ({ hasShopifyEnv: vi.fn(() => true) }))
+// The drop gate (Phase 5) is unit-tested in purchasable.test.ts; here it passes
+// unless a test says otherwise.
+vi.mock('@/lib/storefront/purchasable', () => ({ assertPurchasable: vi.fn(async () => ({ ok: true })) }))
 vi.mock('@/lib/shopify/queries/cart', () => ({
   getCartById: vi.fn(),
   createCart: vi.fn(),
@@ -56,6 +59,7 @@ import {
   updateCartNote,
 } from '@/lib/shopify/queries/cart'
 import { revalidateTag } from 'next/cache'
+import { assertPurchasable } from '@/lib/storefront/purchasable'
 import type { Cart, CartLine } from '@/lib/shopify/types'
 
 const CART_ID = 'gid://shopify/Cart/Z2NwLXVzLWVhc3QxOjAx?key=abc123'
@@ -251,6 +255,21 @@ describe('getCartAction', () => {
 })
 
 describe('addCartLine', () => {
+  it('refuses an add the drop gate rejects before touching Shopify', async () => {
+    vi.mocked(assertPurchasable).mockResolvedValueOnce({
+      ok: false,
+      error: 'This drop has not opened yet.',
+      code: 'DROP_NOT_OPEN',
+    })
+
+    const result = await addCartLine({ variantId: VARIANT_ID })
+
+    expect(result).toEqual({ ok: false, error: 'This drop has not opened yet.', code: 'DROP_NOT_OPEN' })
+    expect(assertPurchasable).toHaveBeenCalledWith(VARIANT_ID)
+    expect(createCart).not.toHaveBeenCalled()
+    expect(addCartLines).not.toHaveBeenCalled()
+  })
+
   it('creates the cart and stores its id when there is no cookie', async () => {
     const cart = makeCart({ id: NEW_CART_ID })
     vi.mocked(createCart).mockResolvedValue(cart)

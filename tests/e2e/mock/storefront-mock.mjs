@@ -171,6 +171,10 @@ const productRef = (p, maxPerOrder) => ({
   tags: p.tags ?? [],
   featuredImage: p.featuredImage ?? null,
   maxPerOrder,
+  // Drop window (Phase 5): the cards carry `dropStart` / `dropEnd` from the
+  // collection fixture; the PDP fixture carries its own metafields.
+  dropStart: p.dropStart ?? null,
+  dropEnd: p.dropEnd ?? null,
 })
 
 const pdp = fx.productByHandle.product
@@ -236,6 +240,9 @@ function variantCard(id) {
         tags: m.product.tags,
         availableForSale: m.availableForSale || m.quantityAvailable > 0,
         featuredImage: m.product.featuredImage,
+        dropStart: m.product.dropStart ?? null,
+        dropEnd: m.product.dropEnd ?? null,
+        maxPerOrder: m.product.maxPerOrder ?? null,
       },
     }
   }

@@ -37,7 +37,7 @@ describe('VARIANTS_BY_ID_QUERY', () => {
     expect(VARIANTS_BY_ID_QUERY).toContain('selectedOptions { name value }')
     expect(VARIANTS_BY_ID_QUERY).toContain('image { url altText width height }')
     expect(VARIANTS_BY_ID_QUERY).toContain(
-      'product { id handle title tags availableForSale featuredImage { url altText width height } }'
+      'product { id handle title tags availableForSale featuredImage { url altText width height } dropStart: metafield(namespace: "custom", key: "drop_start") { value } dropEnd: metafield(namespace: "custom", key: "drop_end") { value } maxPerOrder: metafield(namespace: "custom", key: "max_per_order") { value } }'
     )
     // No shared fragments are spread, so none may be appended.
     expect(VARIANTS_BY_ID_QUERY).not.toContain('fragment ')
@@ -94,6 +94,7 @@ describe('toProductCardVariant', () => {
           width: 1600,
           height: 2000,
         },
+        drop: null,
       },
     })
   })
@@ -118,6 +119,15 @@ describe('toProductCardVariant', () => {
     expect(result.quantityAvailable).toBeNull()
     expect(result.image?.altText).toBeNull()
     expect(result.product.tags).toEqual(['tees', 'drop'])
+  })
+
+  it('reads the drop window and per-order cap for a drop-tagged product (Phase 5)', () => {
+    expect(toProductCardVariant(tee).product.drop).toEqual({
+      start: '2026-09-06T13:00:00Z',
+      end: '2026-09-13T13:00:00Z',
+      maxPerOrder: 2,
+    })
+    expect(toProductCardVariant(hoodie).product.drop).toBeNull()
   })
 
   it('keeps a sold-out variant with a null image and the product featured image', () => {

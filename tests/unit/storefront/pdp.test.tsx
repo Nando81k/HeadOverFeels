@@ -45,6 +45,8 @@ vi.mock('next/navigation', () => ({
     throw new Error('NEXT_NOT_FOUND')
   }),
   redirect: (...args: unknown[]) => redirect(...args),
+  // The drop countdown island refreshes the route at zero.
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
 }))
 
 vi.mock('@/lib/shopify/env', async (importOriginal) => ({
@@ -859,6 +861,58 @@ describe('app/(storefront)/products/[handle]', () => {
     })
 
     expect(metadata.title).toBe('Not found')
+  })
+})
+
+describe('app/(storefront)/products/[handle] — drop state (Phase 5)', () => {
+  const call = (sp: Record<string, string> = { Size: 'M', Color: 'Black' }) =>
+    ProductPage({ params: Promise.resolve({ handle: 'core-hoodie' }), searchParams: Promise.resolve(sp) })
+  const dropProduct = (drop: ProductDetail['drop']): ProductDetail => ({
+    ...product,
+    tags: [...product.tags, 'drop'],
+    badges: [...product.badges, 'drop'],
+    drop,
+  })
+  const inDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString()
+
+  it('locks the buy box and the sticky bar while the drop is upcoming, with a countdown', async () => {
+    fetchProduct.mockResolvedValue(dropProduct({ start: inDays(3), end: null, maxPerOrder: 2 }))
+    const { container } = render(await call())
+
+    expect(container.querySelector('[data-drop-status="upcoming"]')).toBeInTheDocument()
+    expect(container.querySelector('[data-drop-countdown]')).toBeInTheDocument()
+    expect(container.querySelector('[data-early-access]')).toBeInTheDocument()
+
+    const buttons = container.querySelectorAll<HTMLButtonElement>('button[data-drop="locked"]')
+    expect(buttons).toHaveLength(2) // buy box + sticky bar
+    for (const button of buttons) {
+      expect(button).toBeDisabled()
+      expect(button).toHaveTextContent(/^Opens /)
+    }
+    // The drop badge is replaced by the status line, not doubled.
+    expect(screen.getAllByText('Drop')).toHaveLength(1)
+  })
+
+  it('sells a live drop normally', async () => {
+    fetchProduct.mockResolvedValue(dropProduct({ start: inDays(-3), end: inDays(3), maxPerOrder: 2 }))
+    const { container } = render(await call())
+
+    expect(container.querySelector('[data-drop-status="live"]')).toBeInTheDocument()
+    expect(screen.getByText('Live now')).toBeInTheDocument()
+    expect(container.querySelector('[data-early-access]')).toBeNull()
+    expect(container.querySelector('button[data-drop="locked"]')).toBeNull()
+    const form = container.querySelector('form#buy-box') as HTMLElement
+    expect(within(form).getByRole('button', { name: /add to cart/i })).toBeEnabled()
+  })
+
+  it('locks an ended drop with no gate', async () => {
+    fetchProduct.mockResolvedValue(dropProduct({ start: inDays(-10), end: inDays(-3), maxPerOrder: null }))
+    const { container } = render(await call())
+
+    expect(container.querySelector('[data-drop-status="ended"]')).toBeInTheDocument()
+    expect(container.querySelector('[data-early-access]')).toBeNull()
+    const form = container.querySelector('form#buy-box') as HTMLElement
+    expect(within(form).getByRole('button', { name: 'Drop ended' })).toBeDisabled()
   })
 })
 

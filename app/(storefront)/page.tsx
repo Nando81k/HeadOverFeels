@@ -8,6 +8,7 @@ import { NewsletterSection } from '@/components/storefront/home/NewsletterSectio
 import { ProductRail } from '@/components/storefront/home/ProductRail'
 import { Marquee } from '@/components/storefront/ui/Marquee'
 import { hasShopifyEnv } from '@/lib/shopify/env'
+import { dropState, formatDropDate, groupDrops } from '@/lib/storefront/drops'
 import { getHomeData } from '@/lib/storefront/home-data'
 import { FREE_SHIPPING_COPY } from '@/lib/storefront/shipping'
 
@@ -25,6 +26,9 @@ export const metadata: Metadata = {
 /** Promo ticker copy. Exported so the tests and e2e assert on one source. */
 export const HOME_MARQUEE_DEFAULT = `${FREE_SHIPPING_COPY} · Earn Care Points on every order`
 export const HOME_MARQUEE_DROP = 'Drop live — shop now'
+/** Marquee copy while the next drop is still counting down. */
+export const homeMarqueeUpcoming = (start: Date | null) =>
+  start ? `Drop opens ${formatDropDate(start)} — early access for members` : 'Drop coming soon'
 
 /**
  * Storefront home (design spec §5.4 row `/`).
@@ -51,14 +55,25 @@ export default async function HomePage() {
   }
 
   const data = await getHomeData()
-  const hasDrop = data.drops.length > 0
+
+  // The spotlight shows the live drop, else the next upcoming one (Phase 5).
+  const now = new Date()
+  const groups = groupDrops(data.drops, now)
+  const spotlight = groups.live.length > 0 ? groups.live : groups.upcoming
+  const spotlightView = spotlight[0] ? dropState(spotlight[0].drop ?? null, now) : null
+  const liveDrop = groups.live.length > 0
+  const marquee = liveDrop
+    ? HOME_MARQUEE_DROP
+    : spotlightView?.state === 'upcoming'
+      ? homeMarqueeUpcoming(spotlightView.start)
+      : HOME_MARQUEE_DEFAULT
 
   return (
     <>
       <Hero />
 
       <Marquee>
-        <span>{hasDrop ? HOME_MARQUEE_DROP : HOME_MARQUEE_DEFAULT}</span>
+        <span>{marquee}</span>
       </Marquee>
 
       <CollectionTiles collections={data.featuredCollections} />
@@ -70,7 +85,7 @@ export default async function HomePage() {
         products={data.newIn}
       />
 
-      <DropSpotlight products={data.drops} />
+      <DropSpotlight products={spotlight} view={spotlightView} />
 
       <ProductRail title="Best sellers" href="/collections/best-sellers" products={data.bestSellers} />
 

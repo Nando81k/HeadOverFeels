@@ -30,6 +30,11 @@ export interface AddToCartButtonProps {
   added?: boolean
   /** No cart backend (unconfigured store): disabled, `data-phase="unconfigured"`. */
   unconfigured?: boolean
+  /**
+   * The drop is not open for this visitor (Phase 5): disabled, outline, reads
+   * the given label ("Opens Sep 6" / "Drop ended"), `data-drop="locked"`.
+   */
+  locked?: { label: string } | null
   /** `submit` in the buy box; the sticky bar uses `button` and submits the form itself. */
   type?: 'submit' | 'button'
   onClick?: React.MouseEventHandler<HTMLButtonElement>
@@ -48,13 +53,15 @@ export function AddToCartButton({
   pending = false,
   added = false,
   unconfigured = false,
+  locked = null,
   type = 'submit',
   onClick,
   size = 'lg',
   className,
 }: AddToCartButtonProps) {
   let label: React.ReactNode = 'Add to cart'
-  if (soldOut) label = 'Sold out'
+  if (locked) label = locked.label
+  else if (soldOut) label = 'Sold out'
   else if (pending) label = 'Adding…'
   else if (added)
     label = (
@@ -67,10 +74,11 @@ export function AddToCartButton({
     <Button
       type={type}
       size={size}
-      variant={soldOut ? 'outline' : 'ink'}
-      disabled={disabled || soldOut || unconfigured}
-      loading={pending && !soldOut}
+      variant={soldOut || locked ? 'outline' : 'ink'}
+      disabled={disabled || soldOut || unconfigured || Boolean(locked)}
+      loading={pending && !soldOut && !locked}
       data-phase={unconfigured ? 'unconfigured' : undefined}
+      data-drop={locked ? 'locked' : undefined}
       data-added={added || undefined}
       onClick={onClick}
       className={cn('w-full', added && !soldOut && 'sf-pop bg-ok hover:bg-ok', className)}
@@ -94,6 +102,8 @@ export interface AddToCartPanelProps {
   action?: (formData: FormData) => void | Promise<void>
   /** Form id — the sticky bar submits it. Defaults to `buy-box`. */
   id?: string
+  /** Drop not open for this visitor (Phase 5): the button is locked with this label. */
+  locked?: { label: string } | null
 }
 
 /**
@@ -114,6 +124,7 @@ export function AddToCartPanel({
   complete,
   action,
   id = 'buy-box',
+  locked = null,
 }: AddToCartPanelProps) {
   const cart = useCartOptional()
   const stock = selected?.quantityAvailable ?? 0
@@ -141,7 +152,7 @@ export function AddToCartPanel({
   const soldOut = Boolean(selected && !selected.availableForSale)
   const unconfigured = cart ? cart.status === 'unavailable' : !action
   const intercept = Boolean(cart) && !unconfigured
-  const buyable = Boolean(selected) && complete && !soldOut && !unconfigured
+  const buyable = Boolean(selected) && complete && !soldOut && !unconfigured && !locked
   const carePoints = Math.floor(toNumber(price))
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -186,6 +197,7 @@ export function AddToCartPanel({
             soldOut={soldOut}
             disabled={!complete || !selected}
             unconfigured={unconfigured && !soldOut}
+            locked={locked}
             pending={adding}
             added={added}
             className="min-w-0 flex-1"

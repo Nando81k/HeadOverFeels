@@ -57,7 +57,12 @@ import { Editorial } from '@/components/storefront/home/Editorial'
 import { Hero, HERO_IMAGE } from '@/components/storefront/home/Hero'
 import { NewsletterSection } from '@/components/storefront/home/NewsletterSection'
 import { ProductRail } from '@/components/storefront/home/ProductRail'
-import HomePage, { HOME_MARQUEE_DEFAULT, HOME_MARQUEE_DROP } from '@/app/(storefront)/page'
+// The drop spotlight's countdown island (Phase 5) reads the app router.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
+}))
+
+import HomePage, { HOME_MARQUEE_DEFAULT, HOME_MARQUEE_DROP, homeMarqueeUpcoming } from '@/app/(storefront)/page'
 import { hasShopifyEnv } from '@/lib/shopify/env'
 import { getHomeData, type HomeData } from '@/lib/storefront/home-data'
 import {
@@ -361,6 +366,38 @@ describe('app/(storefront)/page', () => {
 
     expect(screen.getAllByText(HOME_MARQUEE_DROP).length).toBeGreaterThan(0)
     expect(screen.queryByText(HOME_MARQUEE_DEFAULT)).not.toBeInTheDocument()
+  })
+
+  it('announces an upcoming drop in the marquee and counts down in the spotlight (Phase 5)', async () => {
+    const start = new Date(Date.now() + 3 * 86_400_000)
+    homeDataMock.mockResolvedValue({
+      ...HOME_DATA,
+      drops: [{ ...PRODUCTS[0], drop: { start: start.toISOString(), end: null } }],
+    })
+
+    const { container } = render(await HomePage())
+
+    expect(screen.getAllByText(homeMarqueeUpcoming(start)).length).toBeGreaterThan(0)
+    expect(screen.queryByText(HOME_MARQUEE_DROP)).not.toBeInTheDocument()
+    expect(container.querySelector('[data-drop-countdown]')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Preview the drop' })).toHaveAttribute('href', '/drops')
+  })
+
+  it('spotlights the live drop over an upcoming one', async () => {
+    homeDataMock.mockResolvedValue({
+      ...HOME_DATA,
+      drops: [
+        { ...PRODUCTS[0], handle: 'next', drop: { start: new Date(Date.now() + 86_400_000).toISOString(), end: null } },
+        { ...PRODUCTS[1], handle: 'now', drop: { start: new Date(Date.now() - 86_400_000).toISOString(), end: null } },
+      ],
+    })
+
+    const { container } = render(await HomePage())
+
+    expect(screen.getAllByText(HOME_MARQUEE_DROP).length).toBeGreaterThan(0)
+    const panel = container.querySelector('[data-drop-panel]') as HTMLElement
+    expect(panel.querySelector('[data-product-handle="now"]')).toBeInTheDocument()
+    expect(panel.querySelector('[data-product-handle="next"]')).toBeNull()
   })
 
   it('keeps the promo marquee and hides the spotlight when there is no drop', async () => {

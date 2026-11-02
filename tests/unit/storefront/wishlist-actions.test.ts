@@ -306,7 +306,7 @@ describe('wishlistCardsAction', () => {
     compareAtPrice: null,
     selectedOptions: [],
     image: null,
-    product: { id: 'gid://shopify/Product/1', handle, title: 'Core Hoodie', tags: [], availableForSale: true, featuredImage: null },
+    product: { id: 'gid://shopify/Product/1', handle, title: 'Core Hoodie', tags: [], availableForSale: true, featuredImage: null, drop: null },
   })
 
   it('returns [] without fetching when no valid ids are given', async () => {

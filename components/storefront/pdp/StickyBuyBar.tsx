@@ -22,6 +22,8 @@ export interface StickyBuyBarProps {
   unavailable?: boolean
   /** Id of the `AddToCartPanel` form this bar submits. */
   targetId: string
+  /** Mirrors the buy box's drop lock (Phase 5). */
+  locked?: { label: string } | null
 }
 
 /**
@@ -52,6 +54,7 @@ export function StickyBuyBar({
   added: addedProp,
   unavailable: unavailableProp,
   targetId,
+  locked = null,
 }: StickyBuyBarProps) {
   const cart = useCartOptional()
   const [visible, setVisible] = React.useState(true)
@@ -136,6 +139,7 @@ export function StickyBuyBar({
         soldOut={soldOut}
         disabled={disabled}
         unconfigured={unavailable && !soldOut}
+        locked={locked}
         pending={pending}
         added={added}
         onClick={submitBuyBox}
