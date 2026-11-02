@@ -1,13 +1,12 @@
 # Social Login Setup Guide
 
-Head Over Feels supports social authentication through Google and GitHub using NextAuth.js v5.
+Head Over Feels supports social authentication through Google using NextAuth.js v5. GitHub was removed on 2026-10-20: a developer-platform login is out of place on a storefront, and customer sign-in is moving to the Shopify Customer Account API (storefront rebuild Phase 4).
 
 ## Overview
 
 Users can now sign in/sign up using:
 - **Email & Password** (existing system)
 - **Google** (OAuth 2.0)
-- **GitHub** (OAuth)
 
 ## Required Environment Variables
 
@@ -22,9 +21,6 @@ AUTH_SECRET=your-secret-here
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 
-# GitHub OAuth  
-GITHUB_CLIENT_ID=your-github-client-id
-GITHUB_CLIENT_SECRET=your-github-client-secret
 ```
 
 ## Setting Up Google OAuth
@@ -39,19 +35,6 @@ GITHUB_CLIENT_SECRET=your-github-client-secret
    - Production: `https://yourdomain.com/api/auth/callback/google`
 7. Copy the Client ID and Client Secret to your `.env.local`
 
-## Setting Up GitHub OAuth
-
-1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
-2. Click **New OAuth App**
-3. Fill in the application details:
-   - **Application name**: Head Over Feels
-   - **Homepage URL**: `http://localhost:3000` (or production URL)
-   - **Authorization callback URL**: 
-     - Development: `http://localhost:3000/api/auth/callback/github`
-     - Production: `https://yourdomain.com/api/auth/callback/github`
-4. Copy the Client ID
-5. Generate a new Client Secret and copy it
-6. Add both to your `.env.local`
 
 ## Architecture
 
@@ -111,7 +94,7 @@ model VerificationToken {
 
 ### OAuth Flow
 
-1. User clicks "Google" or "GitHub" button on signin page
+1. User clicks "Google" button on signin page
 2. NextAuth redirects to provider's OAuth consent screen
 3. User authorizes the application
 4. Provider redirects back with authorization code
@@ -140,7 +123,7 @@ The `AuthProvider` component:
 
 1. Start the development server: `npm run dev`
 2. Navigate to `/signin`
-3. Click "Google" or "GitHub" button
+3. Click "Google" button
 4. Complete OAuth flow
 5. Verify you're redirected back and authenticated
 

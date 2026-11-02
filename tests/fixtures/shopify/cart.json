@@ -1,0 +1,174 @@
+{
+  "cart": {
+    "id": "gid://shopify/Cart/Z2NwLXVzLWVhc3QxOjAxSjlYN0tQUjhNM1ZXNkZDUFFBRzBRMjFE?key=4f6c2a1b9e8d7c3f5a0b1e2d3c4f5a6b",
+    "checkoutUrl": "https://tgqucm-qg.myshopify.com/cart/c/Z2NwLXVzLWVhc3QxOjAxSjlYN0tQUjhNM1ZXNkZDUFFBRzBRMjFE?key=4f6c2a1b9e8d7c3f5a0b1e2d3c4f5a6b",
+    "totalQuantity": 2,
+    "note": "",
+    "buyerIdentity": {
+      "email": null,
+      "countryCode": "US",
+      "customer": null
+    },
+    "discountCodes": [
+      {
+        "code": "GOLD15",
+        "applicable": true
+      }
+    ],
+    "discountAllocations": [
+      {
+        "discountedAmount": {
+          "amount": "16.8",
+          "currencyCode": "USD"
+        }
+      }
+    ],
+    "cost": {
+      "subtotalAmount": {
+        "amount": "112.0",
+        "currencyCode": "USD"
+      },
+      "totalAmount": {
+        "amount": "95.2",
+        "currencyCode": "USD"
+      },
+      "checkoutChargeAmount": {
+        "amount": "95.2",
+        "currencyCode": "USD"
+      }
+    },
+    "lines": {
+      "nodes": [
+        {
+          "id": "gid://shopify/CartLine/6b1e4f2a-3c9d-4e7b-8a15-0d2f7c9e4b31?cart=Z2NwLXVzLWVhc3QxOjAxSjlYN0tQUjhNM1ZXNkZDUFFBRzBRMjFE",
+          "quantity": 1,
+          "attributes": [],
+          "cost": {
+            "totalAmount": {
+              "amount": "88.0",
+              "currencyCode": "USD"
+            },
+            "amountPerQuantity": {
+              "amount": "88.0",
+              "currencyCode": "USD"
+            },
+            "compareAtAmountPerQuantity": null
+          },
+          "discountAllocations": [],
+          "merchandise": {
+            "id": "gid://shopify/ProductVariant/45123456789005",
+            "title": "M / Taupe",
+            "sku": "HOF-CH-TPE-M",
+            "availableForSale": true,
+            "quantityAvailable": 12,
+            "price": {
+              "amount": "88.0",
+              "currencyCode": "USD"
+            },
+            "compareAtPrice": null,
+            "selectedOptions": [
+              {
+                "name": "Size",
+                "value": "M"
+              },
+              {
+                "name": "Color",
+                "value": "Taupe"
+              }
+            ],
+            "image": {
+              "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-taupe-front.jpg?v=1757116802",
+              "altText": "Core Hoodie in Taupe, front",
+              "width": 1600,
+              "height": 2000
+            },
+            "product": {
+              "id": "gid://shopify/Product/8123456789012",
+              "handle": "core-hoodie",
+              "title": "Core Hoodie",
+              "tags": [
+                "hoodies",
+                "new-arrival"
+              ],
+              "featuredImage": {
+                "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-black-front.jpg?v=1757116800",
+                "altText": "Core Hoodie in Black, front",
+                "width": 1600,
+                "height": 2000
+              },
+              "maxPerOrder": {
+                "value": "2"
+              }
+            }
+          }
+        },
+        {
+          "id": "gid://shopify/CartLine/c4a7d2e9-5f18-4b3c-9d60-7e1a2b8f5c94?cart=Z2NwLXVzLWVhc3QxOjAxSjlYN0tQUjhNM1ZXNkZDUFFBRzBRMjFE",
+          "quantity": 1,
+          "attributes": [],
+          "cost": {
+            "totalAmount": {
+              "amount": "24.0",
+              "currencyCode": "USD"
+            },
+            "amountPerQuantity": {
+              "amount": "24.0",
+              "currencyCode": "USD"
+            },
+            "compareAtAmountPerQuantity": {
+              "amount": "34.0",
+              "currencyCode": "USD"
+            }
+          },
+          "discountAllocations": [],
+          "merchandise": {
+            "id": "gid://shopify/ProductVariant/45123456789127",
+            "title": "L / Black",
+            "sku": "HOF-ST-BLK-L",
+            "availableForSale": true,
+            "quantityAvailable": 1,
+            "price": {
+              "amount": "24.0",
+              "currencyCode": "USD"
+            },
+            "compareAtPrice": {
+              "amount": "34.0",
+              "currencyCode": "USD"
+            },
+            "selectedOptions": [
+              {
+                "name": "Size",
+                "value": "L"
+              },
+              {
+                "name": "Color",
+                "value": "Black"
+              }
+            ],
+            "image": {
+              "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/signature-tee-black-front.jpg?v=1757289600",
+              "altText": "Signature Tee in Black, front",
+              "width": 1600,
+              "height": 2000
+            },
+            "product": {
+              "id": "gid://shopify/Product/8123456789014",
+              "handle": "signature-tee",
+              "title": "Signature Tee",
+              "tags": [
+                "tees"
+              ],
+              "featuredImage": {
+                "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/signature-tee-black-front.jpg?v=1757289600",
+                "altText": "Signature Tee in Black, front",
+                "width": 1600,
+                "height": 2000
+              },
+              "maxPerOrder": null
+            }
+          }
+        }
+      ]
+    }
+  }
+}

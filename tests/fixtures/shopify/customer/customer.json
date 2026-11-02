@@ -1,0 +1,14 @@
+{
+  "customer": {
+    "id": "gid://shopify/Customer/8123456789",
+    "emailAddress": { "emailAddress": "nando@example.com" },
+    "firstName": "Nando",
+    "lastName": "Alvarez",
+    "displayName": "Nando Alvarez",
+    "phoneNumber": { "phoneNumber": "+12125550123" },
+    "defaultAddress": {
+      "id": "gid://shopify/CustomerAddress/9312345678?model_name=CustomerAddress",
+      "formatted": ["Nando Alvarez", "221 Bowery", "Apt 4B", "New York NY 10012", "United States"]
+    }
+  }
+}

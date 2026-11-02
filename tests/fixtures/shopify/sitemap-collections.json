@@ -1,0 +1,15 @@
+{
+  "collections": {
+    "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": "eyJsYXN0X2lkIjo2MTIzNDU2Nzg5MDUsImxhc3RfdmFsdWUiOiJ0ZWVzIn0="
+    },
+    "nodes": [
+      { "handle": "all", "updatedAt": "2026-09-01T09:00:00Z" },
+      { "handle": "best-sellers", "updatedAt": "2026-09-01T09:05:00Z" },
+      { "handle": "drops", "updatedAt": "2026-09-02T09:00:00Z" },
+      { "handle": "hoodies", "updatedAt": "2026-09-01T09:10:00Z" },
+      { "handle": "tees", "updatedAt": "2026-09-01T09:15:00Z" }
+    ]
+  }
+}

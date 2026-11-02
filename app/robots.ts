@@ -20,8 +20,9 @@ export default function robots(): MetadataRoute.Robots {
           '/api/',             // API endpoints
           '/checkout/',        // Checkout flow
           '/cart/',            // Shopping cart
-          '/profile/',         // User profile
-          '/orders/',          // Order history
+          '/account/',         // Customer account (Phase 4)
+          '/profile/',         // legacy → /account
+          '/orders/',          // legacy → /account/orders
           '/signin/',          // Authentication
           '/_next/',           // Next.js internals
           '/order/confirmation', // Order confirmation
@@ -36,6 +37,7 @@ export default function robots(): MetadataRoute.Robots {
           '/api/',
           '/checkout/',
           '/cart/',
+          '/account/',
           '/profile/',
           '/orders/',
           '/signin/',

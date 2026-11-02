@@ -1,0 +1,24 @@
+{
+  "shop": {
+    "privacyPolicy": {
+      "handle": "privacy-policy",
+      "title": "Privacy Policy",
+      "body": "This Privacy Policy describes how Head Over Feels collects, uses, and discloses your personal information when you visit or make a purchase from our store."
+    },
+    "termsOfService": {
+      "handle": "terms-of-service",
+      "title": "Terms of Service",
+      "body": "By visiting our site and/or purchasing something from us, you engage in our Service and agree to be bound by these Terms of Service."
+    },
+    "refundPolicy": {
+      "handle": "refund-policy",
+      "title": "Refund Policy",
+      "body": "We accept returns within 30 days of delivery on unworn items with tags attached. Drop releases are final sale."
+    },
+    "shippingPolicy": {
+      "handle": "shipping-policy",
+      "title": "Shipping Policy",
+      "body": "Orders ship from Los Angeles within 2 business days. Domestic orders over $150 ship free."
+    }
+  }
+}

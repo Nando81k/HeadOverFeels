@@ -1,0 +1,185 @@
+{
+  "predictiveSearch": {
+    "products": [
+      {
+        "id": "gid://shopify/Product/8123456789012",
+        "handle": "core-hoodie",
+        "title": "Core Hoodie",
+        "availableForSale": true,
+        "tags": [
+          "hoodies",
+          "new-arrival"
+        ],
+        "featuredImage": {
+          "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-black-front.jpg?v=1757116800",
+          "altText": "Core Hoodie in Black, front",
+          "width": 1600,
+          "height": 2000
+        },
+        "images": {
+          "nodes": [
+            {
+              "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-black-front.jpg?v=1757116800",
+              "altText": "Core Hoodie in Black, front",
+              "width": 1600,
+              "height": 2000
+            },
+            {
+              "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/core-hoodie-black-back.jpg?v=1757116801",
+              "altText": "Core Hoodie in Black, back",
+              "width": 1600,
+              "height": 2000
+            }
+          ]
+        },
+        "priceRange": {
+          "minVariantPrice": {
+            "amount": "88.0",
+            "currencyCode": "USD"
+          }
+        },
+        "compareAtPriceRange": {
+          "minVariantPrice": {
+            "amount": "0.0",
+            "currencyCode": "USD"
+          }
+        },
+        "options": [
+          {
+            "name": "Size",
+            "optionValues": [
+              {
+                "name": "S",
+                "swatch": null
+              },
+              {
+                "name": "M",
+                "swatch": null
+              },
+              {
+                "name": "L",
+                "swatch": null
+              },
+              {
+                "name": "XL",
+                "swatch": null
+              }
+            ]
+          },
+          {
+            "name": "Color",
+            "optionValues": [
+              {
+                "name": "Black",
+                "swatch": {
+                  "color": "#1a1a1a"
+                }
+              },
+              {
+                "name": "Taupe",
+                "swatch": {
+                  "color": "#8c7b6b"
+                }
+              },
+              {
+                "name": "Bone",
+                "swatch": null
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "gid://shopify/Product/8123456789013",
+        "handle": "drop-01-heavyweight-crew",
+        "title": "Drop 01 Heavyweight Crew",
+        "availableForSale": true,
+        "tags": [
+          "drop",
+          "new-arrival",
+          "sweatshirts"
+        ],
+        "featuredImage": {
+          "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/drop-01-heavyweight-crew-front.jpg?v=1757203200",
+          "altText": "Drop 01 Heavyweight Crew, front",
+          "width": 1600,
+          "height": 2000
+        },
+        "images": {
+          "nodes": [
+            {
+              "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/drop-01-heavyweight-crew-front.jpg?v=1757203200",
+              "altText": "Drop 01 Heavyweight Crew, front",
+              "width": 1600,
+              "height": 2000
+            },
+            {
+              "url": "https://cdn.shopify.com/s/files/1/0812/3456/7890/files/drop-01-heavyweight-crew-back.jpg?v=1757203201",
+              "altText": "Drop 01 Heavyweight Crew, back",
+              "width": 1600,
+              "height": 2000
+            }
+          ]
+        },
+        "priceRange": {
+          "minVariantPrice": {
+            "amount": "128.0",
+            "currencyCode": "USD"
+          }
+        },
+        "compareAtPriceRange": {
+          "minVariantPrice": {
+            "amount": "0.0",
+            "currencyCode": "USD"
+          }
+        },
+        "options": [
+          {
+            "name": "Size",
+            "optionValues": [
+              {
+                "name": "S",
+                "swatch": null
+              },
+              {
+                "name": "M",
+                "swatch": null
+              },
+              {
+                "name": "L",
+                "swatch": null
+              },
+              {
+                "name": "XL",
+                "swatch": null
+              }
+            ]
+          },
+          {
+            "name": "Color",
+            "optionValues": [
+              {
+                "name": "Bone",
+                "swatch": {
+                  "color": "#e8e2d9"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "collections": [
+      {
+        "id": "gid://shopify/Collection/612345678904",
+        "handle": "hoodies",
+        "title": "Hoodies"
+      },
+      {
+        "id": "gid://shopify/Collection/612345678903",
+        "handle": "drops",
+        "title": "Drops"
+      }
+    ]
+  }
+}

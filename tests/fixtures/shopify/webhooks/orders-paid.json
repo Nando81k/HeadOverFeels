@@ -1,0 +1,62 @@
+{
+  "id": 6213458182369,
+  "admin_graphql_api_id": "gid://shopify/Order/6213458182369",
+  "name": "#1042",
+  "order_number": 1042,
+  "email": "nando@example.com",
+  "contact_email": "nando@example.com",
+  "currency": "USD",
+  "financial_status": "paid",
+  "fulfillment_status": null,
+  "current_subtotal_price": "176.00",
+  "current_total_discounts": "25.00",
+  "current_total_price": "151.00",
+  "current_total_tax": "0.00",
+  "subtotal_price": "176.00",
+  "total_discounts": "25.00",
+  "total_price": "151.00",
+  "created_at": "2026-10-11T14:02:11-04:00",
+  "processed_at": "2026-10-11T14:02:11-04:00",
+  "updated_at": "2026-10-11T14:02:12-04:00",
+  "discount_codes": [
+    { "code": "HOF-DISC-K7M2P9", "amount": "25.00", "type": "fixed_amount" }
+  ],
+  "discount_applications": [
+    {
+      "target_type": "line_item",
+      "type": "discount_code",
+      "value": "25.0",
+      "value_type": "fixed_amount",
+      "allocation_method": "across",
+      "target_selection": "all",
+      "code": "HOF-DISC-K7M2P9"
+    }
+  ],
+  "customer": {
+    "id": 8125374129377,
+    "admin_graphql_api_id": "gid://shopify/Customer/8125374129377",
+    "email": "nando@example.com",
+    "first_name": "Nando",
+    "last_name": "Rivera",
+    "state": "enabled",
+    "verified_email": true,
+    "currency": "USD"
+  },
+  "line_items": [
+    {
+      "id": 14903212310753,
+      "admin_graphql_api_id": "gid://shopify/LineItem/14903212310753",
+      "name": "Core Hoodie - Taupe / M",
+      "title": "Core Hoodie",
+      "variant_title": "Taupe / M",
+      "variant_id": 45123456789005,
+      "product_id": 8721345678901,
+      "quantity": 2,
+      "price": "88.00",
+      "sku": "HOF-CORE-TAUPE-M"
+    }
+  ],
+  "shipping_lines": [
+    { "id": 5012345678901, "title": "Standard", "price": "0.00", "code": "Standard" }
+  ]
+}

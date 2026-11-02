@@ -1,0 +1,58 @@
+/*
+ * Storefront base styles.
+ *
+ * Everything is scoped to [data-surface="storefront"] so admin and the legacy
+ * storefront (which still rely on styles/admin/tokens.css) are untouched.
+ *
+ * Note: the legacy mobile `body { padding-bottom: … }` rule in
+ * styles/admin/tokens.css is intentionally NOT overridden here — the body
+ * element is shared, and Phase 6 deletes that rule with the rest of legacy.
+ */
+@layer base {
+  [data-surface="storefront"] {
+    background-color: var(--color-bone);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  [data-surface="storefront"] *:focus-visible {
+    outline: 2px solid var(--color-signal);
+    outline-offset: 2px;
+  }
+
+  [data-surface="storefront"] ::selection {
+    background-color: var(--color-signal);
+    color: var(--color-signal-ink);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-surface="storefront"] * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Tabular numerals for prices, countdowns and order numbers. */
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Tailwind v4 has no `--duration-*` theme namespace, so the storefront motion
+ * tokens are exposed as explicit utilities here. `ease-sf-*` are generated
+ * from the theme automatically.
+ */
+@utility duration-sf-fast {
+  transition-duration: var(--duration-sf-fast);
+}
+@utility duration-sf-base {
+  transition-duration: var(--duration-sf-base);
+}
+@utility duration-sf-slow {
+  transition-duration: var(--duration-sf-slow);
+}

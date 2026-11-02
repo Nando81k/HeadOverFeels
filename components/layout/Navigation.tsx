@@ -5,7 +5,6 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { useCartStore } from '@/lib/store/cart'
 import { useAuth } from '@/lib/auth/context'
 import { WishlistIcon } from '@/components/wishlist/WishlistIcon'
 import { NotificationCenter } from '@/components/notifications/NotificationCenter'
@@ -32,7 +31,6 @@ import {
 import { calculateTierProgressWithTiers, getTierFromPoints } from '@/lib/loyalty/tier-progress'
 import { buildTierGradient, hexToRgba, resolveTierTheme } from '@/lib/loyalty/tier-theme'
 import { getPrimaryImageWithFallback, parseImageList, resolveColorHex } from '@/lib/commerce/product-placeholders'
-import { MiniCart } from '@/components/cart/MiniCart'
 
 // Animated counter component for smooth number transitions
 function AnimatedPoints({ value, previousValue }: { value: number; previousValue: number | null }) {
@@ -187,7 +185,6 @@ export function Navigation() {
   const shouldReduceMotion = useReducedMotion()
   const [mounted, setMounted] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [miniCartOpen, setMiniCartOpen] = useState(false)
   const [shopDropdownOpen, setShopDropdownOpen] = useState(false)
   const [shopDropdownPinned, setShopDropdownPinned] = useState(false)
   const [shopMenuFocusTarget, setShopMenuFocusTarget] = useState<'first' | 'last' | null>(null)
@@ -213,7 +210,6 @@ export function Navigation() {
   const shopMenuLastItemRef = useRef<HTMLAnchorElement>(null)
   const shopDropdownOpenTimerRef = useRef<number | null>(null)
   const shopDropdownCloseTimerRef = useRef<number | null>(null)
-  const cartItemCount = useCartStore(state => mounted ? state.getTotalItems() : 0)
   const { user, loading: authLoading, signout } = useAuth()
 
   useEffect(() => {
@@ -1168,19 +1164,15 @@ export function Navigation() {
                 <WishlistIcon />
               </div>
               
-              {/* Cart - Desktop only */}
-              <button
-                onClick={() => setMiniCartOpen(true)}
+              {/* Cart - Desktop only. The Shopify cart lives at /cart (Phase 3);
+                  the legacy chrome has no live count. */}
+              <Link
+                href="/cart"
                 className="hidden lg:flex relative p-2.5 text-black/50 hover:text-black hover:bg-black/5 transition-all duration-200"
-                aria-label="Shopping cart"
+                aria-label="Cart"
               >
                 <Bag size={22} weight="bold" />
-                {cartItemCount > 0 && (
-                  <span className="absolute top-0 right-0 bg-black text-white text-[10px] font-black h-[18px] min-w-[18px] px-1 flex items-center justify-center">
-                    {cartItemCount > 9 ? '9+' : cartItemCount}
-                  </span>
-                )}
-              </button>
+              </Link>
 
               {/* Sign In (Desktop) */}
               {!authLoading && (
@@ -1220,8 +1212,6 @@ export function Navigation() {
 
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
 
-
-      <MiniCart open={miniCartOpen} onClose={() => setMiniCartOpen(false)} />
       <MobileBottomNav onSearchClick={() => setSearchOpen(true)} />
     </>
   )

@@ -1,0 +1,58 @@
+{
+  "customer": {
+    "orders": {
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "eyJsYXN0X2lkIjo2MTIzNDUwMDA3LCJsYXN0X3ZhbHVlIjoiMjAyNi0wOS0xMiAxNDowMzoxMSJ9"
+      },
+      "nodes": [
+        {
+          "id": "gid://shopify/Order/6123456789",
+          "name": "#1012",
+          "number": 1012,
+          "processedAt": "2026-10-06T15:42:10Z",
+          "financialStatus": "PAID",
+          "statusPageUrl": "https://tgqucm-qg.myshopify.com/85215183073/orders/8d3f0b1c2e4a5f6b7c8d9e0f1a2b3c4d/authenticate?key=0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "fulfillments": { "nodes": [{ "status": "SUCCESS" }] },
+          "totalPrice": { "amount": "162.88", "currencyCode": "USD" },
+          "lineItems": {
+            "nodes": [
+              {
+                "id": "gid://shopify/LineItem/15123456789",
+                "title": "Core Hoodie",
+                "quantity": 2,
+                "image": {
+                  "url": "https://cdn.shopify.com/s/files/1/0852/1518/3073/files/core-hoodie-taupe-front.jpg?v=1757188800",
+                  "altText": "Core Hoodie in Taupe, front"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "gid://shopify/Order/6123450007",
+          "name": "#1007",
+          "number": 1007,
+          "processedAt": "2026-09-12T14:03:11Z",
+          "financialStatus": "PAID",
+          "statusPageUrl": "https://tgqucm-qg.myshopify.com/85215183073/orders/5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b/authenticate?key=f9e8d7c6b5a49382716050403020100f",
+          "fulfillments": { "nodes": [{ "status": "SUCCESS" }] },
+          "totalPrice": { "amount": "32.13", "currencyCode": "USD" },
+          "lineItems": {
+            "nodes": [
+              {
+                "id": "gid://shopify/LineItem/15123450007",
+                "title": "Signature Tee",
+                "quantity": 1,
+                "image": {
+                  "url": "https://cdn.shopify.com/s/files/1/0852/1518/3073/files/signature-tee-black-front.jpg?v=1757188800",
+                  "altText": "Signature Tee in Black, front"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

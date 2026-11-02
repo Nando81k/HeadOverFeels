@@ -1,0 +1,45 @@
+{
+  "customer": {
+    "defaultAddress": { "id": "gid://shopify/CustomerAddress/9312345678?model_name=CustomerAddress" },
+    "addresses": {
+      "nodes": [
+        {
+          "id": "gid://shopify/CustomerAddress/9312345678?model_name=CustomerAddress",
+          "firstName": "Nando",
+          "lastName": "Alvarez",
+          "company": null,
+          "address1": "221 Bowery",
+          "address2": "Apt 4B",
+          "city": "New York",
+          "province": "New York",
+          "zoneCode": "NY",
+          "territoryCode": "US",
+          "zip": "10012",
+          "phoneNumber": "+12125550123",
+          "formatted": ["Nando Alvarez", "221 Bowery", "Apt 4B", "New York NY 10012", "United States"]
+        },
+        {
+          "id": "gid://shopify/CustomerAddress/9312345690?model_name=CustomerAddress",
+          "firstName": "Nando",
+          "lastName": "Alvarez",
+          "company": "Head Over Feels Studio",
+          "address1": "47 Greenpoint Ave",
+          "address2": null,
+          "city": "Brooklyn",
+          "province": "New York",
+          "zoneCode": "NY",
+          "territoryCode": "US",
+          "zip": "11222",
+          "phoneNumber": null,
+          "formatted": [
+            "Nando Alvarez",
+            "Head Over Feels Studio",
+            "47 Greenpoint Ave",
+            "Brooklyn NY 11222",
+            "United States"
+          ]
+        }
+      ]
+    }
+  }
+}
