@@ -7,6 +7,7 @@ import { cn } from '@/lib/storefront/cn'
 import { Badge } from '@/components/storefront/ui/Badge'
 import { Button } from '@/components/storefront/ui/Button'
 import { Price } from '@/components/storefront/ui/Price'
+import { ProductPlaceholder } from '@/components/storefront/ui/ProductPlaceholder'
 import { Skeleton } from '@/components/storefront/ui/Skeleton'
 import { SwatchDots } from './SwatchDots'
 
@@ -60,6 +61,9 @@ export function ProductCard({
             data-soldout={soldOut ? '' : undefined}
             className={cn(
               'relative aspect-[4/5] overflow-hidden rounded-sharp bg-line',
+              // The media box lifts a touch on hover; the photo inside zooms
+              // slowly, so the card reads as physical rather than flat.
+              'transition-transform duration-sf-slow ease-sf-out motion-safe:group-hover:-translate-y-1',
               soldOut && 'opacity-60'
             )}
           >
@@ -70,10 +74,10 @@ export function ProductCard({
                 fill
                 sizes={sizes}
                 priority={priority}
-                className="object-cover"
+                className="object-cover transition-transform duration-[900ms] ease-sf-out motion-safe:group-hover:scale-[1.06]"
               />
             ) : (
-              <div aria-hidden="true" className="absolute inset-0 bg-line" />
+              <ProductPlaceholder seed={handle} />
             )}
             {image && hoverImage ? (
               <Image
@@ -83,11 +87,13 @@ export function ProductCard({
                 data-hover=""
                 fill
                 sizes={sizes}
-                className="absolute inset-0 object-cover opacity-0 transition-opacity duration-sf-base ease-sf-out group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none"
+                className="absolute inset-0 object-cover opacity-0 transition-[opacity,transform] duration-sf-slow ease-sf-out group-hover:opacity-100 group-focus-within:opacity-100 motion-safe:group-hover:scale-[1.06] motion-reduce:transition-none"
               />
             ) : null}
           </div>
-          <h3 className="mt-3 text-sm font-medium text-ink">{title}</h3>
+          <h3 className="mt-3 text-sm font-medium text-ink transition-colors duration-sf-fast ease-sf-out group-hover:text-signal">
+            {title}
+          </h3>
         </Link>
 
         {/* Pinned to the media box only (same aspect ratio), so the quick-add

@@ -1,3 +1,4 @@
+import * as React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Badge } from '@/components/storefront/ui/Badge'
@@ -37,21 +38,29 @@ export function Hero({ image = HERO_IMAGE, className }: HeroProps) {
       className={cn('bg-bone text-ink', className)}
     >
       <div className="grid min-h-[calc(100svh-4rem)] grid-cols-1 lg:grid-cols-2">
-        <div className="relative aspect-[4/5] w-full lg:aspect-auto lg:h-full">
-          <Image
-            src={image.src}
-            alt={image.alt}
-            fill
-            priority
-            sizes="(min-width:1024px) 50vw, 100vw"
-            className="object-cover"
-          />
-          <Badge variant="drop" className="absolute bottom-4 left-4">
+        <div className="relative aspect-[4/5] w-full overflow-hidden lg:aspect-auto lg:h-full">
+          {/* The still settles from a slight zoom on load and drifts up as the
+              page scrolls (motion.css `sf-parallax`, scroll-driven, no JS). */}
+          <div className="sf-parallax absolute inset-0">
+            <Image
+              src={image.src}
+              alt={image.alt}
+              fill
+              priority
+              sizes="(min-width:1024px) 50vw, 100vw"
+              className="sf-settle object-cover"
+            />
+          </div>
+          <Badge
+            variant="drop"
+            className="sf-rise absolute bottom-4 left-4"
+            style={{ '--sf-i': 5 } as React.CSSProperties}
+          >
             Heavyweight fleece
           </Badge>
         </div>
 
-        <div className="flex flex-col justify-center gap-6 px-gutter py-section">
+        <div className="sf-stagger flex flex-col justify-center gap-6 px-gutter py-section">
           <Eyebrow>Fall / Winter 26</Eyebrow>
 
           <Display id="home-hero-title" size="xl" className="max-w-[12ch]">

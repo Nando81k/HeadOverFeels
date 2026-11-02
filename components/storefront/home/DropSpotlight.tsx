@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Reveal } from '@/components/storefront/motion/Reveal'
 import { ProductGrid } from '@/components/storefront/product/ProductGrid'
 import { Button } from '@/components/storefront/ui/Button'
 import { Section } from '@/components/storefront/ui/Section'
@@ -23,7 +24,7 @@ export function DropSpotlight({ products, className }: DropSpotlightProps) {
 
   return (
     <Section tone="ink" aria-labelledby="home-drop" className={className}>
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+      <Reveal className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex flex-col gap-4">
           <Eyebrow className="text-bone/70">Drop</Eyebrow>
           <Display as="h2" id="home-drop" size="lg" className="text-bone">
@@ -35,11 +36,11 @@ export function DropSpotlight({ products, className }: DropSpotlightProps) {
         <Button asChild variant="signal">
           <Link href="/drops">See the drop</Link>
         </Button>
-      </div>
+      </Reveal>
 
-      <div data-drop-panel="" className="mt-10 rounded-sharp bg-bone p-4 text-ink">
+      <Reveal variant="zoom" delay={120} data-drop-panel="" className="mt-10 rounded-sharp bg-bone p-4 text-ink">
         <ProductGrid products={products} columns={4} />
-      </div>
+      </Reveal>
     </Section>
   )
 }

@@ -20,6 +20,12 @@
  *   endpoint. The dev server finds it through
  *   `SHOPIFY_CUSTOMER_ACCOUNT_ISSUER=http://127.0.0.1:4443/customer`.
  * - GET /health -> 200 (Playwright's readiness probe).
+ * - `--serve-images`: rewrite the fixtures' `https://cdn.shopify.com/...` image
+ *   URLs to the matching `/assets/*.png` in `public/`, so the pictures actually
+ *   load through `next/image` as local files (`npm run dev:mock`; the
+ *   optimizer refuses loopback upstreams, so pointing at this mock would not
+ *   do). The e2e suite leaves it off and filters the resulting 404s instead
+ *   (see `tests/e2e/support/console.ts`).
  *
  * Test-only; no dependencies; exports nothing.
  */
@@ -35,6 +41,7 @@ const FIXTURES = path.join(REPO, 'tests/fixtures/shopify')
 const ASSETS = path.join(REPO, 'public/assets')
 const portArg = process.argv.indexOf('--port')
 const PORT = Number(portArg > -1 ? process.argv[portArg + 1] : process.env.MOCK_PORT || 4443)
+const SERVE_IMAGES = process.argv.includes('--serve-images')
 const CHECKOUT_ORIGIN = 'https://tgqucm-qg.myshopify.com'
 const CUSTOMER_MOUNT = '/customer'
 
@@ -478,7 +485,15 @@ async function handler(req, res) {
       return sendJson(res, 200, { errors: [{ message: `mock: unknown operation ${op}` }] })
     }
     log(`${op} ${describe(vars)}`.trimEnd())
-    return sendJson(res, 200, { data: resolver(vars) })
+    const data = resolver(vars)
+    if (SERVE_IMAGES) {
+      const json = JSON.stringify({ data }).replace(
+        /https:\/\/cdn\.shopify\.com\/s\/files\/[^"?]*\/([^"?/]+\.(?:jpe?g|png|webp))(\?[^"]*)?/gi,
+        (_match, filename) => `/assets/${assetFor(filename).name}`
+      )
+      return sendJson(res, 200, JSON.parse(json))
+    }
+    return sendJson(res, 200, { data })
   }
 
   if ((req.method === 'GET' || req.method === 'HEAD') && url.pathname.startsWith('/s/files/') && /\.(jpe?g|png|webp)$/i.test(url.pathname)) {

@@ -45,7 +45,7 @@ export default async function DropsPage() {
   return (
     <>
       <Section tone="ink">
-        <div className="flex max-w-3xl flex-col gap-4">
+        <div className="sf-stagger flex max-w-3xl flex-col gap-4">
           <Eyebrow className="text-bone/70">Limited runs</Eyebrow>
           <Display as="h1" size="lg">
             Drops

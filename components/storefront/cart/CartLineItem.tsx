@@ -7,6 +7,7 @@ import { cn } from '@/lib/storefront/cn'
 import { formatMoney } from '@/lib/storefront/money'
 import { Badge } from '@/components/storefront/ui/Badge'
 import { Price } from '@/components/storefront/ui/Price'
+import { ProductPlaceholder } from '@/components/storefront/ui/ProductPlaceholder'
 import { QuantityStepper } from '@/components/storefront/ui/QuantityStepper'
 import { useCart } from './useCart'
 
@@ -94,7 +95,9 @@ export function CartLineItem({ line, variant = 'drawer', pending = false, classN
         <div className="relative aspect-[4/5] w-full overflow-hidden rounded-sharp bg-line">
           {image ? (
             <Image src={image.url} alt="" fill sizes={size.sizes} className="object-cover" />
-          ) : null}
+          ) : (
+            <ProductPlaceholder seed={product.handle} />
+          )}
         </div>
       </Link>
 

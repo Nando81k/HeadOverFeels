@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { ProductCardData } from '@/lib/shopify/types'
 import { cn } from '@/lib/storefront/cn'
+import { Reveal } from '@/components/storefront/motion/Reveal'
 import { ProductCard, ProductCardSkeleton } from './ProductCard'
 
 const COLUMN_CLASS = {
@@ -61,8 +62,12 @@ export function ProductGrid({
       ) : null}
 
       {!loading
-        ? products.map((product) => (
-            <ProductCard key={product.id} product={product} onQuickAdd={onQuickAdd} />
+        ? products.map((product, index) => (
+            // Delay only within the first row-ish so a long grid never waits on
+            // cards far above; later rows reveal as they scroll in.
+            <Reveal key={product.id} delay={(index % columns) * 60}>
+              <ProductCard product={product} onQuickAdd={onQuickAdd} />
+            </Reveal>
           ))
         : null}
     </div>

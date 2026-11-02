@@ -71,8 +71,9 @@ export function AddToCartButton({
       disabled={disabled || soldOut || unconfigured}
       loading={pending && !soldOut}
       data-phase={unconfigured ? 'unconfigured' : undefined}
+      data-added={added || undefined}
       onClick={onClick}
-      className={cn('w-full', className)}
+      className={cn('w-full', added && !soldOut && 'sf-pop bg-ok hover:bg-ok', className)}
     >
       {label}
     </Button>
