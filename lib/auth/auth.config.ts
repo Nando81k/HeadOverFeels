@@ -1,6 +1,5 @@
 import type { NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
-import GitHub from 'next-auth/providers/github';
 import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
@@ -49,16 +48,9 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   );
 }
 
-// Only add GitHub OAuth if credentials are configured
-if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
-  providers.push(
-    GitHub({
-      clientId: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
-      allowDangerousEmailAccountLinking: true,
-    })
-  );
-}
+// GitHub is deliberately not offered: a developer-platform login is out of
+// place on a storefront (Nando, 2026-10-20). Customer sign-in is moving to the
+// Shopify Customer Account API; NextAuth here is for admin + Google only.
 
 // Email/Password credentials (always available)
 providers.push(

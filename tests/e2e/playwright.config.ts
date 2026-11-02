@@ -56,10 +56,14 @@ const MOCK_ORIGIN = `127.0.0.1:${MOCK_PORT}`
 const REPO_ROOT = path.resolve(__dirname, '../..')
 
 /**
- * Two servers: the Storefront API mock (fixtures + in-memory carts) and the
- * Next dev server pointed at it. No Shopify secrets are needed — the suite is
+ * Two servers: the Storefront API mock (fixtures + in-memory carts + the
+ * Customer Account OIDC/GraphQL mock under `/customer`) and the Next dev
+ * server pointed at it. No Shopify secrets are needed — the suite is
  * hermetic. `SHOPIFY_STOREFRONT_INSECURE_LOCAL=1` lets `lib/shopify/client.ts`
- * call the mock over `http://` (it only applies to localhost/127.0.0.1).
+ * call the mock over `http://` (it only applies to localhost/127.0.0.1);
+ * `SHOPIFY_CUSTOMER_ACCOUNT_ISSUER` points OIDC discovery at the mock, and the
+ * client id / shop id / base URL make `hasCustomerAccountEnv()` true so the
+ * account routes, header chip and wishlist run their configured paths.
  */
 const webServer: PlaywrightTestConfig['webServer'] = externalBaseURL
   ? undefined
@@ -83,6 +87,12 @@ const webServer: PlaywrightTestConfig['webServer'] = externalBaseURL
           SHOPIFY_STOREFRONT_PRIVATE_TOKEN: 'mock',
           NEXT_PUBLIC_SHOPIFY_STOREFRONT_PUBLIC_TOKEN: 'mock',
           SHOPIFY_STOREFRONT_INSECURE_LOCAL: '1',
+          // Customer Account API (Phase 4) against the mock's `/customer` mount.
+          SHOPIFY_CUSTOMER_ACCOUNT_CLIENT_ID: 'mock',
+          SHOPIFY_CUSTOMER_ACCOUNT_SHOP_ID: '85215183073',
+          SHOPIFY_CUSTOMER_ACCOUNT_ISSUER: `http://${MOCK_ORIGIN}/customer`,
+          NEXT_PUBLIC_BASE_URL: DEFAULT_BASE_URL,
+          CUSTOMER_SESSION_SECRET: 'e2e-secret',
           // The legacy root `Providers` still mount next-auth's SessionProvider,
           // which 500s on `/api/auth/session` without a secret. A placeholder keeps
           // the smoke run's console clean until Phase 6 removes NextAuth.
@@ -96,6 +106,14 @@ export default defineConfig({
   testDir: __dirname,
   timeout: 30_000,
   retries: isCI ? 1 : 0,
+  /**
+   * One worker in CI: two workers hit `next dev` with first-time compiles of
+   * different routes at once, and the resulting Fast Refresh can drop a
+   * pending client transition (seen as the cart drawer never opening on a
+   * cold cache: 2 workers failed 3/3 cold runs, 1 worker passed). Locally the
+   * cache is warm and the default parallelism is fine.
+   */
+  workers: isCI ? 1 : undefined,
   reporter,
   use: {
     baseURL,

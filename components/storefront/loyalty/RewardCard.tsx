@@ -1,5 +1,4 @@
 import * as React from 'react'
-import Link from 'next/link'
 import type { RewardView, RewardViewType } from '@/lib/loyalty/shopify-bridge'
 import { Badge, type BadgeProps } from '@/components/storefront/ui/Badge'
 import { Button } from '@/components/storefront/ui/Button'
@@ -86,7 +85,8 @@ export function RewardCard({ reward, mode, onRedeem, className }: RewardCardProp
         </Button>
       ) : mode === 'signed-out' ? (
         <Button asChild variant="outline" className="w-full">
-          <Link href={LOYALTY_SIGN_IN_HREF}>Sign in to redeem</Link>
+          {/* Plain anchor: the login route 302s to Shopify (see `SignInGate`). */}
+          <a href={LOYALTY_SIGN_IN_HREF}>Sign in to redeem</a>
         </Button>
       ) : null}
     </article>

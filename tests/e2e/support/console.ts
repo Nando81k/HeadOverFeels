@@ -16,11 +16,18 @@ import type { Page } from '@playwright/test'
  *   `Providers` still fire on every page for signed-out visitors, and that
  *   probe's "Failed to fetch current user" log when a navigation aborts it;
  * - next-auth's `ClientFetchError` when a navigation aborts the legacy
- *   `SessionProvider`'s in-flight `/api/auth/session` fetch.
+ *   `SessionProvider`'s in-flight `/api/auth/session` fetch;
+ * - server-side `console.error` lines that `next dev` mirrors into the browser
+ *   console when a Prisma call fails because the hermetic run has no database
+ *   (`Environment variable not found: DATABASE_URL` locally, `Can't reach
+ *   database server` with CI's placeholder URL). The storefront tolerates a
+ *   missing database by design (loyalty public data, the Care Points slice,
+ *   earlier orders, the customer link, the server wishlist all degrade and
+ *   log), so these are expected here and never a storefront regression.
  * Phase 6 removes both legacy providers.
  */
 export const IGNORED_CONSOLE_ERRORS =
-  /React DevTools|Fast Refresh|hydrat|status of 401 \(Unauthorized\)|Failed to fetch current user|errors\.authjs\.dev#autherror/i
+  /React DevTools|Fast Refresh|hydrat|status of 401 \(Unauthorized\)|Failed to fetch current user|errors\.authjs\.dev#autherror|Environment variable not found: DATABASE_URL|Can't reach database server/i
 
 /**
  * Legacy endpoints the root `Providers` still call on every page (`AuthProvider`

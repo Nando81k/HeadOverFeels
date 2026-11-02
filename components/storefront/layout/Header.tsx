@@ -56,7 +56,26 @@ export function refreshHrefFor(pathname: string | null): string {
   return `/account/refresh?return_to=${encodeURIComponent(pathname || '/account')}`
 }
 
+/**
+ * `/account` is a page and gets a `next/link`; `/account/login` and
+ * `/account/refresh` are route handlers that 302 to Shopify and get a plain
+ * anchor, otherwise the soft navigation follows the redirect cross-origin,
+ * hits CORS and logs an error before falling back to a full navigation.
+ */
+function isRouteHandlerHref(href: string): boolean {
+  return href.startsWith('/account/login') || href.startsWith('/account/refresh')
+}
+
 function AccountIconLink({ href }: { href: string }) {
+  if (isRouteHandlerHref(href)) {
+    return (
+      <IconButton asChild label="Account">
+        <a href={href}>
+          <User aria-hidden="true" className="size-5" />
+        </a>
+      </IconButton>
+    )
+  }
   return (
     <IconButton asChild label="Account">
       <Link href={href}>

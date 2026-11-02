@@ -214,9 +214,10 @@ export function WishlistPage() {
       {status === 'guest' ? (
         <p data-wishlist-guest="" className={cn(NOTICE_CLASS, 'mb-6')}>
           <span>Sign in to keep this list on every device.</span>
-          <Link href={SIGN_IN_HREF} className={LINK_CLASS}>
+          {/* Plain anchor: the login route 302s to Shopify (see `SignInGate`). */}
+          <a href={SIGN_IN_HREF} className={LINK_CLASS}>
             Sign in
-          </Link>
+          </a>
         </p>
       ) : null}
 
