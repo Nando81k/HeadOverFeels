@@ -645,7 +645,10 @@ model CartReservation {
 
 model Review {
   id                 String              @id @default(cuid())
-  productId          String
+  /// Legacy catalog key; nullable since Phase 5 (reviews are keyed by `productHandle`).
+  productId          String?
+  /// Shopify product handle (= legacy `Product.slug`). Storefront V2 reads and writes this.
+  productHandle      String?
   customerId         String?
   orderId            String?
   rating             Int
@@ -669,9 +672,10 @@ model Review {
   pointsTransactions PointsTransaction[]
   customer           Customer?           @relation(fields: [customerId], references: [id])
   order              Order?              @relation(fields: [orderId], references: [id])
-  product            Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product            Product?            @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId, status])
+  @@index([productHandle, status])
   @@index([customerId])
   @@map("reviews")
 }

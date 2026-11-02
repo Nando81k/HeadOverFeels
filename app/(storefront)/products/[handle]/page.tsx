@@ -7,6 +7,7 @@ import { hasShopifyEnv } from '@/lib/shopify/env'
 import { getProduct } from '@/lib/shopify/queries/product'
 import { getRecommendations } from '@/lib/shopify/queries/recommendations'
 import { dropState, isDropOpen, lockedButtonLabel } from '@/lib/storefront/drops'
+import { getReviewSummary, listReviews } from '@/lib/storefront/reviews'
 import { siteUrl, stripHtml, truncate } from '@/lib/storefront/seo'
 import { selectVariant } from '@/lib/storefront/variants'
 import { CatalogUnavailable } from '@/components/storefront/CatalogUnavailable'
@@ -17,6 +18,8 @@ import { DetailsAccordion } from '@/components/storefront/pdp/DetailsAccordion'
 import { Gallery } from '@/components/storefront/pdp/Gallery'
 import { ProductJsonLd } from '@/components/storefront/pdp/ProductJsonLd'
 import { RecommendationsRail } from '@/components/storefront/pdp/RecommendationsRail'
+import { ReviewsSection, REVIEWS_SECTION_ID } from '@/components/storefront/reviews/ReviewsSection'
+import { Stars } from '@/components/storefront/reviews/Stars'
 import { StickyBuyBar } from '@/components/storefront/pdp/StickyBuyBar'
 import { ViewItem } from '@/components/storefront/pdp/ViewItem'
 import { VariantSelector } from '@/components/storefront/pdp/VariantSelector'
@@ -125,7 +128,12 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // Recommendations are merchandising garnish and Shopify returns them only
   // once the store has order history: a failure here must not take the PDP
   // down (the exception to cross-cutting note 5).
-  const recommendations = await getRecommendations(handle).catch(() => [])
+  const [recommendations, reviewSummary, reviewPage] = await Promise.all([
+    getRecommendations(handle).catch(() => []),
+    // Reviews live in Postgres, not Shopify; both reads degrade to "none".
+    getReviewSummary(product.handle),
+    listReviews(product.handle),
+  ])
 
   const pathname = `/products/${product.handle}`
   const canonical = siteUrl(pathname)
@@ -210,6 +218,21 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     ))}
                 </div>
               ) : null}
+              {reviewSummary.count > 0 ? (
+                <Link
+                  href={`#${REVIEWS_SECTION_ID}`}
+                  data-rating-link=""
+                  className="inline-flex items-center gap-2 text-xs text-ink-soft hover:text-ink"
+                >
+                  <Stars rating={reviewSummary.average} size="sm" />
+                  <span>
+                    <span className="num">{reviewSummary.average.toFixed(1)}</span>
+                    {' ('}
+                    <span className="num">{reviewSummary.count}</span>
+                    {')'}
+                  </span>
+                </Link>
+              ) : null}
               {drop ? <DropStatus view={drop} /> : null}
             </div>
 
@@ -232,6 +255,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         </div>
       </Section>
 
+      <ReviewsSection
+        handle={product.handle}
+        productTitle={product.title}
+        summary={reviewSummary}
+        page={reviewPage}
+      />
+
       <RecommendationsRail products={recommendations} />
 
       <ViewItem
@@ -242,7 +272,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         dropState={drop?.state ?? null}
       />
 
-      <ProductJsonLd product={product} selected={selected} breadcrumbs={breadcrumbs} />
+      <ProductJsonLd product={product} selected={selected} breadcrumbs={breadcrumbs} rating={reviewSummary} />
     </>
   )
 }

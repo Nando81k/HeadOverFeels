@@ -144,7 +144,7 @@ describe('app/(storefront)/drops', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Drops' })).toBeInTheDocument()
     expect(screen.getByText('Limited runs')).toBeInTheDocument()
-    expect(getCollectionProducts).toHaveBeenCalledWith({ handle: 'drops', first: 24 })
+    expect(getCollectionProducts).toHaveBeenCalledWith({ handle: 'drops', first: 48 })
     expect(screen.getAllByRole('article')).toHaveLength(COLLECTION_PAGE.products.length)
     expect(screen.queryByText(/no drops scheduled/i)).not.toBeInTheDocument()
   })

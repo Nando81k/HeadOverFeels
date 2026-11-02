@@ -6,10 +6,12 @@ import { Editorial } from '@/components/storefront/home/Editorial'
 import { Hero } from '@/components/storefront/home/Hero'
 import { NewsletterSection } from '@/components/storefront/home/NewsletterSection'
 import { ProductRail } from '@/components/storefront/home/ProductRail'
+import { ReviewsStrip } from '@/components/storefront/home/ReviewsStrip'
 import { Marquee } from '@/components/storefront/ui/Marquee'
 import { hasShopifyEnv } from '@/lib/shopify/env'
 import { dropState, formatDropDate, groupDrops } from '@/lib/storefront/drops'
 import { getHomeData } from '@/lib/storefront/home-data'
+import { getHomeReviews } from '@/lib/storefront/reviews'
 import { FREE_SHIPPING_COPY } from '@/lib/storefront/shipping'
 
 /** Catalog freshness for the home page (Phase 2 plan, route map row `/`). */
@@ -40,6 +42,10 @@ export const homeMarqueeUpcoming = (start: Date | null) =>
  * back empty.
  */
 export default async function HomePage() {
+  // Reviews come from Postgres, not Shopify, so they show on both shapes of the
+  // page; the read returns [] when the database is unreachable (build time).
+  const reviews = await getHomeReviews()
+
   if (!hasShopifyEnv()) {
     return (
       <>
@@ -49,6 +55,7 @@ export default async function HomePage() {
         </Marquee>
         <CatalogUnavailable />
         <Editorial />
+        <ReviewsStrip reviews={reviews} />
         <NewsletterSection />
       </>
     )
@@ -90,6 +97,8 @@ export default async function HomePage() {
       <ProductRail title="Best sellers" href="/collections/best-sellers" products={data.bestSellers} />
 
       <Editorial />
+
+      <ReviewsStrip reviews={reviews} />
 
       <NewsletterSection />
     </>

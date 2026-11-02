@@ -50,6 +50,7 @@ vi.mock('@/app/(storefront)/_actions/newsletter', () => ({
 
 vi.mock('@/lib/shopify/env', () => ({ hasShopifyEnv: vi.fn(() => true) }))
 vi.mock('@/lib/storefront/home-data', () => ({ getHomeData: vi.fn() }))
+vi.mock('@/lib/storefront/reviews', () => ({ getHomeReviews: vi.fn(async () => []) }))
 
 import { CollectionTiles } from '@/components/storefront/home/CollectionTiles'
 import { DropSpotlight } from '@/components/storefront/home/DropSpotlight'

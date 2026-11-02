@@ -1,6 +1,6 @@
 import * as React from 'react'
 import type { ProductDetail, ProductVariant } from '@/lib/shopify/types'
-import { breadcrumbJsonLd, jsonLdScriptProps, productJsonLd } from '@/lib/storefront/seo'
+import { breadcrumbJsonLd, jsonLdScriptProps, productJsonLd, type RatingSummary } from '@/lib/storefront/seo'
 
 export interface ProductJsonLdProps {
   product: ProductDetail
@@ -8,16 +8,18 @@ export interface ProductJsonLdProps {
   selected: ProductVariant | null
   /** Absolute breadcrumb trail, ending at this product. */
   breadcrumbs: { name: string; url: string }[]
+  /** Approved-review summary; emits `aggregateRating` when there are any. */
+  rating?: RatingSummary | null
 }
 
 /**
  * Structured data for the PDP: `Product` (with the selected `Offer`) and the
  * `BreadcrumbList`. Server-safe; the payloads are escaped in `jsonLdScriptProps`.
  */
-export function ProductJsonLd({ product, selected, breadcrumbs }: ProductJsonLdProps) {
+export function ProductJsonLd({ product, selected, breadcrumbs, rating = null }: ProductJsonLdProps) {
   return (
     <>
-      <script {...jsonLdScriptProps(productJsonLd(product, selected))} />
+      <script {...jsonLdScriptProps(productJsonLd(product, selected, rating))} />
       <script {...jsonLdScriptProps(breadcrumbJsonLd(breadcrumbs))} />
     </>
   )

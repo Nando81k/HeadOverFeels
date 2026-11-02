@@ -59,6 +59,25 @@ vi.mock('@/lib/shopify/queries/product', async (importOriginal) => ({
   getProduct: vi.fn(),
 }))
 
+// Reviews (Phase 5) read Postgres through `unstable_cache`; the page test only
+// needs the empty shape, plus one summary for the title-block rating link.
+const reviewsMock = vi.hoisted(() => ({
+  getReviewSummary: vi.fn(),
+  listReviews: vi.fn(),
+}))
+vi.mock('@/lib/storefront/reviews', () => ({
+  ...reviewsMock,
+  EMPTY_SUMMARY: (handle: string) => ({ handle, average: 0, count: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } }),
+}))
+vi.mock('@/app/(storefront)/_actions/reviews', () => ({
+  submitReviewAction: vi.fn(async () => ({ status: 'idle' })),
+  listReviewsAction: vi.fn(async () => ({ ok: true, data: { items: [], nextCursor: null, total: 0 } })),
+  REVIEW_FORM_IDLE: { status: 'idle' },
+  REVIEW_TITLE_MAX: 120,
+  REVIEW_COMMENT_MIN: 20,
+  REVIEW_COMMENT_MAX: 2000,
+}))
+
 vi.mock('@/lib/shopify/queries/recommendations', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/shopify/queries/recommendations')>()),
   getRecommendations: vi.fn(async () => []),
@@ -181,6 +200,8 @@ function deferred<T>() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  reviewsMock.getReviewSummary.mockResolvedValue({ handle: 'core-hoodie', average: 0, count: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } })
+  reviewsMock.listReviews.mockResolvedValue({ items: [], nextCursor: null, total: 0 })
   cartState.current = null
   hasEnv.mockReturnValue(true)
   fetchProduct.mockResolvedValue(product)
