@@ -252,6 +252,33 @@ describe('CartProvider: addLine', () => {
     expect(text('pending')).toBe('false')
   })
 
+  it('tracks add_to_cart with the line price after a successful add (Phase 5)', async () => {
+    delete (window as Window & { dataLayer?: unknown[] }).dataLayer
+    const after = withQuantity(CART, TEE.id, 2)
+    render(
+      <CartProvider
+        initialCart={null}
+        actions={fakeActions({ addLine: async () => ({ ok: true as const, cart: after }) })}
+      >
+        <Probe />
+      </CartProvider>
+    )
+
+    await act(async () => {
+      await ctx.addLine({ variantId: TEE.merchandise.id, quantity: 2 })
+    })
+
+    expect((window as Window & { dataLayer?: unknown[] }).dataLayer).toEqual([
+      {
+        event: 'add_to_cart',
+        variantId: TEE.merchandise.id,
+        quantity: 2,
+        price: Number(TEE.merchandise.price.amount),
+        currency: TEE.merchandise.price.currencyCode,
+      },
+    ])
+  })
+
   it('reports pending while the add is in flight', async () => {
     const gate = deferred<CartActionResult>()
     render(

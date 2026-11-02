@@ -1,4 +1,7 @@
+'use client'
+
 import type { Cart } from '@/lib/shopify/types'
+import { track } from '@/lib/storefront/analytics'
 import { cn } from '@/lib/storefront/cn'
 import { formatMoney } from '@/lib/storefront/money'
 import { buttonVariants } from '@/components/storefront/ui/Button'
@@ -57,12 +60,22 @@ export function CheckoutButtons({ cart, className }: CheckoutButtonsProps) {
   const linkState = blocked
     ? ({ role: 'link', 'aria-disabled': true } as const)
     : ({ rel: 'noopener' } as const)
+  const onCheckout = () => {
+    if (blocked) return
+    track({
+      event: 'begin_checkout',
+      value: Number(cart.cost.total.amount),
+      currency: cart.cost.total.currencyCode,
+      items: cart.totalQuantity,
+    })
+  }
 
   return (
     <div data-checkout-buttons="" className={cn('flex flex-col gap-2.5', className)}>
       <a
         href={blocked ? undefined : cart.checkoutUrl}
         {...linkState}
+        onClick={onCheckout}
         className={cn(buttonVariants({ variant: 'signal', size: 'lg' }), 'w-full', blocked && DISABLED)}
       >
         Checkout · <span className="num">{formatMoney(cart.cost.total)}</span>
@@ -70,6 +83,7 @@ export function CheckoutButtons({ cart, className }: CheckoutButtonsProps) {
       <a
         href={blocked ? undefined : shopPayHref(cart.checkoutUrl)}
         {...linkState}
+        onClick={onCheckout}
         aria-label="Buy with Shop Pay"
         className={cn(
           buttonVariants({ size: 'lg' }),

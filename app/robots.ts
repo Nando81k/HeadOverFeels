@@ -21,11 +21,10 @@ export default function robots(): MetadataRoute.Robots {
           '/checkout/',        // Checkout flow
           '/cart/',            // Shopping cart
           '/account/',         // Customer account (Phase 4)
-          '/profile/',         // legacy → /account
-          '/orders/',          // legacy → /account/orders
-          '/signin/',          // Authentication
+          '/wishlist',         // Per-visitor (Phase 4)
+          '/search',           // Query pages are not for the index (Phase 5)
+          '/signin/',          // Admin login
           '/_next/',           // Next.js internals
-          '/order/confirmation', // Order confirmation
         ],
       },
       {
@@ -38,8 +37,8 @@ export default function robots(): MetadataRoute.Robots {
           '/checkout/',
           '/cart/',
           '/account/',
-          '/profile/',
-          '/orders/',
+          '/wishlist',
+          '/search',
           '/signin/',
         ],
       },

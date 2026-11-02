@@ -18,6 +18,7 @@ import { Gallery } from '@/components/storefront/pdp/Gallery'
 import { ProductJsonLd } from '@/components/storefront/pdp/ProductJsonLd'
 import { RecommendationsRail } from '@/components/storefront/pdp/RecommendationsRail'
 import { StickyBuyBar } from '@/components/storefront/pdp/StickyBuyBar'
+import { ViewItem } from '@/components/storefront/pdp/ViewItem'
 import { VariantSelector } from '@/components/storefront/pdp/VariantSelector'
 import { Container } from '@/components/storefront/ui/Container'
 import { Badge } from '@/components/storefront/ui/Badge'
@@ -232,6 +233,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       </Section>
 
       <RecommendationsRail products={recommendations} />
+
+      <ViewItem
+        handle={product.handle}
+        title={product.title}
+        price={price}
+        variantId={selected?.id ?? null}
+        dropState={drop?.state ?? null}
+      />
 
       <ProductJsonLd product={product} selected={selected} breadcrumbs={breadcrumbs} />
     </>
