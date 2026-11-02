@@ -23,13 +23,8 @@ vi.mock('@/lib/shopify/customer/env', () => env)
 vi.mock('@/lib/shopify/customer/session', () => session)
 vi.mock('@/lib/storefront/reviews', () => reviews)
 
-import {
-  listReviewsAction,
-  REVIEW_FORM_IDLE,
-  REVIEW_SIGNED_OUT_ERROR,
-  REVIEW_UNAVAILABLE_ERROR,
-  submitReviewAction,
-} from '@/app/(storefront)/_actions/reviews'
+import { listReviewsAction, submitReviewAction } from '@/app/(storefront)/_actions/reviews'
+import { REVIEW_FORM_IDLE, REVIEW_SIGNED_OUT_ERROR, REVIEW_UNAVAILABLE_ERROR } from '@/lib/storefront/review-form'
 
 const SESSION = { customerId: 'gid://shopify/Customer/1', email: 'n@example.com' }
 

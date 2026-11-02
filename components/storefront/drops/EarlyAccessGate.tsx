@@ -11,8 +11,10 @@ export type EarlyAccessCheck = (handle: string) => Promise<StorefrontActionResul
 export interface EarlyAccessGateProps {
   /** Product handle the access is checked for. */
   handle: string
-  /** Rendered with `locked` true until access is confirmed. */
-  children: (locked: boolean) => React.ReactNode
+  /** The buy box in its locked state — shown until access is confirmed. */
+  locked: React.ReactNode
+  /** The buy box as a member with early access sees it. */
+  unlocked: React.ReactNode
   /** Test seam; defaults to the Server Action. */
   check?: EarlyAccessCheck
   /** Where the sign-in link should come back to. */
@@ -25,10 +27,14 @@ export interface EarlyAccessGateProps {
  * holds early access and unlocks the children when it does. A signed-out
  * visitor sees a sign-in line instead. The server re-checks on add, so this is
  * only ever a courtesy unlock.
+ *
+ * Both views arrive as rendered elements (not a render prop): the page is a
+ * Server Component and functions cannot cross into a Client Component.
  */
 export function EarlyAccessGate({
   handle,
-  children,
+  locked: lockedView,
+  unlocked: unlockedView,
   check = checkEarlyAccessAction,
   returnTo,
 }: EarlyAccessGateProps) {
@@ -63,7 +69,7 @@ export function EarlyAccessGate({
 
   return (
     <div data-early-access={access} className="flex flex-col gap-3">
-      {children(locked)}
+      {locked ? lockedView : unlockedView}
       {access === 'granted' ? (
         <p role="status" className="text-xs text-ink">
           Early access unlocked — this one is yours before everyone else.

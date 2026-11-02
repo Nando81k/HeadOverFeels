@@ -6,6 +6,15 @@ import { hasCustomerAccountEnv } from '@/lib/shopify/customer/env'
 import { getCustomerSession } from '@/lib/shopify/customer/session'
 import type { StorefrontActionResult } from '@/lib/shopify/types'
 import {
+  REVIEW_COMMENT_MAX,
+  REVIEW_COMMENT_MIN,
+  REVIEW_GENERIC_ERROR as GENERIC_ERROR,
+  REVIEW_SIGNED_OUT_ERROR,
+  REVIEW_TITLE_MAX,
+  REVIEW_UNAVAILABLE_ERROR,
+  type ReviewFormState,
+} from '@/lib/storefront/review-form'
+import {
   createReview,
   listReviews,
   ReviewError,
@@ -19,26 +28,9 @@ import {
  *   action answers `SIGNED_OUT` so a stale page cannot post anonymously.
  * - Every review lands `PENDING`; nothing here revalidates the PDP.
  * - Never throws to the client; unexpected failures are logged by message only.
+ * - Only async functions may be exported here; the state type and copy live in
+ *   `lib/storefront/review-form.ts`.
  */
-
-export type ReviewFormState = {
-  status: 'idle' | 'success' | 'error'
-  error?: string
-  code?: string
-  fieldErrors?: Partial<Record<'rating' | 'title' | 'comment', string>>
-  /** Echoed back so the form can keep what was typed after a server error. */
-  values?: { rating: number | null; title: string; comment: string }
-}
-
-export const REVIEW_FORM_IDLE: ReviewFormState = { status: 'idle' }
-
-export const REVIEW_SIGNED_OUT_ERROR = 'Sign in to write a review.'
-export const REVIEW_UNAVAILABLE_ERROR = 'Reviews are unavailable right now.'
-const GENERIC_ERROR = 'Something went wrong. Please try again.'
-
-export const REVIEW_TITLE_MAX = 120
-export const REVIEW_COMMENT_MIN = 20
-export const REVIEW_COMMENT_MAX = 2000
 
 const submitSchema = z.object({
   handle: z.string().trim().min(1).max(255),

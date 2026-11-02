@@ -13,6 +13,7 @@ import { selectVariant } from '@/lib/storefront/variants'
 import { CatalogUnavailable } from '@/components/storefront/CatalogUnavailable'
 import { DropStatus } from '@/components/storefront/drops/DropStatus'
 import { EarlyAccessGate } from '@/components/storefront/drops/EarlyAccessGate'
+import { BackInStockForm } from '@/components/storefront/back-in-stock/BackInStockForm'
 import { AddToCartPanel } from '@/components/storefront/pdp/AddToCartPanel'
 import { DetailsAccordion } from '@/components/storefront/pdp/DetailsAccordion'
 import { Gallery } from '@/components/storefront/pdp/Gallery'
@@ -150,6 +151,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const drop = dropState(product.drop, new Date(), false)
   const locked = drop && !isDropOpen(drop) ? { label: lockedButtonLabel(drop) } : null
   const price = selected?.price ?? product.price
+  // A sold-out variant offers an alert instead of a dead button (Phase 5, Task 3).
+  const soldOutVariant = selected && !selected.availableForSale ? selected : null
 
   const buyBox = (lock: { label: string } | null) => (
     <>
@@ -243,12 +246,23 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             />
 
             {drop?.state === 'upcoming' ? (
-              <EarlyAccessGate handle={product.handle} returnTo={pathname}>
-                {(isLocked) => buyBox(isLocked ? locked : null)}
-              </EarlyAccessGate>
+              <EarlyAccessGate
+                handle={product.handle}
+                returnTo={pathname}
+                locked={buyBox(locked)}
+                unlocked={buyBox(null)}
+              />
             ) : (
               buyBox(locked)
             )}
+
+            {soldOutVariant ? (
+              <BackInStockForm
+                variantId={soldOutVariant.id}
+                handle={product.handle}
+                variantTitle={soldOutVariant.title}
+              />
+            ) : null}
 
             <DetailsAccordion product={product} />
           </div>

@@ -2,14 +2,14 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { submitReviewAction } from '@/app/(storefront)/_actions/reviews'
 import {
   REVIEW_COMMENT_MAX,
   REVIEW_COMMENT_MIN,
   REVIEW_FORM_IDLE,
   REVIEW_TITLE_MAX,
-  submitReviewAction,
   type ReviewFormState,
-} from '@/app/(storefront)/_actions/reviews'
+} from '@/lib/storefront/review-form'
 import { track } from '@/lib/storefront/analytics'
 import { cn } from '@/lib/storefront/cn'
 import { useCustomerOptional } from '@/components/storefront/account/useCustomer'

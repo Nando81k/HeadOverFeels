@@ -5,17 +5,11 @@
  * triggers notifications when products come back in stock.
  */
 
-import { Resend } from 'resend'
-import { render } from '@react-email/components'
 import { prisma } from '@/lib/prisma'
 import { BackInStockStatus } from '@prisma/client'
-import BackInStockEmail from '@/emails/BackInStock'
+import { isBackInStockEmailConfigured, sendBackInStockEmail } from './send'
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://headoverfeels.com'
-
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null
 
 // ===== TYPES =====
 
@@ -28,7 +22,8 @@ export interface SubscribeInput {
 
 export interface NotificationSubscription {
   id: string
-  productId: string
+  /** Null for storefront-v2 rows keyed by Shopify ids (Phase 5). */
+  productId: string | null
   variantId: string | null
   email: string
   status: BackInStockStatus
@@ -38,7 +33,7 @@ export interface NotificationSubscription {
     name: string
     slug: string
     images: string
-  }
+  } | null
   variant?: {
     id: string
     size: string | null
@@ -321,7 +316,7 @@ export async function triggerBackInStockNotifications(
     return { notificationCount: 0, emails: [] }
   }
 
-  if (!resend) {
+  if (!isBackInStockEmailConfigured()) {
     console.warn('[Back-in-Stock] Resend API key not configured — skipping email send')
     return { notificationCount: 0, emails: [] }
   }
@@ -346,42 +341,24 @@ export async function triggerBackInStockNotifications(
       `&email=${encodeURIComponent(notification.email)}` +
       (variantId ? `&variantId=${encodeURIComponent(variantId)}` : '')
 
-    try {
-      const emailHtml = await render(
-        BackInStockEmail({
-          productName: product.name,
-          productImage,
-          productUrl,
-          unsubscribeUrl,
-        })
-      )
-
-      const { error } = await resend.emails.send({
-        from: process.env.EMAIL_FROM || 'Head Over Feels <notifications@headoverfeels.com>',
-        to: notification.email,
-        subject: `${product.name} is back in stock`,
-        html: emailHtml,
-      })
-
-      if (error) {
-        console.error(
-          `[Back-in-Stock] Resend error for subscriber ${notification.id} (product ${productId}):`,
-          error.message
-        )
-        // Leave isNotified=false so the next inventory cycle retries this subscriber.
-        continue
-      }
-
-      // Only mark as notified after a confirmed successful send.
-      await markNotificationsAsSent([notification.id])
-      sentEmails.push(notification.email)
-    } catch (err) {
+    const sent = await sendBackInStockEmail({
+      to: notification.email,
+      productTitle: product.name,
+      productImage,
+      productUrl,
+      unsubscribeUrl,
+    })
+    if (!sent.ok) {
       console.error(
-        `[Back-in-Stock] Failed to send notification for subscriber ${notification.id} (product ${productId}):`,
-        err instanceof Error ? err.message : String(err)
+        `[Back-in-Stock] Send failed for subscriber ${notification.id} (product ${productId}):`,
+        sent.error
       )
-      // Leave isNotified=false so the next inventory cycle retries this subscriber.
+      // Leave the row PENDING so the next inventory cycle retries this subscriber.
+      continue
     }
+    // Only mark as notified after a confirmed successful send.
+    await markNotificationsAsSent([notification.id])
+    sentEmails.push(notification.email)
   }
 
   console.log(
@@ -424,7 +401,7 @@ export async function getNotificationStats(): Promise<{
   ])
 
   // Get product names for top products
-  const productIds = topProducts.map(p => p.productId)
+  const productIds = topProducts.map(p => p.productId).filter((id): id is string => Boolean(id))
   const products = await prisma.product.findMany({
     where: { id: { in: productIds } },
     select: { id: true, name: true },
@@ -437,8 +414,8 @@ export async function getNotificationStats(): Promise<{
     purchased,
     conversionRate: notified > 0 ? (purchased / notified) * 100 : 0,
     topProducts: topProducts.map(p => ({
-      productId: p.productId,
-      productName: productMap.get(p.productId) || 'Unknown',
+      productId: p.productId ?? '',
+      productName: (p.productId && productMap.get(p.productId)) || 'Unknown',
       subscriberCount: p._count.id,
     })),
   }

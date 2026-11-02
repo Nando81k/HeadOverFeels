@@ -2,7 +2,8 @@
  * Pure helpers for scripts/shopify/register-webhooks.ts (Phase 4, Task 3).
  *
  * Subscribes the loyalty webhooks (`orders/paid`, `orders/cancelled`, `refunds/create`,
- * `customers/update`) to `<base>/api/webhooks/shopify` (JSON). Idempotent by (topic, uri):
+ * `customers/update`) and the back-in-stock trigger (`products/update`, Phase 5) to
+ * `<base>/api/webhooks/shopify` (JSON). Idempotent by (topic, uri):
  * the store's subscriptions are listed first and only the missing pairs are created. The
  * `adminRequest` call is injected so the plan and the apply loop are unit-testable.
  *
@@ -31,6 +32,8 @@ export const WEBHOOK_TOPICS = [
   'ORDERS_CANCELLED',
   'REFUNDS_CREATE',
   'CUSTOMERS_UPDATE',
+  // Back-in-stock alerts (Phase 5, Task 3).
+  'PRODUCTS_UPDATE',
 ] as const
 
 export type WebhookTopic = (typeof WEBHOOK_TOPICS)[number]

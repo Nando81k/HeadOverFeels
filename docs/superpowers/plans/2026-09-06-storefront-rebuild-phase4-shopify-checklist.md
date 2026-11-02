@@ -57,15 +57,15 @@ npx tsx scripts/shopify/precreate-customers.ts --apply           # the rest; re-
 
 ### 2. Register webhooks
 
-Subscribes `ORDERS_PAID`, `ORDERS_CANCELLED`, `REFUNDS_CREATE`, `CUSTOMERS_UPDATE` to `<base>/api/webhooks/shopify`. Idempotent by (topic, uri).
+Subscribes `ORDERS_PAID`, `ORDERS_CANCELLED`, `REFUNDS_CREATE`, `CUSTOMERS_UPDATE` and (Phase 5) `PRODUCTS_UPDATE` to `<base>/api/webhooks/shopify`. Idempotent by (topic, uri).
 
 ```bash
 npx tsx scripts/shopify/register-webhooks.ts --base-url https://<vercel preview host>            # dry run: lists existing + the plan
 npx tsx scripts/shopify/register-webhooks.ts --base-url https://<vercel preview host> --apply    # creates the missing subscriptions
 ```
 
-- [ ] Dry run shows four `Would create` lines (or fewer on a re-run).
-- [ ] `--apply` → `✓ 4 created, 0 already present, 0 failed`. A scope error means the HOF Ops reinstall above was skipped.
+- [ ] Dry run shows five `Would create` lines (or fewer on a re-run).
+- [ ] `--apply` → `✓ 5 created, 0 already present, 0 failed`. A scope error means the HOF Ops reinstall above was skipped.
 - [ ] Repeat with `--base-url https://<primary domain>` when the domain is switched; delete the preview-host subscriptions by hand (Settings → Notifications → Webhooks) once production is live.
 
 ## Smoke test (preview)

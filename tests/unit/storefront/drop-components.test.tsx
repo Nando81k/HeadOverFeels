@@ -114,9 +114,7 @@ describe('EarlyAccessGate', () => {
     customerState.status = null
     const check = vi.fn()
     render(
-      <EarlyAccessGate handle="drop-01" check={check}>
-        {(locked) => <Child locked={locked} />}
-      </EarlyAccessGate>
+      <EarlyAccessGate handle="drop-01" check={check} locked={<Child locked />} unlocked={<Child locked={false} />} />
     )
 
     expect(screen.getByRole('button', { name: 'Opens Sep 13' })).toBeDisabled()
@@ -126,9 +124,7 @@ describe('EarlyAccessGate', () => {
   it('invites a signed-out visitor to sign in, returning to the PDP', () => {
     customerState.status = 'signed-out'
     render(
-      <EarlyAccessGate handle="drop-01" check={vi.fn()}>
-        {(locked) => <Child locked={locked} />}
-      </EarlyAccessGate>
+      <EarlyAccessGate handle="drop-01" check={vi.fn()} locked={<Child locked />} unlocked={<Child locked={false} />} />
     )
 
     expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
@@ -141,9 +137,7 @@ describe('EarlyAccessGate', () => {
     customerState.status = 'ready'
     const check = vi.fn(async () => ({ ok: true as const, data: { hasEarlyAccess: true } }))
     const { container } = render(
-      <EarlyAccessGate handle="drop-01" check={check}>
-        {(locked) => <Child locked={locked} />}
-      </EarlyAccessGate>
+      <EarlyAccessGate handle="drop-01" check={check} locked={<Child locked />} unlocked={<Child locked={false} />} />
     )
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Add to cart' })).toBeEnabled())
@@ -160,9 +154,7 @@ describe('EarlyAccessGate', () => {
     customerState.status = 'ready'
     const check = vi.fn(async () => ({ ok: true as const, data: { hasEarlyAccess: false } }))
     const { container } = render(
-      <EarlyAccessGate handle="drop-01" check={check}>
-        {(locked) => <Child locked={locked} />}
-      </EarlyAccessGate>
+      <EarlyAccessGate handle="drop-01" check={check} locked={<Child locked />} unlocked={<Child locked={false} />} />
     )
 
     await waitFor(() => expect(container.querySelector('[data-early-access="denied"]')).toBeInTheDocument())

@@ -69,13 +69,12 @@ vi.mock('@/lib/storefront/reviews', () => ({
   ...reviewsMock,
   EMPTY_SUMMARY: (handle: string) => ({ handle, average: 0, count: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } }),
 }))
+vi.mock('@/app/(storefront)/_actions/back-in-stock', () => ({
+  subscribeBackInStockAction: vi.fn(async () => ({ status: 'idle' })),
+}))
 vi.mock('@/app/(storefront)/_actions/reviews', () => ({
   submitReviewAction: vi.fn(async () => ({ status: 'idle' })),
   listReviewsAction: vi.fn(async () => ({ ok: true, data: { items: [], nextCursor: null, total: 0 } })),
-  REVIEW_FORM_IDLE: { status: 'idle' },
-  REVIEW_TITLE_MAX: 120,
-  REVIEW_COMMENT_MIN: 20,
-  REVIEW_COMMENT_MAX: 2000,
 }))
 
 vi.mock('@/lib/shopify/queries/recommendations', async (importOriginal) => ({
@@ -950,5 +949,26 @@ describe('app/(storefront)/drops/[handle]', () => {
     )
 
     expect(screen.getByRole('heading', { level: 1, name: 'Core Hoodie' })).toBeInTheDocument()
+  })
+})
+
+describe('app/(storefront)/products/[handle] — back-in-stock (Phase 5)', () => {
+  const call = (sp: Record<string, string>) =>
+    ProductPage({ params: Promise.resolve({ handle: 'core-hoodie' }), searchParams: Promise.resolve(sp) })
+
+  it('offers a back-in-stock alert for a sold-out variant', async () => {
+    fetchProduct.mockResolvedValue(product)
+    const { container } = render(await call({ Size: 'S', Color: 'Black' }))
+    const form = container.querySelector('#back-in-stock')
+    expect(form).not.toBeNull()
+    expect(form).toHaveAttribute('data-back-in-stock', 'guest')
+    expect(within(form as HTMLElement).getByText('Sold out in S / Black')).toBeInTheDocument()
+    expect(within(form as HTMLElement).getByRole('button', { name: /notify me/i })).toBeInTheDocument()
+  })
+
+  it('shows no alert form for a buyable variant', async () => {
+    fetchProduct.mockResolvedValue(product)
+    const { container } = render(await call({ Size: 'M', Color: 'Black' }))
+    expect(container.querySelector('#back-in-stock')).toBeNull()
   })
 })

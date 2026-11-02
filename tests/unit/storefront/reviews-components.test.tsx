@@ -15,7 +15,7 @@ vi.mock('@/components/storefront/account/useCustomer', () => ({
 
 const customerState = vi.hoisted(() => ({ current: null as null | { status: string } }))
 
-import type { ReviewFormState } from '@/app/(storefront)/_actions/reviews'
+import type { ReviewFormState } from '@/lib/storefront/review-form'
 import type { ReviewItem, ReviewPage, ReviewSummary as ReviewSummaryData } from '@/lib/storefront/reviews'
 import { onAnalyticsEvent } from '@/lib/storefront/analytics'
 import { ReviewCard, formatReviewDate } from '@/components/storefront/reviews/ReviewCard'

@@ -66,6 +66,18 @@ const fx = {
 
 const collectionNodes = fx.collections.collections.nodes
 const productCards = fx.collectionProducts.collection.products.nodes
+
+// Drops (Phase 5): the collection fixture already carries one live drop
+// (`drop-01-heavyweight-crew`, `drop_start` in the past, open-ended). The
+// spec also needs an *upcoming* one, which a static fixture cannot express, so
+// the mock promotes `signature-tee` to a drop opening two days from now.
+const UPCOMING_DROP_HANDLE = 'signature-tee'
+const upcoming = productCards.find((p) => p.handle === UPCOMING_DROP_HANDLE)
+if (upcoming) {
+  upcoming.tags = [...new Set([...(upcoming.tags ?? []), 'drop'])]
+  upcoming.dropStart = { value: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString() }
+  upcoming.dropEnd = null
+}
 const findCollection = (handle) => collectionNodes.find((c) => c.handle === handle) ?? null
 const findCard = (handle) => productCards.find((p) => p.handle === handle) ?? null
 const amount = (p) => Number(p?.priceRange?.minVariantPrice?.amount ?? 0)
@@ -152,9 +164,14 @@ const catalog = {
       images: card.images,
       priceRange: card.priceRange,
       compareAtPriceRange: card.compareAtPriceRange,
+      // Drop window metafields follow the card (Phase 5); the cap stays a drop-only thing.
+      dropStart: card.dropStart ?? null,
+      dropEnd: card.dropEnd ?? null,
+      maxPerOrder: (card.tags ?? []).includes('drop') ? { value: '2' } : null,
     })
     if (p.seo) p.seo = { title: card.title, description: p.seo.description }
-    // Options / variants / gallery / metafields stay from the fixture.
+    // Options / variants / gallery stay from the fixture (so every PDP shares
+    // the Core Hoodie's variant ids — see storefront-drops.spec.ts).
     return data
   },
 }
