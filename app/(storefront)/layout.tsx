@@ -1,11 +1,13 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { CustomerProvider } from '@/components/storefront/account/CustomerProvider'
+import { Analytics } from '@/components/storefront/analytics/Analytics'
 import { CartProvider } from '@/components/storefront/cart/CartProvider'
 import { StorefrontShell } from '@/components/storefront/layout/StorefrontShell'
 import { WishlistProvider } from '@/components/storefront/wishlist/WishlistProvider'
 import { hasCustomerAccountEnv } from '@/lib/shopify/customer/env'
 import { hasShopifyEnv } from '@/lib/shopify/env'
+import { jsonLdScriptProps, organizationJsonLd, webSiteJsonLd } from '@/lib/storefront/seo'
 import { FREE_SHIPPING_COPY } from '@/lib/storefront/shipping'
 
 /**
@@ -43,6 +45,10 @@ export default function StorefrontLayout({ children }: { children: ReactNode }) 
       <CustomerProvider available={hasCustomerAccountEnv()}>
         <WishlistProvider>
           <StorefrontShell announcement={FREE_SHIPPING_COPY}>{children}</StorefrontShell>
+          {/* Site-level structured data and the analytics island (Phase 5). */}
+          <script {...jsonLdScriptProps(organizationJsonLd())} />
+          <script {...jsonLdScriptProps(webSiteJsonLd())} />
+          <Analytics />
         </WishlistProvider>
       </CustomerProvider>
     </CartProvider>

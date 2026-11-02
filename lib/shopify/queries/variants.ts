@@ -10,14 +10,19 @@ import { isHigher, toImage, toMoney, type RawImage, type RawMoney } from './frag
  *   query VariantsById($ids: [ID!]!) { nodes(ids: $ids) { ... on ProductVariant { id title
  *   availableForSale quantityAvailable price { amount currencyCode } compareAtPrice { amount
  *   currencyCode } selectedOptions { name value } image { url altText width height } product {
- *   id handle title tags availableForSale featuredImage { url altText width height } } } } }
+ *   id handle title tags availableForSale featuredImage { url altText width height }
+ *   dropStart: metafield(namespace: "custom", key: "drop_start") { value } dropEnd: metafield(namespace: "custom",
+ *   key: "drop_end") { value } maxPerOrder: metafield(namespace: "custom", key: "max_per_order") { value } } } } }
+ *
+ * Phase 5 added the three drop metafields so the cart gate (`lib/storefront/purchasable.ts`)
+ * can decide "is this drop open" from a variant id alone.
  *
  * `nodes(ids:)` accepts at most 250 ids per call and answers `null` for an id that no
  * longer exists (deleted / unpublished variant) and `{}` for an id of another type, so
  * the normaliser drops both. The query spreads no shared fragments on purpose: every
  * field is inline, which keeps the document self-contained for the e2e mock.
  */
-export const VARIANTS_BY_ID_QUERY = `query VariantsById($ids: [ID!]!) { nodes(ids: $ids) { ... on ProductVariant { id title availableForSale quantityAvailable price { amount currencyCode } compareAtPrice { amount currencyCode } selectedOptions { name value } image { url altText width height } product { id handle title tags availableForSale featuredImage { url altText width height } } } } }`
+export const VARIANTS_BY_ID_QUERY = `query VariantsById($ids: [ID!]!) { nodes(ids: $ids) { ... on ProductVariant { id title availableForSale quantityAvailable price { amount currencyCode } compareAtPrice { amount currencyCode } selectedOptions { name value } image { url altText width height } product { id handle title tags availableForSale featuredImage { url altText width height } dropStart: metafield(namespace: "custom", key: "drop_start") { value } dropEnd: metafield(namespace: "custom", key: "drop_end") { value } maxPerOrder: metafield(namespace: "custom", key: "max_per_order") { value } } } } }`
 
 /** Ids per `nodes(ids:)` request. Well under Shopify's 250 cap to keep responses small. */
 export const VARIANTS_CHUNK_SIZE = 50
@@ -50,6 +55,8 @@ export type ProductCardVariant = {
     tags: string[]
     availableForSale: boolean
     featuredImage: ShopImage | null
+    /** Drop window, null unless the product is tagged `drop` (Phase 5). */
+    drop: { start: string | null; end: string | null; maxPerOrder: number | null } | null
   }
 }
 
@@ -62,6 +69,9 @@ export type RawVariantProduct = {
   tags: string[]
   availableForSale: boolean
   featuredImage: RawImage | null
+  dropStart?: { value: string } | null
+  dropEnd?: { value: string } | null
+  maxPerOrder?: { value: string } | null
 }
 
 export type RawVariantNode = {
@@ -95,6 +105,13 @@ export function isRawVariantNode(node: unknown): node is RawVariantNode {
   )
 }
 
+/** `custom.max_per_order` is a Shopify integer metafield serialised as a string. */
+function toMaxPerOrder(value: string | null | undefined): number | null {
+  if (value === null || value === undefined || value.trim() === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? Math.trunc(parsed) : null
+}
+
 export function toProductCardVariant(raw: RawVariantNode): ProductCardVariant {
   const onSale = isHigher(raw.compareAtPrice, raw.price)
   return {
@@ -116,6 +133,13 @@ export function toProductCardVariant(raw: RawVariantNode): ProductCardVariant {
       tags: raw.product.tags ?? [],
       availableForSale: raw.product.availableForSale,
       featuredImage: toImage(raw.product.featuredImage),
+      drop: (raw.product.tags ?? []).includes('drop')
+        ? {
+            start: raw.product.dropStart?.value ?? null,
+            end: raw.product.dropEnd?.value ?? null,
+            maxPerOrder: toMaxPerOrder(raw.product.maxPerOrder?.value),
+          }
+        : null,
     },
   }
 }

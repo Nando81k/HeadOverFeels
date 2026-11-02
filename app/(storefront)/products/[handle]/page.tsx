@@ -6,16 +6,23 @@ import { addCartLineForm } from '@/app/(storefront)/_actions/cart'
 import { hasShopifyEnv } from '@/lib/shopify/env'
 import { getProduct } from '@/lib/shopify/queries/product'
 import { getRecommendations } from '@/lib/shopify/queries/recommendations'
-import type { ProductDetail } from '@/lib/shopify/types'
+import { dropState, isDropOpen, lockedButtonLabel } from '@/lib/storefront/drops'
+import { getReviewSummary, listReviews } from '@/lib/storefront/reviews'
 import { siteUrl, stripHtml, truncate } from '@/lib/storefront/seo'
 import { selectVariant } from '@/lib/storefront/variants'
 import { CatalogUnavailable } from '@/components/storefront/CatalogUnavailable'
+import { DropStatus } from '@/components/storefront/drops/DropStatus'
+import { EarlyAccessGate } from '@/components/storefront/drops/EarlyAccessGate'
+import { BackInStockForm } from '@/components/storefront/back-in-stock/BackInStockForm'
 import { AddToCartPanel } from '@/components/storefront/pdp/AddToCartPanel'
 import { DetailsAccordion } from '@/components/storefront/pdp/DetailsAccordion'
 import { Gallery } from '@/components/storefront/pdp/Gallery'
 import { ProductJsonLd } from '@/components/storefront/pdp/ProductJsonLd'
 import { RecommendationsRail } from '@/components/storefront/pdp/RecommendationsRail'
+import { ReviewsSection, REVIEWS_SECTION_ID } from '@/components/storefront/reviews/ReviewsSection'
+import { Stars } from '@/components/storefront/reviews/Stars'
 import { StickyBuyBar } from '@/components/storefront/pdp/StickyBuyBar'
+import { ViewItem } from '@/components/storefront/pdp/ViewItem'
 import { VariantSelector } from '@/components/storefront/pdp/VariantSelector'
 import { Container } from '@/components/storefront/ui/Container'
 import { Badge } from '@/components/storefront/ui/Badge'
@@ -49,26 +56,6 @@ type SearchParams = Record<string, string | string[] | undefined>
 export type ProductPageProps = {
   params: Promise<{ handle: string }>
   searchParams: Promise<SearchParams>
-}
-
-const DROP_DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
-
-function toDate(value: string | null): Date | null {
-  if (!value) return null
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
-/** "Sep 6 – Sep 12" / "From Sep 6" / "Until Sep 12"; Phase 5 adds the countdown. */
-function dropWindow(drop: ProductDetail['drop']): string | null {
-  if (!drop) return null
-  const start = toDate(drop.start)
-  const end = toDate(drop.end)
-
-  if (start && end) return `${DROP_DATE_FORMAT.format(start)} – ${DROP_DATE_FORMAT.format(end)}`
-  if (start) return `From ${DROP_DATE_FORMAT.format(start)}`
-  if (end) return `Until ${DROP_DATE_FORMAT.format(end)}`
-  return null
 }
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
@@ -121,8 +108,12 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
  * stays a Server Component; the only client islands are the gallery, the
  * quantity/add-to-cart form and the sticky mobile bar.
  *
- * `/drops/[handle]` re-exports this component (Phase 5 adds the drop state
- * machine on top).
+ * `/drops/[handle]` re-exports this component. A product tagged `drop` carries
+ * the drop state machine (Phase 5, `lib/storefront/drops.ts`): the page renders
+ * the **time-based** state from the request clock (this route is ISR, so it
+ * cannot know who is looking), and while the drop is upcoming the buy box sits
+ * inside `EarlyAccessGate`, which unlocks after mount for a signed-in customer
+ * with early access. `addCartLine` re-checks on the server either way.
  */
 export default async function ProductPage({ params, searchParams }: ProductPageProps) {
   const { handle } = await params
@@ -138,7 +129,12 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // Recommendations are merchandising garnish and Shopify returns them only
   // once the store has order history: a failure here must not take the PDP
   // down (the exception to cross-cutting note 5).
-  const recommendations = await getRecommendations(handle).catch(() => [])
+  const [recommendations, reviewSummary, reviewPage] = await Promise.all([
+    getRecommendations(handle).catch(() => []),
+    // Reviews live in Postgres, not Shopify; both reads degrade to "none".
+    getReviewSummary(product.handle),
+    listReviews(product.handle),
+  ])
 
   const pathname = `/products/${product.handle}`
   const canonical = siteUrl(pathname)
@@ -152,8 +148,33 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     0,
     product.images.findIndex((image) => image.url === selected?.image?.url)
   )
-  const dropText = dropWindow(product.drop)
+  const drop = dropState(product.drop, new Date(), false)
+  const locked = drop && !isDropOpen(drop) ? { label: lockedButtonLabel(drop) } : null
   const price = selected?.price ?? product.price
+  // A sold-out variant offers an alert instead of a dead button (Phase 5, Task 3).
+  const soldOutVariant = selected && !selected.availableForSale ? selected : null
+
+  const buyBox = (lock: { label: string } | null) => (
+    <>
+      <AddToCartPanel
+        product={product}
+        selected={selected}
+        complete={complete}
+        action={addCartLineFormAction}
+        id={BUY_BOX_ID}
+        locked={lock}
+      />
+      <StickyBuyBar
+        title={product.title}
+        price={price}
+        compareAt={selected?.compareAtPrice ?? null}
+        soldOut={Boolean(selected && !selected.availableForSale)}
+        disabled={!complete || !selected}
+        targetId={BUY_BOX_ID}
+        locked={lock}
+      />
+    </>
+  )
 
   return (
     <>
@@ -191,14 +212,31 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               <Display as="h1" size="lg">
                 {product.title}
               </Display>
-              {product.badges.length > 0 || dropText ? (
+              {product.badges.filter((badge) => !drop || badge !== 'drop').length > 0 ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  {product.badges.map((badge) => (
-                    <Badge key={badge} variant={badge} />
-                  ))}
-                  {dropText ? <span className="text-xs text-ink-mute">{dropText}</span> : null}
+                  {product.badges
+                    .filter((badge) => !drop || badge !== 'drop')
+                    .map((badge) => (
+                      <Badge key={badge} variant={badge} />
+                    ))}
                 </div>
               ) : null}
+              {reviewSummary.count > 0 ? (
+                <Link
+                  href={`#${REVIEWS_SECTION_ID}`}
+                  data-rating-link=""
+                  className="inline-flex items-center gap-2 text-xs text-ink-soft hover:text-ink"
+                >
+                  <Stars rating={reviewSummary.average} size="sm" />
+                  <span>
+                    <span className="num">{reviewSummary.average.toFixed(1)}</span>
+                    {' ('}
+                    <span className="num">{reviewSummary.count}</span>
+                    {')'}
+                  </span>
+                </Link>
+              ) : null}
+              {drop ? <DropStatus view={drop} /> : null}
             </div>
 
             <VariantSelector
@@ -207,31 +245,48 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               pathname={pathname}
             />
 
-            <AddToCartPanel
-              product={product}
-              selected={selected}
-              complete={complete}
-              action={addCartLineFormAction}
-              id={BUY_BOX_ID}
-            />
+            {drop?.state === 'upcoming' ? (
+              <EarlyAccessGate
+                handle={product.handle}
+                returnTo={pathname}
+                locked={buyBox(locked)}
+                unlocked={buyBox(null)}
+              />
+            ) : (
+              buyBox(locked)
+            )}
+
+            {soldOutVariant ? (
+              <BackInStockForm
+                variantId={soldOutVariant.id}
+                handle={product.handle}
+                variantTitle={soldOutVariant.title}
+              />
+            ) : null}
 
             <DetailsAccordion product={product} />
           </div>
         </div>
       </Section>
 
-      <RecommendationsRail products={recommendations} />
-
-      <StickyBuyBar
-        title={product.title}
-        price={price}
-        compareAt={selected?.compareAtPrice ?? null}
-        soldOut={Boolean(selected && !selected.availableForSale)}
-        disabled={!complete || !selected}
-        targetId={BUY_BOX_ID}
+      <ReviewsSection
+        handle={product.handle}
+        productTitle={product.title}
+        summary={reviewSummary}
+        page={reviewPage}
       />
 
-      <ProductJsonLd product={product} selected={selected} breadcrumbs={breadcrumbs} />
+      <RecommendationsRail products={recommendations} />
+
+      <ViewItem
+        handle={product.handle}
+        title={product.title}
+        price={price}
+        variantId={selected?.id ?? null}
+        dropState={drop?.state ?? null}
+      />
+
+      <ProductJsonLd product={product} selected={selected} breadcrumbs={breadcrumbs} rating={reviewSummary} />
     </>
   )
 }

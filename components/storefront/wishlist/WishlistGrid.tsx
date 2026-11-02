@@ -53,6 +53,19 @@ export function cardHref(card: ProductCardVariant): string {
   return `/products/${card.product.handle}`
 }
 
+/**
+ * The PDP with this variant's options preselected, anchored at the
+ * back-in-stock form (Phase 5, Task 3). Single-variant products carry no query.
+ */
+export function alertHref(card: ProductCardVariant): string {
+  const params = new URLSearchParams()
+  for (const option of card.selectedOptions) {
+    if (option.value && option.value !== DEFAULT_OPTION_VALUE) params.set(option.name, option.value)
+  }
+  const query = params.toString()
+  return `${cardHref(card)}${query ? `?${query}` : ''}#back-in-stock`
+}
+
 export interface WishlistCardProps {
   card: ProductCardVariant
   onRemove(card: ProductCardVariant): void
@@ -66,8 +79,8 @@ export interface WishlistCardProps {
 /**
  * One saved variant (mockup board 07): image with the remove × and a pill over
  * it, title, options, price, then the one action its state allows — "Add to
- * cart", "Notify me" (drop, links to the PDP) or a disabled "Back in stock alert"
- * (Phase 5).
+ * cart", "Notify me" (drop, links to the PDP) or "Back in stock alert" (links to
+ * the PDP's back-in-stock form with the variant preselected, Phase 5).
  *
  * As on `ProductCard`, exactly one link wraps the image and the title; the
  * buttons are siblings in an overlay so no control nests inside the anchor.
@@ -167,15 +180,8 @@ export function WishlistCard({
           <Link href={href}>Notify me</Link>
         </Button>
       ) : (
-        <Button
-          size="sm"
-          variant="outline"
-          disabled
-          title="Coming in Phase 5"
-          data-phase="5"
-          className="w-full"
-        >
-          Back in stock alert
+        <Button asChild size="sm" variant="outline" className="w-full">
+          <Link href={alertHref(card)}>Back in stock alert</Link>
         </Button>
       )}
     </li>

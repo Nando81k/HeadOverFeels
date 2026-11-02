@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       success: true,
       data: {
         id: subscription.id,
-        productName: subscription.product.name,
+        productName: subscription.product?.name ?? null,
         variantInfo: subscription.variant 
           ? `${subscription.variant.size || ''} ${subscription.variant.color || ''}`.trim()
           : null,
@@ -142,9 +142,9 @@ export async function GET(req: NextRequest) {
         subscriptions: subscriptions.map(sub => ({
           id: sub.id,
           productId: sub.productId,
-          productName: sub.product.name,
-          productSlug: sub.product.slug,
-          productImage: JSON.parse(sub.product.images)[0] || null,
+          productName: sub.product?.name ?? null,
+          productSlug: sub.product?.slug ?? null,
+          productImage: sub.product ? JSON.parse(sub.product.images)[0] || null : null,
           variantId: sub.variantId,
           variantInfo: sub.variant 
             ? `${sub.variant.size || ''} ${sub.variant.color || ''}`.trim()

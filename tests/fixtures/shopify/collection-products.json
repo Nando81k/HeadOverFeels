@@ -253,7 +253,11 @@
                 }
               ]
             }
-          ]
+          ],
+          "dropStart": {
+            "value": "2026-09-06T13:00:00Z"
+          },
+          "dropEnd": null
         },
         {
           "id": "gid://shopify/Product/8123456789014",

@@ -9,10 +9,11 @@ import {
   syncCustomerFromShopify,
 } from '@/lib/loyalty/shopify-bridge'
 import { prisma } from '@/lib/prisma'
+import { notifyVariantsBackInStock, parseProductsUpdate } from '@/lib/storefront/back-in-stock'
 
 /**
  * POST /api/webhooks/shopify — Shopify Admin webhooks for the Care Points program
- * (Phase 4, Task 2). Mirrors the Stripe webhook's HMAC + idempotency pattern:
+ * (Phase 4, Task 2) and back-in-stock alerts (`products/update`, Phase 5). Mirrors the Stripe webhook's HMAC + idempotency pattern:
  *
  * 1. Missing `SHOPIFY_WEBHOOK_SECRET` → 500 (logged once per request).
  * 2. HMAC: base64(HMAC-SHA256(secret, raw body)) vs `X-Shopify-Hmac-Sha256`,
@@ -95,6 +96,18 @@ async function handleTopic(topic: string, payload: unknown, webhookId: string): 
       if (!orderGid) return { skipped: 'no order id' }
       const restored = await restoreRedemptionsForCancelledOrder(orderGid)
       return { orderGid, redemptionsRestored: restored }
+    }
+    case 'products/update': {
+      // Back-in-stock alerts (Phase 5, Task 3): every variant now purchasable
+      // releases its pending alerts. Idempotent through the row status.
+      const update = parseProductsUpdate(payload)
+      const result = await notifyVariantsBackInStock(update)
+      if (result.sent + result.failed + result.skipped > 0) {
+        console.log(
+          `[shopify-webhook] ${webhookId} products/update ${update.productGid ?? update.handle ?? 'unknown'} → ${result.sent} alerts sent, ${result.failed} failed, ${result.skipped} skipped`
+        )
+      }
+      return { productGid: update.productGid, handle: update.handle, ...result }
     }
     case 'refunds/create': {
       // Partial refunds cannot be sized from the refund payload alone; only a full

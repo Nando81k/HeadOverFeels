@@ -45,6 +45,8 @@ vi.mock('next/navigation', () => ({
     throw new Error('NEXT_NOT_FOUND')
   }),
   redirect: (...args: unknown[]) => redirect(...args),
+  // The drop countdown island refreshes the route at zero.
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
 }))
 
 vi.mock('@/lib/shopify/env', async (importOriginal) => ({
@@ -55,6 +57,24 @@ vi.mock('@/lib/shopify/env', async (importOriginal) => ({
 vi.mock('@/lib/shopify/queries/product', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/shopify/queries/product')>()),
   getProduct: vi.fn(),
+}))
+
+// Reviews (Phase 5) read Postgres through `unstable_cache`; the page test only
+// needs the empty shape, plus one summary for the title-block rating link.
+const reviewsMock = vi.hoisted(() => ({
+  getReviewSummary: vi.fn(),
+  listReviews: vi.fn(),
+}))
+vi.mock('@/lib/storefront/reviews', () => ({
+  ...reviewsMock,
+  EMPTY_SUMMARY: (handle: string) => ({ handle, average: 0, count: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } }),
+}))
+vi.mock('@/app/(storefront)/_actions/back-in-stock', () => ({
+  subscribeBackInStockAction: vi.fn(async () => ({ status: 'idle' })),
+}))
+vi.mock('@/app/(storefront)/_actions/reviews', () => ({
+  submitReviewAction: vi.fn(async () => ({ status: 'idle' })),
+  listReviewsAction: vi.fn(async () => ({ ok: true, data: { items: [], nextCursor: null, total: 0 } })),
 }))
 
 vi.mock('@/lib/shopify/queries/recommendations', async (importOriginal) => ({
@@ -179,6 +199,8 @@ function deferred<T>() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  reviewsMock.getReviewSummary.mockResolvedValue({ handle: 'core-hoodie', average: 0, count: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } })
+  reviewsMock.listReviews.mockResolvedValue({ items: [], nextCursor: null, total: 0 })
   cartState.current = null
   hasEnv.mockReturnValue(true)
   fetchProduct.mockResolvedValue(product)
@@ -862,6 +884,58 @@ describe('app/(storefront)/products/[handle]', () => {
   })
 })
 
+describe('app/(storefront)/products/[handle] — drop state (Phase 5)', () => {
+  const call = (sp: Record<string, string> = { Size: 'M', Color: 'Black' }) =>
+    ProductPage({ params: Promise.resolve({ handle: 'core-hoodie' }), searchParams: Promise.resolve(sp) })
+  const dropProduct = (drop: ProductDetail['drop']): ProductDetail => ({
+    ...product,
+    tags: [...product.tags, 'drop'],
+    badges: [...product.badges, 'drop'],
+    drop,
+  })
+  const inDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString()
+
+  it('locks the buy box and the sticky bar while the drop is upcoming, with a countdown', async () => {
+    fetchProduct.mockResolvedValue(dropProduct({ start: inDays(3), end: null, maxPerOrder: 2 }))
+    const { container } = render(await call())
+
+    expect(container.querySelector('[data-drop-status="upcoming"]')).toBeInTheDocument()
+    expect(container.querySelector('[data-drop-countdown]')).toBeInTheDocument()
+    expect(container.querySelector('[data-early-access]')).toBeInTheDocument()
+
+    const buttons = container.querySelectorAll<HTMLButtonElement>('button[data-drop="locked"]')
+    expect(buttons).toHaveLength(2) // buy box + sticky bar
+    for (const button of buttons) {
+      expect(button).toBeDisabled()
+      expect(button).toHaveTextContent(/^Opens /)
+    }
+    // The drop badge is replaced by the status line, not doubled.
+    expect(screen.getAllByText('Drop')).toHaveLength(1)
+  })
+
+  it('sells a live drop normally', async () => {
+    fetchProduct.mockResolvedValue(dropProduct({ start: inDays(-3), end: inDays(3), maxPerOrder: 2 }))
+    const { container } = render(await call())
+
+    expect(container.querySelector('[data-drop-status="live"]')).toBeInTheDocument()
+    expect(screen.getByText('Live now')).toBeInTheDocument()
+    expect(container.querySelector('[data-early-access]')).toBeNull()
+    expect(container.querySelector('button[data-drop="locked"]')).toBeNull()
+    const form = container.querySelector('form#buy-box') as HTMLElement
+    expect(within(form).getByRole('button', { name: /add to cart/i })).toBeEnabled()
+  })
+
+  it('locks an ended drop with no gate', async () => {
+    fetchProduct.mockResolvedValue(dropProduct({ start: inDays(-10), end: inDays(-3), maxPerOrder: null }))
+    const { container } = render(await call())
+
+    expect(container.querySelector('[data-drop-status="ended"]')).toBeInTheDocument()
+    expect(container.querySelector('[data-early-access]')).toBeNull()
+    const form = container.querySelector('form#buy-box') as HTMLElement
+    expect(within(form).getByRole('button', { name: 'Drop ended' })).toBeDisabled()
+  })
+})
+
 describe('app/(storefront)/drops/[handle]', () => {
   it('re-uses the PDP page and metadata', async () => {
     expect(DropPage).toBe(ProductPage)
@@ -875,5 +949,26 @@ describe('app/(storefront)/drops/[handle]', () => {
     )
 
     expect(screen.getByRole('heading', { level: 1, name: 'Core Hoodie' })).toBeInTheDocument()
+  })
+})
+
+describe('app/(storefront)/products/[handle] — back-in-stock (Phase 5)', () => {
+  const call = (sp: Record<string, string>) =>
+    ProductPage({ params: Promise.resolve({ handle: 'core-hoodie' }), searchParams: Promise.resolve(sp) })
+
+  it('offers a back-in-stock alert for a sold-out variant', async () => {
+    fetchProduct.mockResolvedValue(product)
+    const { container } = render(await call({ Size: 'S', Color: 'Black' }))
+    const form = container.querySelector('#back-in-stock')
+    expect(form).not.toBeNull()
+    expect(form).toHaveAttribute('data-back-in-stock', 'guest')
+    expect(within(form as HTMLElement).getByText('Sold out in S / Black')).toBeInTheDocument()
+    expect(within(form as HTMLElement).getByRole('button', { name: /notify me/i })).toBeInTheDocument()
+  })
+
+  it('shows no alert form for a buyable variant', async () => {
+    fetchProduct.mockResolvedValue(product)
+    const { container } = render(await call({ Size: 'M', Color: 'Black' }))
+    expect(container.querySelector('#back-in-stock')).toBeNull()
   })
 })

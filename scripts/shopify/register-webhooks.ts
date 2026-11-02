@@ -51,7 +51,7 @@ async function main(): Promise<void> {
   printSubscriptions('Same topic at another uri (left alone — delete by hand if stale):', result.plan.foreign)
 
   console.log(apply ? '\nCreated:' : '\nWould create:')
-  if (result.plan.create.length === 0) console.log('  (nothing — all four topics are registered)')
+  if (result.plan.create.length === 0) console.log('  (nothing — every topic is registered)')
   for (const item of result.plan.create) {
     const created = result.created.find((sub) => sub.topic === item.topic)
     const error = result.errors.find((err) => err.topic === item.topic)

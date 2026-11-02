@@ -7,8 +7,9 @@ import fixture from '@/tests/fixtures/shopify/webhooks/orders-paid.json'
 
 vi.mock('server-only', () => ({}))
 
-const { db, bridge } = vi.hoisted(() => ({
+const { db, bridge, backInStock } = vi.hoisted(() => ({
   db: { shopifyWebhookEvent: { create: vi.fn(), update: vi.fn() } },
+  backInStock: { parseProductsUpdate: vi.fn(), notifyVariantsBackInStock: vi.fn() },
   bridge: {
     parseOrdersPaid: vi.fn(),
     awardPointsForPaidOrder: vi.fn(),
@@ -18,6 +19,7 @@ const { db, bridge } = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/prisma', () => ({ prisma: db }))
 vi.mock('@/lib/loyalty/shopify-bridge', () => bridge)
+vi.mock('@/lib/storefront/back-in-stock', () => backInStock)
 
 import { POST, runtime } from '@/app/api/webhooks/shopify/route'
 
@@ -57,6 +59,8 @@ beforeEach(() => {
   bridge.awardPointsForPaidOrder.mockResolvedValue({ customerId: 'cus_1', pointsAwarded: 151, firstOrder: true, redemptionsUsed: [] })
   bridge.syncCustomerFromShopify.mockResolvedValue({ customerId: 'cus_1' })
   bridge.restoreRedemptionsForCancelledOrder.mockResolvedValue(['red_1'])
+  backInStock.parseProductsUpdate.mockReturnValue({ productGid: 'gid://shopify/Product/1', handle: 'core-hoodie', title: 'Core Hoodie', variants: [] })
+  backInStock.notifyVariantsBackInStock.mockResolvedValue({ available: 1, sent: 2, failed: 0, skipped: 0 })
   consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
   consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {})
 })
@@ -157,8 +161,18 @@ describe('POST /api/webhooks/shopify', () => {
     expect(bridge.restoreRedemptionsForCancelledOrder).toHaveBeenCalledWith('gid://shopify/Order/6213458182369')
   })
 
+  it('routes products/update to the back-in-stock notifier (Phase 5)', async () => {
+    const payload = { id: 1, title: 'Core Hoodie', handle: 'core-hoodie', variants: [] }
+    const response = await POST(request(JSON.stringify(payload), { topic: 'products/update' }))
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ ok: true, status: 'processed' })
+    expect(backInStock.parseProductsUpdate).toHaveBeenCalledWith(payload)
+    expect(backInStock.notifyVariantsBackInStock).toHaveBeenCalledWith(backInStock.parseProductsUpdate.mock.results[0].value)
+    expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('2 alerts sent'))
+  })
+
   it('records refunds/create and unknown topics as processed without side effects', async () => {
-    for (const topic of ['refunds/create', 'products/update']) {
+    for (const topic of ['refunds/create', 'inventory_levels/update']) {
       const response = await POST(request(JSON.stringify({ id: 1, order_id: 2 }), { topic }))
       expect(response.status).toBe(200)
       await expect(response.json()).resolves.toEqual({ ok: true, status: 'processed' })

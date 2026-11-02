@@ -56,7 +56,7 @@ vi.mock('next/image', async () => {
 })
 
 import WishlistRoute, { metadata } from '@/app/(storefront)/wishlist/page'
-import { WishlistGrid, cardState } from '@/components/storefront/wishlist/WishlistGrid'
+import { WishlistGrid, cardState, alertHref } from '@/components/storefront/wishlist/WishlistGrid'
 import { WishlistPage } from '@/components/storefront/wishlist/WishlistPage'
 import { WishlistProvider } from '@/components/storefront/wishlist/WishlistProvider'
 import {
@@ -201,12 +201,12 @@ describe('WishlistPage', () => {
     expect(tee.getByRole('link', { name: /notify me/i })).toHaveAttribute('href', `/products/${TEE.product.handle}`)
     expect(tee.queryByRole('button', { name: /add to cart/i })).not.toBeInTheDocument()
 
-    // Beanie: sold out → disabled back-in-stock button, Phase 5.
+    // Beanie: sold out → "Back in stock alert" links to the PDP form with the variant preselected (Phase 5).
     const beanie = within(cardFor(BEANIE))
     expect(beanie.getByText('Sold out')).toBeInTheDocument()
-    const alert = beanie.getByRole('button', { name: /back in stock alert/i })
-    expect(alert).toBeDisabled()
-    expect(alert).toHaveAttribute('title', 'Coming in Phase 5')
+    const alert = beanie.getByRole('link', { name: /back in stock alert/i })
+    expect(alert).toHaveAttribute('href', alertHref(BEANIE))
+    expect(alert.getAttribute('href')).toMatch(new RegExp(`^/products/${BEANIE.product.handle}(\\?.*)?#back-in-stock$`))
     expect(beanie.queryByRole('button', { name: /add to cart/i })).not.toBeInTheDocument()
   })
 

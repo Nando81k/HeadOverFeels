@@ -1,0 +1,50 @@
+{
+  "id": 8841287434465,
+  "admin_graphql_api_id": "gid://shopify/Product/8841287434465",
+  "title": "Core Hoodie",
+  "handle": "core-hoodie",
+  "status": "active",
+  "tags": "hoodies, new-arrival",
+  "updated_at": "2026-11-02T03:12:44-05:00",
+  "variants": [
+    {
+      "id": 46601236185313,
+      "admin_graphql_api_id": "gid://shopify/ProductVariant/46601236185313",
+      "product_id": 8841287434465,
+      "title": "S / Black",
+      "sku": "HOF-CH-S-BLK",
+      "inventory_quantity": 4,
+      "inventory_policy": "deny",
+      "inventory_management": "shopify"
+    },
+    {
+      "id": 46601236218081,
+      "admin_graphql_api_id": "gid://shopify/ProductVariant/46601236218081",
+      "product_id": 8841287434465,
+      "title": "M / Black",
+      "sku": "HOF-CH-M-BLK",
+      "inventory_quantity": 0,
+      "inventory_policy": "deny",
+      "inventory_management": "shopify"
+    },
+    {
+      "id": 46601236250849,
+      "product_id": 8841287434465,
+      "title": "L / Black",
+      "sku": "HOF-CH-L-BLK",
+      "inventory_quantity": 0,
+      "inventory_policy": "continue",
+      "inventory_management": "shopify"
+    },
+    {
+      "id": 46601236283617,
+      "admin_graphql_api_id": "gid://shopify/ProductVariant/46601236283617",
+      "product_id": 8841287434465,
+      "title": "XL / Black",
+      "sku": "HOF-CH-XL-BLK",
+      "inventory_quantity": 0,
+      "inventory_policy": "deny",
+      "inventory_management": null
+    }
+  ]
+}

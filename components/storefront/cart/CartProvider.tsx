@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { track } from '@/lib/storefront/analytics'
 import {
   addCartLine,
   applyDiscountCode,
@@ -176,6 +177,11 @@ export function CartProvider({
     () => (serverCart ? ops.reduce((current, op) => op.apply(current), serverCart) : null),
     [serverCart, ops]
   )
+  /** The current cart for callbacks that must not re-create on every change. */
+  const cartRef = React.useRef(cart)
+  React.useEffect(() => {
+    cartRef.current = cart
+  }, [cart])
 
   /**
    * Shared runner: `pending` comes from the transition, the result replaces
@@ -260,7 +266,16 @@ export function CartProvider({
       run(
         (all) => all.addLine(input),
         (result) => {
-          if (result.ok && opts?.open !== false) setOpen(true)
+          if (!result.ok) return
+          if (opts?.open !== false) setOpen(true)
+          const line = result.cart.lines.find((candidate) => candidate.merchandise.id === input.variantId)
+          track({
+            event: 'add_to_cart',
+            variantId: input.variantId,
+            quantity: input.quantity ?? 1,
+            price: line ? Number(line.merchandise.price.amount) : undefined,
+            currency: line?.merchandise.price.currencyCode,
+          })
         }
       ),
     [run]
@@ -277,12 +292,17 @@ export function CartProvider({
   )
 
   const removeLine = React.useCallback<CartContextValue['removeLine']>(
-    (lineId) =>
-      runLineEdit(
+    (lineId) => {
+      const quantity = cartRef.current?.lines.find((line) => line.id === lineId)?.quantity ?? 1
+      return runLineEdit(
         lineId,
         (current) => withLineQuantity(current, lineId, 0),
         (all) => all.removeLine({ lineId })
-      ),
+      ).then((result) => {
+        if (result.ok) track({ event: 'remove_from_cart', lineId, quantity })
+        return result
+      })
+    },
     [runLineEdit]
   )
 

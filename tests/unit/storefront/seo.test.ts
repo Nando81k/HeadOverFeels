@@ -14,6 +14,7 @@ import {
   siteUrl,
   stripHtml,
   truncate,
+  webSiteJsonLd,
 } from '@/lib/storefront/seo'
 import productFixture from '@/tests/fixtures/shopify/product-by-handle.json'
 
@@ -160,6 +161,38 @@ describe('collectionJsonLd / organizationJsonLd', () => {
     expect(schema['@type']).toBe('Organization')
     expect(schema.name).toBe('Head Over Feels')
     expect(schema.url).toBe('https://headoverfeels.com')
+  })
+
+  it('describes the site with a sitelinks search action (Phase 5)', () => {
+    const schema = webSiteJsonLd() as Record<string, unknown>
+    const action = schema.potentialAction as Record<string, unknown>
+
+    expect(schema['@type']).toBe('WebSite')
+    expect(schema.url).toBe('https://headoverfeels.com')
+    expect(action['@type']).toBe('SearchAction')
+    expect((action.target as Record<string, unknown>).urlTemplate).toBe(
+      'https://headoverfeels.com/search?q={search_term_string}'
+    )
+    expect(action['query-input']).toBe('required name=search_term_string')
+  })
+})
+
+describe('productJsonLd aggregateRating (Phase 5)', () => {
+  it('adds an AggregateRating when there are approved reviews, rounded to one decimal', () => {
+    const schema = productJsonLd(product, null, { average: 4.3333, count: 12 }) as Record<string, unknown>
+
+    expect(schema.aggregateRating).toEqual({
+      '@type': 'AggregateRating',
+      ratingValue: 4.3,
+      reviewCount: 12,
+      bestRating: 5,
+      worstRating: 1,
+    })
+  })
+
+  it('omits the rating without reviews', () => {
+    expect(productJsonLd(product, null, { average: 0, count: 0 })).not.toHaveProperty('aggregateRating')
+    expect(productJsonLd(product, null)).not.toHaveProperty('aggregateRating')
   })
 })
 

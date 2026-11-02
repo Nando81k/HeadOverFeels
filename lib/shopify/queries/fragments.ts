@@ -37,6 +37,8 @@ export const PRODUCT_CARD_FIELDS = `fragment ProductCardFields on Product {
   priceRange { minVariantPrice { ...MoneyFields } }
   compareAtPriceRange { minVariantPrice { ...MoneyFields } }
   options { name optionValues { name swatch { color } } }
+  dropStart: metafield(namespace: "custom", key: "drop_start") { value }
+  dropEnd: metafield(namespace: "custom", key: "drop_end") { value }
 }
 
 ${IMAGE_FIELDS}
@@ -68,6 +70,8 @@ export type RawProductCard = {
   priceRange: { minVariantPrice: RawMoney }
   compareAtPriceRange: { minVariantPrice: RawMoney } | null
   options: RawOption[] | null
+  dropStart?: { value: string } | null
+  dropEnd?: { value: string } | null
 }
 
 // ---------------------------------------------------------------- normalisers
@@ -139,5 +143,8 @@ export function toProductCard(raw: RawProductCard): ProductCardData {
     compareAtPrice: onSale && rawCompareAt ? toMoney(rawCompareAt) : null,
     swatches,
     badges,
+    drop: raw.tags.includes('drop')
+      ? { start: raw.dropStart?.value ?? null, end: raw.dropEnd?.value ?? null }
+      : null,
   }
 }

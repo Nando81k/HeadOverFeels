@@ -72,12 +72,33 @@ function productUrl(product: ProductDetail, selected: ProductVariant | null): st
   return query.length > 0 ? `${canonical}?${query}` : canonical
 }
 
-/** schema.org `Product` with a single `Offer` for the selected variant. */
-export function productJsonLd(product: ProductDetail, selected: ProductVariant | null): object {
+/** What `productJsonLd` needs from the review summary to emit `aggregateRating`. */
+export type RatingSummary = { average: number; count: number }
+
+/**
+ * schema.org `Product` with a single `Offer` for the selected variant and, when
+ * the product has approved reviews, an `AggregateRating` (Phase 5).
+ */
+export function productJsonLd(
+  product: ProductDetail,
+  selected: ProductVariant | null,
+  rating?: RatingSummary | null
+): object {
   const price = selected?.price ?? product.price
   const availableForSale = selected ? selected.availableForSale : product.availableForSale
+  const aggregateRating =
+    rating && rating.count > 0
+      ? {
+          '@type': 'AggregateRating',
+          ratingValue: Math.round(rating.average * 10) / 10,
+          reviewCount: rating.count,
+          bestRating: 5,
+          worstRating: 1,
+        }
+      : undefined
 
   return {
+    ...(aggregateRating ? { aggregateRating } : {}),
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.title,
@@ -132,6 +153,21 @@ export function collectionJsonLd(
         name: product.title,
         url: siteUrl(`/products/${product.handle}`),
       })),
+    },
+  }
+}
+
+/** schema.org `WebSite` with the sitelinks search box pointing at `/search`. */
+export function webSiteJsonLd(): object {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: BRAND_NAME,
+    url: siteUrl(),
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: { '@type': 'EntryPoint', urlTemplate: `${siteUrl('/search')}?q={search_term_string}` },
+      'query-input': 'required name=search_term_string',
     },
   }
 }

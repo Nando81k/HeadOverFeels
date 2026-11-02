@@ -27,8 +27,8 @@ describe('GraphQL documents', () => {
     )
   })
 
-  it('subscribes the four loyalty topics', () => {
-    expect([...WEBHOOK_TOPICS]).toEqual(['ORDERS_PAID', 'ORDERS_CANCELLED', 'REFUNDS_CREATE', 'CUSTOMERS_UPDATE'])
+  it('subscribes the four loyalty topics and the back-in-stock trigger', () => {
+    expect([...WEBHOOK_TOPICS]).toEqual(['ORDERS_PAID', 'ORDERS_CANCELLED', 'REFUNDS_CREATE', 'CUSTOMERS_UPDATE', 'PRODUCTS_UPDATE'])
     expect(WEBHOOK_PATH).toBe('/api/webhooks/shopify')
   })
 })
@@ -78,7 +78,7 @@ describe('planWebhooks', () => {
       { id: 'gid://shopify/WebhookSubscription/2', topic: 'CUSTOMERS_UPDATE', uri: URI },
     ]
     const plan = planWebhooks(existing, wanted)
-    expect(plan.create.map((w) => w.topic)).toEqual(['ORDERS_CANCELLED', 'REFUNDS_CREATE'])
+    expect(plan.create.map((w) => w.topic)).toEqual(['ORDERS_CANCELLED', 'REFUNDS_CREATE', 'PRODUCTS_UPDATE'])
     expect(plan.existing).toEqual(existing)
   })
 
@@ -95,7 +95,7 @@ describe('planWebhooks', () => {
   })
 
   it('ignores unrelated topics', () => {
-    const unrelated = { id: 'gid://shopify/WebhookSubscription/8', topic: 'PRODUCTS_UPDATE', uri: URI }
+    const unrelated = { id: 'gid://shopify/WebhookSubscription/8', topic: 'INVENTORY_LEVELS_UPDATE', uri: URI }
     const plan = planWebhooks([unrelated], wanted)
     expect(plan.create).toEqual(wanted)
     expect(plan.foreign).toEqual([])
@@ -120,7 +120,7 @@ describe('registerWebhooks', () => {
   it('dry run lists existing subscriptions and performs no mutation', async () => {
     const request = makeRequest([{ id: 'gid://shopify/WebhookSubscription/1', topic: 'ORDERS_PAID', uri: URI }])
     const result = await registerWebhooks({ request, baseUrl: 'https://hof-preview.vercel.app', apply: false })
-    expect(result.plan.create.map((w) => w.topic)).toEqual(['ORDERS_CANCELLED', 'REFUNDS_CREATE', 'CUSTOMERS_UPDATE'])
+    expect(result.plan.create.map((w) => w.topic)).toEqual(['ORDERS_CANCELLED', 'REFUNDS_CREATE', 'CUSTOMERS_UPDATE', 'PRODUCTS_UPDATE'])
     expect(result.created).toEqual([])
     expect(result.errors).toEqual([])
     expect(calls(request).map(([q]) => q)).toEqual([WEBHOOK_LIST_QUERY])
@@ -142,8 +142,9 @@ describe('registerWebhooks', () => {
       toSubscribeVariables({ topic: 'ORDERS_CANCELLED', uri: URI }),
       toSubscribeVariables({ topic: 'REFUNDS_CREATE', uri: URI }),
       toSubscribeVariables({ topic: 'CUSTOMERS_UPDATE', uri: URI }),
+      toSubscribeVariables({ topic: 'PRODUCTS_UPDATE', uri: URI }),
     ])
-    expect(result.created.map((c) => c.topic)).toEqual(['ORDERS_CANCELLED', 'REFUNDS_CREATE', 'CUSTOMERS_UPDATE'])
+    expect(result.created.map((c) => c.topic)).toEqual(['ORDERS_CANCELLED', 'REFUNDS_CREATE', 'CUSTOMERS_UPDATE', 'PRODUCTS_UPDATE'])
     expect(result.errors).toEqual([])
   })
 
@@ -164,7 +165,7 @@ describe('registerWebhooks', () => {
     )
     const result = await registerWebhooks({ request, baseUrl: 'https://hof-preview.vercel.app', apply: true })
     expect(result.errors).toEqual([{ topic: 'REFUNDS_CREATE', uri: URI, message: 'topic: Access denied for refunds' }])
-    expect(result.created.map((c) => c.topic)).toEqual(['ORDERS_PAID', 'ORDERS_CANCELLED', 'CUSTOMERS_UPDATE'])
+    expect(result.created.map((c) => c.topic)).toEqual(['ORDERS_PAID', 'ORDERS_CANCELLED', 'CUSTOMERS_UPDATE', 'PRODUCTS_UPDATE'])
   })
 
   it('rejects an invalid base url before touching the store', async () => {

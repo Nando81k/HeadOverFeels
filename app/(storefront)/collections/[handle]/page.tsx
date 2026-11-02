@@ -12,6 +12,7 @@ import {
 } from '@/components/storefront/collection'
 import { Section } from '@/components/storefront/ui/Section'
 import { SORT_OPTIONS, parsePlpParams, toSearchString } from '@/lib/storefront/plp-params'
+import { breadcrumbJsonLd, collectionJsonLd, jsonLdScriptProps, siteUrl } from '@/lib/storefront/seo'
 import type { SearchParamsLike } from '@/lib/storefront/plp-params'
 
 /** Matches the collections index; catalog data is cached for five minutes. */
@@ -72,9 +73,16 @@ export default async function CollectionPage({ params, searchParams }: Collectio
     pathname: `/collections/${handle}`,
     search: toSearchString(sp as SearchParamsLike),
   }
+  const breadcrumbs = [
+    { name: 'Home', url: siteUrl('/') },
+    { name: 'Collections', url: siteUrl('/collections') },
+    { name: page.collection.title, url: siteUrl(ctx.pathname) },
+  ]
 
   return (
     <Section>
+      <script {...jsonLdScriptProps(collectionJsonLd(page.collection, page.products))} />
+      <script {...jsonLdScriptProps(breadcrumbJsonLd(breadcrumbs))} />
       <div className="flex flex-col gap-8">
         <CollectionHeader
           title={page.collection.title}

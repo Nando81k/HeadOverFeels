@@ -16,6 +16,7 @@ import {
   type CartWarning,
 } from '@/lib/shopify/queries/cart'
 import type { Cart, CartActionResult } from '@/lib/shopify/types'
+import { assertPurchasable } from '@/lib/storefront/purchasable'
 
 /**
  * Cart Server Actions. The only way the storefront mutates a cart.
@@ -170,6 +171,13 @@ export async function addCartLine(input: {
   const warnings = warningCollector()
 
   try {
+    // Drop gate (Phase 5): an upcoming drop without early access, or an ended
+    // one, is refused before Shopify sees the line.
+    const purchasable = await assertPurchasable(variantId)
+    if (!purchasable.ok) {
+      return { ok: false, error: purchasable.error, code: purchasable.code }
+    }
+
     const cartId = await readCartId()
     let cart: Cart
     if (!cartId) {

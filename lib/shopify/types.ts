@@ -13,6 +13,7 @@ export type ProductCardData = {
   price: Money; compareAtPrice: Money | null   // compareAt only when > price
   swatches: { name: string; color: string | null }[]   // from Color option swatch or custom.color_hex
   badges: ('sale' | 'drop' | 'new' | 'soldout')[]
+  drop?: { start: string | null; end: string | null } | null   // Phase 5: drop window from custom.drop_start/drop_end, null unless tags includes 'drop'
 }
 
 export type ProductOption = { id: string; name: string; values: { id: string; name: string; swatchColor: string | null }[] }
@@ -96,3 +97,7 @@ export type AccountActionResult<T = undefined> = { ok: true; data: T } | { ok: f
 export type LoyaltyActionResult<T = undefined> = AccountActionResult<T>
 export type WishlistActionResult = { ok: true; entries: WishlistEntry[] } | { ok: false; error: string }
 export type WishlistEntry = { variantId: string; productHandle: string; addedAt: string }
+
+// Phase 5 additions — copied verbatim from
+// docs/superpowers/plans/2026-09-06-storefront-rebuild-phase5-drops-reviews.md ("Shared contracts").
+export type StorefrontActionResult<T> = { ok: true; data: T } | { ok: false; error: string; code?: string }

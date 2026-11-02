@@ -6,9 +6,12 @@ import { Editorial } from '@/components/storefront/home/Editorial'
 import { Hero } from '@/components/storefront/home/Hero'
 import { NewsletterSection } from '@/components/storefront/home/NewsletterSection'
 import { ProductRail } from '@/components/storefront/home/ProductRail'
+import { ReviewsStrip } from '@/components/storefront/home/ReviewsStrip'
 import { Marquee } from '@/components/storefront/ui/Marquee'
 import { hasShopifyEnv } from '@/lib/shopify/env'
+import { dropState, formatDropDate, groupDrops } from '@/lib/storefront/drops'
 import { getHomeData } from '@/lib/storefront/home-data'
+import { getHomeReviews } from '@/lib/storefront/reviews'
 import { FREE_SHIPPING_COPY } from '@/lib/storefront/shipping'
 
 /** Catalog freshness for the home page (Phase 2 plan, route map row `/`). */
@@ -25,6 +28,9 @@ export const metadata: Metadata = {
 /** Promo ticker copy. Exported so the tests and e2e assert on one source. */
 export const HOME_MARQUEE_DEFAULT = `${FREE_SHIPPING_COPY} · Earn Care Points on every order`
 export const HOME_MARQUEE_DROP = 'Drop live — shop now'
+/** Marquee copy while the next drop is still counting down. */
+export const homeMarqueeUpcoming = (start: Date | null) =>
+  start ? `Drop opens ${formatDropDate(start)} — early access for members` : 'Drop coming soon'
 
 /**
  * Storefront home (design spec §5.4 row `/`).
@@ -36,6 +42,10 @@ export const HOME_MARQUEE_DROP = 'Drop live — shop now'
  * back empty.
  */
 export default async function HomePage() {
+  // Reviews come from Postgres, not Shopify, so they show on both shapes of the
+  // page; the read returns [] when the database is unreachable (build time).
+  const reviews = await getHomeReviews()
+
   if (!hasShopifyEnv()) {
     return (
       <>
@@ -45,20 +55,32 @@ export default async function HomePage() {
         </Marquee>
         <CatalogUnavailable />
         <Editorial />
+        <ReviewsStrip reviews={reviews} />
         <NewsletterSection />
       </>
     )
   }
 
   const data = await getHomeData()
-  const hasDrop = data.drops.length > 0
+
+  // The spotlight shows the live drop, else the next upcoming one (Phase 5).
+  const now = new Date()
+  const groups = groupDrops(data.drops, now)
+  const spotlight = groups.live.length > 0 ? groups.live : groups.upcoming
+  const spotlightView = spotlight[0] ? dropState(spotlight[0].drop ?? null, now) : null
+  const liveDrop = groups.live.length > 0
+  const marquee = liveDrop
+    ? HOME_MARQUEE_DROP
+    : spotlightView?.state === 'upcoming'
+      ? homeMarqueeUpcoming(spotlightView.start)
+      : HOME_MARQUEE_DEFAULT
 
   return (
     <>
       <Hero />
 
       <Marquee>
-        <span>{hasDrop ? HOME_MARQUEE_DROP : HOME_MARQUEE_DEFAULT}</span>
+        <span>{marquee}</span>
       </Marquee>
 
       <CollectionTiles collections={data.featuredCollections} />
@@ -70,11 +92,13 @@ export default async function HomePage() {
         products={data.newIn}
       />
 
-      <DropSpotlight products={data.drops} />
+      <DropSpotlight products={spotlight} view={spotlightView} />
 
       <ProductRail title="Best sellers" href="/collections/best-sellers" products={data.bestSellers} />
 
       <Editorial />
+
+      <ReviewsStrip reviews={reviews} />
 
       <NewsletterSection />
     </>
